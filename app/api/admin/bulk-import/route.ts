@@ -53,17 +53,25 @@ export async function POST(req: NextRequest) {
       const existing = await prisma.shipment.findUnique({
         where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
       })
+
+      let resolvedUserId: number | null = existing?.userId ?? null
+      const resolvedPhone = ph || existing?.phone || null
+      if (!resolvedUserId && resolvedPhone) {
+        const user = await prisma.user.findFirst({ where: { phone: resolvedPhone, cargoId: admin.cargoId! } })
+        if (user) resolvedUserId = user.id
+      }
+
       if (existing) {
         if (existing.status === 'ARRIVED' || existing.status === 'PICKED_UP') {
           return existing
         }
         return prisma.shipment.update({
           where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-          data: { status, ...(ph ? { phone: ph } : {}) },
+          data: { status, ...(resolvedPhone ? { phone: resolvedPhone } : {}), ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
         })
       }
       return prisma.shipment.create({
-        data: { trackCode: code, status, cargoId: admin.cargoId!, phone: ph },
+        data: { trackCode: code, status, cargoId: admin.cargoId!, phone: resolvedPhone, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
       })
     })
   )

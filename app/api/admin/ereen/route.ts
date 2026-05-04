@@ -14,10 +14,21 @@ export async function POST(req: NextRequest) {
 
   const code = trackCode.trim().toUpperCase()
 
+  const existing = await prisma.shipment.findUnique({
+    where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
+    select: { phone: true, userId: true },
+  })
+
+  let userId: number | null = existing?.userId ?? null
+  if (!userId && existing?.phone) {
+    const user = await prisma.user.findFirst({ where: { phone: existing.phone, cargoId: admin.cargoId! } })
+    if (user) userId = user.id
+  }
+
   const shipment = await prisma.shipment.upsert({
     where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-    update: { status: 'EREEN_ARRIVED' },
-    create: { trackCode: code, status: 'EREEN_ARRIVED', cargoId: admin.cargoId! },
+    update: { status: 'EREEN_ARRIVED', ...(userId ? { userId } : {}) },
+    create: { trackCode: code, status: 'EREEN_ARRIVED', cargoId: admin.cargoId!, ...(userId ? { userId } : {}) },
     include: { user: { select: { name: true, phone: true } } },
   })
 
