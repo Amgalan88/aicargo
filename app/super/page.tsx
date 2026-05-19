@@ -18,10 +18,31 @@ interface CargoStat {
   bankTransferNote: string | null
   notificationsEnabled: boolean
   searchByPhone: boolean
+  paidUntil: string | null
   createdAt: string
   admins: Admin[]
   totalUsers: number
   totalShipments: number
+}
+
+function paidUntilColor(paidUntil: string | null): string {
+  if (!paidUntil) return 'var(--muted)'
+  const days = Math.floor((new Date(paidUntil).getTime() - Date.now()) / 86400000)
+  if (days < 0) return '#ef4444'
+  if (days < 7) return '#f97316'
+  if (days < 30) return '#eab308'
+  return '#22c55e'
+}
+
+function paidUntilLabel(paidUntil: string | null): string {
+  if (!paidUntil) return ''
+  const d = new Date(paidUntil)
+  const days = Math.floor((d.getTime() - Date.now()) / 86400000)
+  const label = `${d.getMonth() + 1}/${d.getDate()}`
+  if (days < 0) return `⛔ Дууссан (${label})`
+  if (days === 0) return `⚠ Өнөөдөр дуусна`
+  if (days < 30) return `⚠ ${label} хүртэл (${days}хоног)`
+  return `✓ ${label} хүртэл`
 }
 
 interface EditState {
@@ -302,7 +323,30 @@ export default function SuperPage() {
                         </Link>
                       )}
                     </div>
-                    <div style={{ display: 'flex', gap: '1.2rem', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: '1.2rem', flexShrink: 0, alignItems: 'center' }}>
+                      {/* paidUntil inline */}
+                      <div style={{ textAlign: 'center' }}>
+                        {c.paidUntil && (
+                          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: paidUntilColor(c.paidUntil), marginBottom: '0.15rem', whiteSpace: 'nowrap' }}>
+                            {paidUntilLabel(c.paidUntil)}
+                          </div>
+                        )}
+                        <input
+                          type="date"
+                          defaultValue={c.paidUntil ? c.paidUntil.slice(0, 10) : ''}
+                          title="Төлбөр хүртэл"
+                          style={{ fontSize: '0.72rem', background: 'var(--surface2,#1a1a1a)', border: '1px solid var(--border)', borderRadius: 6, padding: '0.2rem 0.4rem', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit' }}
+                          onChange={async e => {
+                            await fetch(`/api/super/cargo/${c.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ paidUntil: e.target.value || null }),
+                            })
+                            load()
+                          }}
+                        />
+                        <div style={{ fontSize: '0.6rem', color: 'var(--muted)', marginTop: '0.1rem' }}>Төлбөр хүртэл</div>
+                      </div>
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>{c.totalUsers}</div>
                         <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '0.15rem' }}>хэрэглэгч</div>

@@ -4,16 +4,29 @@ import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import NavLogo from '@/app/components/NavLogo'
 
+function getPaidBadge(paidUntil?: string | null): { label: string; color: string } | null {
+  if (!paidUntil) return null
+  const days = Math.floor((new Date(paidUntil).getTime() - Date.now()) / 86400000)
+  const d = new Date(paidUntil)
+  const label = `${d.getMonth() + 1}/${d.getDate()}`
+  if (days < 0) return { label: `Төлбөр дууссан`, color: '#ef4444' }
+  if (days < 7) return { label: `Төлбөр: ${label} (${days}хоног)`, color: '#f97316' }
+  if (days < 30) return { label: `Төлбөр: ${label} хүртэл`, color: '#eab308' }
+  return { label: `Төлбөр: ${label} хүртэл`, color: '#22c55e' }
+}
+
 export default function AdminNav({
   cargoName,
   logoUrl,
   cargoSlug,
   hasGroup,
+  paidUntil,
 }: {
   cargoName?: string
   logoUrl?: string
   cargoSlug?: string
   hasGroup?: boolean
+  paidUntil?: string | null
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -66,6 +79,11 @@ export default function AdminNav({
           <Link href="/admin/import"><NavLogo name={cargoName} logoUrl={logoUrl} /></Link>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {(() => { const b = getPaidBadge(paidUntil); return b ? (
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: b.color, background: `${b.color}18`, border: `1px solid ${b.color}55`, borderRadius: 100, padding: '0.2rem 0.65rem', whiteSpace: 'nowrap' }}>
+              {b.label}
+            </span>
+          ) : null })()}
           <Link href="/admin/notifications" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', color: 'var(--muted)', textDecoration: 'none', fontSize: '1.1rem' }}>
             🔔
             {unread > 0 && (

@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AdminNav from './AdminNav'
 
-export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup }: { children: React.ReactNode; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean }) {
+export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil }: { children: React.ReactNode; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null }) {
   const router = useRouter()
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, ha
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <AdminNav cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} />
+      <AdminNav cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} />
       <div style={{ minHeight: 'calc(100vh - 96px)' }}>
         {children}
       </div>
