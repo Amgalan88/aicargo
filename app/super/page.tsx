@@ -70,6 +70,9 @@ export default function SuperPage() {
   const [pwInput, setPwInput] = useState('')
   const [pwLoading, setPwLoading] = useState(false)
   const [pwMsg, setPwMsg] = useState('')
+  const [paidDates, setPaidDates] = useState<Record<number, string>>({})
+  const [paidSaving, setPaidSaving] = useState(false)
+  const [paidMsg, setPaidMsg] = useState('')
 
   async function resetPassword() {
     if (!pwModal || pwInput.length < 6) return
@@ -87,8 +90,32 @@ export default function SuperPage() {
     setLoading(true)
     fetch('/api/super/cargos')
       .then(r => r.json())
-      .then(data => { setCargos(data); setLoading(false) })
+      .then(data => {
+        setCargos(data)
+        setLoading(false)
+        const init: Record<number, string> = {}
+        for (const c of data) init[c.id] = c.paidUntil ? c.paidUntil.slice(0, 10) : ''
+        setPaidDates(init)
+      })
       .catch(() => setLoading(false))
+  }
+
+  async function saveAllPaid() {
+    setPaidSaving(true)
+    setPaidMsg('')
+    await Promise.all(
+      Object.entries(paidDates).map(([id, date]) =>
+        fetch(`/api/super/cargo/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paidUntil: date || null }),
+        })
+      )
+    )
+    setPaidSaving(false)
+    setPaidMsg('✓ Хадгалагдлаа')
+    setTimeout(() => setPaidMsg(''), 2500)
+    load()
   }
 
   useEffect(() => { load() }, [])
@@ -123,6 +150,41 @@ export default function SuperPage() {
           + Шинэ карго
         </Link>
       </div>
+
+      {/* Paid until bulk editor */}
+      {!loading && cargos.length > 0 && (
+        <div className="card" style={{ padding: '1.2rem 1.5rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Вэбийн төлбөр хүртэлх огноо</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {paidMsg && <span style={{ fontSize: '0.82rem', color: '#22c55e' }}>{paidMsg}</span>}
+              <button className="btn" onClick={saveAllPaid} disabled={paidSaving} style={{ fontSize: '0.82rem', padding: '0.4rem 1.2rem' }}>
+                {paidSaving ? 'Хадгалж...' : 'Хадгалах'}
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.6rem' }}>
+            {cargos.map(c => (
+              <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', padding: '0.6rem 0.75rem', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{c.name}</span>
+                  {paidDates[c.id] && (
+                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: paidUntilColor(paidDates[c.id] ? new Date(paidDates[c.id]).toISOString() : null) }}>
+                      {paidUntilLabel(paidDates[c.id] ? new Date(paidDates[c.id]).toISOString() : null)}
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="date"
+                  value={paidDates[c.id] ?? ''}
+                  onChange={e => setPaidDates(prev => ({ ...prev, [c.id]: e.target.value }))}
+                  style={{ fontSize: '0.82rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '0.3rem 0.5rem', color: 'var(--text)', fontFamily: 'inherit', width: '100%' }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Cargo cards */}
       {loading ? (
@@ -324,29 +386,11 @@ export default function SuperPage() {
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '1.2rem', flexShrink: 0, alignItems: 'center' }}>
-                      {/* paidUntil inline */}
-                      <div style={{ textAlign: 'center' }}>
-                        {c.paidUntil && (
-                          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: paidUntilColor(c.paidUntil), marginBottom: '0.15rem', whiteSpace: 'nowrap' }}>
-                            {paidUntilLabel(c.paidUntil)}
-                          </div>
-                        )}
-                        <input
-                          type="date"
-                          defaultValue={c.paidUntil ? c.paidUntil.slice(0, 10) : ''}
-                          title="Төлбөр хүртэл"
-                          style={{ fontSize: '0.72rem', background: 'var(--surface2,#1a1a1a)', border: '1px solid var(--border)', borderRadius: 6, padding: '0.2rem 0.4rem', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit' }}
-                          onChange={async e => {
-                            await fetch(`/api/super/cargo/${c.id}`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ paidUntil: e.target.value || null }),
-                            })
-                            load()
-                          }}
-                        />
-                        <div style={{ fontSize: '0.6rem', color: 'var(--muted)', marginTop: '0.1rem' }}>Төлбөр хүртэл</div>
-                      </div>
+                      {c.paidUntil && (
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: paidUntilColor(c.paidUntil), whiteSpace: 'nowrap' }}>
+                          {paidUntilLabel(c.paidUntil)}
+                        </span>
+                      )}
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>{c.totalUsers}</div>
                         <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '0.15rem' }}>хэрэглэгч</div>
