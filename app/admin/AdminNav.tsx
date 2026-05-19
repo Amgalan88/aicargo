@@ -34,6 +34,7 @@ export default function AdminNav({
   const [unread, setUnread] = useState(0)
   const [arrivedLabel, setArrivedLabel] = useState<string | null>(null)
   const [ereemLabel, setEreemLabel] = useState<string | null>(null)
+  const [paidOpen, setPaidOpen] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/notifications?count=1')
@@ -79,13 +80,36 @@ export default function AdminNav({
           <Link href="/admin/import"><NavLogo name={cargoName} logoUrl={logoUrl} /></Link>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {(() => { const b = getPaidBadge(paidUntil); return b ? (
-            <span title={b.label} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', color: b.color, cursor: 'default' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            </span>
-          ) : null })()}
+          {(() => {
+            const b = getPaidBadge(paidUntil)
+            if (!b) return null
+            const days = Math.floor((new Date(paidUntil!).getTime() - Date.now()) / 86400000)
+            const d = new Date(paidUntil!)
+            const dateStr = `${d.getMonth() + 1} сарын ${d.getDate()}`
+            return (
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setPaidOpen(o => !o)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '50%', color: b.color, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </button>
+                {paidOpen && (
+                  <>
+                    <div onClick={() => setPaidOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />
+                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 999, background: 'var(--surface)', border: `1px solid ${b.color}66`, borderRadius: 10, padding: '0.85rem 1rem', minWidth: 220, boxShadow: '0 4px 16px rgba(0,0,0,0.18)' }}>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 0.4rem', lineHeight: 1.5 }}>
+                        Таны вэбсайтын төлбөр<br />
+                        <strong style={{ color: 'var(--text)', fontSize: '0.88rem' }}>{dateStr} хүртэл</strong> төлөгдсөн
+                      </p>
+                      <p style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: b.color }}>
+                        {days >= 0 ? `+${days} өдөр` : `${days} өдөр`}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          })()}
           <Link href="/admin/notifications" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', color: 'var(--muted)', textDecoration: 'none', fontSize: '1.1rem' }}>
             🔔
             {unread > 0 && (
