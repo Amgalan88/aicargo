@@ -110,6 +110,9 @@ export default function OrdersClient({
   const [activeTab, setActiveTab] = useState('ALL')
   const [page, setPage] = useState(1)
   const [deleting, setDeleting] = useState<number | null>(null)
+  const [deleteAllModal, setDeleteAllModal] = useState(false)
+  const [deleteAllInput, setDeleteAllInput] = useState('')
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false)
   const [searchQ, setSearchQ] = useState('')
   const [faqOpen, setFaqOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -151,6 +154,21 @@ export default function OrdersClient({
     if (!confirm('Гарахдаа итгэлтэй байна уу?')) return
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/')
+  }
+
+  async function deleteAll() {
+    const deletable = shipments.filter(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP')
+    if (deletable.length === 0) return
+    setDeleteAllLoading(true)
+    await fetch('/api/orders', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: deletable.map(s => s.id) }),
+    })
+    setShipments(prev => prev.filter(s => s.status !== 'REGISTERED' && s.status !== 'PICKED_UP'))
+    setDeleteAllLoading(false)
+    setDeleteAllModal(false)
+    setDeleteAllInput('')
   }
 
   async function deleteShipment(id: number) {
@@ -288,6 +306,50 @@ export default function OrdersClient({
       <ChatWidget open={faqOpen} onClose={() => setFaqOpen(false)} />
       {profileOpen && <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />}
 
+      {/* Delete all modal */}
+      {deleteAllModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div onClick={() => setDeleteAllModal(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
+          <div style={{
+            position: 'relative', background: 'var(--surface)', borderRadius: '16px',
+            padding: '1.5rem', width: 'calc(100% - 2rem)', maxWidth: 400,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
+          }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--danger)', marginBottom: '0.6rem' }}>⚠ Бүгдийг устгах</h2>
+            <p style={{ fontSize: '0.83rem', color: 'var(--muted)', marginBottom: '1rem', lineHeight: 1.6 }}>
+              <strong style={{ color: 'var(--text)' }}>Бүртгүүлсэн</strong> болон <strong style={{ color: 'var(--text)' }}>Авсан</strong> статустай
+              бүх ачаа устгагдана. Энэ үйлдлийг буцааж болохгүй.
+            </p>
+            <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem' }}>
+              Үргэлжлүүлэхийн тулд <strong>УСТГАХ</strong> гэж бичнэ үү:
+            </p>
+            <input
+              className="input"
+              placeholder="УСТГАХ"
+              value={deleteAllInput}
+              onChange={e => setDeleteAllInput(e.target.value)}
+              style={{ marginBottom: '1rem', borderColor: deleteAllInput === 'УСТГАХ' ? 'var(--danger)' : undefined }}
+              autoFocus
+            />
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button
+                className="btn"
+                onClick={deleteAll}
+                disabled={deleteAllInput !== 'УСТГАХ' || deleteAllLoading}
+                style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', opacity: deleteAllInput === 'УСТГАХ' ? 1 : 0.4 }}
+              >
+                {deleteAllLoading ? 'Устгаж байна...' : 'Устгах'}
+              </button>
+              <button onClick={() => setDeleteAllModal(false)} style={{
+                flex: 1, padding: '0.6rem', borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)', background: 'var(--surface2)',
+                color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem',
+              }}>Болих</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add shipment drawer */}
       {addOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
@@ -353,9 +415,21 @@ export default function OrdersClient({
       <div className="page">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
           <h1 className="section-title" style={{ marginBottom: 0 }}>Миний захиалгууд</h1>
-          <button className="btn" onClick={() => setAddOpen(true)} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
-            + Бүртгэх
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
+              <button onClick={() => { setDeleteAllModal(true); setDeleteAllInput('') }} style={{
+                fontSize: '0.8rem', padding: '0.5rem 0.85rem',
+                background: 'none', border: '1px solid var(--danger)',
+                borderRadius: 'var(--radius)', color: 'var(--danger)',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                Бүгдийг устгах
+              </button>
+            )}
+            <button className="btn" onClick={() => setAddOpen(true)} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
+              + Бүртгэх
+            </button>
+          </div>
         </div>
         {(() => {
           const arrived = shipments.filter(s => s.status === 'ARRIVED')
