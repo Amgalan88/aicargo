@@ -80,8 +80,8 @@ export default function RegisteredPage() {
         <p className="empty">Бүртгүүлсэн ачаа байхгүй байна.</p>
       ) : (
         <>
-          <div className="card" style={{ overflow: 'hidden', marginBottom: '1rem' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+          <div className="card" style={{ overflowX: 'auto', marginBottom: '1rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', minWidth: 560 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
                   <th style={th}>#</th>
@@ -98,7 +98,11 @@ export default function RegisteredPage() {
                     <td style={{ ...td, color: 'var(--muted)', width: 36 }}>{(page - 1) * PAGE_SIZE + i + 1}</td>
                     <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{r.trackCode}</td>
                     <td style={{ ...td, fontWeight: 600 }}>{r.user?.name ?? '—'}</td>
-                    <td style={{ ...td }}>{r.user?.phone ?? '—'}</td>
+                    <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                      {r.user?.phone
+                        ? <span onClick={() => navigator.clipboard.writeText(r.user!.phone)} title="Хуулах" style={{ cursor: 'pointer', fontFamily: 'monospace' }}>{r.user.phone}</span>
+                        : '—'}
+                    </td>
                     <td style={{ ...td, color: 'var(--muted)' }}>{r.description ?? '—'}</td>
                     <td style={{ ...td, color: 'var(--muted)' }}>{fmtDate(r.createdAt)}</td>
                   </tr>
@@ -125,8 +129,9 @@ export default function RegisteredPage() {
 const th: React.CSSProperties = {
   padding: '0.6rem 1rem', textAlign: 'left', fontSize: '0.72rem',
   fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em',
+  whiteSpace: 'nowrap',
 }
-const td: React.CSSProperties = { padding: '0.6rem 1rem' }
+const td: React.CSSProperties = { padding: '0.6rem 1rem', whiteSpace: 'nowrap' }
 const pgBtn: React.CSSProperties = {
   padding: '0.3rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)',
   background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer',
