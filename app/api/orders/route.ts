@@ -18,7 +18,24 @@ export async function DELETE(req: NextRequest) {
   const user = getAuthUserFromRequest(req)
   if (!user) return unauthorized()
 
-  const { id } = await req.json()
+  const body = await req.json()
+
+  // Bulk delete
+  if (Array.isArray(body.ids)) {
+    const shipments = await prisma.shipment.findMany({
+      where: { id: { in: body.ids }, userId: user.userId, cargoId: user.cargoId! },
+    })
+    const toDelete = shipments.filter((s: { status: string; id: number }) => s.status === 'REGISTERED').map((s: { id: number }) => s.id)
+    const toUnlink = shipments.filter((s: { status: string; id: number }) => s.status === 'PICKED_UP').map((s: { id: number }) => s.id)
+    await Promise.all([
+      toDelete.length > 0 && prisma.shipment.deleteMany({ where: { id: { in: toDelete } } }),
+      toUnlink.length > 0 && prisma.shipment.updateMany({ where: { id: { in: toUnlink } }, data: { userId: null } }),
+    ])
+    return NextResponse.json({ ok: true, count: toDelete.length + toUnlink.length })
+  }
+
+  // Single delete
+  const { id } = body
   if (!id) return NextResponse.json({ error: 'ID шаардлагатай' }, { status: 400 })
 
   const shipment = await prisma.shipment.findUnique({ where: { id: Number(id) } })
@@ -26,15 +43,12 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Олдсонгүй' }, { status: 404 })
   }
   if (shipment.status === 'PICKED_UP') {
-    // Just unlink — keep record for admin history
     await prisma.shipment.update({ where: { id: Number(id) }, data: { userId: null } })
     return NextResponse.json({ ok: true })
   }
-
   if (shipment.status !== 'REGISTERED') {
     return NextResponse.json({ error: 'Зөвхөн бүртгүүлсэн эсвэл авсан барааг устгах боломжтой' }, { status: 400 })
   }
-
   await prisma.shipment.delete({ where: { id: Number(id) } })
   return NextResponse.json({ ok: true })
 }
