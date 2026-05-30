@@ -113,6 +113,8 @@ export default function OrdersClient({
   const [deleteAllModal, setDeleteAllModal] = useState(false)
   const [deleteAllInput, setDeleteAllInput] = useState('')
   const [deleteAllLoading, setDeleteAllLoading] = useState(false)
+  const [deleteRegistered, setDeleteRegistered] = useState(false)
+  const [deletePickedUp, setDeletePickedUp] = useState(true)
   const [searchQ, setSearchQ] = useState('')
   const [faqOpen, setFaqOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -157,7 +159,10 @@ export default function OrdersClient({
   }
 
   async function deleteAll() {
-    const deletable = shipments.filter(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP')
+    const deletable = shipments.filter(s =>
+      (deleteRegistered && s.status === 'REGISTERED') ||
+      (deletePickedUp && s.status === 'PICKED_UP')
+    )
     if (deletable.length === 0) return
     setDeleteAllLoading(true)
     await fetch('/api/orders', {
@@ -165,7 +170,10 @@ export default function OrdersClient({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: deletable.map(s => s.id) }),
     })
-    setShipments(prev => prev.filter(s => s.status !== 'REGISTERED' && s.status !== 'PICKED_UP'))
+    setShipments(prev => prev.filter(s =>
+      !(deleteRegistered && s.status === 'REGISTERED') &&
+      !(deletePickedUp && s.status === 'PICKED_UP')
+    ))
     setDeleteAllLoading(false)
     setDeleteAllModal(false)
     setDeleteAllInput('')
@@ -315,13 +323,28 @@ export default function OrdersClient({
             padding: '1.5rem', width: 'calc(100% - 2rem)', maxWidth: 400,
             boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
           }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--danger)', marginBottom: '0.6rem' }}>⚠ Бүгдийг устгах</h2>
-            <p style={{ fontSize: '0.83rem', color: 'var(--muted)', marginBottom: '1rem', lineHeight: 1.6 }}>
-              <strong style={{ color: 'var(--text)' }}>Бүртгүүлсэн</strong> болон <strong style={{ color: 'var(--text)' }}>Авсан</strong> статустай
-              бүх ачаа устгагдана. Энэ үйлдлийг буцааж болохгүй.
-            </p>
-            <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem' }}>
-              Үргэлжлүүлэхийн тулд <strong>УСТГАХ</strong> гэж бичнэ үү:
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--danger)', marginBottom: '0.75rem' }}>⚠ Бүгдийг устгах</h2>
+
+            {/* Checkboxes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+              {shipments.some(s => s.status === 'REGISTERED') && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem' }}>
+                  <input type="checkbox" checked={deleteRegistered} onChange={e => setDeleteRegistered(e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--danger)' }} />
+                  <span>Бүртгүүлсэн <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>({shipments.filter(s => s.status === 'REGISTERED').length})</span></span>
+                </label>
+              )}
+              {shipments.some(s => s.status === 'PICKED_UP') && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem' }}>
+                  <input type="checkbox" checked={deletePickedUp} onChange={e => setDeletePickedUp(e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--danger)' }} />
+                  <span>Авсан <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>({shipments.filter(s => s.status === 'PICKED_UP').length})</span></span>
+                </label>
+              )}
+            </div>
+
+            <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem', color: 'var(--muted)', lineHeight: 1.5 }}>
+              Энэ үйлдлийг буцааж болохгүй. Үргэлжлүүлэхийн тулд <strong style={{ color: 'var(--text)' }}>УСТГАХ</strong> гэж бичнэ үү:
             </p>
             <input
               className="input"
@@ -335,7 +358,7 @@ export default function OrdersClient({
               <button
                 className="btn"
                 onClick={deleteAll}
-                disabled={deleteAllInput !== 'УСТГАХ' || deleteAllLoading}
+                disabled={deleteAllInput !== 'УСТГАХ' || deleteAllLoading || (!deleteRegistered && !deletePickedUp)}
                 style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', opacity: deleteAllInput === 'УСТГАХ' ? 1 : 0.4 }}
               >
                 {deleteAllLoading ? 'Устгаж байна...' : 'Устгах'}
@@ -417,7 +440,7 @@ export default function OrdersClient({
           <h1 className="section-title" style={{ marginBottom: 0 }}>Миний захиалгууд</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
-              <button onClick={() => { setDeleteAllModal(true); setDeleteAllInput('') }} style={{
+              <button onClick={() => { setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true) }} style={{
                 fontSize: '0.8rem', padding: '0.5rem 0.85rem',
                 background: 'none', border: '1px solid var(--danger)',
                 borderRadius: 'var(--radius)', color: 'var(--danger)',
