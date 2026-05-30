@@ -44,7 +44,7 @@ function BlockingOverlay({ cargoName, overdueDays }: { cargoName: string; overdu
         </p>
         <BankInfo cargoName={cargoName} />
         <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>
-          Төлбөр хийсний дараа бидэнтэй холбогдоно уу.
+          Төлбөр хийсний дараа <strong style={{ color: 'var(--text)' }}>85205258</strong> дугаарт холбогдоно уу.
         </p>
       </div>
     </div>
@@ -79,7 +79,7 @@ function WarningBanner({ cargoName, onClose }: { cargoName: string; onClose: () 
         </p>
         <BankInfo cargoName={cargoName} />
         <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>
-          Төлбөр хийсний дараа бидэнтэй холбогдоно уу.
+          Төлбөр хийсний дараа <strong style={{ color: 'var(--text)' }}>85205258</strong> дугаарт холбогдоно уу.
         </p>
       </div>
     </div>
