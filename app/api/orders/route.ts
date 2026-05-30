@@ -29,7 +29,7 @@ export async function DELETE(req: NextRequest) {
     const toUnlink = shipments.filter((s: { status: string; id: number }) => s.status === 'PICKED_UP').map((s: { id: number }) => s.id)
     await Promise.all([
       toDelete.length > 0 && prisma.shipment.deleteMany({ where: { id: { in: toDelete } } }),
-      toUnlink.length > 0 && prisma.shipment.updateMany({ where: { id: { in: toUnlink } }, data: { userId: null } }),
+      toUnlink.length > 0 && prisma.$executeRaw`UPDATE "Shipment" SET "userId" = NULL WHERE "id" = ANY(${toUnlink}::int[])`,
     ])
     return NextResponse.json({ ok: true, count: toDelete.length + toUnlink.length })
   }
@@ -43,7 +43,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Олдсонгүй' }, { status: 404 })
   }
   if (shipment.status === 'PICKED_UP') {
-    await prisma.shipment.update({ where: { id: Number(id) }, data: { userId: null } })
+    await prisma.$executeRaw`UPDATE "Shipment" SET "userId" = NULL WHERE "id" = ${Number(id)}`
     return NextResponse.json({ ok: true })
   }
   if (shipment.status !== 'REGISTERED') {
