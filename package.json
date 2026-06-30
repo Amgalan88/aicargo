@@ -1,0 +1,39 @@
+{
+  "name": "cargo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "@types/pg": "^8.18.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.37.0",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.9.0",
+    "jsonwebtoken": "^9.0.3",
+    "next": "16.1.6",
+    "nodemailer": "^8.0.1",
+    "pg": "^8.20.0",
+    "prisma": "^7.4.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "resend": "^6.9.3",
+    "xlsx": "^0.18.5",
+    "@anthropic-ai/sdk": "^0.55.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20",
+    "@types/nodemailer": "^7.0.11",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "1.0.0",
+    "typescript": "^5"
+  }
+}

@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model CargoGroup {
+  id     Int     @id @default(autoincrement())
+  name   String
+  cargos Cargo[]
+}
+
+model Cargo {
+  id            Int         @id @default(autoincrement())
+  name          String
+  slug          String      @unique
+  ereemReceiver String
+  ereemPhone    String
+  ereemRegion   String  @default("")
+  ereemAddress  String
+  logoUrl          String?
+  lastNotifiedAt        DateTime?
+  notificationsEnabled  Boolean    @default(false)
+  searchByPhone         Boolean    @default(false)
+  tariff            String?
+  announcement      String?
+  contactInfo       String?
+  bankName          String?
+  bankAccountHolder String?
+  bankAccountNumber String?
+  bankTransferNote  String?
+  arrivedLabel      String?
+  ereemLabel        String?
+  paidUntil         DateTime?
+  createdAt         DateTime   @default(now())
+  groupId       Int?
+  group         CargoGroup? @relation(fields: [groupId], references: [id])
+  users         User[]
+  shipments     Shipment[]
+  faqs          Faq[]
+  notifications Notification[]
+  banners       Banner[]
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String
+  phone        String     @unique
+  email        String?    @unique
+  password     String
+  role         Role       @default(USER)
+  cargoId      Int
+  cargo        Cargo      @relation(fields: [cargoId], references: [id])
+  tokenVersion Int        @default(0)
+  createdAt    DateTime   @default(now())
+  shipments    Shipment[]
+  bannerDismisses      BannerDismiss[]
+  superBannerDismisses SuperBannerDismiss[]
+
+  @@index([cargoId])
+}
+
+model Shipment {
+  id          Int      @id @default(autoincrement())
+  trackCode   String
+  description String?
+  status      Status   @default(REGISTERED)
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  phone       String?
+  adminPrice  Decimal? @db.Decimal(10, 2)
+  adminNote   String?
+  archived    Boolean  @default(false)
+  cargoId     Int
+  cargo       Cargo    @relation(fields: [cargoId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([trackCode, cargoId])
+  @@index([cargoId, status])
+  @@index([cargoId, updatedAt])
+}
+
+model Faq {
+  id       Int    @id @default(autoincrement())
+  question String
+  answer   String
+  order    Int    @default(0)
+  cargoId  Int
+  cargo    Cargo  @relation(fields: [cargoId], references: [id])
+}
+
+model Notification {
+  id         Int          @id @default(autoincrement())
+  cargoId    Int
+  cargo      Cargo        @relation(fields: [cargoId], references: [id])
+  type       NotifType
+  title      String
+  body       String
+  read       Boolean      @default(false)
+  archived   Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+
+  @@index([cargoId, archived, read])
+  @@index([cargoId, archived, createdAt])
+}
+
+model Banner {
+  id        Int       @id @default(autoincrement())
+  cargoId   Int
+  cargo     Cargo     @relation(fields: [cargoId], references: [id])
+  content   String
+  imageUrl  String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  dismisses BannerDismiss[]
+
+  @@index([cargoId])
+}
+
+model BannerDismiss {
+  id        Int      @id @default(autoincrement())
+  bannerId  Int
+  banner    Banner   @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([bannerId, userId])
+}
+
+model SuperBanner {
+  id        Int       @id @default(autoincrement())
+  content   String
+  imageUrl  String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  dismisses SuperBannerDismiss[]
+}
+
+model SuperBannerDismiss {
+  id            Int         @id @default(autoincrement())
+  superBannerId Int
+  superBanner   SuperBanner @relation(fields: [superBannerId], references: [id], onDelete: Cascade)
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([superBannerId, userId])
+}
+
+model Otp {
+  id        Int      @id @default(autoincrement())
+  email     String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+}
+
+enum NotifType {
+  NEW_SHIPMENT
+  CROSS_CARGO
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum Status {
+  REGISTERED
+  EREEN_ARRIVED
+  ARRIVED
+  PICKED_UP
+}

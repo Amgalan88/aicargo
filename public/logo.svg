@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Background -->
+  <circle cx="100" cy="100" r="100" fill="#0f0f0f"/>
+  <!-- Outer gold ring -->
+  <circle cx="100" cy="100" r="96" fill="none" stroke="#e8f000" stroke-width="2.5"/>
+  <!-- Inner subtle ring -->
+  <circle cx="100" cy="100" r="82" fill="none" stroke="#e8f000" stroke-width="0.8" opacity="0.2"/>
+
+  <!-- "Ai" main text -->
+  <text
+    x="100" y="100"
+    font-family="'Arial Black', 'Impact', 'Helvetica Neue', Arial, sans-serif"
+    font-size="78" font-weight="900"
+    fill="#e8f000"
+    text-anchor="middle"
+    dominant-baseline="central"
+    letter-spacing="-2">Ai</text>
+
+  <!-- "CARGO" curved along bottom arc -->
+  <defs>
+    <path id="cargo-arc" d="M 28,100 A 72,72 0 0,1 172,100"/>
+  </defs>
+  <text
+    font-family="Arial, sans-serif"
+    font-size="15" font-weight="700"
+    fill="#e8f000"
+    letter-spacing="7"
+    opacity="0.85">
+    <textPath href="#cargo-arc" startOffset="50%" text-anchor="middle">CARGO</textPath>
+  </text>
+</svg>
