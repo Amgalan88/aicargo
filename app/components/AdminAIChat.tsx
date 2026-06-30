@@ -33,7 +33,7 @@ export default function AdminAIChat() {
 
   useEffect(() => {
     if (messages.length > 0)
-      localStorage.setItem('aai-history', JSON.stringify(messages.slice(-10)))
+      localStorage.setItem('aai-history', JSON.stringify(messages.slice(-20)))
   }, [messages])
 
   useEffect(() => {

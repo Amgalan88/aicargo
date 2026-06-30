@@ -37,7 +37,7 @@ export default function UserAIWidget({
 
   useEffect(() => {
     if (messages.length > 0)
-      localStorage.setItem('uai-history', JSON.stringify(messages.slice(-10)))
+      localStorage.setItem('uai-history', JSON.stringify(messages.slice(-20)))
   }, [messages])
 
   useEffect(() => {
