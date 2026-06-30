@@ -24,12 +24,21 @@ export default function AdminAIChat() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
-
-  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('aai-history')
+      if (saved) setMessages(JSON.parse(saved))
+    } catch {}
     inputRef.current?.focus()
   }, [])
+
+  useEffect(() => {
+    if (messages.length > 0)
+      localStorage.setItem('aai-history', JSON.stringify(messages.slice(-10)))
+  }, [messages])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, loading])
 
   async function sendMessage(text?: string) {
     const userText = (text ?? input).trim()
@@ -87,7 +96,7 @@ export default function AdminAIChat() {
           </div>
         </div>
         {messages.length > 0 && (
-          <button onClick={() => setMessages([])} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.78rem', padding: '0.3rem 0.75rem' }}>
+          <button onClick={() => { setMessages([]); localStorage.removeItem('aai-history') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.78rem', padding: '0.3rem 0.75rem' }}>
             Цэвэрлэх
           </button>
         )}

@@ -29,6 +29,18 @@ export default function UserAIWidget({
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem('uai-history')
+      if (saved) setMessages(JSON.parse(saved))
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (messages.length > 0)
+      localStorage.setItem('uai-history', JSON.stringify(messages.slice(-10)))
+  }, [messages])
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
@@ -135,7 +147,7 @@ export default function UserAIWidget({
               )}
               {messages.length > 0 && (
                 <button
-                  onClick={() => setMessages([])}
+                  onClick={() => { setMessages([]); localStorage.removeItem('uai-history') }}
                   style={{ background: 'rgba(255,255,255,0.18)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer', fontSize: '0.7rem', padding: '3px 8px' }}
                 >
                   Цэвэрлэх
