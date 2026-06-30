@@ -116,6 +116,33 @@ export const AI_TOOLS = [
       required: [],
     },
   },
+  {
+    name: 'get_oldest_pending_shipments',
+    description: 'PICKED_UP болоогүй, архивлагдаагүй ачаануудаас хамгийн удаан нэг статуст байгаа 20 ачаа. Нийт үнийн дүнг хамт буцаана.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_most_active_users',
+    description: 'Сүүлийн 3 сард хамгийн олон ачаа тушаасан идэвхтэй 20 хэрэглэгч, нийт хэрэглэгчийн тооны хамт',
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_top_value_users',
+    description: 'Карго авсан (PICKED_UP биш, архивлагдаагүй) ачааны нийт үнийн дүнгээр хамгийн өндөр 20 хэрэглэгч',
+    input_schema: {
+      type: 'object',
+      properties: {},
+      required: [],
+    },
+  },
 ] as const
 
 // ---- Tool execution functions (all scoped by cargoId) ----
@@ -320,6 +347,78 @@ export async function executeAITool(
           byDate[d] = (byDate[d] ?? 0) + 1
         }
         return JSON.stringify(byDate)
+      }
+
+      case 'get_oldest_pending_shipments': {
+        const shipments = await prisma.shipment.findMany({
+          where: { cargoId, archived: false, status: { not: 'PICKED_UP' } },
+          take: 20,
+          orderBy: { updatedAt: 'asc' },
+          select: {
+            id: true,
+            trackCode: true,
+            status: true,
+            description: true,
+            adminPrice: true,
+            updatedAt: true,
+            createdAt: true,
+            user: { select: { name: true, phone: true } },
+          },
+        })
+        const totalValue = shipments.reduce((sum, s) => sum + Number(s.adminPrice ?? 0), 0)
+        return JSON.stringify({ shipments, totalValue })
+      }
+
+      case 'get_most_active_users': {
+        const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+        const [totalUsers, activity] = await Promise.all([
+          prisma.user.count({ where: { cargoId, role: 'USER' } }),
+          (prisma.shipment as any).groupBy({
+            by: ['userId'],
+            where: { cargoId, createdAt: { gte: threeMonthsAgo }, userId: { not: null } },
+            _count: { id: true },
+            orderBy: { _count: { id: 'desc' } },
+            take: 20,
+          }),
+        ])
+        const userIds = activity.map((a: any) => a.userId).filter(Boolean)
+        const users = await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, phone: true, _count: { select: { shipments: true } } },
+        })
+        const userMap = Object.fromEntries(users.map(u => [u.id, u]))
+        const result = activity.map((a: any) => ({
+          ...userMap[a.userId],
+          last3MonthsShipments: a._count.id,
+        }))
+        return JSON.stringify({ totalUsers, activeUsers: result })
+      }
+
+      case 'get_top_value_users': {
+        const byValue = await (prisma.shipment as any).groupBy({
+          by: ['userId'],
+          where: {
+            cargoId,
+            archived: false,
+            status: { not: 'PICKED_UP' },
+            userId: { not: null },
+            adminPrice: { not: null },
+          },
+          _sum: { adminPrice: true },
+          orderBy: { _sum: { adminPrice: 'desc' } },
+          take: 20,
+        })
+        const userIds = byValue.map((a: any) => a.userId).filter(Boolean)
+        const users = await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, phone: true },
+        })
+        const userMap = Object.fromEntries(users.map(u => [u.id, u]))
+        const result = byValue.map((a: any) => ({
+          ...userMap[a.userId],
+          totalValue: Number(a._sum?.adminPrice ?? 0),
+        }))
+        return JSON.stringify(result)
       }
 
       default:
