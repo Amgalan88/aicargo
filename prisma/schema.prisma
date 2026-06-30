@@ -151,6 +151,12 @@ model SuperBannerDismiss {
   @@unique([superBannerId, userId])
 }
 
+model AiConfig {
+  id          Int    @id @default(1)
+  userPrompt  String @default("")
+  adminPrompt String @default("")
+}
+
 model Otp {
   id        Int      @id @default(autoincrement())
   email     String

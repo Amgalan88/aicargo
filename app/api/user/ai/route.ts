@@ -4,6 +4,7 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { USER_AI_TOOLS, executeUserAITool } from '@/lib/user-ai-tools'
+import { prisma } from '@/lib/prisma'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -16,19 +17,22 @@ const ratelimit = new Ratelimit({
   prefix: 'user-ai',
 })
 
-function buildSystemPrompt(userName: string, cargoName: string): string {
-  return `Та "${cargoName}" карго компанийн хэрэглэгч ${userName}-д туслах AI юм. Монгол хэлээр товч, найрсаг хариулна уу.
+function buildSystemPrompt(userName: string, cargoName: string, customPrompt?: string | null): string {
+  const custom = customPrompt?.trim()
+  const prefix = custom ? `${custom}\n\n---\n\n` : ''
+  return `${prefix}Чи "${cargoName}" карго компанийн хэрэглэгч ${userName}-д туслах AI юм.
 
-Чадвар:
-- Хэрэглэгчийн өөрийн ачааны мэдээлэл харах (бусад хэрэглэгчийн мэдээлэл харахгүй)
-- Карго компанийн нийтийн мэдээлэл өгөх (тариф, банк, холбоо барих, цагийн хуваарь)
-- FAQ-аас хариулт олох
+Чиний цорын ганц эх сурвалж бол tool-уудаас ирсэн өгөгдөл. Өөр мэдлэг байхгүй гэж үз.
 
-Дүрмүүд:
-- Статус нэршлийг монголоор тайлбарла: REGISTERED=Бүртгүүлсэн, EREEN_ARRIVED=Эрээнд ирсэн, ARRIVED=Ирсэн, PICKED_UP=Авсан
-- Огноог уншигдах хэлбэрт хөрвүүл
-- Мэдэгдэхгүй зүйлийг таахгүйгээр tool ашиглан шалга
-- Хариулт товч, мессенжер хэв маягт байлга`
+Хариулах дүрэм:
+Зөвхөн tool-оос ирсэн өгөгдлийг хэл. Tool-д байхгүй зүйлийг нэмэх, таамаглах, зохиохыг хатуу хориглоно. Tool-д хариулт байхгүй бол "Мэдэгдэхгүй байна" гэж л хариул.
+
+Tool сонгох дүрэм:
+Хэрэглэгч ямар нэг зүйл ирсэн эсэх, ачааны байдал асуувал эхлээд get_my_recent_shipments дуудаж тухайн ачааг хайх. Нийт тоо статистик хэрэгтэй бол get_my_shipment_stats. Карго компанийн цаг, хаяг, тариф, банк, дүрэм асуувал get_cargo_faq дараа get_cargo_public_info дуудах.
+
+Хэлбэр:
+Цэвэр монгол хэл. Богино, ойлгомжтой 1-2 өгүүлбэр. Markdown, **, хүснэгт огт хэрэглэхгүй.
+Статус орчуулга: REGISTERED тэй бол бүртгүүлсэн, EREEN_ARRIVED тэй бол Эрээнд ирсэн, ARRIVED тэй бол ирсэн, PICKED_UP тэй бол авсан гэж хэл.`
 }
 
 export async function POST(req: NextRequest) {
@@ -59,6 +63,9 @@ export async function POST(req: NextRequest) {
   const userId = user.userId
   const cargoId = user.cargoId!
 
+  const aiConfig = await (prisma as any).aiConfig.findUnique({ where: { id: 1 } })
+  const customPrompt: string | null = aiConfig?.userPrompt?.trim() || null
+
   // Auto-greeting: хоосон messages үед мэндчилгээ
   let anthropicMessages: Array<{ role: 'user' | 'assistant'; content: any }>
   if (messages.length === 0) {
@@ -69,15 +76,18 @@ export async function POST(req: NextRequest) {
 
   try {
     let currentMessages = [...anthropicMessages]
+    let isFirstCall = true
 
     while (true) {
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
         max_tokens: 800,
-        system: buildSystemPrompt(userName, cargoName),
+        system: buildSystemPrompt(userName, cargoName, customPrompt),
         tools: USER_AI_TOOLS as any,
+        tool_choice: isFirstCall ? { type: 'any' } : { type: 'auto' },
         messages: currentMessages,
-      })
+      } as any)
+      isFirstCall = false
 
       if (response.stop_reason === 'end_turn') {
         const textBlock = response.content.find(b => b.type === 'text')
@@ -98,7 +108,15 @@ export async function POST(req: NextRequest) {
             })
         )
 
-        currentMessages.push({ role: 'user', content: toolResults.filter(Boolean) as any })
+        // Inject grounding reminder after tool results to prevent hallucination
+        const groundedContent: any[] = [
+          ...toolResults.filter(Boolean),
+          {
+            type: 'text',
+            text: 'Дээрх өгөгдөлд байгаа зүйлийг л хэл. Өөр юм нэмэхгүй.',
+          },
+        ]
+        currentMessages.push({ role: 'user', content: groundedContent })
         continue
       }
 

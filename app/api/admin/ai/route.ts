@@ -4,6 +4,7 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { AI_TOOLS, executeAITool } from '@/lib/ai-tools'
+import { prisma } from '@/lib/prisma'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
@@ -16,19 +17,22 @@ const ratelimit = new Ratelimit({
   prefix: 'admin-ai',
 })
 
-const SYSTEM_PROMPT = `Та "AiCargo" карго компанийн Admin AI туслах юм. Монгол хэлээр хариулна уу.
+const DEFAULT_ADMIN_PROMPT = `Чи карго компанийн админд туслах AI юм.
 
-Таны үүрэг:
-- Администраторт каргогийн датабаазаас мэдээлэл авч өгөх
-- Ачааны статус, статистик, хэрэглэгчийн мэдээллийг тайлбарлах
-- Товч, тодорхой хариулт өгөх
+Чиний цорын ганц эх сурвалж бол tool-уудаас ирсэн өгөгдөл. Өөр мэдлэг байхгүй гэж үз.
 
-Чухал дүрмүүд:
-- Зөвхөн өөрт байгаа tool-уудаар датабаазаас мэдээлэл аваарай
-- Мэдэгдэхгүй зүйлийг таахгүйгээр "мэдэгдэхгүй байна" гэж хэлнэ
-- Датабаазын техникийн нэршлийг (REGISTERED, EREEN_ARRIVED гэх мэт) монголоор тайлбарлаарай:
-  REGISTERED = Бүртгүүлсэн, EREEN_ARRIVED = Эрээнд ирсэн, ARRIVED = Ирсэн, PICKED_UP = Олгосон
-- Огноог уншигдах хэлбэрт хөрвүүлэн тайлбарлаарай`
+Хариулах дүрэм:
+Зөвхөн tool-оос ирсэн өгөгдлийг хэл. Tool-д байхгүй зүйлийг нэмэх, таамаглах, зохиохыг хатуу хориглоно. Tool-д хариулт байхгүй бол "Мэдэгдэхгүй байна" гэж л хариул.
+
+Хэлбэр:
+Цэвэр монгол хэл. Богино, ойлгомжтой 1-3 өгүүлбэр. Markdown, **, хүснэгт огт хэрэглэхгүй.
+Статус орчуулга: REGISTERED тэй бол бүртгүүлсэн, EREEN_ARRIVED тэй бол Эрээнд ирсэн, ARRIVED тэй бол ирсэн, PICKED_UP тэй бол олгосон гэж хэл.
+Огноо: "6 сарын 25" гэж товчлон хэл.`
+
+function buildAdminPrompt(customPrompt?: string | null): string {
+  const custom = customPrompt?.trim()
+  return custom ? `${custom}\n\n---\n\n${DEFAULT_ADMIN_PROMPT}` : DEFAULT_ADMIN_PROMPT
+}
 
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -36,6 +40,9 @@ export async function POST(req: NextRequest) {
   if (admin.role !== 'ADMIN' && admin.role !== 'SUPER_ADMIN') return forbidden()
 
   const cargoId = admin.cargoId!
+
+  const aiConfig = await (prisma as any).aiConfig.findUnique({ where: { id: 1 } })
+  const customPrompt: string | null = aiConfig?.adminPrompt?.trim() || null
 
   const { success, remaining } = await ratelimit.limit(String(admin.userId))
   if (!success) {
@@ -64,17 +71,19 @@ export async function POST(req: NextRequest) {
   }))
 
   try {
-    // Agentic loop: keep going until Claude stops requesting tool calls
     let currentMessages = [...anthropicMessages]
+    let isFirstCall = true
 
     while (true) {
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        system: buildAdminPrompt(customPrompt),
         tools: AI_TOOLS as any,
+        tool_choice: isFirstCall ? { type: 'any' } : { type: 'auto' },
         messages: currentMessages,
-      })
+      } as any)
+      isFirstCall = false
 
       if (response.stop_reason === 'end_turn') {
         const textBlock = response.content.find(b => b.type === 'text')
@@ -103,7 +112,10 @@ export async function POST(req: NextRequest) {
 
         currentMessages.push({
           role: 'user',
-          content: toolResults.filter(Boolean) as any,
+          content: [
+            ...toolResults.filter(Boolean),
+            { type: 'text', text: 'Дээрх өгөгдөлд байгаа зүйлийг л хэл. Өөр юм нэмэхгүй.' },
+          ] as any,
         })
         continue
       }
