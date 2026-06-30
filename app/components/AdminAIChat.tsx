@@ -6,12 +6,12 @@ interface Message {
   content: string
 }
 
-const SUGGESTIONS = [
-  'Нийт хэдэн ачаа байна вэ?',
-  'Эрээнд ирсэн ачааг харуул',
-  'Өнөөдөр хэдэн ачаа ирсэн бэ?',
-  'Хэрэглэгчийн жагсаалт харуул',
-  'Сүүлийн 7 хоногийн статистик',
+const ACTIONS = [
+  { label: '📊 Нийт статистик', prompt: 'Нийт ачааны статистик харуул' },
+  { label: '📅 7 хоногийн тайлан', prompt: 'Сүүлийн 7 хоногт ирсэн ачааны өдрийн тоог харуул' },
+  { label: '🚛 Эрээнд ирсэн ачаа', prompt: 'Эрээнд ирсэн бүх ачааны жагсаалтыг харуул' },
+  { label: '✅ Өнөөдрийн ирсэн', prompt: 'Өнөөдөр ARRIVED болсон ачааг харуул' },
+  { label: '👥 Хэрэглэгчийн тоо', prompt: 'Нийт хэрэглэгчийн тоо болон тус бүрийн ачааны тоог харуул' },
 ]
 
 export default function AdminAIChat() {
@@ -92,27 +92,41 @@ export default function AdminAIChat() {
         )}
       </div>
 
+      {/* Quick action buttons */}
+      <div style={{ padding: '0.85rem 0 0.5rem', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.5rem' }}>
+          {ACTIONS.map(a => (
+            <button
+              key={a.label}
+              onClick={() => sendMessage(a.prompt)}
+              disabled={loading}
+              style={{
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 10, padding: '0.55rem 0.75rem',
+                fontSize: '0.8rem', color: 'var(--text)',
+                cursor: loading ? 'default' : 'pointer',
+                textAlign: 'left', fontFamily: 'inherit', fontWeight: 500,
+                transition: 'border-color 0.15s, background 0.15s',
+                opacity: loading ? 0.6 : 1,
+                lineHeight: 1.3,
+              }}
+              onMouseEnter={e => { if (!loading) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--bg)' } }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface)' }}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '1rem 0 0.5rem' }}>
 
         {messages.length === 0 && !loading && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: 6 }}>🤖</div>
-              <p style={{ color: 'var(--muted)', fontSize: '0.88rem', margin: 0 }}>Юу асуух вэ?</p>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', maxWidth: 380 }}>
-              {SUGGESTIONS.map(s => (
-                <button key={s} onClick={() => sendMessage(s)} style={{
-                  background: 'none', border: '1px solid var(--border)', borderRadius: 20,
-                  padding: '8px 16px', textAlign: 'left', cursor: 'pointer',
-                  color: 'var(--text)', fontSize: '0.84rem', transition: 'border-color 0.15s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                >{s}</button>
-              ))}
-            </div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p style={{ color: 'var(--muted)', fontSize: '0.85rem', textAlign: 'center', margin: 0 }}>
+              Дээрх товчнуудаас сонгох эсвэл асуулт бичнэ үү
+            </p>
           </div>
         )}
 
@@ -136,10 +150,8 @@ export default function AdminAIChat() {
               background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface)',
               color: msg.role === 'user' ? '#fff' : 'var(--text)',
               border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-              fontSize: '0.87rem',
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
+              fontSize: '0.87rem', lineHeight: 1.6,
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             }}>
               {msg.content}
             </div>
@@ -165,7 +177,7 @@ export default function AdminAIChat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Асуулт бичнэ үү..."
+            placeholder="Нэмэлт асуулт бичнэ үү..."
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
               color: 'var(--text)', fontFamily: 'inherit', fontSize: '0.87rem',
