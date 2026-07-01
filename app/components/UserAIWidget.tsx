@@ -21,6 +21,7 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [remaining, setRemaining] = useState<number | null>(null)
+  const [keyboardOffset, setKeyboardOffset] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -43,6 +44,21 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 120)
   }, [open])
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardOffset(kb)
+    }
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   async function callAI(msgs: Message[]) {
     setLoading(true)
@@ -99,7 +115,7 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
         onClick={() => setOpen(o => !o)}
         aria-label="AI Туслах"
         style={{
-          position: 'fixed', bottom: 20, right: 20, zIndex: 1000,
+          position: 'fixed', bottom: 20 + keyboardOffset, right: 20, zIndex: 1000,
           border: 'none', borderRadius: 50,
           background: 'var(--accent)', cursor: 'pointer',
           padding: open ? '0 18px' : '0 16px 0 14px',
@@ -134,8 +150,8 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
       {/* Chat window */}
       {open && (
         <div style={{
-          position: 'fixed', bottom: 78, right: 20, zIndex: 999,
-          width: 336, height: 510,
+          position: 'fixed', bottom: 78 + keyboardOffset, right: 20, zIndex: 999,
+          width: 336, height: keyboardOffset > 0 ? `calc(100dvh - ${120 + keyboardOffset}px)` : 510,
           background: 'var(--bg)',
           border: '1px solid var(--border)',
           borderRadius: '14px 14px 14px 14px',
