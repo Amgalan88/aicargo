@@ -15,8 +15,8 @@ const ACTIONS = [
   { label: '📋 Сүүлийн ачаануудын жагсаалт', prompt: 'Миний сүүлийн 10 ачааг харуул' },
 ]
 
-const BTN_H = 44
-const BTN_W = 116
+const BTN_H = 38
+const BTN_W = 100
 const CHAT_W = 336
 const CHAT_H = 490
 
@@ -92,7 +92,7 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
     setBtnPos({ x: nx, y: ny })
   }
 
-  function onPointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+  function onPointerUp(_e: React.PointerEvent<HTMLButtonElement>) {
     const d = dragRef.current
     d.active = false
     setDragging(false)
@@ -165,9 +165,9 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
           background: 'var(--accent)',
           cursor: dragging ? 'grabbing' : 'grab',
           touchAction: 'none',
-          padding: open ? '0 18px' : '0 16px 0 14px',
+          padding: open ? '0 14px' : '0 13px 0 11px',
           height: BTN_H,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
           boxShadow: open
             ? '0 4px 20px rgba(201,100,66,0.45), 0 0 0 3px rgba(201,100,66,0.15)'
             : '0 4px 16px rgba(201,100,66,0.38)',
@@ -180,7 +180,7 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
-            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600, fontFamily: 'inherit' }}>Хаах</span>
+            <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'inherit' }}>Хаах</span>
           </>
         ) : (
           <>
@@ -188,24 +188,18 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
               <path d="M12 2L13.6 9.4L21 11L13.6 12.6L12 20L10.4 12.6L3 11L10.4 9.4L12 2Z" fill="white"/>
               <path d="M20 2L20.8 5.2L24 6L20.8 6.8L20 10L19.2 6.8L16 6L19.2 5.2L20 2Z" fill="white" opacity="0.7"/>
             </svg>
-            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600, fontFamily: 'inherit' }}>AI Туслах</span>
+            <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'inherit' }}>AI Туслах</span>
           </>
         )}
       </button>
 
-      {/* Chat window */}
-      {open && btnPos && (
+      {/* Chat window — full screen */}
+      {open && (
         <div style={{
           position: 'fixed',
-          left: Math.max(8, Math.min(btnPos.x - (CHAT_W - BTN_W) / 2, window.innerWidth - CHAT_W - 8)),
-          top: Math.max(8, btnPos.y - keyboardH - CHAT_H - 8),
+          inset: 0,
           zIndex: 999,
-          width: CHAT_W,
-          height: keyboardH > 0 ? Math.min(CHAT_H, window.innerHeight - keyboardH - 80) : CHAT_H,
           background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          borderRadius: '14px 14px 14px 14px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.13), 0 2px 6px rgba(0,0,0,0.07)',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
 
@@ -405,6 +399,9 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
                 onKeyDown={handleKey}
                 placeholder="Асуулт бичих..."
                 className="input"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
                 style={{ fontSize: '0.83rem', padding: '0.5rem 0.85rem', flex: 1 }}
                 disabled={loading}
               />
