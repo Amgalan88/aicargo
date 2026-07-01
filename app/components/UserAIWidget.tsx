@@ -60,9 +60,6 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 120)
-  }, [open])
 
   useEffect(() => {
     const vv = window.visualViewport
@@ -174,10 +171,6 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
           WebkitUserSelect: 'none',
         }}
       >
-        {dragging && <>
-          <span style={{ position: 'absolute', left: 5, color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem', lineHeight: 1, pointerEvents: 'none' }}>‹</span>
-          <span style={{ position: 'absolute', right: 5, color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem', lineHeight: 1, pointerEvents: 'none' }}>›</span>
-        </>}
         {open ? (
           <>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
@@ -195,6 +188,32 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
           </>
         )}
       </button>
+
+      {/* Drag wings */}
+      {dragging && btnPos && (
+        <>
+          <style>{`
+            @keyframes wingL{0%{opacity:.5;transform:translateY(-50%) translateX(0)}100%{opacity:1;transform:translateY(-50%) translateX(-5px)}}
+            @keyframes wingR{0%{opacity:.5;transform:translateY(-50%) translateX(0)}100%{opacity:1;transform:translateY(-50%) translateX(5px)}}
+          `}</style>
+          <svg width="14" height="22" viewBox="0 0 14 22" fill="none" style={{
+            position: 'fixed', pointerEvents: 'none', zIndex: 1001,
+            left: btnPos.x - 18,
+            top: (btnPos.y - keyboardH) + BTN_H / 2,
+            animation: 'wingL 0.45s ease-in-out infinite alternate',
+          }}>
+            <path d="M11 2L3 11L11 20" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <svg width="14" height="22" viewBox="0 0 14 22" fill="none" style={{
+            position: 'fixed', pointerEvents: 'none', zIndex: 1001,
+            left: btnPos.x + BTN_W + 4,
+            top: (btnPos.y - keyboardH) + BTN_H / 2,
+            animation: 'wingR 0.45s ease-in-out infinite alternate',
+          }}>
+            <path d="M3 2L11 11L3 20" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </>
+      )}
 
       {/* Chat window — full screen */}
       {open && (
