@@ -17,22 +17,44 @@ const ratelimit = new Ratelimit({
   prefix: 'user-ai',
 })
 
+const CLARIFY_TOOL = {
+  name: 'ask_clarification',
+  description: 'Хэрэглэгчийн асуулт тодорхойгүй эсвэл олон утгатай байвал энэ tool-ыг дуудаж тодруулна. Ямар tool дуудахаа мэдэхгүй байвал заавал энэ tool ашигла.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      question: { type: 'string', description: 'Хэрэглэгчид товчхон асуух асуулт (1 өгүүлбэр)' },
+      options: {
+        type: 'array',
+        items: { type: 'string' },
+        description: '2-4 товч сонголт',
+        minItems: 2,
+        maxItems: 4,
+      },
+    },
+    required: ['question', 'options'],
+  },
+}
+
 function buildSystemPrompt(userName: string, cargoName: string, customPrompt?: string | null): string {
   const custom = customPrompt?.trim()
   const prefix = custom ? `${custom}\n\n---\n\n` : ''
   return `${prefix}Чи "${cargoName}" карго компанийн хэрэглэгч ${userName}-д туслах AI юм.
 
-Чиний цорын ганц эх сурвалж бол tool-уудаас ирсэн өгөгдөл. Өөр мэдлэг байхгүй гэж үз.
+Эх сурвалж: зөвхөн tool-оос ирсэн өгөгдөл. Таамаглах, нэмэх, зохиохыг хатуу хориглоно. Байхгүй бол "Мэдэгдэхгүй байна" гэж хэл.
 
-Хариулах дүрэм:
-Зөвхөн tool-оос ирсэн өгөгдлийг хэл. Tool-д байхгүй зүйлийг нэмэх, таамаглах, зохиохыг хатуу хориглоно. Tool-д хариулт байхгүй бол "Мэдэгдэхгүй байна" гэж л хариул.
+Tool сонгох:
+- Ачааны байдал, ирсэн эсэх → get_my_recent_shipments
+- Нийт тоо, статистик → get_my_shipment_stats
+- Карго компанийн цаг/хаяг/банк/тариф → get_cargo_faq + get_cargo_public_info
+- Асуулт тодорхойгүй → ask_clarification (2-3 сонголт)
 
-Tool сонгох дүрэм:
-Хэрэглэгч ямар нэг зүйл ирсэн эсэх, ачааны байдал асуувал эхлээд get_my_recent_shipments дуудаж тухайн ачааг хайх. Нийт тоо статистик хэрэгтэй бол get_my_shipment_stats. Карго компанийн цаг, хаяг, тариф, банк, дүрэм асуувал get_cargo_faq дараа get_cargo_public_info дуудах.
-
-Хэлбэр:
-Цэвэр монгол хэл. Богино, ойлгомжтой 1-2 өгүүлбэр. Markdown, **, хүснэгт огт хэрэглэхгүй.
-Статус орчуулга: REGISTERED тэй бол бүртгүүлсэн, EREEN_ARRIVED тэй бол Эрээнд ирсэн, ARRIVED тэй бол ирсэн, PICKED_UP тэй бол авсан гэж хэл.`
+Хариултын хэлбэр — ЗААВАЛ ДАГАХ:
+- Хамгийн богино байх. 1 өгүүлбэр хангалттай бол 2 бичихгүй.
+- Тоон өгөгдөл: зөвхөн хүснэгтгүй, жагсаалтгүй, зүгээр тоо+нэр.
+- Ачааны жагсаалт гаргахад: "trackCode — статус" форматаар мөр бүрт нэг ачаа.
+- Markdown, **, огт хэрэглэхгүй. Тайлбар, танилцуулга бичихгүй.
+- Статус: REGISTERED→бүртгүүлсэн, EREEN_ARRIVED→Эрээнд ирсэн, ARRIVED→ирсэн, PICKED_UP→авсан.`
 }
 
 export async function POST(req: NextRequest) {
@@ -81,9 +103,9 @@ export async function POST(req: NextRequest) {
     while (true) {
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
-        max_tokens: 800,
+        max_tokens: 400,
         system: buildSystemPrompt(userName, cargoName, customPrompt),
-        tools: USER_AI_TOOLS as any,
+        tools: [...USER_AI_TOOLS, CLARIFY_TOOL] as any,
         tool_choice: isFirstCall ? { type: 'any' } : { type: 'auto' },
         messages: currentMessages,
       } as any)
@@ -96,6 +118,14 @@ export async function POST(req: NextRequest) {
       }
 
       if (response.stop_reason === 'tool_use') {
+        const clarifyBlock = response.content.find(
+          b => b.type === 'tool_use' && b.name === 'ask_clarification'
+        )
+        if (clarifyBlock && clarifyBlock.type === 'tool_use') {
+          const { question, options } = clarifyBlock.input as { question: string; options: string[] }
+          return NextResponse.json({ clarify: true, question, options, remaining })
+        }
+
         currentMessages.push({ role: 'assistant', content: response.content })
 
         const toolResults = await Promise.all(

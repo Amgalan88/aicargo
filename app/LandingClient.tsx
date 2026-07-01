@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import NavLogo from './components/NavLogo'
+import { AIAvatar } from './components/AIAvatar'
 
 function CopyItem({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
@@ -61,9 +62,18 @@ interface CargoInfo {
   searchByPhone: boolean
 }
 
+const AI_PREVIEW_ACTIONS = [
+  '📦 Миний ачааны байдал',
+  '✅ Ирсэн ачаа',
+  '🏢 Компанийн мэдээлэл',
+  '📋 Сүүлийн жагсаалт',
+]
+
 export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
   const [activeTab, setActiveTab] = useState<string | null>(null)
+  const [aiOpen, setAiOpen] = useState(false)
   const [query, setQuery] = useState('')
+
   const [result, setResult] = useState<any>(null)
   const [phoneResults, setPhoneResults] = useState<any[] | null>(null)
   const [error, setError] = useState('')
@@ -395,17 +405,128 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
 
       <footer style={{
         borderTop: '1px solid var(--border)',
-        padding: '1rem 5%',
-        textAlign: 'center',
+        padding: '0.75rem 5%',
         fontSize: '0.7rem',
         color: 'var(--muted)',
         lineHeight: 1.7,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
       }}>
-        <div style={{ fontWeight: 600, marginBottom: '0.1rem' }}>"Бизнес интеллижэнс" ХХК хөгжүүлж байна</div>
-        <div>Бүх эрх хуулиар хамгаалагдсан болно · 85205258 · 2026</div>
+        <div>
+          <div style={{ fontWeight: 600 }}>"Бизнес интеллижэнс" ХХК хөгжүүлж байна</div>
+          <div>Бүх эрх хуулиар хамгаалагдсан болно · 85205258 · 2026</div>
+        </div>
+        <button
+          onClick={() => setAiOpen(o => !o)}
+          aria-label="AI Туслах"
+          style={{
+            flexShrink: 0, border: 'none', borderRadius: 50,
+            background: 'var(--accent)', cursor: 'pointer',
+            padding: '0 14px 0 12px', height: 38,
+            display: 'flex', alignItems: 'center', gap: 6,
+            boxShadow: aiOpen
+              ? '0 2px 12px rgba(201,100,66,0.4), 0 0 0 2px rgba(201,100,66,0.15)'
+              : '0 2px 10px rgba(201,100,66,0.32)',
+            transition: 'transform 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
+          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+        >
+          {aiOpen ? (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              <span style={{ color: 'white', fontSize: '0.77rem', fontWeight: 600, fontFamily: 'inherit' }}>Хаах</span>
+            </>
+          ) : (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L13.6 9.4L21 11L13.6 12.6L12 20L10.4 12.6L3 11L10.4 9.4L12 2Z" fill="white"/>
+                <path d="M20 2L20.8 5.2L24 6L20.8 6.8L20 10L19.2 6.8L16 6L19.2 5.2L20 2Z" fill="white" opacity="0.7"/>
+              </svg>
+              <span style={{ color: 'white', fontSize: '0.77rem', fontWeight: 600, fontFamily: 'inherit' }}>AI Туслах</span>
+            </>
+          )}
+        </button>
       </footer>
 
+      {/* Teaser chat popup */}
+      {aiOpen && (
+        <div style={{
+          position: 'fixed', bottom: 72, right: 16, zIndex: 999,
+          width: 312,
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.13), 0 2px 6px rgba(0,0,0,0.07)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <div style={{
+            padding: '10px 14px',
+            background: 'var(--surface)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <AIAvatar size={32} />
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text)' }}>AI Туслах</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{cargo?.name ?? 'Aicargohub'}</div>
+            </div>
+          </div>
 
+          {/* Preview body */}
+          <div style={{ padding: '12px 12px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {/* AI message bubble */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+              <AIAvatar size={24} />
+              <div style={{
+                maxWidth: '80%', padding: '8px 11px',
+                borderRadius: '14px 14px 14px 4px',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text)',
+                boxShadow: 'var(--shadow)',
+              }}>
+                Сайн байна уу! Би таны ачааны AI туслах байна ✨
+              </div>
+            </div>
+
+            {/* Blurred action buttons */}
+            <div style={{ position: 'relative', marginTop: 2 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, filter: 'blur(1.5px)', pointerEvents: 'none', opacity: 0.65 }}>
+                {AI_PREVIEW_ACTIONS.map(label => (
+                  <div key={label} style={{
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 10, padding: '8px 11px',
+                    fontSize: '0.8rem', color: 'var(--text)', fontWeight: 500,
+                  }}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(to bottom, transparent 0%, rgba(245,244,239,0.8) 55%, rgba(245,244,239,0.98) 100%)',
+              }} />
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div style={{ padding: '4px 12px 14px', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.73rem', color: 'var(--muted)', margin: '0 0 9px' }}>
+              Бүртгэлтэй хэрэглэгчид AI туслахыг ашиглах боломжтой
+            </p>
+            <Link
+              href="/login"
+              className="btn"
+              style={{ display: 'block', textAlign: 'center', fontSize: '0.84rem', padding: '0.55rem 1rem' }}
+              onClick={() => setAiOpen(false)}
+            >
+              Нэвтрэх
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

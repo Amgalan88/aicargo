@@ -5,6 +5,7 @@ import { AIAvatar } from './AIAvatar'
 interface Message {
   role: 'user' | 'assistant'
   content: string
+  clarify?: { question: string; options: string[] }
 }
 
 const ACTIONS = [
@@ -14,13 +15,7 @@ const ACTIONS = [
   { label: '📋 Сүүлийн ачаануудын жагсаалт', prompt: 'Миний сүүлийн 10 ачааг харуул' },
 ]
 
-export default function UserAIWidget({
-  userName,
-  cargoName,
-}: {
-  userName: string
-  cargoName: string
-}) {
+export default function UserAIWidget({ userName, cargoName }: { userName: string; cargoName: string }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -46,7 +41,7 @@ export default function UserAIWidget({
   }, [messages, loading])
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 100)
+    if (open) setTimeout(() => inputRef.current?.focus(), 120)
   }, [open])
 
   async function callAI(msgs: Message[]) {
@@ -62,7 +57,14 @@ export default function UserAIWidget({
         setMessages(prev => [...prev, { role: 'assistant', content: data.error }])
         return
       }
-      if (res.ok && data.reply) {
+      if (res.ok && data.clarify && data.options) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.question || 'Тодруулна уу:',
+          clarify: { question: data.question, options: data.options },
+        }])
+        if (data.remaining !== undefined) setRemaining(data.remaining)
+      } else if (res.ok && data.reply) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
         if (data.remaining !== undefined) setRemaining(data.remaining)
       } else {
@@ -92,67 +94,74 @@ export default function UserAIWidget({
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating circle button */}
       <button
         onClick={() => setOpen(o => !o)}
-        title="AI Туслах"
+        aria-label="AI Туслах"
         style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 1000,
-          width: 54, height: 54, borderRadius: '50%', border: 'none',
-          cursor: 'pointer', padding: 0,
-          background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+          position: 'fixed', bottom: 20, right: 20, zIndex: 1000,
+          border: 'none', borderRadius: 50,
+          background: 'var(--accent)', cursor: 'pointer',
+          padding: open ? '0 18px' : '0 16px 0 14px',
+          height: 44,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           boxShadow: open
-            ? '0 4px 24px rgba(99,102,241,0.55), 0 0 0 4px rgba(99,102,241,0.18)'
-            : '0 4px 18px rgba(99,102,241,0.45)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'box-shadow 0.2s, transform 0.15s',
+            ? '0 4px 20px rgba(201,100,66,0.45), 0 0 0 3px rgba(201,100,66,0.15)'
+            : '0 4px 16px rgba(201,100,66,0.38)',
+          transition: 'transform 0.15s, box-shadow 0.2s',
         }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.07)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
+        onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
       >
         {open ? (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
+          <>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600, fontFamily: 'inherit' }}>Хаах</span>
+          </>
         ) : (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L13.6 9.4L21 11L13.6 12.6L12 20L10.4 12.6L3 11L10.4 9.4L12 2Z" fill="white"/>
-            <path d="M20 2L20.8 5.2L24 6L20.8 6.8L20 10L19.2 6.8L16 6L19.2 5.2L20 2Z" fill="white" opacity="0.7"/>
-          </svg>
+          <>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L13.6 9.4L21 11L13.6 12.6L12 20L10.4 12.6L3 11L10.4 9.4L12 2Z" fill="white"/>
+              <path d="M20 2L20.8 5.2L24 6L20.8 6.8L20 10L19.2 6.8L16 6L19.2 5.2L20 2Z" fill="white" opacity="0.7"/>
+            </svg>
+            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 600, fontFamily: 'inherit' }}>AI Туслах</span>
+          </>
         )}
       </button>
 
       {/* Chat window */}
       {open && (
         <div style={{
-          position: 'fixed', bottom: 90, right: 24, zIndex: 999,
-          width: 348, height: 530,
-          background: 'var(--bg, #fff)', border: '1px solid var(--border)',
-          borderRadius: 20, boxShadow: '0 12px 40px rgba(0,0,0,0.16)',
+          position: 'fixed', bottom: 78, right: 20, zIndex: 999,
+          width: 336, height: 510,
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          borderRadius: '14px 14px 14px 14px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.13), 0 2px 6px rgba(0,0,0,0.07)',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
 
           {/* Header */}
           <div style={{
-            padding: '14px 16px 12px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-            display: 'flex', alignItems: 'center', gap: 11,
+            padding: '10px 14px',
+            background: 'var(--surface)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 10,
+            flexShrink: 0,
           }}>
-            <AIAvatar size={40} glow />
-            <div style={{ flex: 1 }}>
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.92rem', lineHeight: 1.2 }}>
-                AI Туслах
-              </div>
-              <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.72rem', marginTop: 1 }}>
-                {cargoName}
-              </div>
+            <AIAvatar size={32} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text)' }}>AI Туслах</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cargoName}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
               {remaining !== null && (
                 <span style={{
-                  color: 'rgba(255,255,255,0.7)', fontSize: '0.68rem',
-                  background: 'rgba(255,255,255,0.15)', borderRadius: 10,
-                  padding: '2px 8px',
+                  fontSize: '0.68rem', color: 'var(--muted)',
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  borderRadius: 6, padding: '1px 7px',
                 }}>
                   {remaining}/20
                 </span>
@@ -161,9 +170,9 @@ export default function UserAIWidget({
                 <button
                   onClick={() => { setMessages([]); localStorage.removeItem('uai-history') }}
                   style={{
-                    background: 'rgba(255,255,255,0.18)', border: 'none',
-                    borderRadius: 8, color: '#fff', cursor: 'pointer',
-                    fontSize: '0.7rem', padding: '3px 9px', fontFamily: 'inherit',
+                    background: 'none', border: '1px solid var(--border)',
+                    borderRadius: 6, color: 'var(--muted)', cursor: 'pointer',
+                    fontSize: '0.7rem', padding: '2px 8px', fontFamily: 'inherit',
                   }}
                 >
                   Цэвэрлэх
@@ -172,15 +181,20 @@ export default function UserAIWidget({
             </div>
           </div>
 
-          {/* Messages + Actions */}
+          {/* Messages */}
           <div style={{
-            flex: 1, overflowY: 'auto', padding: '10px 10px 4px',
-            display: 'flex', flexDirection: 'column', gap: 6,
+            flex: 1, overflowY: 'auto',
+            padding: '10px 10px 4px',
+            display: 'flex', flexDirection: 'column', gap: 5,
           }}>
 
+            {/* Empty state: quick actions */}
             {messages.length === 0 && !loading && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 4 }}>
-                <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.78rem', margin: '6px 0 8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, paddingTop: 2 }}>
+                <p style={{
+                  textAlign: 'center', color: 'var(--muted)',
+                  fontSize: '0.76rem', margin: '4px 0 8px',
+                }}>
                   Сайн байна уу, {userName}! Юу хийж өгөх вэ?
                 </p>
                 {ACTIONS.map(a => (
@@ -189,17 +203,22 @@ export default function UserAIWidget({
                     onClick={() => sendMessage(a.prompt)}
                     disabled={loading}
                     style={{
-                      background: 'var(--surface, #f5f5f5)',
+                      background: 'var(--surface)',
                       border: '1px solid var(--border)',
-                      borderRadius: 12, padding: '10px 14px',
-                      fontSize: '0.82rem', color: 'var(--text)',
+                      borderRadius: 10, padding: '9px 12px',
+                      fontSize: '0.81rem', color: 'var(--text)',
                       cursor: 'pointer', textAlign: 'left',
                       fontFamily: 'inherit', fontWeight: 500,
-                      transition: 'border-color 0.15s, background 0.15s',
-                      lineHeight: 1.3,
+                      transition: 'border-color 0.12s, background 0.12s',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.background = 'var(--bg)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface, #f5f5f5)' }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = 'var(--accent)'
+                      e.currentTarget.style.background = 'var(--accent-light)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = 'var(--border)'
+                      e.currentTarget.style.background = 'var(--surface)'
+                    }}
                   >
                     {a.label}
                   </button>
@@ -207,34 +226,61 @@ export default function UserAIWidget({
               </div>
             )}
 
+            {/* Message bubbles */}
             {messages.map((msg, i) => (
               <div key={i} style={{
                 display: 'flex',
                 flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-                alignItems: 'flex-end', gap: 7,
+                alignItems: 'flex-end', gap: 6,
               }}>
-                {msg.role === 'assistant' && <AIAvatar size={26} />}
-                <div style={{
-                  maxWidth: '78%',
-                  padding: '9px 13px',
-                  borderRadius: msg.role === 'user' ? '18px 4px 18px 18px' : '4px 18px 18px 18px',
-                  background: msg.role === 'user'
-                    ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
-                    : 'var(--surface, #f0f0f0)',
-                  color: msg.role === 'user' ? '#fff' : 'var(--text)',
-                  fontSize: '0.83rem', lineHeight: 1.55,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                  border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-                  boxShadow: msg.role === 'user' ? '0 2px 8px rgba(99,102,241,0.3)' : 'none',
-                }}>
-                  {msg.content}
+                {msg.role === 'assistant' && <AIAvatar size={24} />}
+                <div style={{ position: 'relative', maxWidth: '78%' }}>
+                  <div style={{
+                    padding: '8px 11px',
+                    borderRadius: msg.role === 'user'
+                      ? '14px 14px 4px 14px'
+                      : '14px 14px 14px 4px',
+                    background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface)',
+                    color: msg.role === 'user' ? '#fff' : 'var(--text)',
+                    border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
+                    fontSize: '0.83rem', lineHeight: 1.55,
+                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    boxShadow: msg.role === 'user' ? '0 1px 6px rgba(201,100,66,0.22)' : 'var(--shadow)',
+                  }}>
+                    {msg.content}
+                  </div>
+                  {msg.clarify && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+                      {msg.clarify.options.map((opt, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => sendMessage(opt)}
+                          disabled={loading}
+                          style={{
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 10, padding: '7px 11px',
+                            fontSize: '0.8rem', color: 'var(--text)',
+                            cursor: loading ? 'default' : 'pointer',
+                            textAlign: 'left', fontFamily: 'inherit', fontWeight: 500,
+                            opacity: loading ? 0.6 : 1,
+                            transition: 'border-color 0.12s, background 0.12s',
+                          }}
+                          onMouseEnter={e => { if (!loading) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-light)' } }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface)' }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
 
-            {/* Quick action chips after messages */}
+            {/* Quick chips after conversation */}
             {messages.length > 0 && !loading && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, paddingTop: 2 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '3px 0 0' }}>
                 {ACTIONS.map(a => (
                   <button
                     key={a.label}
@@ -242,14 +288,19 @@ export default function UserAIWidget({
                     disabled={loading}
                     style={{
                       background: 'none', border: '1px solid var(--border)',
-                      borderRadius: 16, padding: '5px 10px',
-                      fontSize: '0.73rem', color: 'var(--muted)',
+                      borderRadius: 12, padding: '3px 9px',
+                      fontSize: '0.71rem', color: 'var(--muted)',
                       cursor: 'pointer', fontFamily: 'inherit',
-                      transition: 'border-color 0.12s, color 0.12s',
-                      whiteSpace: 'nowrap',
+                      transition: 'border-color 0.12s, color 0.12s', whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.color = 'var(--text)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = 'var(--accent)'
+                      e.currentTarget.style.color = 'var(--accent)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = 'var(--border)'
+                      e.currentTarget.style.color = 'var(--muted)'
+                    }}
                   >
                     {a.label}
                   </button>
@@ -257,12 +308,14 @@ export default function UserAIWidget({
               </div>
             )}
 
+            {/* Typing indicator */}
             {loading && (
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7 }}>
-                <AIAvatar size={26} />
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
+                <AIAvatar size={24} />
                 <div style={{
-                  padding: '10px 14px', borderRadius: '4px 18px 18px 18px',
-                  background: 'var(--surface, #f0f0f0)', border: '1px solid var(--border)',
+                  padding: '9px 13px', borderRadius: '14px 14px 14px 4px',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow)',
                 }}>
                   <TypingDots />
                 </div>
@@ -271,45 +324,31 @@ export default function UserAIWidget({
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
-          <div style={{ padding: '8px 10px 10px', borderTop: '1px solid var(--border)' }}>
-            <div style={{
-              display: 'flex', gap: 6, alignItems: 'center',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 22, padding: '5px 5px 5px 14px',
-              transition: 'border-color 0.15s',
-            }}>
+          {/* Input bar */}
+          <div style={{
+            padding: '8px 10px 10px',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--surface)',
+            flexShrink: 0,
+          }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <input
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKey}
-                onFocus={e => (e.currentTarget.parentElement!.style.borderColor = '#6366f1')}
-                onBlur={e => (e.currentTarget.parentElement!.style.borderColor = 'var(--border)')}
-                placeholder="Нэмэлт асуулт бичих..."
-                style={{
-                  flex: 1, border: 'none', background: 'none', outline: 'none',
-                  color: 'var(--text)', fontFamily: 'inherit', fontSize: '0.83rem',
-                }}
+                placeholder="Асуулт бичих..."
+                className="input"
+                style={{ fontSize: '0.83rem', padding: '0.5rem 0.85rem', flex: 1 }}
                 disabled={loading}
               />
               <button
                 onClick={() => sendMessage()}
                 disabled={!input.trim() || loading}
-                style={{
-                  width: 34, height: 34, borderRadius: '50%', border: 'none', flexShrink: 0,
-                  background: !input.trim() || loading
-                    ? 'var(--border)'
-                    : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                  cursor: !input.trim() || loading ? 'default' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'background 0.15s',
-                  boxShadow: input.trim() && !loading ? '0 2px 8px rgba(99,102,241,0.35)' : 'none',
-                }}
+                className="btn"
+                style={{ padding: '0.5rem 0.85rem', flexShrink: 0, fontSize: '0.83rem' }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
+                ↑
               </button>
             </div>
           </div>
@@ -325,7 +364,7 @@ function TypingDots() {
       {[0, 1, 2].map(i => (
         <span key={i} style={{
           width: 6, height: 6, borderRadius: '50%',
-          background: '#a855f7', display: 'inline-block',
+          background: 'var(--muted)', display: 'inline-block',
           animation: 'uaiDot 1.2s infinite',
           animationDelay: `${i * 0.2}s`,
         }} />

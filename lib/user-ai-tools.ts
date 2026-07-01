@@ -65,8 +65,10 @@ export async function executeUserAITool(
             _sum: { adminPrice: true },
           }),
         ])
-        const totalValue = valueAgg._sum?.adminPrice ?? 0
-        return JSON.stringify({ all, registered, ereemArrived, arrived, pickedUp, totalValue })
+        const totalValue = Number(valueAgg._sum?.adminPrice ?? 0)
+        const result: any = { all, registered, ereemArrived, arrived, pickedUp }
+        if (totalValue > 0) result.totalValue = totalValue
+        return JSON.stringify(result)
       }
 
       case 'get_my_shipments_by_status': {

@@ -17,17 +17,37 @@ const ratelimit = new Ratelimit({
   prefix: 'admin-ai',
 })
 
+const CLARIFY_TOOL = {
+  name: 'ask_clarification',
+  description: 'Асуулт тодорхойгүй эсвэл олон утгатай байвал энэ tool-ыг дуудаж тодруулна. Ямар tool дуудахаа мэдэхгүй байвал заавал энэ tool ашигла.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      question: { type: 'string', description: 'Тодруулах товч асуулт (1 өгүүлбэр)' },
+      options: {
+        type: 'array',
+        items: { type: 'string' },
+        description: '2-4 товч сонголт',
+        minItems: 2,
+        maxItems: 4,
+      },
+    },
+    required: ['question', 'options'],
+  },
+}
+
 const DEFAULT_ADMIN_PROMPT = `Чи карго компанийн админд туслах AI юм.
 
-Чиний цорын ганц эх сурвалж бол tool-уудаас ирсэн өгөгдөл. Өөр мэдлэг байхгүй гэж үз.
+Эх сурвалж: зөвхөн tool-оос ирсэн өгөгдөл. Таамаглах, нэмэх, зохиохыг хатуу хориглоно. Байхгүй бол "Мэдэгдэхгүй байна" гэж хэл.
+Асуулт тодорхойгүй → ask_clarification (2-3 сонголт).
 
-Хариулах дүрэм:
-Зөвхөн tool-оос ирсэн өгөгдлийг хэл. Tool-д байхгүй зүйлийг нэмэх, таамаглах, зохиохыг хатуу хориглоно. Tool-д хариулт байхгүй бол "Мэдэгдэхгүй байна" гэж л хариул.
-
-Хэлбэр:
-Цэвэр монгол хэл. Богино, ойлгомжтой 1-3 өгүүлбэр. Markdown, **, хүснэгт огт хэрэглэхгүй.
-Статус орчуулга: REGISTERED тэй бол бүртгүүлсэн, EREEN_ARRIVED тэй бол Эрээнд ирсэн, ARRIVED тэй бол ирсэн, PICKED_UP тэй бол олгосон гэж хэл.
-Огноо: "6 сарын 25" гэж товчлон хэл.`
+Хариултын хэлбэр — ЗААВАЛ ДАГАХ:
+- Хамгийн богино байх. 1-2 өгүүлбэр хангалттай бол илүү бичихгүй.
+- Тоон өгөгдөл: зөвхөн тоо+нэр, тайлбаргүй.
+- Жагсаалт гаргахад: "нэр — утга" форматаар мөр бүрт нэг зүйл.
+- Markdown, **, хүснэгт, тайлбар, танилцуулга огт хэрэглэхгүй.
+- Статус: REGISTERED→бүртгүүлсэн, EREEN_ARRIVED→Эрээнд ирсэн, ARRIVED→ирсэн, PICKED_UP→олгосон.
+- Огноо: "6/25" гэж товчлон хэл.`
 
 function buildAdminPrompt(customPrompt?: string | null): string {
   const custom = customPrompt?.trim()
@@ -77,9 +97,9 @@ export async function POST(req: NextRequest) {
     while (true) {
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
-        max_tokens: 1024,
+        max_tokens: 500,
         system: buildAdminPrompt(customPrompt),
-        tools: AI_TOOLS as any,
+        tools: [...AI_TOOLS, CLARIFY_TOOL] as any,
         tool_choice: isFirstCall ? { type: 'any' } : { type: 'auto' },
         messages: currentMessages,
       } as any)
@@ -92,6 +112,14 @@ export async function POST(req: NextRequest) {
       }
 
       if (response.stop_reason === 'tool_use') {
+        const clarifyBlock = response.content.find(
+          b => b.type === 'tool_use' && b.name === 'ask_clarification'
+        )
+        if (clarifyBlock && clarifyBlock.type === 'tool_use') {
+          const { question, options } = clarifyBlock.input as { question: string; options: string[] }
+          return NextResponse.json({ clarify: true, question, options, remaining })
+        }
+
         // Add assistant's response (with tool calls) to the conversation
         currentMessages.push({ role: 'assistant', content: response.content as any })
 
