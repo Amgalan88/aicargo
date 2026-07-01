@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { AIAvatar } from './AIAvatar'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -80,31 +81,41 @@ export default function AdminAIChat() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', maxWidth: 720, margin: '0 auto', padding: '0 1rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', maxWidth: 740, margin: '0 auto', padding: '0 1rem' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 0 0.75rem', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-            🤖
-          </div>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '1rem 0 0.85rem', borderBottom: '1px solid var(--border)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <AIAvatar size={44} glow />
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Admin AI Туслах</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
-              {remaining !== null ? `Өнөөдөр үлдсэн: ${remaining}/100` : 'Датабаазаас мэдээлэл авна'}
+            <div style={{ fontWeight: 700, fontSize: '0.98rem' }}>Admin AI Туслах</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 1 }}>
+              {remaining !== null
+                ? `Өнөөдөр үлдсэн: ${remaining}/100`
+                : 'Датабаазаас мэдээлэл авна'}
             </div>
           </div>
         </div>
         {messages.length > 0 && (
-          <button onClick={() => { setMessages([]); localStorage.removeItem('aai-history') }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--muted)', cursor: 'pointer', fontSize: '0.78rem', padding: '0.3rem 0.75rem' }}>
+          <button
+            onClick={() => { setMessages([]); localStorage.removeItem('aai-history') }}
+            style={{
+              background: 'none', border: '1px solid var(--border)',
+              borderRadius: 8, color: 'var(--muted)', cursor: 'pointer',
+              fontSize: '0.78rem', padding: '0.3rem 0.75rem',
+            }}
+          >
             Цэвэрлэх
           </button>
         )}
       </div>
 
       {/* Quick action buttons */}
-      <div style={{ padding: '0.85rem 0 0.5rem', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.5rem' }}>
+      <div style={{ padding: '0.85rem 0 0.6rem', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.45rem' }}>
           {ACTIONS.map(a => (
             <button
               key={a.label}
@@ -117,10 +128,9 @@ export default function AdminAIChat() {
                 cursor: loading ? 'default' : 'pointer',
                 textAlign: 'left', fontFamily: 'inherit', fontWeight: 500,
                 transition: 'border-color 0.15s, background 0.15s',
-                opacity: loading ? 0.6 : 1,
-                lineHeight: 1.3,
+                opacity: loading ? 0.6 : 1, lineHeight: 1.3,
               }}
-              onMouseEnter={e => { if (!loading) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--bg)' } }}
+              onMouseEnter={e => { if (!loading) { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.background = 'var(--bg)' } }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface)' }}
             >
               {a.label}
@@ -144,24 +154,20 @@ export default function AdminAIChat() {
           <div key={i} style={{
             display: 'flex',
             flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-            alignItems: 'flex-end', gap: 8,
+            alignItems: 'flex-end', gap: 9,
           }}>
-            {msg.role === 'assistant' && (
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                background: 'var(--accent)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
-              }}>🤖</div>
-            )}
+            {msg.role === 'assistant' && <AIAvatar size={30} />}
             <div style={{
-              maxWidth: '75%',
-              padding: '10px 14px',
+              maxWidth: '75%', padding: '10px 14px',
               borderRadius: msg.role === 'user' ? '18px 4px 18px 18px' : '4px 18px 18px 18px',
-              background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface)',
+              background: msg.role === 'user'
+                ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)'
+                : 'var(--surface)',
               color: msg.role === 'user' ? '#fff' : 'var(--text)',
               border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
               fontSize: '0.87rem', lineHeight: 1.6,
               whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              boxShadow: msg.role === 'user' ? '0 2px 10px rgba(99,102,241,0.3)' : 'none',
             }}>
               {msg.content}
             </div>
@@ -169,9 +175,12 @@ export default function AdminAIChat() {
         ))}
 
         {loading && (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>🤖</div>
-            <div style={{ padding: '10px 14px', borderRadius: '4px 18px 18px 18px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 9 }}>
+            <AIAvatar size={30} />
+            <div style={{
+              padding: '10px 14px', borderRadius: '4px 18px 18px 18px',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+            }}>
               <TypingDots />
             </div>
           </div>
@@ -181,12 +190,19 @@ export default function AdminAIChat() {
 
       {/* Input */}
       <div style={{ padding: '0.75rem 0 1rem', borderTop: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 24, padding: '6px 6px 6px 16px' }}>
+        <div style={{
+          display: 'flex', gap: 8, alignItems: 'center',
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 24, padding: '6px 6px 6px 16px',
+          transition: 'border-color 0.15s',
+        }}>
           <input
             ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
+            onFocus={e => (e.currentTarget.parentElement!.style.borderColor = '#6366f1')}
+            onBlur={e => (e.currentTarget.parentElement!.style.borderColor = 'var(--border)')}
             placeholder="Нэмэлт асуулт бичнэ үү..."
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
@@ -199,13 +215,16 @@ export default function AdminAIChat() {
             disabled={!input.trim() || loading}
             style={{
               width: 36, height: 36, borderRadius: '50%', border: 'none', flexShrink: 0,
-              background: !input.trim() || loading ? 'var(--border)' : 'var(--accent)',
+              background: !input.trim() || loading
+                ? 'var(--border)'
+                : 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
               cursor: !input.trim() || loading ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'background 0.15s',
+              boxShadow: input.trim() && !loading ? '0 2px 8px rgba(99,102,241,0.35)' : 'none',
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
             </svg>
           </button>
@@ -223,13 +242,13 @@ function TypingDots() {
     <div style={{ display: 'flex', gap: 4, alignItems: 'center', height: 18 }}>
       {[0, 1, 2].map(i => (
         <span key={i} style={{
-          width: 7, height: 7, borderRadius: '50%', background: 'var(--muted)',
+          width: 7, height: 7, borderRadius: '50%', background: '#a855f7',
           display: 'inline-block',
           animation: 'adminDot 1.2s infinite',
           animationDelay: `${i * 0.2}s`,
         }} />
       ))}
-      <style>{`@keyframes adminDot{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1}}`}</style>
+      <style>{`@keyframes adminDot{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-5px);opacity:1}}`}</style>
     </div>
   )
 }
