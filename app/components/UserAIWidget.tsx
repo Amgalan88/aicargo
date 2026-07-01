@@ -15,13 +15,26 @@ const ACTIONS = [
   { label: '📋 Сүүлийн ачаануудын жагсаалт', prompt: 'Миний сүүлийн 10 ачааг харуул' },
 ]
 
+const BTN_H = 44
+const BTN_W = 116
+const CHAT_W = 336
+const CHAT_H = 490
+
+function defaultPos() {
+  if (typeof window === 'undefined') return { x: 16, y: 100 }
+  return { x: window.innerWidth - BTN_W - 16, y: window.innerHeight - BTN_H - 20 }
+}
+
 export default function UserAIWidget({ userName, cargoName }: { userName: string; cargoName: string }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [remaining, setRemaining] = useState<number | null>(null)
-  const [keyboardOffset, setKeyboardOffset] = useState(0)
+  const [keyboardH, setKeyboardH] = useState(0)
+  const [btnPos, setBtnPos] = useState<{ x: number; y: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const dragRef = useRef({ active: false, moved: false, px: 0, py: 0, bx: 0, by: 0 })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -30,6 +43,12 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
       const saved = localStorage.getItem('uai-history')
       if (saved) setMessages(JSON.parse(saved))
     } catch {}
+    try {
+      const savedPos = localStorage.getItem('uai-pos')
+      setBtnPos(savedPos ? JSON.parse(savedPos) : defaultPos())
+    } catch {
+      setBtnPos(defaultPos())
+    }
   }, [])
 
   useEffect(() => {
@@ -49,16 +68,37 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
     const vv = window.visualViewport
     if (!vv) return
     const update = () => {
-      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-      setKeyboardOffset(kb)
+      setKeyboardH(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
     }
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-    }
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
   }, [])
+
+  function onPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    dragRef.current = { active: true, moved: false, px: e.clientX, py: e.clientY, bx: btnPos?.x ?? 0, by: btnPos?.y ?? 0 }
+    e.currentTarget.setPointerCapture(e.pointerId)
+    setDragging(true)
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current
+    if (!d.active) return
+    const dx = e.clientX - d.px, dy = e.clientY - d.py
+    if (!d.moved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+    d.moved = true
+    const nx = Math.max(0, Math.min(window.innerWidth - BTN_W - 8, d.bx + dx))
+    const ny = Math.max(0, Math.min(window.innerHeight - BTN_H - 8, d.by + dy))
+    setBtnPos({ x: nx, y: ny })
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLButtonElement>) {
+    const d = dragRef.current
+    d.active = false
+    setDragging(false)
+    if (btnPos) localStorage.setItem('uai-pos', JSON.stringify(btnPos))
+    if (!d.moved) setOpen(o => !o)
+  }
 
   async function callAI(msgs: Message[]) {
     setLoading(true)
@@ -110,24 +150,30 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
 
   return (
     <>
-      {/* Floating circle button */}
+      {/* Draggable button */}
       <button
-        onClick={() => setOpen(o => !o)}
         aria-label="AI Туслах"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
         style={{
-          position: 'fixed', bottom: 20 + keyboardOffset, right: 20, zIndex: 1000,
+          position: 'fixed',
+          left: btnPos?.x ?? (typeof window !== 'undefined' ? window.innerWidth - BTN_W - 16 : 16),
+          top: (btnPos?.y ?? (typeof window !== 'undefined' ? window.innerHeight - BTN_H - 20 : 100)) - keyboardH,
+          zIndex: 1000,
           border: 'none', borderRadius: 50,
-          background: 'var(--accent)', cursor: 'pointer',
+          background: 'var(--accent)',
+          cursor: dragging ? 'grabbing' : 'grab',
+          touchAction: 'none',
           padding: open ? '0 18px' : '0 16px 0 14px',
-          height: 44,
+          height: BTN_H,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           boxShadow: open
             ? '0 4px 20px rgba(201,100,66,0.45), 0 0 0 3px rgba(201,100,66,0.15)'
             : '0 4px 16px rgba(201,100,66,0.38)',
-          transition: 'transform 0.15s, box-shadow 0.2s',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
         }}
-        onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-        onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
       >
         {open ? (
           <>
@@ -148,10 +194,14 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
       </button>
 
       {/* Chat window */}
-      {open && (
+      {open && btnPos && (
         <div style={{
-          position: 'fixed', bottom: 78 + keyboardOffset, right: 20, zIndex: 999,
-          width: 336, height: keyboardOffset > 0 ? `calc(100dvh - ${120 + keyboardOffset}px)` : 510,
+          position: 'fixed',
+          left: Math.max(8, Math.min(btnPos.x - (CHAT_W - BTN_W) / 2, window.innerWidth - CHAT_W - 8)),
+          top: Math.max(8, btnPos.y - keyboardH - CHAT_H - 8),
+          zIndex: 999,
+          width: CHAT_W,
+          height: keyboardH > 0 ? Math.min(CHAT_H, window.innerHeight - keyboardH - 80) : CHAT_H,
           background: 'var(--bg)',
           border: '1px solid var(--border)',
           borderRadius: '14px 14px 14px 14px',
