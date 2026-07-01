@@ -130,7 +130,6 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
       setMessages(prev => [...prev, { role: 'assistant', content: 'Холболтын алдаа гарлаа.' }])
     } finally {
       setLoading(false)
-      setTimeout(() => inputRef.current?.focus(), 50)
     }
   }
 
@@ -175,6 +174,10 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
           WebkitUserSelect: 'none',
         }}
       >
+        {dragging && <>
+          <span style={{ position: 'absolute', left: 5, color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem', lineHeight: 1, pointerEvents: 'none' }}>‹</span>
+          <span style={{ position: 'absolute', right: 5, color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem', lineHeight: 1, pointerEvents: 'none' }}>›</span>
+        </>}
         {open ? (
           <>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
