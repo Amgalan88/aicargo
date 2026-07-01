@@ -13,7 +13,7 @@ const ratelimit = new Ratelimit({
     url: process.env.UPSTASH_REDIS_REST_URL!,
     token: process.env.UPSTASH_REDIS_REST_TOKEN!,
   }),
-  limiter: Ratelimit.slidingWindow(100, '1 d'),
+  limiter: Ratelimit.slidingWindow(30, '1 d'),
   prefix: 'admin-ai',
 })
 

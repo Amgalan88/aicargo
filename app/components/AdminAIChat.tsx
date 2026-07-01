@@ -30,7 +30,6 @@ export default function AdminAIChat() {
       const saved = localStorage.getItem('aai-history')
       if (saved) setMessages(JSON.parse(saved))
     } catch {}
-    inputRef.current?.focus()
   }, [])
 
   useEffect(() => {
@@ -80,7 +79,6 @@ export default function AdminAIChat() {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Холболтын алдаа гарлаа.' }])
     } finally {
       setLoading(false)
-      setTimeout(() => inputRef.current?.focus(), 50)
     }
   }
 
@@ -107,7 +105,7 @@ export default function AdminAIChat() {
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>Admin AI Туслах</div>
             <div style={{ fontSize: '0.71rem', color: 'var(--muted)', marginTop: 1 }}>
-              {remaining !== null ? `Өнөөдөр үлдсэн: ${remaining}/100` : 'Датабаазаас мэдээлэл авна'}
+              {remaining !== null ? `Өнөөдөр үлдсэн: ${remaining}/30` : 'Датабаазаас мэдээлэл авна'}
             </div>
           </div>
         </div>
