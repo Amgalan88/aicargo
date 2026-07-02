@@ -109,7 +109,9 @@ export async function POST(req: NextRequest) {
       }
 
       if (choice.finish_reason === 'tool_calls') {
-        const clarifyCall = choice.message.tool_calls?.find(tc => tc.function.name === 'ask_clarification')
+        type FnToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
+        const fnCalls = (choice.message.tool_calls ?? []).filter(tc => tc.type === 'function') as FnToolCall[]
+        const clarifyCall = fnCalls.find(tc => tc.function.name === 'ask_clarification')
         if (clarifyCall) {
           const input = JSON.parse(clarifyCall.function.arguments)
           return NextResponse.json({ clarify: true, question: input.question, options: input.options, remaining })
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
 
         currentMessages.push(choice.message)
 
-        for (const toolCall of choice.message.tool_calls ?? []) {
+        for (const toolCall of fnCalls) {
           const input = JSON.parse(toolCall.function.arguments)
           const result = await executeAITool(toolCall.function.name, input, cargoId)
           currentMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: result })
