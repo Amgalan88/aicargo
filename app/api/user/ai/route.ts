@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
-const MODEL = 'gpt-5-mini'
+const MODEL = 'gpt-4o-mini'
 
 const ratelimit = new Ratelimit({
   redis: new Redis({
