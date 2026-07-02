@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     while (true) {
       const response = await openai.chat.completions.create({
         model: MODEL,
-        max_tokens: 400,
+        max_completion_tokens: 400,
         tools,
         tool_choice: isFirst ? 'required' : 'auto',
         messages: currentMessages,
