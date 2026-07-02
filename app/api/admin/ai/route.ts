@@ -93,12 +93,13 @@ export async function POST(req: NextRequest) {
 
   try {
     let isFirst = true
+    let toolsExecuted = false
     while (true) {
       const response = await openai.chat.completions.create({
         model: MODEL,
         max_completion_tokens: 1000,
         tools,
-        tool_choice: isFirst ? 'required' : 'auto',
+        tool_choice: isFirst ? 'required' : toolsExecuted ? 'none' : 'auto',
         messages: currentMessages,
       })
       isFirst = false
@@ -126,6 +127,7 @@ export async function POST(req: NextRequest) {
           const result = await executeAITool(toolCall.function.name, input, cargoId)
           currentMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: result })
         }
+        toolsExecuted = true
         continue
       }
 
