@@ -154,9 +154,10 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
         onPointerUp={onPointerUp}
         style={{
           position: 'fixed',
-          left: btnPos?.x ?? (typeof window !== 'undefined' ? window.innerWidth - BTN_W - 16 : 16),
-          top: (btnPos?.y ?? (typeof window !== 'undefined' ? window.innerHeight - BTN_H - 20 : 100)) - keyboardH,
+          left: btnPos?.x ?? 16,
+          top: (btnPos?.y ?? 100) - keyboardH,
           zIndex: 1000,
+          visibility: btnPos ? 'visible' : 'hidden',
           border: 'none', borderRadius: 50,
           background: 'var(--accent)',
           cursor: dragging ? 'grabbing' : 'grab',
