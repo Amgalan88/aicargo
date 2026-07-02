@@ -49,7 +49,7 @@ function buildSystemPrompt(userName: string, cargoName: string, customPrompt?: s
 Tool сонгох:
 - Ачааны байдал, ирсэн эсэх → get_my_recent_shipments
 - Нийт тоо, статистик → get_my_shipment_stats
-- Карго компанийн цаг/хаяг/банк/тариф → get_cargo_faq + get_cargo_public_info
+- Карго компанийн цаг, хаяг, банк, тариф, дүрэм, холбоо барих → ЗААВАЛ get_cargo_faq дуудах. Хариулт олдохгүй бол get_cargo_public_info ч дуудах.
 - Асуулт тодорхойгүй → ask_clarification (2-3 сонголт)
 
 Хариултын хэлбэр — ЗААВАЛ ДАГАХ:
