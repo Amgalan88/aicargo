@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { USER_AI_TOOLS, executeUserAITool } from '@/lib/user-ai-tools'
 import { prisma } from '@/lib/prisma'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
+
+const MODEL = 'gpt-5-mini'
 
 const ratelimit = new Ratelimit({
   redis: new Redis({
@@ -23,17 +25,18 @@ const CLARIFY_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      question: { type: 'string', description: 'Хэрэглэгчид товчхон асуух асуулт (1 өгүүлбэр)' },
-      options: {
-        type: 'array',
-        items: { type: 'string' },
-        description: '2-4 товч сонголт',
-        minItems: 2,
-        maxItems: 4,
-      },
+      question: { type: 'string', description: 'Тодруулах товч асуулт (1 өгүүлбэр)' },
+      options: { type: 'array', items: { type: 'string' }, description: '2-4 товч сонголт', minItems: 2, maxItems: 4 },
     },
     required: ['question', 'options'],
   },
+}
+
+function toOpenAITools(tools: any[]) {
+  return tools.map(t => ({
+    type: 'function' as const,
+    function: { name: t.name, description: t.description, parameters: t.input_schema },
+  }))
 }
 
 function buildSystemPrompt(userName: string, cargoName: string, customPrompt?: string | null): string {
@@ -51,8 +54,8 @@ Tool сонгох:
 
 Хариултын хэлбэр — ЗААВАЛ ДАГАХ:
 - Хамгийн богино байх. 1 өгүүлбэр хангалттай бол 2 бичихгүй.
-- Тоон өгөгдөл: зөвхөн хүснэгтгүй, жагсаалтгүй, зүгээр тоо+нэр.
-- Ачааны жагсаалт гаргахад: "trackCode — статус" форматаар мөр бүрт нэг ачаа.
+- Тоон өгөгдөл: зөвхөн тоо+нэр, тайлбаргүй.
+- Ачааны жагсаалт: "trackCode — статус" форматаар мөр бүрт нэг ачаа.
 - Markdown, **, огт хэрэглэхгүй. Тайлбар, танилцуулга бичихгүй.
 - Статус: REGISTERED→бүртгүүлсэн, EREEN_ARRIVED→Эрээнд ирсэн, ARRIVED→ирсэн, PICKED_UP→авсан.`
 }
@@ -65,22 +68,16 @@ export async function POST(req: NextRequest) {
   const { success, remaining } = await ratelimit.limit(String(user.userId))
   if (!success) {
     return NextResponse.json(
-      { error: 'Өнөөдрийн хязгаарт хүрлээ (20 мессеж). Маргааш дахин ашиглана уу.' },
+      { error: 'Өнөөдрийн хязгаарт хүрлээ (10 мессеж). Маргааш дахин ашиглана уу.' },
       { status: 429 }
     )
   }
 
   let body: { messages: Array<{ role: string; content: string }>; userName?: string; cargoName?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
   const { messages, userName = 'та', cargoName = 'карго' } = body
-  if (!Array.isArray(messages)) {
-    return NextResponse.json({ error: 'messages шаардлагатай' }, { status: 400 })
-  }
+  if (!Array.isArray(messages)) return NextResponse.json({ error: 'messages шаардлагатай' }, { status: 400 })
 
   const userId = user.userId
   const cargoId = user.cargoId!
@@ -88,65 +85,49 @@ export async function POST(req: NextRequest) {
   const aiConfig = await (prisma as any).aiConfig.findUnique({ where: { id: 1 } })
   const customPrompt: string | null = aiConfig?.userPrompt?.trim() || null
 
-  // Auto-greeting: хоосон messages үед мэндчилгээ
-  let anthropicMessages: Array<{ role: 'user' | 'assistant'; content: any }>
-  if (messages.length === 0) {
-    anthropicMessages = [{ role: 'user', content: 'Сайн байна уу, миний ачааны мэдээллийг харуулаач.' }]
-  } else {
-    anthropicMessages = messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-  }
+  const tools = toOpenAITools([...USER_AI_TOOLS, CLARIFY_TOOL])
+
+  const inputMessages = messages.length === 0
+    ? [{ role: 'user' as const, content: 'Сайн байна уу, миний ачааны мэдээллийг харуулаач.' }]
+    : messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+
+  const currentMessages: any[] = [
+    { role: 'system', content: buildSystemPrompt(userName, cargoName, customPrompt) },
+    ...inputMessages,
+  ]
 
   try {
-    let currentMessages = [...anthropicMessages]
-    let isFirstCall = true
-
+    let isFirst = true
     while (true) {
-      const response = await anthropic.messages.create({
-        model: 'claude-haiku-4-5',
+      const response = await openai.chat.completions.create({
+        model: MODEL,
         max_tokens: 400,
-        system: buildSystemPrompt(userName, cargoName, customPrompt),
-        tools: [...USER_AI_TOOLS, CLARIFY_TOOL] as any,
-        tool_choice: isFirstCall ? { type: 'any' } : { type: 'auto' },
+        tools,
+        tool_choice: isFirst ? 'required' : 'auto',
         messages: currentMessages,
-      } as any)
-      isFirstCall = false
+      })
+      isFirst = false
 
-      if (response.stop_reason === 'end_turn') {
-        const textBlock = response.content.find(b => b.type === 'text')
-        const reply = textBlock && textBlock.type === 'text' ? textBlock.text : ''
-        return NextResponse.json({ reply, remaining })
+      const choice = response.choices[0]
+
+      if (choice.finish_reason === 'stop') {
+        return NextResponse.json({ reply: choice.message.content ?? '', remaining })
       }
 
-      if (response.stop_reason === 'tool_use') {
-        const clarifyBlock = response.content.find(
-          b => b.type === 'tool_use' && b.name === 'ask_clarification'
-        )
-        if (clarifyBlock && clarifyBlock.type === 'tool_use') {
-          const { question, options } = clarifyBlock.input as { question: string; options: string[] }
-          return NextResponse.json({ clarify: true, question, options, remaining })
+      if (choice.finish_reason === 'tool_calls') {
+        const clarifyCall = choice.message.tool_calls?.find(tc => tc.function.name === 'ask_clarification')
+        if (clarifyCall) {
+          const input = JSON.parse(clarifyCall.function.arguments)
+          return NextResponse.json({ clarify: true, question: input.question, options: input.options, remaining })
         }
 
-        currentMessages.push({ role: 'assistant', content: response.content })
+        currentMessages.push(choice.message)
 
-        const toolResults = await Promise.all(
-          response.content
-            .filter(b => b.type === 'tool_use')
-            .map(async b => {
-              if (b.type !== 'tool_use') return null
-              const result = await executeUserAITool(b.name, b.input as Record<string, unknown>, userId, cargoId)
-              return { type: 'tool_result' as const, tool_use_id: b.id, content: result }
-            })
-        )
-
-        // Inject grounding reminder after tool results to prevent hallucination
-        const groundedContent: any[] = [
-          ...toolResults.filter(Boolean),
-          {
-            type: 'text',
-            text: 'Дээрх өгөгдөлд байгаа зүйлийг л хэл. Өөр юм нэмэхгүй.',
-          },
-        ]
-        currentMessages.push({ role: 'user', content: groundedContent })
+        for (const toolCall of choice.message.tool_calls ?? []) {
+          const input = JSON.parse(toolCall.function.arguments)
+          const result = await executeUserAITool(toolCall.function.name, input, userId, cargoId)
+          currentMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: result })
+        }
         continue
       }
 

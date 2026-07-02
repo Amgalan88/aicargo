@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { AI_TOOLS, executeAITool } from '@/lib/ai-tools'
 import { prisma } from '@/lib/prisma'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
+
+const MODEL = 'gpt-5-mini'
 
 const ratelimit = new Ratelimit({
   redis: new Redis({
@@ -19,21 +21,22 @@ const ratelimit = new Ratelimit({
 
 const CLARIFY_TOOL = {
   name: 'ask_clarification',
-  description: 'Асуулт тодорхойгүй эсвэл олон утгатай байвал энэ tool-ыг дуудаж тодруулна. Ямар tool дуудахаа мэдэхгүй байвал заавал энэ tool ашигла.',
+  description: 'Асуулт тодорхойгүй эсвэл олон утгатай байвал энэ tool-ыг дуудаж тодруулна.',
   input_schema: {
     type: 'object',
     properties: {
       question: { type: 'string', description: 'Тодруулах товч асуулт (1 өгүүлбэр)' },
-      options: {
-        type: 'array',
-        items: { type: 'string' },
-        description: '2-4 товч сонголт',
-        minItems: 2,
-        maxItems: 4,
-      },
+      options: { type: 'array', items: { type: 'string' }, description: '2-4 товч сонголт', minItems: 2, maxItems: 4 },
     },
     required: ['question', 'options'],
   },
+}
+
+function toOpenAITools(tools: any[]) {
+  return tools.map(t => ({
+    type: 'function' as const,
+    function: { name: t.name, description: t.description, parameters: t.input_schema },
+  }))
 }
 
 const DEFAULT_ADMIN_PROMPT = `Чи карго компанийн админд туслах AI юм.
@@ -44,8 +47,8 @@ const DEFAULT_ADMIN_PROMPT = `Чи карго компанийн админд т
 Хариултын хэлбэр — ЗААВАЛ ДАГАХ:
 - Хамгийн богино байх. 1-2 өгүүлбэр хангалттай бол илүү бичихгүй.
 - Тоон өгөгдөл: зөвхөн тоо+нэр, тайлбаргүй.
-- Жагсаалт гаргахад: "нэр — утга" форматаар мөр бүрт нэг зүйл.
-- Markdown, **, хүснэгт, тайлбар, танилцуулга огт хэрэглэхгүй.
+- Жагсаалт: "нэр — утга" форматаар мөр бүрт нэг зүйл.
+- Markdown, **, хүснэгт, тайлбар огт хэрэглэхгүй.
 - Статус: REGISTERED→бүртгүүлсэн, EREEN_ARRIVED→Эрээнд ирсэн, ARRIVED→ирсэн, PICKED_UP→олгосон.
 - Огноо: "6/25" гэж товчлон хэл.`
 
@@ -67,94 +70,67 @@ export async function POST(req: NextRequest) {
   const { success, remaining } = await ratelimit.limit(String(admin.userId))
   if (!success) {
     return NextResponse.json(
-      { error: 'Өнөөдрийн хязгаарт хүрлээ (100 мессеж). Маргааш дахин ашиглана уу.' },
+      { error: 'Өнөөдрийн хязгаарт хүрлээ (30 мессеж). Маргааш дахин ашиглана уу.' },
       { status: 429 }
     )
   }
 
   let body: { messages: Array<{ role: string; content: string }> }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
   const { messages } = body
   if (!Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json({ error: 'messages шаардлагатай' }, { status: 400 })
   }
 
-  // Convert to Anthropic message format
-  const anthropicMessages = messages.map(m => ({
-    role: m.role as 'user' | 'assistant',
-    content: m.content,
-  }))
+  const tools = toOpenAITools([...AI_TOOLS, CLARIFY_TOOL])
+
+  const currentMessages: any[] = [
+    { role: 'system', content: buildAdminPrompt(customPrompt) },
+    ...messages.map(m => ({ role: m.role, content: m.content })),
+  ]
 
   try {
-    let currentMessages = [...anthropicMessages]
-    let isFirstCall = true
-
+    let isFirst = true
     while (true) {
-      const response = await anthropic.messages.create({
-        model: 'claude-haiku-4-5',
+      const response = await openai.chat.completions.create({
+        model: MODEL,
         max_tokens: 500,
-        system: buildAdminPrompt(customPrompt),
-        tools: [...AI_TOOLS, CLARIFY_TOOL] as any,
-        tool_choice: isFirstCall ? { type: 'any' } : { type: 'auto' },
+        tools,
+        tool_choice: isFirst ? 'required' : 'auto',
         messages: currentMessages,
-      } as any)
-      isFirstCall = false
+      })
+      isFirst = false
 
-      if (response.stop_reason === 'end_turn') {
-        const textBlock = response.content.find(b => b.type === 'text')
-        const reply = textBlock && textBlock.type === 'text' ? textBlock.text : ''
-        return NextResponse.json({ reply, remaining })
+      const choice = response.choices[0]
+
+      if (choice.finish_reason === 'stop') {
+        return NextResponse.json({ reply: choice.message.content ?? '', remaining })
       }
 
-      if (response.stop_reason === 'tool_use') {
-        const clarifyBlock = response.content.find(
-          b => b.type === 'tool_use' && b.name === 'ask_clarification'
-        )
-        if (clarifyBlock && clarifyBlock.type === 'tool_use') {
-          const { question, options } = clarifyBlock.input as { question: string; options: string[] }
-          return NextResponse.json({ clarify: true, question, options, remaining })
+      if (choice.finish_reason === 'tool_calls') {
+        const clarifyCall = choice.message.tool_calls?.find(tc => tc.function.name === 'ask_clarification')
+        if (clarifyCall) {
+          const input = JSON.parse(clarifyCall.function.arguments)
+          return NextResponse.json({ clarify: true, question: input.question, options: input.options, remaining })
         }
 
-        // Add assistant's response (with tool calls) to the conversation
-        currentMessages.push({ role: 'assistant', content: response.content as any })
+        currentMessages.push(choice.message)
 
-        // Execute all tool calls in parallel
-        const toolResults = await Promise.all(
-          response.content
-            .filter(b => b.type === 'tool_use')
-            .map(async b => {
-              if (b.type !== 'tool_use') return null
-              const result = await executeAITool(b.name, b.input as Record<string, unknown>, cargoId)
-              return {
-                type: 'tool_result' as const,
-                tool_use_id: b.id,
-                content: result,
-              }
-            })
-        )
-
-        currentMessages.push({
-          role: 'user',
-          content: [
-            ...toolResults.filter(Boolean),
-            { type: 'text', text: 'Дээрх өгөгдөлд байгаа зүйлийг л хэл. Өөр юм нэмэхгүй.' },
-          ] as any,
-        })
+        for (const toolCall of choice.message.tool_calls ?? []) {
+          const input = JSON.parse(toolCall.function.arguments)
+          const result = await executeAITool(toolCall.function.name, input, cargoId)
+          currentMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: result })
+        }
         continue
       }
 
-      // Unexpected stop reason
       break
     }
 
-    return NextResponse.json({ reply: 'Алдаа гарлаа. Дахин оролдоно уу.' })
+    return NextResponse.json({ reply: 'Алдаа гарлаа. Дахин оролдоно уу.', remaining })
   } catch (err: any) {
-    console.error('AI route error:', err)
+    console.error('Admin AI error:', err)
     return NextResponse.json({ error: 'AI алдаа гарлаа' }, { status: 500 })
   }
 }

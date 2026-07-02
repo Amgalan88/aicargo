@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.55.0",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "@types/pg": "^8.18.0",
@@ -18,13 +19,13 @@
     "jsonwebtoken": "^9.0.3",
     "next": "16.1.6",
     "nodemailer": "^8.0.1",
+    "openai": "^6.45.0",
     "pg": "^8.20.0",
     "prisma": "^7.4.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.9.3",
-    "xlsx": "^0.18.5",
-    "@anthropic-ai/sdk": "^0.55.0"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
