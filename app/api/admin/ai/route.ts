@@ -39,21 +39,24 @@ function toOpenAITools(tools: any[]) {
   }))
 }
 
-const DEFAULT_ADMIN_PROMPT = `Чи карго компанийн админд туслах AI юм.
+const DEFAULT_ADMIN_PROMPT = `Чи карго компанийн админд туслах ЗАДЛАН ШИНЖИЛГЭЭНИЙ AI туслах юм.
+
+Гол үүрэг: тоон дүгнэлт, статистик, чиг хандлага гаргах (нийт тоо, статусаар задаргаа, орлого, удаан гацсан ачаа, идэвхтэй/өндөр дүнтэй хэрэглэгч).
 
 Эх сурвалж: зөвхөн tool-оос ирсэн өгөгдөл. Таамаглах, нэмэх, зохиохыг хатуу хориглоно. Байхгүй бол "Мэдэгдэхгүй байна" гэж хэл.
-Tool дуудаад үр дүн авсны дараа ЗААВАЛ монголоор текстэн хариулт бич.
+Tool дуудаад үр дүн авсны дараа ЗААВАЛ монголоор богино текстэн хариулт бич.
 
-Тодруулга шаардлагатай үед (ask_clarification):
-- Утасны дугаар эсвэл нэрээр хайхад статус тодорхойгүй бол → "Ямар ачааг харах вэ?" — Бүх ачаа / Дарханд ирсэн / Эрээнд ирсэн / Авсан
-- "ирсэн" гэхэд Дарханд ирсэн эсвэл Эрээнд ирсэн тодорхойгүй бол → тодруул
-- Асуулт огт тодорхойгүй бол → ask_clarification (2-3 сонголт)
+Ачаа/хэрэглэгч ХАЙХ (утас, нэр, трак код):
+- Жагсаалтыг битгий нэг нэгээр нь бич. Оронд нь ДҮГНЭЛТ хэл: нийт хэдэн ачаа, статусаар задаргаа, нийт үнэ.
+- tool-ийн үр дүнд link байвал "дэлгэрэнгүйг доорх холбоосоор үзнэ үү" гэж товч хэл. Холбоосыг өөрөө бүү бич — систем автоматаар товч харуулна.
+
+ask_clarification: зөвхөн асуулт ОГТ ойлгогдохгүй үед (2-3 сонголт). Энгийн хайлт/статистикт бүү тодруул.
 
 Хариултын хэлбэр — ЗААВАЛ ДАГАХ:
 - Хамгийн богино байх. 1-2 өгүүлбэр хангалттай бол илүү бичихгүй.
 - Тоон өгөгдөл: зөвхөн тоо+нэр, тайлбаргүй.
-- Жагсаалт: "trackCode — статус — нэр" форматаар мөр бүрт нэг зүйл.
-- Markdown, **, хүснэгт, тайлбар огт хэрэглэхгүй.
+- Ранк жагсаалт (топ хэрэглэгч, удаан гацсан): "нэр — утга" форматаар мөр бүрт нэг зүйл.
+- Markdown, **, хүснэгт, урт тайлбар огт хэрэглэхгүй.
 - Статус: REGISTERED→бүртгүүлсэн, EREEN_ARRIVED→Эрээнд ирсэн, ARRIVED→ирсэн, PICKED_UP→олгосон.
 - Огноо: "6/25" гэж товчлон хэл.`
 
@@ -98,6 +101,7 @@ export async function POST(req: NextRequest) {
   try {
     let isFirst = true
     let toolsExecuted = false
+    let capturedLink: { label: string; href: string } | null = null
     while (true) {
       const response = await openai.chat.completions.create({
         model: MODEL,
@@ -112,7 +116,7 @@ export async function POST(req: NextRequest) {
 
       if (choice.finish_reason === 'stop' || choice.finish_reason === 'length') {
         const reply = choice.message.content || 'Өгөгдөл олдсонгүй.'
-        return NextResponse.json({ reply, remaining })
+        return NextResponse.json({ reply, ...(capturedLink ? { link: capturedLink } : {}), remaining })
       }
 
       if (choice.finish_reason === 'tool_calls') {
@@ -129,6 +133,10 @@ export async function POST(req: NextRequest) {
         for (const toolCall of fnCalls) {
           const input = JSON.parse(toolCall.function.arguments)
           const result = await executeAITool(toolCall.function.name, input, cargoId)
+          try {
+            const parsed = JSON.parse(result)
+            if (parsed?.link?.href) capturedLink = parsed.link
+          } catch {}
           currentMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: result })
         }
         toolsExecuted = true

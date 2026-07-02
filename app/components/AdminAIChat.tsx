@@ -1,20 +1,21 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import { AIAvatar } from './AIAvatar'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
   clarify?: { question: string; options: string[] }
+  link?: { label: string; href: string }
 }
 
 const ACTIONS = [
   { label: '📊 Нийт статистик', prompt: 'Нийт ачааны статистик харуул' },
   { label: '📅 7 хоногийн тайлан', prompt: 'Сүүлийн 7 хоногт ирсэн ачааны өдрийн тоог харуул' },
-  { label: '🚛 Эрээнд ирсэн ачаа', prompt: 'Эрээнд ирсэн бүх ачааны жагсаалтыг харуул' },
-  { label: '⏳ Удаан хүлээлгэж байгаа ачаа', prompt: 'get_oldest_pending_shipments дуудаж хамгийн удаан нэг статуст байгаа 20 ачааны мэдээлэл болон нийт үнийн дүнг харуул' },
-  { label: '👑 Хамгийн идэвхтэй хэрэглэгчид', prompt: 'get_most_active_users дуудаж нийт хэрэглэгчийн тоо болон сүүлийн 3 сард хамгийн идэвхтэй 20 хэрэглэгчийн жагсаалтыг харуул' },
-  { label: '💰 Хамгийн өндөр дүнтэй хэрэглэгчид', prompt: 'get_top_value_users дуудаж карго авсан төлөвт байгаа хамгийн өндөр үнийн дүнтэй 20 хэрэглэгчийн жагсаалтыг харуул' },
+  { label: '⏳ Удаан гацсан ачаа', prompt: 'get_oldest_pending_shipments дуудаж хамгийн удаан нэг статуст байгаа ачаа болон нийт үнийн дүнг харуул' },
+  { label: '👑 Хамгийн идэвхтэй хэрэглэгчид', prompt: 'get_most_active_users дуудаж нийт хэрэглэгчийн тоо болон сүүлийн 3 сард хамгийн идэвхтэй хэрэглэгчдийг харуул' },
+  { label: '💰 Хамгийн өндөр дүнтэй хэрэглэгчид', prompt: 'get_top_value_users дуудаж хамгийн өндөр үнийн дүнтэй хэрэглэгчдийг харуул' },
 ]
 
 export default function AdminAIChat() {
@@ -70,7 +71,11 @@ export default function AdminAIChat() {
         }])
         if (data.remaining !== undefined) setRemaining(data.remaining)
       } else if (res.ok && data.reply !== undefined) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Хариулт хоосон байна.' }])
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: data.reply || 'Хариулт хоосон байна.',
+          ...(data.link ? { link: data.link } : {}),
+        }])
         if (data.remaining !== undefined) setRemaining(data.remaining)
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Алдаа гарлаа. Дахин оролдоно уу.' }])
@@ -208,6 +213,20 @@ export default function AdminAIChat() {
                     </button>
                   ))}
                 </div>
+              )}
+              {msg.link && (
+                <Link
+                  href={msg.link.href}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 7,
+                    background: 'var(--accent)', color: '#fff',
+                    borderRadius: 10, padding: '8px 14px',
+                    fontSize: '0.83rem', fontWeight: 600, textDecoration: 'none',
+                    boxShadow: '0 1px 6px rgba(201,100,66,0.22)',
+                  }}
+                >
+                  {msg.link.label} →
+                </Link>
               )}
             </div>
           </div>

@@ -14,7 +14,7 @@ export const AI_TOOLS = [
   },
   {
     name: 'search_shipments',
-    description: 'Ачаа хайх — трак код, утасны дугаар, эсвэл нэрээр. Хамгийн ихдээ 20 үр дүн буцаана.',
+    description: 'Ачааг трак код, утас, нэрээр хайж ДҮГНЭЛТ гаргана (нийт тоо, статусаар задаргаа, нийт үнэ). Жагсаалт буцаахгүй — дэлгэрэнгүйг харах холбоос буцаана.',
     input_schema: {
       type: 'object',
       properties: {
@@ -30,7 +30,7 @@ export const AI_TOOLS = [
   },
   {
     name: 'get_shipments_by_status',
-    description: 'Тодорхой статустай ачааны жагсаалт авах. Хамгийн ихдээ 50 ачаа буцаана.',
+    description: 'Тодорхой статустай ачааны НИЙТ ТОО-г буцаана. Жагсаалт биш — дэлгэрэнгүйг харах хуудасны холбоос буцаана.',
     input_schema: {
       type: 'object',
       properties: {
@@ -39,7 +39,6 @@ export const AI_TOOLS = [
           enum: ['REGISTERED', 'EREEN_ARRIVED', 'ARRIVED', 'PICKED_UP'],
           description: 'Ачааны статус',
         },
-        limit: { type: 'number', description: 'Хэдэн ачаа авах (1-50, өгөгдмөл 20)' },
       },
       required: ['status'],
     },
@@ -98,12 +97,10 @@ export const AI_TOOLS = [
   },
   {
     name: 'get_ereen_arrived_details',
-    description: 'Эрээнд ирсэн (EREEN_ARRIVED) ачааны жагсаалт — Монголд удахгүй ирэх ачаа',
+    description: 'Эрээнд ирсэн (EREEN_ARRIVED) ачааны НИЙТ ТОО-г буцаана. Жагсаалт биш — дэлгэрэнгүйг харах холбоос буцаана.',
     input_schema: {
       type: 'object',
-      properties: {
-        limit: { type: 'number', description: 'Хэдэн ачаа авах (1-50, өгөгдмөл 20)' },
-      },
+      properties: {},
       required: [],
     },
   },
@@ -179,42 +176,59 @@ export async function executeAITool(
         ]
         const shipments = await prisma.shipment.findMany({
           where,
-          take: 20,
-          orderBy: { updatedAt: 'desc' },
           select: {
-            id: true,
-            trackCode: true,
             status: true,
-            description: true,
+            adminPrice: true,
             phone: true,
-            adminNote: true,
-            archived: true,
-            createdAt: true,
-            user: { select: { name: true, phone: true } },
+            user: { select: { name: true } },
           },
         })
-        return JSON.stringify(shipments)
+        const byStatus: Record<string, number> = {}
+        let totalValue = 0
+        const names = new Set<string>()
+        const phones = new Set<string>()
+        for (const s of shipments) {
+          byStatus[s.status] = (byStatus[s.status] ?? 0) + 1
+          totalValue += s.adminPrice ? Number(s.adminPrice) : 0
+          if (s.user?.name) names.add(s.user.name)
+          if (s.phone) phones.add(s.phone)
+        }
+        const isPhone = /^\d{6,}$/.test(query)
+        const linkPhone = isPhone ? query : (phones.size === 1 ? Array.from(phones)[0] : null)
+        const link = linkPhone
+          ? { label: 'Тайлангаас дэлгэрэнгүй харах', href: `/admin/report?phone=${encodeURIComponent(linkPhone)}` }
+          : null
+        return JSON.stringify({
+          summary: {
+            query,
+            count: shipments.length,
+            byStatus,
+            totalValue,
+            names: Array.from(names).slice(0, 5),
+          },
+          ...(link ? { link } : {}),
+        })
       }
 
       case 'get_shipments_by_status': {
         const status = String(toolInput.status)
-        const limit = Math.min(50, Math.max(1, Number(toolInput.limit ?? 20)))
-        const shipments = await prisma.shipment.findMany({
+        const count = await prisma.shipment.count({
           where: { cargoId, status: status as any, archived: false },
-          take: limit,
-          orderBy: { updatedAt: 'desc' },
-          select: {
-            id: true,
-            trackCode: true,
-            description: true,
-            phone: true,
-            adminNote: true,
-            createdAt: true,
-            updatedAt: true,
-            user: { select: { name: true, phone: true } },
-          },
         })
-        return JSON.stringify(shipments)
+        const pageMap: Record<string, string> = {
+          REGISTERED: '/admin/registered',
+          EREEN_ARRIVED: '/admin/import',
+          ARRIVED: '/admin/arrived',
+          PICKED_UP: '/admin/history',
+        }
+        const labelMap: Record<string, string> = {
+          REGISTERED: 'Бүртгүүлсэн', EREEN_ARRIVED: 'Эрээнд ирсэн', ARRIVED: 'Ирсэн', PICKED_UP: 'Олгосон',
+        }
+        const href = pageMap[status]
+        return JSON.stringify({
+          summary: { status, count },
+          ...(href ? { link: { label: `${labelMap[status] ?? status} ачаа харах`, href } } : {}),
+        })
       }
 
       case 'get_recent_shipments': {
@@ -256,7 +270,10 @@ export async function executeAITool(
             _count: { select: { shipments: true } },
           },
         })
-        return JSON.stringify(users)
+        const link = users.length === 1 && users[0].phone
+          ? { label: `${users[0].name}-ийн тайлан харах`, href: `/admin/report?phone=${encodeURIComponent(users[0].phone)}` }
+          : null
+        return JSON.stringify({ users, ...(link ? { link } : {}) })
       }
 
       case 'get_cargo_info': {
@@ -315,20 +332,13 @@ export async function executeAITool(
       }
 
       case 'get_ereen_arrived_details': {
-        const limit = Math.min(50, Math.max(1, Number(toolInput.limit ?? 20)))
-        const shipments = await prisma.shipment.findMany({
+        const count = await prisma.shipment.count({
           where: { cargoId, status: 'EREEN_ARRIVED', archived: false },
-          take: limit,
-          orderBy: { updatedAt: 'desc' },
-          select: {
-            id: true,
-            trackCode: true,
-            description: true,
-            updatedAt: true,
-            user: { select: { name: true, phone: true } },
-          },
         })
-        return JSON.stringify(shipments)
+        return JSON.stringify({
+          summary: { status: 'EREEN_ARRIVED', count },
+          link: { label: 'Эрээнд ирсэн ачаа харах', href: '/admin/import' },
+        })
       }
 
       case 'get_arrival_stats_by_date': {

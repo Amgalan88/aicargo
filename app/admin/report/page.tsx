@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 interface Shipment {
   id: number; trackCode: string; phone: string | null
@@ -12,7 +13,8 @@ interface ReportData {
   totalValue: number
 }
 
-export default function ReportPage() {
+function ReportPageInner() {
+  const searchParams = useSearchParams()
   const [phone, setPhone] = useState('')
   const [filterDate, setFilterDate] = useState('')
   const [data, setData] = useState<ReportData | null>(null)
@@ -21,8 +23,8 @@ export default function ReportPage() {
   const [page, setPage] = useState(1)
   const PAGE = 10
 
-  async function search() {
-    const ph = phone.trim()
+  async function search(override?: string) {
+    const ph = (override ?? phone).trim()
     if (!ph) return
     setLoading(true)
     setData(null)
@@ -34,6 +36,13 @@ export default function ReportPage() {
     setLoading(false)
     if (res.ok) setData(await res.json())
   }
+
+  // AI туслахаас ирсэн deep-link: ?phone=... байвал автоматаар хайна
+  useEffect(() => {
+    const p = searchParams.get('phone')?.trim()
+    if (p) { setPhone(p); search(p) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const filteredDates = data
     ? filterDate
@@ -59,7 +68,7 @@ export default function ReportPage() {
           onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
           onKeyDown={e => e.key === 'Enter' && search()}
         />
-        <button className="btn" onClick={search} disabled={loading || !phone.trim()} style={{ flexShrink: 0 }}>
+        <button className="btn" onClick={() => search()} disabled={loading || !phone.trim()} style={{ flexShrink: 0 }}>
           {loading ? '...' : 'Хайх'}
         </button>
       </div>
@@ -160,5 +169,13 @@ export default function ReportPage() {
         </>
       )}
     </div>
+  )
+}
+
+export default function ReportPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReportPageInner />
+    </Suspense>
   )
 }
