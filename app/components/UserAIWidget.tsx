@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { AIAvatar } from './AIAvatar'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -264,6 +265,20 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
             </div>
           </div>
 
+          {!AI_SUPPORT_ENABLED ? (
+            <div style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              gap: 10, padding: '2rem 1.5rem', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '2.2rem' }}>✨</div>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>Тун удахгүй</div>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.5 }}>
+                AI туслах одоогоор сайжруулалт хийгдэж байна. Удахгүй эргэн ажиллах болно.
+              </p>
+            </div>
+          ) : (
+          <>
           {/* Messages */}
           <div style={{
             flex: 1, overflowY: 'auto',
@@ -438,6 +453,8 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
               </button>
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
     </>
