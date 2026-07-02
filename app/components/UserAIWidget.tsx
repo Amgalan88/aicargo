@@ -117,11 +117,11 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
           clarify: { question: data.question, options: data.options },
         }])
         if (data.remaining !== undefined) setRemaining(data.remaining)
-      } else if (res.ok && data.reply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
+      } else if (res.ok && data.reply !== undefined) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Хариулт хоосон байна.' }])
         if (data.remaining !== undefined) setRemaining(data.remaining)
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Алдаа гарлаа. Дахин оролдоно уу.' }])
+        setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Алдаа гарлаа. Дахин оролдоно уу.' }])
       }
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Холболтын алдаа гарлаа.' }])

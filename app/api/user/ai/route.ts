@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     while (true) {
       const response = await openai.chat.completions.create({
         model: MODEL,
-        max_completion_tokens: 400,
+        max_completion_tokens: 800,
         tools,
         tool_choice: isFirst ? 'required' : 'auto',
         messages: currentMessages,
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
 
       const choice = response.choices[0]
 
-      if (choice.finish_reason === 'stop') {
+      if (choice.finish_reason === 'stop' || choice.finish_reason === 'length') {
         return NextResponse.json({ reply: choice.message.content ?? '', remaining })
       }
 
