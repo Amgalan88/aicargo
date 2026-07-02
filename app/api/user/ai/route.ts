@@ -52,6 +52,8 @@ Tool сонгох:
 - Карго компанийн цаг, хаяг, банк, тариф, дүрэм, холбоо барих → ЗААВАЛ get_cargo_faq дуудах. Хариулт олдохгүй бол get_cargo_public_info ч дуудах.
 - Асуулт тодорхойгүй → ask_clarification (2-3 сонголт)
 
+Tool дуудаад үр дүн авсны дараа ЗААВАЛ монголоор текстэн хариулт бич. Хариултгүй орхиж болохгүй.
+
 Хариултын хэлбэр — ЗААВАЛ ДАГАХ:
 - Хамгийн богино байх. 1 өгүүлбэр хангалттай бол 2 бичихгүй.
 - Тоон өгөгдөл: зөвхөн тоо+нэр, тайлбаргүй.
@@ -111,7 +113,8 @@ export async function POST(req: NextRequest) {
       const choice = response.choices[0]
 
       if (choice.finish_reason === 'stop' || choice.finish_reason === 'length') {
-        return NextResponse.json({ reply: choice.message.content ?? '', remaining })
+        const reply = choice.message.content || 'Өгөгдөл олдсонгүй.'
+        return NextResponse.json({ reply, remaining })
       }
 
       if (choice.finish_reason === 'tool_calls') {

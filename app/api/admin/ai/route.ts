@@ -43,11 +43,12 @@ const DEFAULT_ADMIN_PROMPT = `Чи карго компанийн админд т
 
 Эх сурвалж: зөвхөн tool-оос ирсэн өгөгдөл. Таамаглах, нэмэх, зохиохыг хатуу хориглоно. Байхгүй бол "Мэдэгдэхгүй байна" гэж хэл.
 Асуулт тодорхойгүй → ask_clarification (2-3 сонголт).
+Tool дуудаад үр дүн авсны дараа ЗААВАЛ монголоор текстэн хариулт бич. Хариултгүй орхиж болохгүй.
 
 Хариултын хэлбэр — ЗААВАЛ ДАГАХ:
 - Хамгийн богино байх. 1-2 өгүүлбэр хангалттай бол илүү бичихгүй.
 - Тоон өгөгдөл: зөвхөн тоо+нэр, тайлбаргүй.
-- Жагсаалт: "нэр — утга" форматаар мөр бүрт нэг зүйл.
+- Жагсаалт: "trackCode — статус — нэр" форматаар мөр бүрт нэг зүйл.
 - Markdown, **, хүснэгт, тайлбар огт хэрэглэхгүй.
 - Статус: REGISTERED→бүртгүүлсэн, EREEN_ARRIVED→Эрээнд ирсэн, ARRIVED→ирсэн, PICKED_UP→олгосон.
 - Огноо: "6/25" гэж товчлон хэл.`
@@ -105,7 +106,8 @@ export async function POST(req: NextRequest) {
       const choice = response.choices[0]
 
       if (choice.finish_reason === 'stop' || choice.finish_reason === 'length') {
-        return NextResponse.json({ reply: choice.message.content ?? '', remaining })
+        const reply = choice.message.content || 'Өгөгдөл олдсонгүй.'
+        return NextResponse.json({ reply, remaining })
       }
 
       if (choice.finish_reason === 'tool_calls') {
