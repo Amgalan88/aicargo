@@ -36,7 +36,7 @@ export default function SuperNav() {
 
   return (
     <header>
-      <div className="header-accent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 5%', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+      <div className="header-accent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.7rem 5%', minHeight: 56, boxSizing: 'border-box', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         <Link href="/super"><NavLogo /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
           <span style={{
