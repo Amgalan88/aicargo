@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
+import { uploadLogo } from '@/lib/cloudinary'
 import { validateSlug, TRIAL_DAYS } from '@/lib/cargo-signup'
 
 export async function POST(req: NextRequest) {
@@ -10,6 +11,7 @@ export async function POST(req: NextRequest) {
     adminName?: string; phone?: string; email?: string; password?: string
     code?: string
     aiEnabled?: boolean; searchByPhone?: boolean; notificationsEnabled?: boolean
+    logoBase64?: string
   }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
@@ -77,6 +79,16 @@ export async function POST(req: NextRequest) {
   })
 
   await prisma.otp.update({ where: { id: otp.id }, data: { used: true } })
+
+  // Лого оруулсан бол Cloudinary-д байршуулна — бүтэлгүйтвэл бүртгэлийг унагахгүй
+  if (body.logoBase64) {
+    try {
+      const logoUrl = await uploadLogo(body.logoBase64, result.cargo.slug)
+      await prisma.cargo.update({ where: { id: result.cargo.id }, data: { logoUrl } })
+    } catch (err) {
+      console.error('Signup logo upload failed:', err)
+    }
+  }
 
   // Шууд нэвтрүүлнэ
   const token = signToken({

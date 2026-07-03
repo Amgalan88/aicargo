@@ -42,7 +42,18 @@ export default function SignupCargoClient() {
   const [loading, setLoading] = useState(false)
   const [otp, setOtp] = useState('')
   const [doneSlug, setDoneSlug] = useState('')
+  const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const slugTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 3 * 1024 * 1024) { setError('Лого 3MB-аас бага байх ёстой'); return }
+    setError('')
+    const reader = new FileReader()
+    reader.onload = ev => setLogoBase64(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
 
   function set<K extends keyof Form>(k: K, v: Form[K]) {
     setForm(f => ({ ...f, [k]: v }))
@@ -98,7 +109,7 @@ export default function SignupCargoClient() {
       const res = await fetch('/api/signup-cargo/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, code: otp }),
+        body: JSON.stringify({ ...form, code: otp, logoBase64 }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
@@ -151,6 +162,23 @@ export default function SignupCargoClient() {
                    slugStatus === 'taken' ? `✗ ${slugMsg}` : ''}
                 </p>
               )}
+            </div>
+
+            <div className="form-group">
+              <label>Лого <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(заавал биш — дараа нэмж болно)</span></label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {logoBase64 && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoBase64} alt="logo" style={{
+                    width: 44, height: 44, borderRadius: 10, objectFit: 'cover',
+                    border: '1px solid var(--border)', flexShrink: 0,
+                  }} />
+                )}
+                <input type="file" accept="image/*" onChange={handleLogo} style={{ fontSize: '0.82rem' }} />
+              </div>
+              <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.3rem' }}>
+                Вэб хаяг, апп-ын икон болон нүүр хуудсанд харагдана
+              </p>
             </div>
 
             <hr className="divider" />

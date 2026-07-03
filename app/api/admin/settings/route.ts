@@ -19,11 +19,15 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { tariff, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel } = await req.json()
+  const { tariff, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress } = await req.json()
 
   const cargo = await (prisma.cargo as any).update({
     where: { id: admin.cargoId! },
     data: {
+      ...(ereemReceiver !== undefined ? { ereemReceiver: String(ereemReceiver).trim() } : {}),
+      ...(ereemPhone !== undefined ? { ereemPhone: String(ereemPhone).trim() } : {}),
+      ...(ereemRegion !== undefined ? { ereemRegion: String(ereemRegion).trim() } : {}),
+      ...(ereemAddress !== undefined ? { ereemAddress: String(ereemAddress).trim() } : {}),
       ...(tariff !== undefined ? { tariff: tariff || null } : {}),
       ...(announcement !== undefined ? { announcement: announcement || null } : {}),
       ...(contactInfo !== undefined ? { contactInfo: contactInfo || null } : {}),

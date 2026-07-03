@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 
 export default function SettingsPage() {
-  const [form, setForm] = useState({ tariff: '', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '' })
-  const [cargo, setCargo] = useState<{ name: string; ereemReceiver: string; ereemPhone: string; ereemRegion: string; ereemAddress: string } | null>(null)
+  const [form, setForm] = useState({ tariff: '', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '' })
+  const [cargo, setCargo] = useState<{ name: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -13,7 +13,7 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(d => {
         setCargo(d)
-        setForm({ tariff: d.tariff ?? '', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '' })
+        setForm({ tariff: d.tariff ?? '', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '' })
         setLoading(false)
       })
   }, [])
@@ -40,14 +40,33 @@ export default function SettingsPage() {
         {cargo && <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.3rem' }}>{cargo.name}</p>}
       </div>
 
-      {/* Ereen address (read-only, managed by super admin) */}
-      <div className="card" style={{ padding: '1.1rem 1.25rem', marginBottom: '1rem' }}>
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Эрээний хаяг (super admin тохируулна)</p>
-        <div style={{ fontSize: '0.85rem', lineHeight: 2, color: 'var(--text)' }}>
-          <div>收货人: <strong>{cargo?.ereemReceiver}</strong></div>
-          <div>手机号: <strong>{cargo?.ereemPhone}</strong></div>
-          {cargo?.ereemRegion && <div>地区: <strong>{cargo.ereemRegion}</strong></div>}
-          <div>地址: <strong>{cargo?.ereemAddress}</strong></div>
+      {/* Ereen address — админ өөрөө тохируулна */}
+      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Эрээний хаяг</p>
+        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+          Хэрэглэгчид тань Хятадаас бараа захиалахдаа энэ хаягийг ашиглана. Нүүр хуудсанд хуулах товчтой харагдана.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label>收货人 (Хүлээн авагчийн нэр)</label>
+            <input className="input" placeholder="жш: 王明" value={form.ereemReceiver}
+              onChange={e => setForm(f => ({ ...f, ereemReceiver: e.target.value }))} />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label>手机号 (Утас)</label>
+            <input className="input" placeholder="жш: 15848201234" value={form.ereemPhone}
+              onChange={e => setForm(f => ({ ...f, ereemPhone: e.target.value }))} />
+          </div>
+        </div>
+        <div className="form-group" style={{ marginTop: '0.75rem' }}>
+          <label>地区 (Бүс) <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(· тэмдгээр тусгаарлана, жш: 内蒙古 · 锡林郭勒盟 · 二连浩特市)</span></label>
+          <input className="input" placeholder="内蒙古 · 锡林郭勒盟 · 二连浩特市" value={form.ereemRegion}
+            onChange={e => setForm(f => ({ ...f, ereemRegion: e.target.value }))} />
+        </div>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label>详细地址 (Дэлгэрэнгүй хаяг)</label>
+          <input className="input" placeholder="жш: XX小区 X号楼 XXX" value={form.ereemAddress}
+            onChange={e => setForm(f => ({ ...f, ereemAddress: e.target.value }))} />
         </div>
       </div>
 
