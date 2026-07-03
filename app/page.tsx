@@ -19,11 +19,28 @@ export default async function Home() {
   if (cargo) return <LandingClient cargo={cargo} />
 
   // Үндсэн домэйн — карго компанид зориулсан танилцуулга хуудас
-  const [cargos, users, shipments] = await Promise.all([
+  const [cargos, users, shipments, partnerCargos, warehouses] = await Promise.all([
     prisma.cargo.count(),
     prisma.user.count({ where: { role: 'USER' } }),
     prisma.shipment.count(),
+    // Итгэл төрүүлэх: төлбөр идэвхтэй + логотой каргонууд
+    prisma.cargo.findMany({
+      where: { logoUrl: { not: null }, paidUntil: { gte: new Date() } },
+      select: { id: true, name: true, logoUrl: true },
+      orderBy: { id: 'asc' },
+      take: 12,
+    }),
+    (prisma as any).partnerWarehouse.findMany({
+      where: { active: true },
+      orderBy: [{ order: 'asc' }, { id: 'asc' }],
+    }),
   ])
 
-  return <MarketingLanding stats={{ cargos, users, shipments }} />
+  return (
+    <MarketingLanding
+      stats={{ cargos, users, shipments }}
+      partnerCargos={JSON.parse(JSON.stringify(partnerCargos))}
+      warehouses={JSON.parse(JSON.stringify(warehouses))}
+    />
+  )
 }

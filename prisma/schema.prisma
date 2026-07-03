@@ -154,6 +154,19 @@ model SuperBannerDismiss {
   @@unique([superBannerId, userId])
 }
 
+model PartnerWarehouse {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  phone       String?
+  wechat      String?
+  address     String?
+  imageUrl    String?
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
 model AiConfig {
   id          Int    @id @default(1)
   userPrompt  String @default("")

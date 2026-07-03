@@ -25,8 +25,38 @@ const STEPS = [
   { n: '3', title: 'Хэрэглэгчдээ урь', desc: 'Линкээ хуваалц — хэрэглэгчид өөрсдөө бүртгүүлж, ачаагаа хянана.' },
 ]
 
-export default function MarketingLanding({ stats }: {
+interface PartnerCargo { id: number; name: string; logoUrl: string | null }
+interface Warehouse {
+  id: number; name: string; description: string | null
+  phone: string | null; wechat: string | null; address: string | null
+  imageUrl: string | null
+}
+
+function CopyChip({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <button onClick={copy} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      background: 'var(--surface2)', border: '1px solid var(--border)',
+      borderRadius: 6, padding: '0.2rem 0.55rem', cursor: 'pointer',
+      fontSize: '0.74rem', color: copied ? 'var(--green)' : 'var(--text)',
+      fontFamily: 'inherit',
+    }}>
+      <span style={{ color: 'var(--muted)' }}>{label}</span>
+      {copied ? '✓ Хуулагдлаа' : value}
+    </button>
+  )
+}
+
+export default function MarketingLanding({ stats, partnerCargos = [], warehouses = [] }: {
   stats: { cargos: number; users: number; shipments: number }
+  partnerCargos?: PartnerCargo[]
+  warehouses?: Warehouse[]
 }) {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<any>(null)
@@ -56,6 +86,7 @@ export default function MarketingLanding({ stats }: {
         <NavLogo />
         <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Link href="/login">Нэвтрэх</Link>
+          <Link href="/register">Бүртгүүлэх</Link>
           <Link href="/signup-cargo" className="btn" style={{ padding: '0.5rem 1rem', fontSize: '0.82rem' }}>
             Карго нээх
           </Link>
@@ -108,6 +139,35 @@ export default function MarketingLanding({ stats }: {
             ))}
           </div>
         </section>
+
+        {/* ── ИТГЭЛ: түншлэгч каргонуудын лого ── */}
+        {partnerCargos.length > 0 && (
+          <section style={{ padding: '1.5rem 5% 2rem', maxWidth: 860, margin: '0 auto' }}>
+            <p style={{
+              textAlign: 'center', fontSize: '0.72rem', fontWeight: 700,
+              color: 'var(--muted)', textTransform: 'uppercase',
+              letterSpacing: '0.08em', marginBottom: '1rem',
+            }}>
+              Эдгээр карго компаниуд ашиглаж байна
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+              {partnerCargos.map(c => (
+                <div key={c.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.45rem 0.9rem', background: 'var(--surface)',
+                  border: '1px solid var(--border)', borderRadius: 100,
+                }}>
+                  {c.logoUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.logoUrl} alt={c.name} width={22} height={22}
+                      style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.name}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── FEATURES ── */}
         <section style={{ padding: '2.5rem 5%', background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
@@ -211,6 +271,55 @@ export default function MarketingLanding({ stats }: {
             )}
           </div>
         </section>
+
+        {/* ── ЭРЭЭНИЙ ТҮНШЛЭГЧ АГУУЛАХУУД ── */}
+        {warehouses.length > 0 && (
+          <section style={{ padding: '2.5rem 5%', borderTop: '1px solid var(--border)' }}>
+            <div style={{ maxWidth: 860, margin: '0 auto' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.4rem' }}>
+                🇨🇳 Эрээний түншлэгч агуулахууд
+              </h2>
+              <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.75rem' }}>
+                Хамтран ажилладаг, найдвартай агуулахууд — шууд холбогдоорой
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+                {warehouses.map(w => (
+                  <div key={w.id} style={{
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)', overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column',
+                  }}>
+                    {w.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={w.imageUrl} alt={w.name}
+                        style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                      <div style={{
+                        width: '100%', height: 150, background: 'var(--surface2)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.2rem',
+                      }}>🏭</div>
+                    )}
+                    <div style={{ padding: '0.9rem 1rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.45rem', flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{w.name}</div>
+                      {w.description && (
+                        <div style={{ fontSize: '0.79rem', color: 'var(--muted)', lineHeight: 1.55 }}>{w.description}</div>
+                      )}
+                      {w.address && (
+                        <div style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>📍 {w.address}</div>
+                      )}
+                      {(w.phone || w.wechat) && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: 'auto', paddingTop: '0.3rem' }}>
+                          {w.phone && <CopyChip label="📞" value={w.phone} />}
+                          {w.wechat && <CopyChip label="WeChat:" value={w.wechat} />}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ── FINAL CTA ── */}
         <section style={{ padding: '3rem 5%', textAlign: 'center', borderTop: '1px solid var(--border)' }}>

@@ -24,4 +24,13 @@ export async function uploadBannerImage(base64: string, publicId: string): Promi
   return result.secure_url
 }
 
+export async function uploadWarehouseImage(base64: string, publicId: string): Promise<string> {
+  const result = await cloudinary.uploader.upload(base64, {
+    public_id: `partner-warehouses/${publicId}`,
+    overwrite: true,
+    transformation: [{ width: 800, height: 500, crop: 'fill', quality: 'auto', fetch_format: 'auto' }],
+  })
+  return result.secure_url
+}
+
 export default cloudinary
