@@ -54,12 +54,12 @@ export default function AdminNav({
     { href: '/admin/arrived', label: arrivedLabel || 'Ирсэн' },
     { href: '/admin/handover', label: 'Ачаа олгох' },
     { href: '/admin/history', label: 'Олгосон' },
-    ...(hasGroup ? [{ href: '/admin/group-search', label: '🔍 Групп хайлт' }] : []),
+    ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт' }] : []),
     { href: '/admin/notify', label: 'Мэдэгдэл' },
     { href: '/admin/faq', label: 'FAQ' },
     { href: '/admin/users', label: 'Хэрэглэгчид' },
     { href: '/admin/settings', label: 'Тохиргоо' },
-    { href: '/admin/ai', label: '✨ AI Туслах' },
+    { href: '/admin/ai', label: 'AI Туслах' },
   ]
 
   function copyInvite() {
@@ -77,7 +77,7 @@ export default function AdminNav({
 
   return (
     <header>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 5%', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+      <div className="header-accent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 5%', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Link href="/admin/import"><NavLogo name={cargoName} logoUrl={logoUrl} /></Link>
         </div>
@@ -142,7 +142,7 @@ export default function AdminNav({
             color: copied ? 'var(--accent)' : 'var(--muted)',
             fontFamily: 'inherit', whiteSpace: 'nowrap',
           }}>
-            {copied ? '✓ Хуулагдлаа' : '🔗 Урилга'}
+            {copied ? '✓ Хуулагдлаа' : 'Урилга'}
           </button>
         )}
       </nav>

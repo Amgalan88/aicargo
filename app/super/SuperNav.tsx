@@ -7,9 +7,9 @@ import NavLogo from '@/app/components/NavLogo'
 const links = [
   { href: '/super', label: 'Карго жагсаалт' },
   { href: '/super/groups', label: 'Группүүд' },
-  { href: '/super/cross-cargo', label: '⚠ Карго зөрүү' },
-  { href: '/super/announce', label: '📢 Мэдэгдэл' },
-  { href: '/super/ai-config', label: '✨ AI Тохиргоо' },
+  { href: '/super/cross-cargo', label: 'Карго зөрүү' },
+  { href: '/super/announce', label: 'Мэдэгдэл' },
+  { href: '/super/ai-config', label: 'AI Тохиргоо' },
   { href: '/super/cargo/new', label: '+ Шинэ карго' },
 ]
 
@@ -35,7 +35,7 @@ export default function SuperNav() {
 
   return (
     <header>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 5%', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+      <div className="header-accent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 5%', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         <Link href="/super"><NavLogo /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Super Admin</span>

@@ -160,16 +160,21 @@ textarea.input { resize: vertical; }
   justify-content: space-between;
   padding: 0.9rem 5%;
   padding-top: calc(0.9rem + env(safe-area-inset-top));
+  border-top: 3px solid var(--accent);
   border-bottom: 1px solid var(--border);
   background: var(--nav-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 8px rgba(0,0,0,0.04);
   position: sticky;
   top: 0;
   z-index: 100;
   width: 100%;
   box-sizing: border-box;
 }
+
+/* Admin/Super header-ийн дээд зурвас */
+.header-accent { border-top: 3px solid var(--accent); }
 .nav-logo {
   font-size: 1.15rem;
   font-weight: 800;
@@ -297,29 +302,29 @@ textarea.input { resize: vertical; }
 .admin-nav {
   display: flex;
   align-items: center;
-  padding: 0 5%;
+  gap: 0.3rem;
+  padding: 0.55rem 5%;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   overflow-x: auto;
   flex-wrap: nowrap;
 }
 .admin-nav-link {
-  padding: 0.9rem 1.1rem;
-  font-size: 0.85rem;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.84rem;
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
+  border: none;
+  border-radius: 100px;
+  transition: color 0.15s, background 0.15s;
   cursor: pointer;
   background: none;
-  border-left: none;
-  border-right: none;
-  border-top: none;
   font-family: inherit;
 }
-.admin-nav-link:hover { color: var(--text); }
-.admin-nav-link.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.admin-nav-link:hover { color: var(--text); background: var(--surface2); }
+.admin-nav-link.active { color: #fff; background: var(--accent); font-weight: 600; }
+.admin-nav-link.active:hover { color: #fff; background: var(--accent-hover); }
 
 /* ── ADMIN FORM 2-COL GRID ── */
 .admin-form-2col {
@@ -408,8 +413,8 @@ textarea.input { resize: vertical; }
 /* Tablet (≤768px) */
 @media (max-width: 768px) {
   .page-wide { padding: 1.5rem 4%; }
-  .admin-nav { padding: 0 3%; gap: 0; }
-  .admin-nav-link { padding: 0.8rem 0.85rem; font-size: 0.82rem; }
+  .admin-nav { padding: 0.5rem 3%; gap: 0.25rem; }
+  .admin-nav-link { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
   .handover-grid { grid-template-columns: 1fr !important; }
   .arrived-grid { grid-template-columns: 1fr !important; }
 }
@@ -457,8 +462,8 @@ textarea.input { resize: vertical; }
   .section-title { font-size: 1.1rem; }
 
   /* Admin nav — wrap to 2 rows on mobile */
-  .admin-nav { padding: 0 2%; flex-wrap: wrap; overflow-x: visible; }
-  .admin-nav-link { padding: 0.55rem 0.65rem; font-size: 0.76rem; min-height: 40px; border-bottom-width: 2px; }
+  .admin-nav { padding: 0.45rem 2%; flex-wrap: wrap; overflow-x: visible; gap: 0.2rem; }
+  .admin-nav-link { padding: 0.38rem 0.7rem; font-size: 0.76rem; }
 
   /* Admin form 2-col → single col */
   .admin-form-2col { grid-template-columns: 1fr; }
