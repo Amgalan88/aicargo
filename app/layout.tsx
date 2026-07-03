@@ -43,8 +43,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="mn">
+    <html lang="mn" suppressHydrationWarning>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(t==='night'||t==='comfort')document.documentElement.dataset.theme=t}catch(e){}`,
+          }}
+        />
         <PwaRegister />
         {children}
       </body>

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import NavLogo from '@/app/components/NavLogo'
+import ThemeToggle from '@/app/components/ThemeToggle'
 
 function getPaidBadge(paidUntil?: string | null): { label: string; color: string } | null {
   if (!paidUntil) return null
@@ -112,6 +113,7 @@ export default function AdminNav({
               </div>
             )
           })()}
+          <ThemeToggle />
           <Link href="/admin/notifications" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', color: 'var(--muted)', textDecoration: 'none', fontSize: '1.1rem' }}>
             🔔
             {unread > 0 && (

@@ -7,6 +7,7 @@ import ChatWidget from '../components/ChatWidget'
 import NavLogo from '../components/NavLogo'
 import AnnouncementModal from '../components/AnnouncementModal'
 import UserAIWidget from '../components/UserAIWidget'
+import ThemeToggle from '../components/ThemeToggle'
 
 
 function getStatusLabel(arrivedLabel?: string | null, ereemLabel?: string | null): Record<string, string> {
@@ -247,6 +248,7 @@ export default function OrdersClient({
       <nav className="nav">
         <Link href="/"><NavLogo name={cargoName || undefined} logoUrl={logoUrl || undefined} /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem' }}>
+          <ThemeToggle />
           <button onClick={() => setFaqOpen(o => !o)} title="Асуулт хариулт" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 38, height: 38, borderRadius: '50%',

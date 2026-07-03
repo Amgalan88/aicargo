@@ -16,16 +16,62 @@
   --surface:  #ffffff;
   --surface2: #f0ede8;
   --border:   #e3dfd8;
+  --border-strong: #ccc8c0;
   --accent:   #c96442;
+  --accent-hover: #b5562f;
   --accent-light: #fdf0eb;
   --text:     #1c1917;
   --muted:    #8c8279;
+  --placeholder: #bbb5ac;
   --danger:   #dc2626;
   --green:    #16a34a;
   --blue:     #2563eb;
   --yellow:   #d97706;
   --radius:   10px;
   --shadow:   0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  --nav-bg:   rgba(245,244,239,0.92);
+}
+
+/* Шөнийн горим — брэндийн дулаан өнгөнд тохирсон бор-хар */
+[data-theme="night"] {
+  --bg:       #16130f;
+  --surface:  #201c17;
+  --surface2: #2a251e;
+  --border:   #3a3329;
+  --border-strong: #4a4238;
+  --accent:   #d97a53;
+  --accent-hover: #e08b66;
+  --accent-light: #33261e;
+  --text:     #ece7df;
+  --muted:    #a2988b;
+  --placeholder: #6b6257;
+  --danger:   #ef4444;
+  --green:    #22c55e;
+  --blue:     #60a5fa;
+  --yellow:   #fbbf24;
+  --shadow:   0 1px 4px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+  --nav-bg:   rgba(22,19,15,0.92);
+}
+
+/* Нүдэнд ээлтэй горим — зөөлөн сепиа, бага contrast */
+[data-theme="comfort"] {
+  --bg:       #efe8da;
+  --surface:  #f9f3e7;
+  --surface2: #e8dfcd;
+  --border:   #d8ccb4;
+  --border-strong: #c4b598;
+  --accent:   #b05e3d;
+  --accent-hover: #9d5335;
+  --accent-light: #f2e2d4;
+  --text:     #43392b;
+  --muted:    #90836f;
+  --placeholder: #b3a68e;
+  --danger:   #c2410c;
+  --green:    #4d7c0f;
+  --blue:     #1d4ed8;
+  --yellow:   #b45309;
+  --shadow:   0 1px 3px rgba(90,70,40,0.08), 0 4px 12px rgba(90,70,40,0.06);
+  --nav-bg:   rgba(239,232,218,0.92);
 }
 
 html {
@@ -65,7 +111,7 @@ a { color: inherit; text-decoration: none; }
   white-space: nowrap;
   letter-spacing: 0.01em;
 }
-.btn:hover:not(:disabled) { background: #b5562f; }
+.btn:hover:not(:disabled) { background: var(--accent-hover); }
 .btn:active:not(:disabled) { transform: scale(0.98); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -84,7 +130,7 @@ a { color: inherit; text-decoration: none; }
   transition: background 0.15s, border-color 0.15s;
   white-space: nowrap;
 }
-.btn-ghost:hover { background: var(--surface2); border-color: #ccc8c0; }
+.btn-ghost:hover { background: var(--surface2); border-color: var(--border-strong); }
 
 /* ── INPUTS ── */
 .input {
@@ -104,7 +150,7 @@ a { color: inherit; text-decoration: none; }
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(201,100,66,0.12);
 }
-.input::placeholder { color: #bbb5ac; }
+.input::placeholder { color: var(--placeholder); }
 textarea.input { resize: vertical; }
 
 /* ── NAV ── */
@@ -115,7 +161,7 @@ textarea.input { resize: vertical; }
   padding: 0.9rem 5%;
   padding-top: calc(0.9rem + env(safe-area-inset-top));
   border-bottom: 1px solid var(--border);
-  background: rgba(245,244,239,0.92);
+  background: var(--nav-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   position: sticky;
@@ -200,10 +246,10 @@ textarea.input { resize: vertical; }
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
-.badge-REGISTERED    { background: #f3f2ef; color: #78716c; border: 1px solid #e3dfd8; }
-.badge-EREEN_ARRIVED { background: #eff6ff; color: var(--blue); border: 1px solid #bfdbfe; }
-.badge-ARRIVED       { background: #fffbeb; color: var(--yellow); border: 1px solid #fde68a; }
-.badge-PICKED_UP     { background: #f0fdf4; color: var(--green); border: 1px solid #bbf7d0; }
+.badge-REGISTERED    { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+.badge-EREEN_ARRIVED { background: rgba(37,99,235,0.10); color: var(--blue); border: 1px solid rgba(37,99,235,0.25); }
+.badge-ARRIVED       { background: rgba(217,119,6,0.10); color: var(--yellow); border: 1px solid rgba(217,119,6,0.3); }
+.badge-PICKED_UP     { background: rgba(22,163,74,0.10); color: var(--green); border: 1px solid rgba(22,163,74,0.3); }
 
 /* ── FORM GROUP ── */
 .form-group {
@@ -295,7 +341,7 @@ textarea.input { resize: vertical; }
   box-shadow: var(--shadow);
   border-left-width: 3px;
 }
-.order-card-REGISTERED    { border-left-color: #c8c5be; }
+.order-card-REGISTERED    { border-left-color: var(--border-strong); }
 .order-card-EREEN_ARRIVED { border-left-color: var(--blue); }
 .order-card-ARRIVED       { border-left-color: var(--yellow); }
 .order-card-PICKED_UP     { border-left-color: var(--green); }
