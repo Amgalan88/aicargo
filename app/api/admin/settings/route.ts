@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { uploadLogo } from '@/lib/cloudinary'
 
 export async function GET(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const cargo = await (prisma.cargo as any).findUnique({
     where: { id: admin.cargoId! },
-    select: { name: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true },
+    select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true },
   })
   return NextResponse.json(cargo)
 }
@@ -19,11 +20,27 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { tariff, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress } = await req.json()
+  const { tariff, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, logoBase64 } = await req.json()
+
+  // Лого шинээр оруулсан бол Cloudinary-д байршуулна
+  let logoUrl: string | undefined
+  if (logoBase64) {
+    const current = await prisma.cargo.findUnique({
+      where: { id: admin.cargoId! },
+      select: { slug: true },
+    })
+    if (!current) return NextResponse.json({ error: 'Карго олдсонгүй' }, { status: 404 })
+    try {
+      logoUrl = await uploadLogo(logoBase64, current.slug)
+    } catch {
+      return NextResponse.json({ error: 'Лого байршуулахад алдаа гарлаа' }, { status: 500 })
+    }
+  }
 
   const cargo = await (prisma.cargo as any).update({
     where: { id: admin.cargoId! },
     data: {
+      ...(logoUrl ? { logoUrl } : {}),
       ...(ereemReceiver !== undefined ? { ereemReceiver: String(ereemReceiver).trim() } : {}),
       ...(ereemPhone !== undefined ? { ereemPhone: String(ereemPhone).trim() } : {}),
       ...(ereemRegion !== undefined ? { ereemRegion: String(ereemRegion).trim() } : {}),

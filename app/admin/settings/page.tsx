@@ -3,10 +3,22 @@ import { useState, useEffect } from 'react'
 
 export default function SettingsPage() {
   const [form, setForm] = useState({ tariff: '', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '' })
-  const [cargo, setCargo] = useState<{ name: string } | null>(null)
+  const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [logoBase64, setLogoBase64] = useState<string | null>(null)
+  const [logoError, setLogoError] = useState('')
+
+  function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 3 * 1024 * 1024) { setLogoError('Лого 3MB-аас бага байх ёстой'); return }
+    setLogoError('')
+    const reader = new FileReader()
+    reader.onload = ev => setLogoBase64(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
 
   useEffect(() => {
     fetch('/api/admin/settings')
@@ -21,11 +33,16 @@ export default function SettingsPage() {
   async function save() {
     setSaving(true)
     setSaved(false)
-    await fetch('/api/admin/settings', {
+    const res = await fetch('/api/admin/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, ...(logoBase64 ? { logoBase64 } : {}) }),
     })
+    if (res.ok) {
+      const updated = await res.json()
+      if (updated?.logoUrl) setCargo(c => c ? { ...c, logoUrl: updated.logoUrl } : c)
+      setLogoBase64(null)
+    }
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
@@ -38,6 +55,35 @@ export default function SettingsPage() {
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 className="section-title" style={{ margin: 0 }}>Тохиргоо</h1>
         {cargo && <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.3rem' }}>{cargo.name}</p>}
+      </div>
+
+      {/* Logo */}
+      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>Лого</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          {(logoBase64 || cargo?.logoUrl) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoBase64 || cargo!.logoUrl!} alt="logo" style={{
+              width: 56, height: 56, borderRadius: 12, objectFit: 'cover',
+              border: '1px solid var(--border)', flexShrink: 0,
+            }} />
+          ) : (
+            <div style={{
+              width: 56, height: 56, borderRadius: 12, background: 'var(--surface2)',
+              border: '1px dashed var(--border)', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.3rem', color: 'var(--muted)',
+            }}>🏷</div>
+          )}
+          <div style={{ minWidth: 200, flex: 1 }}>
+            <input type="file" accept="image/*" onChange={handleLogo} style={{ fontSize: '0.82rem' }} />
+            <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.35rem' }}>
+              Вэб хаяг, апп-ын икон, нүүр хуудсанд харагдана. Сонгоод доорх "Хадгалах" товчийг дарна.
+            </p>
+            {logoBase64 && <p style={{ fontSize: '0.75rem', color: 'var(--accent)', marginTop: '0.25rem' }}>Шинэ лого сонгогдлоо — хадгалахаа мартуузай</p>}
+            {logoError && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.25rem' }}>{logoError}</p>}
+          </div>
+        </div>
       </div>
 
       {/* Ereen address — админ өөрөө тохируулна */}
