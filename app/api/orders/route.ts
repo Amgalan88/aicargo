@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAuthUserFromRequest, unauthorized } from '@/lib/auth'
+import { getVerifiedUserFromRequest, unauthorized } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
-  const user = getAuthUserFromRequest(req)
+  const user = await getVerifiedUserFromRequest(req)
   if (!user) return unauthorized()
 
   const shipments = await prisma.shipment.findMany({
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const user = getAuthUserFromRequest(req)
+  const user = await getVerifiedUserFromRequest(req)
   if (!user) return unauthorized()
 
   const body = await req.json()
@@ -54,7 +54,7 @@ export async function DELETE(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const authUser = getAuthUserFromRequest(req)
+  const authUser = await getVerifiedUserFromRequest(req)
   if (!authUser) return unauthorized()
 
   const { trackCode, description } = await req.json()

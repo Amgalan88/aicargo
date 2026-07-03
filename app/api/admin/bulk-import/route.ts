@@ -61,17 +61,21 @@ export async function POST(req: NextRequest) {
         if (user) resolvedUserId = user.id
       }
 
+      const stamp = status === 'ARRIVED'
+        ? { arrivedAt: new Date() }
+        : { ereenArrivedAt: new Date() }
+
       if (existing) {
         if (existing.status === 'ARRIVED' || existing.status === 'PICKED_UP') {
           return existing
         }
         return prisma.shipment.update({
           where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-          data: { status, ...(resolvedPhone ? { phone: resolvedPhone } : {}), ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
+          data: { status, ...stamp, ...(resolvedPhone ? { phone: resolvedPhone } : {}), ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
         })
       }
       return prisma.shipment.create({
-        data: { trackCode: code, status, cargoId: admin.cargoId!, phone: resolvedPhone, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
+        data: { trackCode: code, status, ...stamp, cargoId: admin.cargoId!, phone: resolvedPhone, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
       })
     })
   )

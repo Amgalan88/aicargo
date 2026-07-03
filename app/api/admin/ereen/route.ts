@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
 
   const shipment = await prisma.shipment.upsert({
     where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-    update: { status: 'EREEN_ARRIVED', ...(userId ? { userId } : {}) },
-    create: { trackCode: code, status: 'EREEN_ARRIVED', cargoId: admin.cargoId!, ...(userId ? { userId } : {}) },
+    update: { status: 'EREEN_ARRIVED', ereenArrivedAt: new Date(), ...(userId ? { userId } : {}) },
+    create: { trackCode: code, status: 'EREEN_ARRIVED', ereenArrivedAt: new Date(), cargoId: admin.cargoId!, ...(userId ? { userId } : {}) },
     include: { user: { select: { name: true, phone: true } } },
   })
 

@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUserFromRequest } from '@/lib/auth'
 
+// Нэвтрээгүй болон энгийн хэрэглэгчид хувийн мэдээлэл (утас, нэр) буцаахгүй
+const PUBLIC_SELECT = {
+  trackCode: true, description: true, status: true,
+  adminPrice: true, adminNote: true, createdAt: true, updatedAt: true,
+  cargo: { select: { name: true } },
+} as const
+
+const ADMIN_SELECT = {
+  ...PUBLIC_SELECT,
+  phone: true,
+  user: { select: { name: true, phone: true } },
+} as const
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ code: string }> }
@@ -10,17 +23,13 @@ export async function GET(
   const q = code.toUpperCase().trim()
 
   const authUser = getAuthUserFromRequest(req)
+  const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'SUPER_ADMIN'
 
   // Logged-in user: scope to their cargo only
   if (authUser?.cargoId) {
     const shipment = await prisma.shipment.findFirst({
       where: { trackCode: q, cargoId: authUser.cargoId },
-      select: {
-        trackCode: true, description: true, status: true, phone: true,
-        adminPrice: true, adminNote: true, createdAt: true, updatedAt: true,
-        cargo: { select: { name: true } },
-        user: { select: { name: true, phone: true } },
-      },
+      select: isAdmin ? ADMIN_SELECT : PUBLIC_SELECT,
       orderBy: { updatedAt: 'desc' },
     })
     if (!shipment) return NextResponse.json({ error: 'Бараа олдсонгүй' }, { status: 404 })
@@ -55,12 +64,7 @@ export async function GET(
 
   const shipment = await prisma.shipment.findFirst({
     where,
-    select: {
-      trackCode: true, description: true, status: true, phone: true,
-      adminPrice: true, adminNote: true, createdAt: true, updatedAt: true,
-      cargo: { select: { name: true } },
-      user: { select: { name: true, phone: true } },
-    },
+    select: PUBLIC_SELECT,
     orderBy: { updatedAt: 'desc' },
   })
 

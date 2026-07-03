@@ -63,20 +63,22 @@ model User {
 }
 
 model Shipment {
-  id          Int      @id @default(autoincrement())
-  trackCode   String
-  description String?
-  status      Status   @default(REGISTERED)
-  userId      Int?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  phone       String?
-  adminPrice  Decimal? @db.Decimal(10, 2)
-  adminNote   String?
-  archived    Boolean  @default(false)
-  cargoId     Int
-  cargo       Cargo    @relation(fields: [cargoId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             Int       @id @default(autoincrement())
+  trackCode      String
+  description    String?
+  status         Status    @default(REGISTERED)
+  userId         Int?
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  phone          String?
+  adminPrice     Decimal?  @db.Decimal(10, 2)
+  adminNote      String?
+  archived       Boolean   @default(false)
+  cargoId        Int
+  cargo          Cargo     @relation(fields: [cargoId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  ereenArrivedAt DateTime?
+  arrivedAt      DateTime?
 
   @@unique([trackCode, cargoId])
   @@index([cargoId, status])

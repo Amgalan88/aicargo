@@ -28,8 +28,8 @@ export async function PUT(req: NextRequest) {
     }
     return prisma.shipment.upsert({
       where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-      update: { status: 'ARRIVED', adminPrice: price ?? null, phone: resolvedPhone, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
-      create: { trackCode: code, status: 'ARRIVED', adminPrice: price ?? null, phone: resolvedPhone, cargoId: admin.cargoId!, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
+      update: { status: 'ARRIVED', arrivedAt: new Date(), adminPrice: price ?? null, phone: resolvedPhone, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
+      create: { trackCode: code, status: 'ARRIVED', arrivedAt: new Date(), adminPrice: price ?? null, phone: resolvedPhone, cargoId: admin.cargoId!, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
     })
   }))
 
@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
     where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
     update: {
       status: 'ARRIVED',
+      arrivedAt: new Date(),
       adminPrice: adminPrice ? Number(adminPrice) : null,
       adminNote: adminNote || null,
       phone: resolvedPhone,
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
     create: {
       trackCode: code,
       status: 'ARRIVED',
+      arrivedAt: new Date(),
       adminPrice: adminPrice ? Number(adminPrice) : null,
       adminNote: adminNote || null,
       phone: resolvedPhone,
@@ -135,7 +137,7 @@ export async function DELETE(req: NextRequest) {
 
   await prisma.shipment.update({
     where: { id: Number(id), cargoId: admin.cargoId! },
-    data: { status: 'EREEN_ARRIVED', adminPrice: null },
+    data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null },
   })
   return NextResponse.json({ ok: true })
 }
