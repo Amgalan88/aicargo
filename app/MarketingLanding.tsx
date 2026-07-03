@@ -140,31 +140,50 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
-        {/* ── ИТГЭЛ: түншлэгч каргонуудын лого ── */}
+        {/* ── ИТГЭЛ: түншлэгч байгууллагуудын гүйдэг лого ── */}
         {partnerCargos.length > 0 && (
-          <section style={{ padding: '1.5rem 5% 2rem', maxWidth: 860, margin: '0 auto' }}>
+          <section style={{ padding: '1.5rem 0 2rem', overflow: 'hidden' }}>
             <p style={{
               textAlign: 'center', fontSize: '0.72rem', fontWeight: 700,
               color: 'var(--muted)', textTransform: 'uppercase',
               letterSpacing: '0.08em', marginBottom: '1rem',
             }}>
-              Эдгээр карго компаниуд ашиглаж байна
+              Манай түншлэгч байгууллагууд
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-              {partnerCargos.map(c => (
-                <div key={c.id} style={{
-                  display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  padding: '0.45rem 0.9rem', background: 'var(--surface)',
-                  border: '1px solid var(--border)', borderRadius: 100,
-                }}>
-                  {c.logoUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.logoUrl} alt={c.name} width={22} height={22}
-                      style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                  )}
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.name}</span>
-                </div>
-              ))}
+            <style>{`
+              @keyframes lpMarquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+              .lp-marquee-track { animation: lpMarquee ${Math.max(18, partnerCargos.length * 3.5)}s linear infinite; }
+              .lp-marquee:hover .lp-marquee-track { animation-play-state: paused; }
+            `}</style>
+            <div className="lp-marquee" style={{
+              overflow: 'hidden',
+              maskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
+              WebkitMaskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
+            }}>
+              <div className="lp-marquee-track" style={{
+                display: 'flex', gap: '0.75rem', width: 'max-content',
+                padding: '2px 0',
+              }}>
+                {[0, 1].map(copy => (
+                  <div key={copy} aria-hidden={copy === 1} style={{ display: 'flex', gap: '0.75rem', paddingRight: '0.75rem' }}>
+                    {partnerCargos.map(c => (
+                      <div key={`${copy}-${c.id}`} style={{
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        padding: '0.45rem 0.9rem', background: 'var(--surface)',
+                        border: '1px solid var(--border)', borderRadius: 100,
+                        flexShrink: 0,
+                      }}>
+                        {c.logoUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={c.logoUrl} alt={c.name} width={22} height={22}
+                            style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        )}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         )}
