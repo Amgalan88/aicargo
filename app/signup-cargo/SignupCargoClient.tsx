@@ -134,7 +134,7 @@ export default function SignupCargoClient() {
           <>
             <h1 className="section-title" style={{ marginBottom: '0.3rem' }}>Шинэ карго нээх</h1>
             <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              30 хоног үнэгүй туршаад үзээрэй. Хэдхэн минутад өөрийн карго хянах системтэй болно.
+              Эхний 30 хоног үнэгүй, цаашид сарын ₮50,000. Хэдхэн минутад өөрийн карго хянах системтэй болно.
             </p>
 
             <div className="form-group">

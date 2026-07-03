@@ -62,6 +62,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [whDetail, setWhDetail] = useState<Warehouse | null>(null)
 
   async function search() {
     const val = query.trim().toUpperCase().replace(/\s+/g, '')
@@ -114,14 +115,17 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             Өөрийн вэб хаягтай ачаа хяналтын систем — бүртгэлээс олголт хүртэл.
             Хэрэглэгч тань ачаагаа өөрөө хянаж, AI туслах асуултад нь хариулна.
           </p>
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
             <Link href="/signup-cargo" className="btn" style={{ padding: '0.8rem 1.8rem', fontSize: '0.95rem', textDecoration: 'none' }}>
-              30 хоног үнэгүй турших →
+              Каргогоо үнэгүй нээх →
             </Link>
             <a href="#track" className="btn-ghost" style={{ padding: '0.8rem 1.5rem', fontSize: '0.95rem', textDecoration: 'none' }}>
               Ачаагаа шалгах
             </a>
           </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '2rem' }}>
+            Эхний 30 хоног үнэгүй · цаашид сарын ₮50,000
+          </p>
 
           {/* Бодит тоо — итгэл төрүүлэх hook */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(1.5rem, 6vw, 3.5rem)', flexWrap: 'wrap' }}>
@@ -182,6 +186,49 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                       </div>
                     ))}
                   </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── ЭРЭЭНИЙ ТҮНШЛЭГЧ АГУУЛАХУУД (marquee-гийн доор, жижиг карт + дэлгэрэнгүй modal) ── */}
+        {warehouses.length > 0 && (
+          <section style={{ padding: '0.5rem 5% 2.25rem' }}>
+            <div style={{ maxWidth: 860, margin: '0 auto' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.3rem' }}>
+                🇨🇳 Эрээний түншлэгч агуулахууд
+              </h2>
+              <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
+                Хамтран ажилладаг найдвартай агуулахууд — дарж дэлгэрэнгүй үзнэ үү
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.7rem' }}>
+                {warehouses.map(w => (
+                  <button key={w.id} onClick={() => setWhDetail(w)} style={{
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)', overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column', textAlign: 'left',
+                    cursor: 'pointer', padding: 0, fontFamily: 'inherit',
+                    transition: 'border-color 0.12s, transform 0.12s',
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none' }}
+                  >
+                    {w.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={w.imageUrl} alt={w.name}
+                        style={{ width: '100%', height: 84, objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                      <div style={{
+                        width: '100%', height: 84, background: 'var(--surface2)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem',
+                      }}>🏭</div>
+                    )}
+                    <div style={{ padding: '0.55rem 0.7rem 0.65rem' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600, marginTop: 2 }}>Дэлгэрэнгүй →</div>
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -291,68 +338,71 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
-        {/* ── ЭРЭЭНИЙ ТҮНШЛЭГЧ АГУУЛАХУУД ── */}
-        {warehouses.length > 0 && (
-          <section style={{ padding: '2.5rem 5%', borderTop: '1px solid var(--border)' }}>
-            <div style={{ maxWidth: 860, margin: '0 auto' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.4rem' }}>
-                🇨🇳 Эрээний түншлэгч агуулахууд
-              </h2>
-              <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.75rem' }}>
-                Хамтран ажилладаг, найдвартай агуулахууд — шууд холбогдоорой
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
-                {warehouses.map(w => (
-                  <div key={w.id} style={{
-                    background: 'var(--surface)', border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)', overflow: 'hidden',
-                    display: 'flex', flexDirection: 'column',
-                  }}>
-                    {w.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={w.imageUrl} alt={w.name}
-                        style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block' }} />
-                    ) : (
-                      <div style={{
-                        width: '100%', height: 150, background: 'var(--surface2)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.2rem',
-                      }}>🏭</div>
-                    )}
-                    <div style={{ padding: '0.9rem 1rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.45rem', flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{w.name}</div>
-                      {w.description && (
-                        <div style={{ fontSize: '0.79rem', color: 'var(--muted)', lineHeight: 1.55 }}>{w.description}</div>
-                      )}
-                      {w.address && (
-                        <div style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>📍 {w.address}</div>
-                      )}
-                      {(w.phone || w.wechat) && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: 'auto', paddingTop: '0.3rem' }}>
-                          {w.phone && <CopyChip label="📞" value={w.phone} />}
-                          {w.wechat && <CopyChip label="WeChat:" value={w.wechat} />}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
         {/* ── FINAL CTA ── */}
         <section style={{ padding: '3rem 5%', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>
             Өнөөдөр эхэлье
           </h2>
           <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginBottom: '1.25rem' }}>
-            Картын мэдээлэл шаардлагагүй · 30 хоног бүрэн үнэгүй · 2 минутад бэлэн
+            Эхний 30 хоног бүрэн үнэгүй · цаашид сарын ₮50,000 · 2 минутад бэлэн
           </p>
           <Link href="/signup-cargo" className="btn" style={{ padding: '0.8rem 2rem', fontSize: '0.95rem', textDecoration: 'none' }}>
-            Шинэ карго нээх →
+            Каргогоо үнэгүй нээх →
           </Link>
         </section>
       </div>
+
+      {/* Агуулахын дэлгэрэнгүй modal */}
+      {whDetail && (
+        <div onClick={() => setWhDetail(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '1rem',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--bg)', borderRadius: 14, overflow: 'hidden',
+            width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+          }}>
+            {whDetail.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={whDetail.imageUrl} alt={whDetail.name}
+                style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} />
+            ) : (
+              <div style={{
+                width: '100%', height: 120, background: 'var(--surface2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem',
+              }}>🏭</div>
+            )}
+            <div style={{ padding: '1.1rem 1.25rem 1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>{whDetail.name}</h3>
+                <button onClick={() => setWhDetail(null)} aria-label="Хаах" style={{
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  borderRadius: '50%', width: 28, height: 28, cursor: 'pointer',
+                  fontSize: '0.85rem', lineHeight: 1, color: 'var(--muted)', flexShrink: 0,
+                }}>✕</button>
+              </div>
+              {whDetail.description && (
+                <p style={{ fontSize: '0.85rem', color: 'var(--text)', lineHeight: 1.65, margin: '0 0 0.75rem', whiteSpace: 'pre-wrap' }}>
+                  {whDetail.description}
+                </p>
+              )}
+              {whDetail.address && (
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0 0 0.75rem' }}>
+                  📍 {whDetail.address}
+                </p>
+              )}
+              {(whDetail.phone || whDetail.wechat) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+                  {whDetail.phone && <CopyChip label="📞" value={whDetail.phone} />}
+                  {whDetail.wechat && <CopyChip label="WeChat:" value={whDetail.wechat} />}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer style={{
         borderTop: '1px solid var(--border)',
