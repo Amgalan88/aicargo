@@ -40,6 +40,8 @@ export default function ArrivedPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [phoneLocked, setPhoneLocked] = useState(false)
+  const [keepPhone, setKeepPhone] = useState(false)
+  const [phoneWarning, setPhoneWarning] = useState('')
   const [touched, setTouched] = useState<Partial<Record<keyof Form, boolean>>>({})
   const trackRef = useRef<HTMLInputElement>(null)
   const phoneRef = useRef<HTMLInputElement>(null)
@@ -190,7 +192,15 @@ export default function ArrivedPage() {
       if (!res.ok) return
       const data = await res.json()
       const phone = data.user?.phone || data.phone || ''
-      if (phone) { setForm(f => ({ ...f, phone })); setPhoneLocked(true) }
+      if (phone) {
+        // Хадгалсан дугаартай зөрвөл: анхааруулга + хадгалалт автоматаар унтарна
+        if (keepPhone && form.phone && phone !== form.phone) {
+          setPhoneWarning(`Энэ трак код ${phone} дугаарт бүртгэлтэй тул хадгалсан дугаар цуцлагдлаа`)
+          setKeepPhone(false)
+        }
+        setForm(f => ({ ...f, phone }))
+        setPhoneLocked(true)
+      }
       else setPhoneLocked(false)
       if (data.adminPrice) setForm(f => ({ ...f, adminPrice: String(data.adminPrice) }))
       if (data.adminNote) setForm(f => ({ ...f, adminNote: data.adminNote }))
@@ -222,9 +232,10 @@ export default function ArrivedPage() {
     setLoading(false)
     if (!res.ok) { setError(data.error); return }
     setResult(data)
-    setForm(EMPTY)
+    setForm(keepPhone ? { ...EMPTY, phone: form.phone } : EMPTY)
     setTouched({})
     setPhoneLocked(false)
+    setPhoneWarning('')
     loadToday()
     setTimeout(() => trackRef.current?.focus(), 50)
   }
@@ -383,7 +394,7 @@ export default function ArrivedPage() {
                 <label>Трак код <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input ref={trackRef} className="input" placeholder="CX-2024-00123"
                   value={form.trackCode}
-                  onChange={e => { set('trackCode', e.target.value); setPhoneLocked(false) }}
+                  onChange={e => { set('trackCode', e.target.value); setPhoneLocked(false); setPhoneWarning('') }}
                   onBlur={e => lookupCode(e.target.value)}
                   onKeyDown={async e => { if (e.key === 'Enter') { e.preventDefault(); await lookupCode((e.target as HTMLInputElement).value); phoneRef.current?.focus() } }}
                   style={{ borderColor: fe('trackCode') ? 'var(--danger)' : undefined }} />
@@ -397,7 +408,7 @@ export default function ArrivedPage() {
                 </label>
                 <input ref={phoneRef} className="input" type="tel" placeholder="99001122"
                   value={form.phone}
-                  onChange={e => { set('phone', e.target.value); setPhoneLocked(false) }}
+                  onChange={e => { set('phone', e.target.value); setPhoneLocked(false); setKeepPhone(false); setPhoneWarning('') }}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); priceRef.current?.focus() } }}
                   readOnly={phoneLocked}
                   style={{
@@ -405,6 +416,18 @@ export default function ArrivedPage() {
                     background: phoneLocked ? 'var(--surface2)' : undefined,
                   }} />
                 {fe('phone') && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.3rem' }}>Утасны дугаар оруулна уу</p>}
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.35rem',
+                  fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer',
+                  color: keepPhone ? 'var(--accent)' : 'var(--muted)',
+                }}>
+                  <input type="checkbox" checked={keepPhone}
+                    disabled={!/^\d{8}$/.test(form.phone.trim())}
+                    onChange={e => setKeepPhone(e.target.checked)}
+                    style={{ accentColor: 'var(--accent)' }} />
+                  Дугаарыг дараагийн бүртгэлд хадгалах
+                </label>
+                {phoneWarning && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.3rem' }}>{phoneWarning}</p>}
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>

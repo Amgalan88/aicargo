@@ -519,8 +519,15 @@ export default function OrdersClient({
         </div>
 
         {shipments.length === 0 ? (
-          <div className="empty">
-            <p>Бүртгэлтэй бараа байхгүй байна.</p>
+          <div className="empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.9rem' }}>
+            <div style={{ fontSize: '2rem' }}>📦</div>
+            <p style={{ margin: 0 }}>Бүртгэлтэй бараа байхгүй байна.</p>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
+              Захиалсан барааныхаа трак кодыг бүртгүүлбэл ирэх явцыг нь эндээс хянах боломжтой.
+            </p>
+            <Link href="/orders/new" className="btn" style={{ textDecoration: 'none' }}>
+              + Эхний барааг бүртгэх
+            </Link>
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty">

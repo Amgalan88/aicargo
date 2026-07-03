@@ -13,7 +13,7 @@ export interface JwtPayload {
   tokenVersion?: number
 }
 
-export function signToken(payload: JwtPayload, expiresIn = '7d'): string {
+export function signToken(payload: JwtPayload, expiresIn = '90d'): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn } as jwt.SignOptions)
 }
 
@@ -31,7 +31,7 @@ export function setAuthCookie(res: NextResponse, token: string) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24 * 90, // 90 days
   })
 }
 
