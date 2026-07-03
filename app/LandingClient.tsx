@@ -154,6 +154,29 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
           </div>
           {error && <p className="msg-error">{error}</p>}
 
+          {/* Шинэ карго нээх CTA — зөвхөн үндсэн домэйн дээр */}
+          {!cargo && (
+            <div style={{
+              marginTop: '1.25rem', padding: '1.1rem 1.2rem',
+              background: 'var(--accent-light)', border: '1px solid var(--accent)',
+              borderRadius: 'var(--radius)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: '1rem', flexWrap: 'wrap',
+            }}>
+              <div style={{ minWidth: 200, flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: '0.92rem', marginBottom: 3 }}>
+                  🚚 Карго компани ажиллуулдаг уу?
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.5 }}>
+                  Өөрийн вэб хаягтай ачаа хянах систем — 30 хоног үнэгүй туршаарай.
+                </div>
+              </div>
+              <Link href="/signup-cargo" className="btn" style={{ textDecoration: 'none', flexShrink: 0 }}>
+                Шинэ карго нээх →
+              </Link>
+            </div>
+          )}
+
           {/* Track code result */}
           {result && (
             <div className="card" style={{ marginTop: '1rem' }}>

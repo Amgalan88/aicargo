@@ -45,6 +45,27 @@ function paidUntilLabel(paidUntil: string | null): string {
   return `✓ ${label} хүртэл`
 }
 
+type Category = 'NEW' | 'PAID' | 'UNPAID' | 'INACTIVE' | 'UNSET'
+
+const CATEGORIES: { key: Category | 'ALL'; label: string }[] = [
+  { key: 'ALL', label: 'Бүгд' },
+  { key: 'NEW', label: '🆕 Шинэ (туршилт)' },
+  { key: 'PAID', label: '✓ Төлсөн' },
+  { key: 'UNPAID', label: '⚠ Төлөөгүй' },
+  { key: 'INACTIVE', label: '⛔ Идэвхгүй' },
+  { key: 'UNSET', label: 'Тохируулаагүй' },
+]
+
+function categorize(c: CargoStat): Category {
+  const now = Date.now()
+  const isNew = now - new Date(c.createdAt).getTime() < 30 * 86400000
+  if (!c.paidUntil) return isNew ? 'NEW' : 'UNSET'
+  const paid = new Date(c.paidUntil).getTime()
+  if (paid >= now) return isNew ? 'NEW' : 'PAID'
+  const overdueDays = (now - paid) / 86400000
+  return overdueDays >= 40 ? 'INACTIVE' : 'UNPAID'
+}
+
 interface EditState {
   name: string
   slug: string
@@ -73,6 +94,14 @@ export default function SuperPage() {
   const [paidDates, setPaidDates] = useState<Record<number, string>>({})
   const [paidSaving, setPaidSaving] = useState(false)
   const [paidMsg, setPaidMsg] = useState('')
+  const [catFilter, setCatFilter] = useState<Category | 'ALL'>('ALL')
+
+  const catCounts = cargos.reduce<Record<string, number>>((acc, c) => {
+    const cat = categorize(c)
+    acc[cat] = (acc[cat] ?? 0) + 1
+    return acc
+  }, {})
+  const filtered = catFilter === 'ALL' ? cargos : cargos.filter(c => categorize(c) === catFilter)
 
   async function resetPassword() {
     if (!pwModal || pwInput.length < 6) return
@@ -151,8 +180,30 @@ export default function SuperPage() {
         </Link>
       </div>
 
-      {/* Paid until bulk editor */}
+      {/* Ангиллын табууд */}
       {!loading && cargos.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+          {CATEGORIES.map(cat => {
+            const count = cat.key === 'ALL' ? cargos.length : (catCounts[cat.key] ?? 0)
+            if (cat.key !== 'ALL' && count === 0) return null
+            const active = catFilter === cat.key
+            return (
+              <button key={cat.key} onClick={() => setCatFilter(cat.key)} style={{
+                padding: '0.35rem 0.85rem', borderRadius: '100px', border: '1px solid',
+                fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                borderColor: active ? 'var(--accent)' : 'var(--border)',
+                background: active ? 'var(--accent)' : 'var(--surface)',
+                color: active ? '#fff' : 'var(--muted)',
+              }}>
+                {cat.label} ({count})
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Paid until bulk editor */}
+      {!loading && filtered.length > 0 && (
         <div className="card" style={{ padding: '1.2rem 1.5rem', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Вэбийн төлбөр хүртэлх огноо</h2>
@@ -164,7 +215,7 @@ export default function SuperPage() {
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.6rem' }}>
-            {cargos.map(c => (
+            {filtered.map(c => (
               <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', padding: '0.6rem 0.75rem', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{c.name}</span>
@@ -191,7 +242,7 @@ export default function SuperPage() {
         <p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p>
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
-          {cargos.map(c => (
+          {filtered.map(c => (
             <div key={c.id} className="card" style={{ padding: '1.3rem 1.5rem' }}>
               {editId === c.id ? (
                 /* ── Edit mode ── */

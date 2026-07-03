@@ -81,6 +81,7 @@ export default function OrdersClient({
   bankTransferNote,
   arrivedLabel,
   ereemLabel,
+  aiEnabled,
 }: {
   shipments: Shipment[]
   userName: string
@@ -101,6 +102,7 @@ export default function OrdersClient({
   bankTransferNote?: string | null
   arrivedLabel?: string | null
   ereemLabel?: string | null
+  aiEnabled?: boolean
 }) {
   const router = useRouter()
   const STATUS_LABEL = getStatusLabel(arrivedLabel, ereemLabel)
@@ -317,7 +319,7 @@ export default function OrdersClient({
         </div>
       </nav>
       <ChatWidget open={faqOpen} onClose={() => setFaqOpen(false)} />
-      <UserAIWidget userName={userName} cargoName={cargoName} />
+      {aiEnabled && <UserAIWidget userName={userName} cargoName={cargoName} />}
       {profileOpen && <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />}
 
       {/* Delete all modal */}

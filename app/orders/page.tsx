@@ -20,7 +20,7 @@ export default async function OrdersPage() {
   const cargo = userRecord?.cargoId
     ? await (prisma.cargo.findUnique as any)({
         where: { id: userRecord.cargoId },
-        select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true },
+        select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true },
       })
     : null
 
@@ -45,6 +45,7 @@ export default async function OrdersPage() {
       bankTransferNote={cargo?.bankTransferNote ?? null}
       arrivedLabel={cargo?.arrivedLabel ?? null}
       ereemLabel={cargo?.ereemLabel ?? null}
+      aiEnabled={cargo?.aiEnabled ?? false}
     />
   )
 }

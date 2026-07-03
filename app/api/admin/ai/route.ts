@@ -72,6 +72,11 @@ export async function POST(req: NextRequest) {
 
   const cargoId = admin.cargoId!
 
+  const cargoRec = await prisma.cargo.findUnique({ where: { id: cargoId }, select: { aiEnabled: true } })
+  if (!cargoRec?.aiEnabled) {
+    return NextResponse.json({ error: 'AI туслах энэ каргод идэвхжээгүй байна' }, { status: 403 })
+  }
+
   const aiConfig = await (prisma as any).aiConfig.findUnique({ where: { id: 1 } })
   const customPrompt: string | null = aiConfig?.adminPrompt?.trim() || null
 
