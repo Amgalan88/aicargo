@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import NavLogo from './components/NavLogo'
 
@@ -63,6 +63,11 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [whDetail, setWhDetail] = useState<Warehouse | null>(null)
+  const whScroll = useRef<HTMLDivElement>(null)
+
+  function scrollWh(dir: -1 | 1) {
+    whScroll.current?.scrollBy({ left: dir * 340, behavior: 'smooth' })
+  }
 
   async function search() {
     const val = query.trim().toUpperCase().replace(/\s+/g, '')
@@ -85,10 +90,10 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <nav className="nav">
         <NavLogo />
-        <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/login">Нэвтрэх</Link>
-          <Link href="/register">Бүртгүүлэх</Link>
-          <Link href="/signup-cargo" className="btn" style={{ padding: '0.5rem 1rem', fontSize: '0.82rem' }}>
+        <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginLeft: 'auto', flexShrink: 0 }}>
+          <Link href="/login" style={{ whiteSpace: 'nowrap' }}>Нэвтрэх</Link>
+          <Link href="/register" style={{ whiteSpace: 'nowrap' }}>Бүртгүүлэх</Link>
+          <Link href="/signup-cargo" className="btn" style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
             Карго нээх
           </Link>
         </div>
@@ -197,39 +202,52 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           <section style={{ padding: '0.5rem 5% 2.25rem' }}>
             <div style={{ maxWidth: 860, margin: '0 auto' }}>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.3rem' }}>
-                🇨🇳 Эрээний түншлэгч агуулахууд
+                Эрээний түншлэгч агуулахууд
               </h2>
               <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
                 Хамтран ажилладаг найдвартай агуулахууд — дарж дэлгэрэнгүй үзнэ үү
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.7rem' }}>
-                {warehouses.map(w => (
-                  <button key={w.id} onClick={() => setWhDetail(w)} style={{
-                    background: 'var(--surface)', border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)', overflow: 'hidden',
-                    display: 'flex', flexDirection: 'column', textAlign: 'left',
-                    cursor: 'pointer', padding: 0, fontFamily: 'inherit',
-                    transition: 'border-color 0.12s, transform 0.12s',
-                  }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none' }}
-                  >
-                    {w.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={w.imageUrl} alt={w.name}
-                        style={{ width: '100%', height: 84, objectFit: 'cover', display: 'block' }} />
-                    ) : (
-                      <div style={{
-                        width: '100%', height: 84, background: 'var(--surface2)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem',
-                      }}>🏭</div>
-                    )}
-                    <div style={{ padding: '0.55rem 0.7rem 0.65rem' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600, marginTop: 2 }}>Дэлгэрэнгүй →</div>
-                    </div>
-                  </button>
-                ))}
+              <div style={{ position: 'relative' }}>
+                {warehouses.length > 2 && (
+                  <>
+                    <button onClick={() => scrollWh(-1)} aria-label="Өмнөх" style={whArrowStyle('left')}>‹</button>
+                    <button onClick={() => scrollWh(1)} aria-label="Дараах" style={whArrowStyle('right')}>›</button>
+                  </>
+                )}
+                <div ref={whScroll} style={{
+                  display: 'flex', gap: '0.7rem', overflowX: 'auto',
+                  scrollSnapType: 'x mandatory', scrollbarWidth: 'none',
+                  padding: '2px', WebkitOverflowScrolling: 'touch',
+                }}>
+                  {warehouses.map(w => (
+                    <button key={w.id} onClick={() => setWhDetail(w)} style={{
+                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius)', overflow: 'hidden',
+                      display: 'flex', flexDirection: 'column', textAlign: 'left',
+                      cursor: 'pointer', padding: 0, fontFamily: 'inherit',
+                      transition: 'border-color 0.12s, transform 0.12s',
+                      flex: '0 0 auto', width: 168, scrollSnapAlign: 'start',
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none' }}
+                    >
+                      {w.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={w.imageUrl} alt={w.name}
+                          style={{ width: '100%', height: 84, objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <div style={{
+                          width: '100%', height: 84, background: 'var(--surface2)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem',
+                        }}>🏭</div>
+                      )}
+                      <div style={{ padding: '0.55rem 0.7rem 0.65rem' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600, marginTop: 2 }}>Дэлгэрэнгүй →</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </section>
@@ -244,15 +262,26 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.75rem' }}>
               Excel, дэвтэр, мессежийн орооцолдооноос гарцгаая
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.9rem' }}>
+            <style>{`
+              .lp-feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.9rem; }
+              .lp-feat-card { padding: 1.1rem 1.2rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+              .lp-feat-icon { font-size: 1.4rem; margin-bottom: 0.4rem; }
+              .lp-feat-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 0.25rem; }
+              .lp-feat-desc { font-size: 0.79rem; color: var(--muted); line-height: 1.55; }
+              @media (max-width: 600px) {
+                .lp-feat-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+                .lp-feat-card { padding: 0.7rem 0.75rem; }
+                .lp-feat-icon { font-size: 1.05rem; margin-bottom: 0.2rem; }
+                .lp-feat-title { font-size: 0.76rem; margin-bottom: 0.15rem; }
+                .lp-feat-desc { font-size: 0.67rem; line-height: 1.45; }
+              }
+            `}</style>
+            <div className="lp-feat-grid">
               {FEATURES.map(f => (
-                <div key={f.title} style={{
-                  padding: '1.1rem 1.2rem', background: 'var(--bg)',
-                  border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                }}>
-                  <div style={{ fontSize: '1.4rem', marginBottom: '0.4rem' }}>{f.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.25rem' }}>{f.title}</div>
-                  <div style={{ fontSize: '0.79rem', color: 'var(--muted)', lineHeight: 1.55 }}>{f.desc}</div>
+                <div key={f.title} className="lp-feat-card">
+                  <div className="lp-feat-icon">{f.icon}</div>
+                  <div className="lp-feat-title">{f.title}</div>
+                  <div className="lp-feat-desc">{f.desc}</div>
                 </div>
               ))}
             </div>
@@ -352,37 +381,35 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         </section>
       </div>
 
-      {/* Агуулахын дэлгэрэнгүй modal */}
+      {/* Агуулахын дэлгэрэнгүй — full screen */}
       {whDetail && (
-        <div onClick={() => setWhDetail(null)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000, padding: '1rem',
+        <div style={{
+          position: 'fixed', inset: 0, background: 'var(--bg)',
+          zIndex: 1000, overflowY: 'auto',
+          display: 'flex', flexDirection: 'column',
         }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: 'var(--bg)', borderRadius: 14, overflow: 'hidden',
-            width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
-          }}>
+          <div style={{ position: 'relative' }}>
             {whDetail.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={whDetail.imageUrl} alt={whDetail.name}
-                style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} />
+                style={{ width: '100%', height: '38vh', objectFit: 'cover', display: 'block' }} />
             ) : (
               <div style={{
-                width: '100%', height: 120, background: 'var(--surface2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem',
+                width: '100%', height: '22vh', background: 'var(--surface2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem',
               }}>🏭</div>
             )}
-            <div style={{ padding: '1.1rem 1.25rem 1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>{whDetail.name}</h3>
-                <button onClick={() => setWhDetail(null)} aria-label="Хаах" style={{
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  borderRadius: '50%', width: 28, height: 28, cursor: 'pointer',
-                  fontSize: '0.85rem', lineHeight: 1, color: 'var(--muted)', flexShrink: 0,
-                }}>✕</button>
-              </div>
+            <button onClick={() => setWhDetail(null)} aria-label="Хаах" style={{
+              position: 'absolute', top: 'calc(12px + env(safe-area-inset-top))', right: 14,
+              background: 'rgba(0,0,0,0.55)', border: 'none',
+              borderRadius: '50%', width: 36, height: 36, cursor: 'pointer',
+              fontSize: '1rem', lineHeight: 1, color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>✕</button>
+          </div>
+          <div style={{ padding: '1.25rem 5% 2rem', maxWidth: 640, margin: '0 auto', width: '100%', flex: 1 }}>
+            <h3 style={{ margin: '0 0 0.6rem', fontSize: '1.25rem', fontWeight: 800 }}>{whDetail.name}</h3>
+            <div>
               {whDetail.description && (
                 <p style={{ fontSize: '0.85rem', color: 'var(--text)', lineHeight: 1.65, margin: '0 0 0.75rem', whiteSpace: 'pre-wrap' }}>
                   {whDetail.description}
@@ -416,4 +443,17 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
       </footer>
     </div>
   )
+}
+
+function whArrowStyle(side: 'left' | 'right'): React.CSSProperties {
+  return {
+    position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+    [side]: -6,
+    zIndex: 2, width: 32, height: 32, borderRadius: '50%',
+    background: 'var(--surface)', border: '1px solid var(--border)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+    cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1,
+    color: 'var(--text)', fontFamily: 'inherit',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  }
 }
