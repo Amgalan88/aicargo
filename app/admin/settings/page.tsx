@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 
 export default function SettingsPage() {
   const [form, setForm] = useState({ tariff: '', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '' })
-  const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null } | null>(null)
+  const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null; batchEnabled?: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -85,6 +85,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Эрээний ажилтны нэвтрэлт — багц бүртгэл идэвхтэй үед */}
+      {cargo?.batchEnabled && <EreenStaffSection />}
 
       {/* Ereen address — админ өөрөө тохируулна */}
       <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
@@ -210,5 +213,124 @@ export default function SettingsPage() {
         </div>
       </div>
     </>
+  )
+}
+
+interface Staff { id: number; name: string; phone: string }
+
+function EreenStaffSection() {
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [form, setForm] = useState({ name: '', phone: '', password: '' })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
+  function load() {
+    fetch('/api/admin/ereen-staff')
+      .then(r => r.ok ? r.json() : [])
+      .then(setStaff)
+      .catch(() => {})
+  }
+  useEffect(() => { load() }, [])
+
+  async function create() {
+    setBusy(true); setErr(''); setMsg('')
+    const res = await fetch('/api/admin/ereen-staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+    setBusy(false)
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) { setErr(d.error || 'Алдаа гарлаа'); return }
+    setMsg('✓ Нэвтрэлт үүслээ')
+    setForm({ name: '', phone: '', password: '' })
+    load()
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  async function resetPw(id: number) {
+    const pw = prompt('Шинэ нууц үг (6+ тэмдэгт):')
+    if (!pw || pw.length < 6) return
+    await fetch('/api/admin/ereen-staff', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password: pw }),
+    })
+    setMsg('✓ Нууц үг солигдлоо')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  async function remove(id: number) {
+    if (!confirm('Энэ нэвтрэлтийг устгах уу?')) return
+    await fetch('/api/admin/ereen-staff', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    load()
+  }
+
+  return (
+    <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+      <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Эрээний ажилтны нэвтрэлт</p>
+      <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+        Энэ эрхээр нэвтэрсэн хүн зөвхөн багц бүртгэлийн хуудас (₮/¥ хэл солигддог) хардаг — таны бусад мэдээлэлд хандахгүй.
+      </p>
+
+      {staff.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1rem' }}>
+          {staff.map(s => (
+            <div key={s.id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '0.5rem 0.75rem', background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 8, gap: '0.5rem',
+            }}>
+              <span style={{ fontSize: '0.84rem' }}>
+                <strong>{s.name}</strong>
+                <span style={{ fontFamily: 'monospace', color: 'var(--muted)', marginLeft: 8 }}>{s.phone}</span>
+              </span>
+              <span style={{ display: 'flex', gap: '0.4rem' }}>
+                <button onClick={() => resetPw(s.id)} style={{
+                  background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+                  fontSize: '0.72rem', padding: '0.2rem 0.6rem', cursor: 'pointer',
+                  color: 'var(--muted)', fontFamily: 'inherit',
+                }}>Нууц үг солих</button>
+                <button onClick={() => remove(s.id)} style={{
+                  background: 'none', border: '1px solid var(--danger)', borderRadius: 6,
+                  fontSize: '0.72rem', padding: '0.2rem 0.6rem', cursor: 'pointer',
+                  color: 'var(--danger)', fontFamily: 'inherit',
+                }}>Устгах</button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.5rem', alignItems: 'end' }} className="admin-form-2col">
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Нэр</label>
+          <input className="input" placeholder="Ажилтны нэр" value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Утас</label>
+          <input className="input" type="tel" maxLength={8} placeholder="99001122" value={form.phone}
+            onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Нууц үг</label>
+          <input className="input" type="text" placeholder="6+ тэмдэгт" value={form.password}
+            onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+        </div>
+        <button className="btn" onClick={create}
+          disabled={busy || form.name.trim().length < 2 || !/^\d{8}$/.test(form.phone) || form.password.length < 6}
+          style={{ padding: '0.6rem 1rem', fontSize: '0.82rem' }}>
+          {busy ? '...' : '+ Үүсгэх'}
+        </button>
+      </div>
+      {err && <p className="msg-error" style={{ marginTop: '0.6rem' }}>{err}</p>}
+      {msg && <p style={{ color: 'var(--green)', fontSize: '0.82rem', marginTop: '0.6rem' }}>{msg}</p>}
+    </div>
   )
 }

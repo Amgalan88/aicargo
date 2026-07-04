@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
       bankTransferNote: (c as any).bankTransferNote ?? null,
       notificationsEnabled: (c as any).notificationsEnabled ?? false,
       searchByPhone: (c as any).searchByPhone ?? false,
+      batchEnabled: (c as any).batchEnabled ?? false,
       paidUntil: (c as any).paidUntil ?? null,
       createdAt: c.createdAt,
       totalUsers: c._count.users,

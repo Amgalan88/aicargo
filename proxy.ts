@@ -36,6 +36,14 @@ export function proxy(req: NextRequest) {
     return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
+  // Protect /batch — Эрээний ажилтан болон админ
+  if (pathname.startsWith('/batch')) {
+    const user = getAuthUserFromRequest(req)
+    if (!user) return NextResponse.redirect(new URL('/login', req.url))
+    if (user.role !== 'EREEN' && user.role !== 'ADMIN') return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
   return NextResponse.next({ request: { headers: requestHeaders } })
 }
 

@@ -22,7 +22,12 @@ export default function LoginClient({ cargoName, logoUrl }: { cargoName?: string
     const data = await res.json()
     setLoading(false)
     if (!res.ok) { setError(data.error); return }
-    router.push(data.role === 'SUPER_ADMIN' ? '/super' : data.role === 'ADMIN' ? '/admin/import' : '/orders')
+    router.push(
+      data.role === 'SUPER_ADMIN' ? '/super'
+      : data.role === 'ADMIN' ? '/admin/import'
+      : data.role === 'EREEN' ? '/batch'
+      : '/orders'
+    )
   }
 
   return (

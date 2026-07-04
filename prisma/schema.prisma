@@ -25,6 +25,7 @@ model Cargo {
   notificationsEnabled  Boolean    @default(false)
   searchByPhone         Boolean    @default(false)
   aiEnabled         Boolean    @default(true)
+  batchEnabled      Boolean    @default(false)
   tariff            String?
   announcement      String?
   contactInfo       String?
@@ -43,6 +44,7 @@ model Cargo {
   faqs          Faq[]
   notifications Notification[]
   banners       Banner[]
+  batches       Batch[]
 }
 
 model User {
@@ -80,10 +82,49 @@ model Shipment {
   updatedAt      DateTime  @updatedAt
   ereenArrivedAt DateTime?
   arrivedAt      DateTime?
+  batchId        Int?
+  batch          Batch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
   @@unique([trackCode, cargoId])
   @@index([cargoId, status])
   @@index([cargoId, updatedAt])
+  @@index([batchId])
+}
+
+model Batch {
+  id        Int        @id @default(autoincrement())
+  cargoId   Int
+  cargo     Cargo      @relation(fields: [cargoId], references: [id])
+  phone     String
+  userId    Int?
+  price     Decimal    @db.Decimal(12, 2)
+  currency  Currency   @default(MNT)
+  status    Status     @default(EREEN_ARRIVED)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  shipments Shipment[]
+  logs      BatchLog[]
+
+  @@index([cargoId, status])
+  @@index([cargoId, phone])
+}
+
+model BatchLog {
+  id        Int      @id @default(autoincrement())
+  batchId   Int
+  batch     Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  userId    Int
+  userName  String
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([batchId])
+}
+
+enum Currency {
+  MNT
+  CNY
 }
 
 model Faq {
@@ -190,6 +231,7 @@ enum Role {
   USER
   ADMIN
   SUPER_ADMIN
+  EREEN
 }
 
 enum Status {

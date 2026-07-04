@@ -8,7 +8,7 @@ const COOKIE_NAME = 'cargo_token'
 
 export interface JwtPayload {
   userId: number
-  role: 'USER' | 'ADMIN' | 'SUPER_ADMIN'
+  role: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'EREEN'
   cargoId: number | null
   tokenVersion?: number
 }

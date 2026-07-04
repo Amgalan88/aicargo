@@ -39,6 +39,17 @@ interface Shipment {
   adminNote: string | null
   createdAt: string
   updatedAt: string
+  batchId?: number | null
+}
+
+interface UserBatch {
+  id: number
+  phone: string
+  price: string
+  currency: 'MNT' | 'CNY'
+  status: string
+  createdAt: string
+  shipments: { id: number; trackCode: string }[]
 }
 
 function fmtDT(iso: string) {
@@ -82,6 +93,7 @@ export default function OrdersClient({
   arrivedLabel,
   ereemLabel,
   aiEnabled,
+  batches = [],
 }: {
   shipments: Shipment[]
   userName: string
@@ -103,6 +115,7 @@ export default function OrdersClient({
   arrivedLabel?: string | null
   ereemLabel?: string | null
   aiEnabled?: boolean
+  batches?: UserBatch[]
 }) {
   const router = useRouter()
   const STATUS_LABEL = getStatusLabel(arrivedLabel, ereemLabel)
@@ -121,6 +134,7 @@ export default function OrdersClient({
   const [deleteRegistered, setDeleteRegistered] = useState(false)
   const [deletePickedUp, setDeletePickedUp] = useState(true)
   const [searchQ, setSearchQ] = useState('')
+  const [expandedBatch, setExpandedBatch] = useState<number | null>(null)
   const [faqOpen, setFaqOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
@@ -197,12 +211,21 @@ export default function OrdersClient({
   }
 
 
-  const afterSearch = shipments
+  // Багцад орсон ачаанууд энгийн жагсаалтад давхардахгүй — багц картаараа харагдана
+  const soloShipments = shipments.filter(s => !s.batchId)
+
+  const afterSearch = soloShipments
     .filter(s => !searchQ.trim() || s.trackCode.toLowerCase().includes(searchQ.trim().toLowerCase()) || (s.phone || '').includes(searchQ.trim()))
 
   const filtered = activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab)
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const q = searchQ.trim().toUpperCase()
+  const filteredBatches = batches.filter(b =>
+    (activeTab === 'ALL' || b.status === activeTab) &&
+    (!q || b.shipments.some(s => s.trackCode.toUpperCase().includes(q)) || b.phone.includes(q))
+  )
 
   function switchTab(key: string) { setActiveTab(key); setPage(1) }
 
@@ -522,7 +545,7 @@ export default function OrdersClient({
           })}
         </div>
 
-        {shipments.length === 0 ? (
+        {shipments.length === 0 && batches.length === 0 ? (
           <div className="empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.9rem' }}>
             <div style={{ fontSize: '2rem' }}>📦</div>
             <p style={{ margin: 0 }}>Бүртгэлтэй бараа байхгүй байна.</p>
@@ -533,13 +556,74 @@ export default function OrdersClient({
               + Эхний барааг бүртгэх
             </Link>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : (filtered.length === 0 && filteredBatches.length === 0) ? (
           <div className="empty">
             <p>{searchQ ? `"${searchQ}" хайлтад тохирох бараа байхгүй.` : 'Энэ статуст бараа байхгүй байна.'}</p>
           </div>
         ) : (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.5rem' }}>
+              {/* Багц ачаанууд — нэг карт, дарахад track кодууд дэлгэгдэнэ */}
+              {filteredBatches.map(b => (
+                <div key={`batch-${b.id}`} className={`order-card order-card-${b.status}`}>
+                  <div
+                    className="order-card-head"
+                    onClick={() => setExpandedBatch(expandedBatch === b.id ? null : b.id)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>📦 Багц B-{b.id}</span>
+                      <span style={{
+                        fontSize: '0.7rem', color: 'var(--muted)',
+                        background: 'var(--surface2)', border: '1px solid var(--border)',
+                        borderRadius: 100, padding: '0.05rem 0.5rem', whiteSpace: 'nowrap',
+                      }}>
+                        {b.shipments.length} ачаа
+                      </span>
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className={`badge badge-${b.status}`}>{STATUS_LABEL[b.status] ?? b.status}</span>
+                      <span style={{
+                        fontSize: '0.7rem', color: 'var(--muted)',
+                        transform: expandedBatch === b.id ? 'rotate(90deg)' : 'none',
+                        transition: 'transform 0.15s', display: 'inline-block',
+                      }}>▶</span>
+                    </div>
+                  </div>
+                  <div className="order-card-meta">
+                    <div className="order-card-row">
+                      <span>Нийт төлбөр</span>
+                      <strong style={{ color: 'var(--accent)' }}>
+                        {b.currency === 'CNY' ? `¥${Number(b.price).toLocaleString()}` : `₮${Number(b.price).toLocaleString()}`}
+                      </strong>
+                    </div>
+                    <div className="order-card-row">
+                      <span>Огноо</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{fmtDT(b.createdAt)}</span>
+                    </div>
+                    {expandedBatch === b.id && (
+                      <div style={{ paddingTop: '0.5rem' }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.35rem', fontWeight: 600 }}>
+                          Багц доторх ачаанууд:
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          {b.shipments.map(s => (
+                            <div key={s.id} style={{
+                              fontSize: '0.78rem', fontFamily: 'monospace',
+                              padding: '0.3rem 0.5rem', background: 'var(--surface2)',
+                              border: '1px solid var(--border)', borderRadius: 6,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              {s.trackCode}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
               {paged.map(s => (
                 <div key={s.id} className={`order-card order-card-${s.status}`}>
                   <div className="order-card-head">

@@ -18,6 +18,7 @@ interface CargoStat {
   bankTransferNote: string | null
   notificationsEnabled: boolean
   searchByPhone: boolean
+  batchEnabled: boolean
   paidUntil: string | null
   createdAt: string
   admins: Admin[]
@@ -410,6 +411,25 @@ export default function SuperPage() {
                         }}
                       >
                         {c.searchByPhone ? '📱 Утас хайлт: Тийм' : '📱 Утас хайлт: Үгүй'}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await fetch(`/api/super/cargo/${c.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ batchEnabled: !c.batchEnabled }),
+                          })
+                          load()
+                        }}
+                        style={{
+                          background: c.batchEnabled ? 'rgba(201,100,66,0.12)' : 'none',
+                          border: `1px solid ${c.batchEnabled ? 'var(--accent)' : 'var(--border)'}`,
+                          color: c.batchEnabled ? 'var(--accent)' : 'var(--muted)',
+                          borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem',
+                          cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
+                        }}
+                      >
+                        {c.batchEnabled ? '📦 Багц: Тийм' : '📦 Багц: Үгүй'}
                       </button>
                       <button onClick={() => startEdit(c)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem', cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
                         Засах

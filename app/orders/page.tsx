@@ -17,6 +17,18 @@ export default async function OrdersPage() {
     select: { name: true, email: true, phone: true, cargoId: true },
   })
 
+  // Хэрэглэгчийн багцууд (утас эсвэл эзнээр холбогдсон)
+  const batches = userRecord?.cargoId
+    ? await (prisma as any).batch.findMany({
+        where: {
+          cargoId: userRecord.cargoId,
+          OR: [{ userId: user.userId }, { phone: userRecord.phone }],
+        },
+        orderBy: { id: 'desc' },
+        include: { shipments: { select: { id: true, trackCode: true } } },
+      })
+    : []
+
   const cargo = userRecord?.cargoId
     ? await (prisma.cargo.findUnique as any)({
         where: { id: userRecord.cargoId },
@@ -46,6 +58,7 @@ export default async function OrdersPage() {
       arrivedLabel={cargo?.arrivedLabel ?? null}
       ereemLabel={cargo?.ereemLabel ?? null}
       aiEnabled={cargo?.aiEnabled ?? false}
+      batches={JSON.parse(JSON.stringify(batches))}
     />
   )
 }

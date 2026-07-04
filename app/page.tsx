@@ -12,6 +12,7 @@ export default async function Home() {
   if (user) {
     if (user.role === 'SUPER_ADMIN') redirect('/super')
     if (user.role === 'ADMIN') redirect('/admin/import')
+    if (user.role === 'EREEN') redirect('/batch')
     redirect('/orders')
   }
 
