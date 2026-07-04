@@ -13,6 +13,16 @@ const STATUS_LABEL: Record<string, string> = {
 // Facebook хуудасны URL (хоосон үед footer-т гарахгүй)
 const FB_URL = 'https://www.facebook.com/share/1BSw6dQ22F/'
 
+// Бодит дэлгэцийн зургууд — public/shots/ хавтсанд ижил нэрээр байрлана
+const SHOTS = [
+  { src: '/shots/desk-ereen.png', label: 'Эрээний бүртгэл — Excel болон нэг нэгээр (компьютер)' },
+  { src: '/shots/mobile-arrived.png', label: 'Ирсэн ачаа бүртгэх — утас, компьютер хоёуланд' },
+  { src: '/shots/mobile-handover.png', label: 'Ачаа олгох — утсаар хайж, нэг товчоор' },
+  { src: '/shots/mobile-settings.png', label: 'Тохиргоо — лого, Эрээний хаягаа өөрөө удирдана' },
+  { src: '/shots/user-orders.png', label: 'Хэрэглэгч ачаагаа бодит цагт хянана' },
+  { src: '/shots/app-icons.jpg', label: 'Утсанд апп шиг суулгагдана' },
+]
+
 const FEATURES = [
   { icon: '🌐', title: 'Өөрийн вэб хаяг', desc: 'tanaikargo.aicargo.mn — таны нэр, лого, өнгөтэй. Хэрэглэгч тань утсандаа апп шиг суулгана.' },
   { icon: '📦', title: 'Ачааны бүрэн хяналт', desc: 'Бүртгүүлсэн → Эрээнд → Ирсэн → Олгосон. Хэрэглэгч бүр өөрийн ачааг бодит цагт хардаг.' },
@@ -67,9 +77,15 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [loading, setLoading] = useState(false)
   const [whDetail, setWhDetail] = useState<Warehouse | null>(null)
   const whScroll = useRef<HTMLDivElement>(null)
+  const [shotView, setShotView] = useState<{ src: string; label: string } | null>(null)
+  const shotScroll = useRef<HTMLDivElement>(null)
 
   function scrollWh(dir: -1 | 1) {
     whScroll.current?.scrollBy({ left: dir * 340, behavior: 'smooth' })
+  }
+
+  function scrollShots(dir: -1 | 1) {
+    shotScroll.current?.scrollBy({ left: dir * 320, behavior: 'smooth' })
   }
 
   async function search() {
@@ -152,127 +168,32 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
-        {/* ── БҮТЭЭГДЭХҮҮНИЙ ХАРАГДАЦ (CSS mockup) ── */}
-        <section style={{ padding: '0 5% 2.5rem', maxWidth: 900, margin: '0 auto' }}>
-          <style>{`
-            .lp-mock-wrap { display: flex; gap: 1.25rem; align-items: flex-start; justify-content: center; }
-            .lp-mock-phone { flex-shrink: 0; }
-            @media (max-width: 700px) {
-              .lp-mock-wrap { flex-direction: column; align-items: center; }
-            }
-          `}</style>
-          <div className="lp-mock-wrap">
-
-            {/* Browser frame — админы харагдац */}
-            <div style={{
-              flex: 1, minWidth: 0, maxWidth: 560, width: '100%',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 12, overflow: 'hidden',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.10)',
+        {/* ── БОДИТ ДЭЛГЭЦҮҮД (screenshot gallery) ── */}
+        <section style={{ padding: '0 0 2.5rem' }}>
+          <p style={{ textAlign: 'center', fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>
+            Систем дотроос — бодит дэлгэцүүд
+          </p>
+          <div style={{ position: 'relative', maxWidth: 900, margin: '0 auto', padding: '0 5%' }}>
+            <button onClick={() => scrollShots(-1)} aria-label="Өмнөх" style={whArrowStyle('left')}>‹</button>
+            <button onClick={() => scrollShots(1)} aria-label="Дараах" style={whArrowStyle('right')}>›</button>
+            <div ref={shotScroll} style={{
+              display: 'flex', gap: '0.8rem', overflowX: 'auto', alignItems: 'flex-end',
+              scrollSnapType: 'x mandatory', scrollbarWidth: 'none',
+              padding: '4px 2px', WebkitOverflowScrolling: 'touch',
             }}>
-              {/* Browser bar */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 12px', background: 'var(--surface2)',
-                borderBottom: '1px solid var(--border)',
-              }}>
-                <span style={{ display: 'flex', gap: 4 }}>
-                  {['#f87171', '#fbbf24', '#34d399'].map(c => (
-                    <span key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c }} />
-                  ))}
-                </span>
-                <span style={{
-                  flex: 1, textAlign: 'center', fontSize: '0.68rem', color: 'var(--muted)',
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 6, padding: '2px 10px', maxWidth: 220, margin: '0 auto',
-                }}>
-                  tanaikargo.aicargo.mn/admin
-                </span>
-              </div>
-              {/* Админ агуулга */}
-              <div style={{ padding: '0.9rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  {[
-                    { v: '5,937', l: 'Нийт ачаа' },
-                    { v: '48', l: 'Өнөөдөр ирсэн' },
-                    { v: '₮1.2 сая', l: 'Орлого (7 хоног)' },
-                  ].map(s => (
-                    <div key={s.l} style={{
-                      background: 'var(--bg)', border: '1px solid var(--border)',
-                      borderRadius: 8, padding: '0.55rem 0.6rem', textAlign: 'center',
-                    }}>
-                      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--accent)' }}>{s.v}</div>
-                      <div style={{ fontSize: '0.62rem', color: 'var(--muted)', marginTop: 1 }}>{s.l}</div>
-                    </div>
-                  ))}
-                </div>
-                {[
-                  { code: 'YT8853194305', status: 'ARRIVED', label: 'Ирсэн', price: '₮3,000' },
-                  { code: 'JT5467125484', status: 'EREEN_ARRIVED', label: 'Эрээнд ирсэн', price: '—' },
-                  { code: '77741393668', status: 'PICKED_UP', label: 'Авсан', price: '₮4,500' },
-                ].map((r, i) => (
-                  <div key={r.code} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                    padding: '0.45rem 0.6rem', fontSize: '0.72rem',
-                    borderBottom: i < 2 ? '1px solid var(--border)' : 'none',
+              {SHOTS.map(s => (
+                <figure key={s.src} style={{ margin: 0, flex: '0 0 auto', scrollSnapAlign: 'start', textAlign: 'center' }}>
+                  <button onClick={() => setShotView(s)} style={{
+                    padding: 0, border: '1px solid var(--border)', borderRadius: 12,
+                    overflow: 'hidden', cursor: 'zoom-in', background: 'var(--surface)',
+                    boxShadow: '0 6px 24px rgba(0,0,0,0.10)', display: 'block',
                   }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text)' }}>{r.code}</span>
-                    <span className={`badge badge-${r.status}`} style={{ fontSize: '0.6rem' }}>{r.label}</span>
-                    <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 48, textAlign: 'right' }}>{r.price}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Утасны frame — хэрэглэгчийн харагдац */}
-            <div className="lp-mock-phone" style={{
-              width: 190, background: 'var(--text)',
-              borderRadius: 26, padding: 7,
-              boxShadow: '0 12px 40px rgba(0,0,0,0.14)',
-            }}>
-              <div style={{
-                background: 'var(--bg)', borderRadius: 20, overflow: 'hidden',
-                display: 'flex', flexDirection: 'column',
-              }}>
-                <div style={{
-                  padding: '0.55rem 0.7rem', background: 'var(--surface)',
-                  borderBottom: '1px solid var(--border)',
-                  fontSize: '0.62rem', fontWeight: 800, color: 'var(--text)',
-                  display: 'flex', alignItems: 'center', gap: 5,
-                }}>
-                  <span style={{
-                    width: 16, height: 16, borderRadius: 5, background: 'var(--accent)',
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontSize: '0.5rem', fontWeight: 800,
-                  }}>Ai</span>
-                  Миний захиалгууд
-                </div>
-                <div style={{ padding: '0.55rem' }}>
-                  <div style={{
-                    background: 'var(--surface)', border: '1px solid var(--border)',
-                    borderLeft: '3px solid var(--yellow)',
-                    borderRadius: 8, padding: '0.5rem 0.6rem', marginBottom: '0.45rem',
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                      <span style={{ fontSize: '0.62rem', fontWeight: 700 }}>Гутал</span>
-                      <span className="badge badge-ARRIVED" style={{ fontSize: '0.52rem' }}>Ирсэн</span>
-                    </div>
-                    <div style={{ fontSize: '0.55rem', color: 'var(--muted)', fontFamily: 'monospace' }}>YT885319430...</div>
-                    <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--accent)', marginTop: 2 }}>₮3,000</div>
-                  </div>
-                  <div style={{
-                    background: 'var(--surface)', border: '1px solid var(--border)',
-                    borderLeft: '3px solid var(--blue)',
-                    borderRadius: 8, padding: '0.5rem 0.6rem',
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                      <span style={{ fontSize: '0.62rem', fontWeight: 700 }}>Цамц</span>
-                      <span className="badge badge-EREEN_ARRIVED" style={{ fontSize: '0.52rem' }}>Эрээнд</span>
-                    </div>
-                    <div style={{ fontSize: '0.55rem', color: 'var(--muted)', fontFamily: 'monospace' }}>JT546712548...</div>
-                  </div>
-                </div>
-              </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={s.src} alt={s.label} loading="lazy" style={{ height: 300, width: 'auto', maxWidth: '80vw', display: 'block', objectFit: 'contain' }} />
+                  </button>
+                  <figcaption style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.4rem', maxWidth: 220, marginLeft: 'auto', marginRight: 'auto' }}>{s.label}</figcaption>
+                </figure>
+              ))}
             </div>
           </div>
         </section>
@@ -600,6 +521,27 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Дэлгэцийн зураг — fullscreen үзэгч */}
+      {shotView && (
+        <div onClick={() => setShotView(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: '1rem', cursor: 'zoom-out',
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={shotView.src} alt={shotView.label}
+            style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: 10 }} />
+          <p style={{ color: '#fff', fontSize: '0.85rem', marginTop: '0.75rem', textAlign: 'center' }}>{shotView.label}</p>
+          <button onClick={() => setShotView(null)} aria-label="Хаах" style={{
+            position: 'absolute', top: 'calc(12px + env(safe-area-inset-top))', right: 14,
+            background: 'rgba(255,255,255,0.15)', border: 'none',
+            borderRadius: '50%', width: 36, height: 36, cursor: 'pointer',
+            fontSize: '1rem', lineHeight: 1, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>✕</button>
         </div>
       )}
 
