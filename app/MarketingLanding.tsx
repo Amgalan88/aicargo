@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import NavLogo from './components/NavLogo'
 
@@ -77,8 +77,9 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [loading, setLoading] = useState(false)
   const [whDetail, setWhDetail] = useState<Warehouse | null>(null)
   const whScroll = useRef<HTMLDivElement>(null)
-  const [shotView, setShotView] = useState<{ src: string; label: string } | null>(null)
+  const [shotIdx, setShotIdx] = useState<number | null>(null)
   const shotScroll = useRef<HTMLDivElement>(null)
+  const touchX = useRef<number | null>(null)
 
   function scrollWh(dir: -1 | 1) {
     whScroll.current?.scrollBy({ left: dir * 340, behavior: 'smooth' })
@@ -87,6 +88,18 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   function scrollShots(dir: -1 | 1) {
     shotScroll.current?.scrollBy({ left: dir * 320, behavior: 'smooth' })
   }
+
+  function shotNav(dir: -1 | 1) {
+    setShotIdx(i => i === null ? i : (i + dir + SHOTS.length) % SHOTS.length)
+  }
+
+  // Fullscreen үзэгч нээлттэй үед ар талын хуудасны scroll-ийг түгжинэ
+  useEffect(() => {
+    if (shotIdx === null) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [shotIdx])
 
   async function search() {
     const val = query.trim().toUpperCase().replace(/\s+/g, '')
@@ -181,9 +194,9 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               scrollSnapType: 'x mandatory', scrollbarWidth: 'none',
               padding: '4px 2px', WebkitOverflowScrolling: 'touch',
             }}>
-              {SHOTS.map(s => (
+              {SHOTS.map((s, i) => (
                 <figure key={s.src} style={{ margin: 0, flex: '0 0 auto', scrollSnapAlign: 'start', textAlign: 'center' }}>
-                  <button onClick={() => setShotView(s)} style={{
+                  <button onClick={() => setShotIdx(i)} style={{
                     padding: 0, border: '1px solid var(--border)', borderRadius: 12,
                     overflow: 'hidden', cursor: 'zoom-in', background: 'var(--surface)',
                     boxShadow: '0 6px 24px rgba(0,0,0,0.10)', display: 'block',
@@ -524,18 +537,47 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         </div>
       )}
 
-      {/* Дэлгэцийн зураг — fullscreen үзэгч */}
-      {shotView && (
-        <div onClick={() => setShotView(null)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          padding: '1rem', cursor: 'zoom-out',
-        }}>
+      {/* Дэлгэцийн зураг — fullscreen үзэгч (swipe + сум навигацитай) */}
+      {shotIdx !== null && (
+        <div
+          onClick={() => setShotIdx(null)}
+          onTouchStart={e => { touchX.current = e.touches[0].clientX }}
+          onTouchEnd={e => {
+            if (touchX.current === null) return
+            const dx = e.changedTouches[0].clientX - touchX.current
+            touchX.current = null
+            if (dx < -40) shotNav(1)
+            else if (dx > 40) shotNav(-1)
+          }}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: '1rem', cursor: 'zoom-out', touchAction: 'none',
+          }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={shotView.src} alt={shotView.label}
-            style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: 10 }} />
-          <p style={{ color: '#fff', fontSize: '0.85rem', marginTop: '0.75rem', textAlign: 'center' }}>{shotView.label}</p>
-          <button onClick={() => setShotView(null)} aria-label="Хаах" style={{
+          <img src={SHOTS[shotIdx].src} alt={SHOTS[shotIdx].label}
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: 10 }} />
+          <p style={{ color: '#fff', fontSize: '0.85rem', marginTop: '0.75rem', textAlign: 'center' }}>
+            {SHOTS[shotIdx].label}
+            <span style={{ opacity: 0.55, marginLeft: 8, fontSize: '0.75rem' }}>{shotIdx + 1}/{SHOTS.length}</span>
+          </p>
+          <button onClick={e => { e.stopPropagation(); shotNav(-1) }} aria-label="Өмнөх" style={{
+            position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+            background: 'rgba(255,255,255,0.15)', border: 'none',
+            borderRadius: '50%', width: 40, height: 40, cursor: 'pointer',
+            fontSize: '1.3rem', lineHeight: 1, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>‹</button>
+          <button onClick={e => { e.stopPropagation(); shotNav(1) }} aria-label="Дараах" style={{
+            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+            background: 'rgba(255,255,255,0.15)', border: 'none',
+            borderRadius: '50%', width: 40, height: 40, cursor: 'pointer',
+            fontSize: '1.3rem', lineHeight: 1, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>›</button>
+          <button onClick={() => setShotIdx(null)} aria-label="Хаах" style={{
             position: 'absolute', top: 'calc(12px + env(safe-area-inset-top))', right: 14,
             background: 'rgba(255,255,255,0.15)', border: 'none',
             borderRadius: '50%', width: 36, height: 36, cursor: 'pointer',
