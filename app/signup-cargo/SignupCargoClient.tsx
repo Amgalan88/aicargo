@@ -249,7 +249,8 @@ export default function SignupCargoClient() {
               {loading ? 'Илгээж байна...' : 'Үргэлжлүүлэх'}
             </button>
             <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.75rem' }}>
-              Үргэлжлүүлснээр таны и-мэйл рүү баталгаажуулах код очно
+              Үргэлжлүүлснээр таны и-мэйл рүү баталгаажуулах код очих бөгөөд{' '}
+              <Link href="/terms" style={{ color: 'var(--accent)' }}>Үйлчилгээний нөхцөлийг</Link> зөвшөөрсөнд тооцно
             </p>
           </>
         )}

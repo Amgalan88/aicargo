@@ -10,6 +10,9 @@ const STATUS_LABEL: Record<string, string> = {
   PICKED_UP: 'Авсан',
 }
 
+// Facebook хуудасны URL — эзэмшигч өгмөгц энд тавина (хоосон үед footer-т гарахгүй)
+const FB_URL = ''
+
 const FEATURES = [
   { icon: '🌐', title: 'Өөрийн вэб хаяг', desc: 'tanaikargo.aicargo.mn — таны нэр, лого, өнгөтэй. Хэрэглэгч тань утсандаа апп шиг суулгана.' },
   { icon: '📦', title: 'Ачааны бүрэн хяналт', desc: 'Бүртгүүлсэн → Эрээнд → Ирсэн → Олгосон. Хэрэглэгч бүр өөрийн ачааг бодит цагт хардаг.' },
@@ -146,6 +149,131 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2 }}>{s.label}</div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ── БҮТЭЭГДЭХҮҮНИЙ ХАРАГДАЦ (CSS mockup) ── */}
+        <section style={{ padding: '0 5% 2.5rem', maxWidth: 900, margin: '0 auto' }}>
+          <style>{`
+            .lp-mock-wrap { display: flex; gap: 1.25rem; align-items: flex-start; justify-content: center; }
+            .lp-mock-phone { flex-shrink: 0; }
+            @media (max-width: 700px) {
+              .lp-mock-wrap { flex-direction: column; align-items: center; }
+            }
+          `}</style>
+          <div className="lp-mock-wrap">
+
+            {/* Browser frame — админы харагдац */}
+            <div style={{
+              flex: 1, minWidth: 0, maxWidth: 560, width: '100%',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 12, overflow: 'hidden',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.10)',
+            }}>
+              {/* Browser bar */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 12px', background: 'var(--surface2)',
+                borderBottom: '1px solid var(--border)',
+              }}>
+                <span style={{ display: 'flex', gap: 4 }}>
+                  {['#f87171', '#fbbf24', '#34d399'].map(c => (
+                    <span key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c }} />
+                  ))}
+                </span>
+                <span style={{
+                  flex: 1, textAlign: 'center', fontSize: '0.68rem', color: 'var(--muted)',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 6, padding: '2px 10px', maxWidth: 220, margin: '0 auto',
+                }}>
+                  tanaikargo.aicargo.mn/admin
+                </span>
+              </div>
+              {/* Админ агуулга */}
+              <div style={{ padding: '0.9rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  {[
+                    { v: '5,937', l: 'Нийт ачаа' },
+                    { v: '48', l: 'Өнөөдөр ирсэн' },
+                    { v: '₮1.2 сая', l: 'Орлого (7 хоног)' },
+                  ].map(s => (
+                    <div key={s.l} style={{
+                      background: 'var(--bg)', border: '1px solid var(--border)',
+                      borderRadius: 8, padding: '0.55rem 0.6rem', textAlign: 'center',
+                    }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--accent)' }}>{s.v}</div>
+                      <div style={{ fontSize: '0.62rem', color: 'var(--muted)', marginTop: 1 }}>{s.l}</div>
+                    </div>
+                  ))}
+                </div>
+                {[
+                  { code: 'YT8853194305', status: 'ARRIVED', label: 'Ирсэн', price: '₮3,000' },
+                  { code: 'JT5467125484', status: 'EREEN_ARRIVED', label: 'Эрээнд ирсэн', price: '—' },
+                  { code: '77741393668', status: 'PICKED_UP', label: 'Авсан', price: '₮4,500' },
+                ].map((r, i) => (
+                  <div key={r.code} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                    padding: '0.45rem 0.6rem', fontSize: '0.72rem',
+                    borderBottom: i < 2 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text)' }}>{r.code}</span>
+                    <span className={`badge badge-${r.status}`} style={{ fontSize: '0.6rem' }}>{r.label}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 48, textAlign: 'right' }}>{r.price}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Утасны frame — хэрэглэгчийн харагдац */}
+            <div className="lp-mock-phone" style={{
+              width: 190, background: 'var(--text)',
+              borderRadius: 26, padding: 7,
+              boxShadow: '0 12px 40px rgba(0,0,0,0.14)',
+            }}>
+              <div style={{
+                background: 'var(--bg)', borderRadius: 20, overflow: 'hidden',
+                display: 'flex', flexDirection: 'column',
+              }}>
+                <div style={{
+                  padding: '0.55rem 0.7rem', background: 'var(--surface)',
+                  borderBottom: '1px solid var(--border)',
+                  fontSize: '0.62rem', fontWeight: 800, color: 'var(--text)',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 5, background: 'var(--accent)',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontSize: '0.5rem', fontWeight: 800,
+                  }}>Ai</span>
+                  Миний захиалгууд
+                </div>
+                <div style={{ padding: '0.55rem' }}>
+                  <div style={{
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderLeft: '3px solid var(--yellow)',
+                    borderRadius: 8, padding: '0.5rem 0.6rem', marginBottom: '0.45rem',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                      <span style={{ fontSize: '0.62rem', fontWeight: 700 }}>Гутал</span>
+                      <span className="badge badge-ARRIVED" style={{ fontSize: '0.52rem' }}>Ирсэн</span>
+                    </div>
+                    <div style={{ fontSize: '0.55rem', color: 'var(--muted)', fontFamily: 'monospace' }}>YT885319430...</div>
+                    <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--accent)', marginTop: 2 }}>₮3,000</div>
+                  </div>
+                  <div style={{
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderLeft: '3px solid var(--blue)',
+                    borderRadius: 8, padding: '0.5rem 0.6rem',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                      <span style={{ fontSize: '0.62rem', fontWeight: 700 }}>Цамц</span>
+                      <span className="badge badge-EREEN_ARRIVED" style={{ fontSize: '0.52rem' }}>Эрээнд</span>
+                    </div>
+                    <div style={{ fontSize: '0.55rem', color: 'var(--muted)', fontFamily: 'monospace' }}>JT546712548...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -367,6 +495,50 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
+        {/* ── FAQ ── */}
+        <section style={{ padding: '2.5rem 5%', borderTop: '1px solid var(--border)' }}>
+          <div style={{ maxWidth: 640, margin: '0 auto' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, textAlign: 'center', marginBottom: '1.5rem' }}>
+              Түгээмэл асуултууд
+            </h2>
+            <style>{`
+              .lp-faq { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.6rem; overflow: hidden; }
+              .lp-faq summary { padding: 0.85rem 1rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; color: var(--text); }
+              .lp-faq summary::-webkit-details-marker { display: none; }
+              .lp-faq summary::after { content: '+'; font-size: 1.1rem; color: var(--muted); flex-shrink: 0; transition: transform 0.15s; }
+              .lp-faq[open] summary::after { transform: rotate(45deg); color: var(--accent); }
+              .lp-faq-body { padding: 0 1rem 0.9rem; font-size: 0.83rem; color: var(--muted); line-height: 1.65; }
+            `}</style>
+            {[
+              {
+                q: 'Өгөгдөл минь хаана хадгалагдах вэ, аюулгүй юу?',
+                a: 'Бүх өгөгдөл олон улсын үүлэн серверт шифрлэгдэн хадгалагдаж, тогтмол нөөцлөгддөг. Танай каргогийн өгөгдөлд зөвхөн та болон таны хэрэглэгчид хандана — карго тус бүрийн өгөгдөл бүрэн тусгаарлагдсан.',
+              },
+              {
+                q: 'Одоо ашиглаж байгаа Excel өгөгдлөө оруулж болох уу?',
+                a: 'Болно. Олон зуун трак кодыг Excel файлаас нэг дор оруулах боломжтой тул одоогийн бүртгэлээ хэдхэн минутад шилжүүлнэ.',
+              },
+              {
+                q: 'Төлбөрөө хэрхэн төлөх вэ?',
+                a: 'Эхний 30 хоног бүрэн үнэгүй — картын мэдээлэл шаардлагагүй. Үргэлжлүүлэн ашиглах бол сарын ₮50,000-ыг дансаар шилжүүлнэ.',
+              },
+              {
+                q: 'Болиулбал өгөгдлөө буцааж авч чадах уу?',
+                a: 'Тийм. Таны ачаа, хэрэглэгчийн бүртгэл таны өмч — хүссэн үедээ Excel хэлбэрээр татаж авах боломжийг бид олгоно.',
+              },
+              {
+                q: 'Хэрэглэгчид минь хэрхэн ашиглах вэ?',
+                a: 'Та өөрийн вэб хаягаа (tanaikargo.aicargo.mn) хэрэглэгчиддээ өгнө. Тэд бүртгүүлээд трак кодоо оруулж ачаагаа хянана, утсандаа апп шиг суулгаж болно. Заавар сургалт шаардлагагүй энгийн.',
+              },
+            ].map(f => (
+              <details key={f.q} className="lp-faq">
+                <summary>{f.q}</summary>
+                <div className="lp-faq-body">{f.a}</div>
+              </details>
+            ))}
+          </div>
+        </section>
+
         {/* ── FINAL CTA ── */}
         <section style={{ padding: '3rem 5%', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>
@@ -437,9 +609,23 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         fontSize: '0.7rem',
         color: 'var(--muted)',
         lineHeight: 1.7,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: '1rem', flexWrap: 'wrap',
       }}>
-        <div style={{ fontWeight: 600 }}>&quot;Бизнес интеллижэнс&quot; ХХК хөгжүүлж байна</div>
-        <div>Бүх эрх хуулиар хамгаалагдсан болно · 85205258 · 2026</div>
+        <div>
+          <div style={{ fontWeight: 600 }}>&quot;Бизнес интеллижэнс&quot; ХХК хөгжүүлж байна</div>
+          <div>Бүх эрх хуулиар хамгаалагдсан болно · 85205258 · 2026</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
+          <Link href="/terms" style={{ color: 'var(--muted)' }}>Үйлчилгээний нөхцөл</Link>
+          <Link href="/privacy" style={{ color: 'var(--muted)' }}>Нууцлалын бодлого</Link>
+          {FB_URL && (
+            <a href={FB_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.5h-2.8V24C19.62 23.1 24 18.1 24 12.07z"/></svg>
+              Facebook
+            </a>
+          )}
+        </div>
       </footer>
     </div>
   )
