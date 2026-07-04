@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   let ogSub = 'aicargo.mn · Эхний 30 хоног үнэгүй'
   let description = 'Карго бараа хянах систем'
   let icon = '/favicon.svg'
-  let apple = '/logo.svg'
+  let apple = '/apple-icon.png'
   let baseUrl = 'https://www.aicargo.mn'
 
   try {
