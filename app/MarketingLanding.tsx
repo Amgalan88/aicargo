@@ -10,8 +10,8 @@ const STATUS_LABEL: Record<string, string> = {
   PICKED_UP: 'Авсан',
 }
 
-// Facebook хуудасны URL — эзэмшигч өгмөгц энд тавина (хоосон үед footer-т гарахгүй)
-const FB_URL = ''
+// Facebook хуудасны URL (хоосон үед footer-т гарахгүй)
+const FB_URL = 'https://www.facebook.com/share/1BSw6dQ22F/'
 
 const FEATURES = [
   { icon: '🌐', title: 'Өөрийн вэб хаяг', desc: 'tanaikargo.aicargo.mn — таны нэр, лого, өнгөтэй. Хэрэглэгч тань утсандаа апп шиг суулгана.' },
