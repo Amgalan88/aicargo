@@ -93,7 +93,7 @@ export default function OrdersClient({
   arrivedLabel,
   ereemLabel,
   aiEnabled,
-  yuanMode = false,
+  batchMode = false,
   batches = [],
 }: {
   shipments: Shipment[]
@@ -116,16 +116,20 @@ export default function OrdersClient({
   arrivedLabel?: string | null
   ereemLabel?: string | null
   aiEnabled?: boolean
-  yuanMode?: boolean
+  batchMode?: boolean
   batches?: UserBatch[]
 }) {
   const router = useRouter()
-  const STATUS_LABEL = getStatusLabel(arrivedLabel, ereemLabel)
-  const TABS = BASE_TABS.map(t => {
-    if (t.key === 'ARRIVED') return { ...t, label: arrivedLabel || 'Ирсэн' }
-    if (t.key === 'EREEN_ARRIVED') return { ...t, label: ereemLabel || 'Эрээнд' }
-    return t
-  })
+  // Батч горимд: Эрээний шат нуугдаж, ARRIVED нь "УБ руу ачигдсан" нэртэй болно
+  const effArrivedLabel = arrivedLabel || (batchMode ? 'УБ руу ачигдсан' : null)
+  const STATUS_LABEL = getStatusLabel(effArrivedLabel, ereemLabel)
+  const TABS = BASE_TABS
+    .filter(t => !(batchMode && t.key === 'EREEN_ARRIVED'))
+    .map(t => {
+      if (t.key === 'ARRIVED') return { ...t, label: effArrivedLabel || 'Ирсэн' }
+      if (t.key === 'EREEN_ARRIVED') return { ...t, label: ereemLabel || 'Эрээнд' }
+      return t
+    })
   const [shipments, setShipments] = useState(initialShipments)
   const [activeTab, setActiveTab] = useState('ALL')
   const [page, setPage] = useState(1)
@@ -213,8 +217,8 @@ export default function OrdersClient({
   }
 
 
-  // Багц feature астай карго бүхэлдээ юань тооцоотой
-  const CUR = yuanMode ? '¥' : '₮'
+  // Батч горимт карго бүхэлдээ юань тооцоотой
+  const CUR = batchMode ? '¥' : '₮'
 
   // Багцад орсон ачаанууд энгийн жагсаалтад давхардахгүй — багц картаараа харагдана
   const soloShipments = shipments.filter(s => !s.batchId)

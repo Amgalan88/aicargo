@@ -58,7 +58,7 @@ export default async function OrdersPage() {
       arrivedLabel={cargo?.arrivedLabel ?? null}
       ereemLabel={cargo?.ereemLabel ?? null}
       aiEnabled={cargo?.aiEnabled ?? false}
-      yuanMode={cargo?.batchEnabled ?? false}
+      batchMode={cargo?.batchEnabled ?? false}
       batches={JSON.parse(JSON.stringify(batches))}
     />
   )

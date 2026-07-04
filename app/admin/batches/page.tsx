@@ -10,7 +10,7 @@ interface Batch {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  EREEN_ARRIVED: 'Эрээнд ирсэн', ARRIVED: 'Ирсэн', PICKED_UP: 'Олгосон',
+  EREEN_ARRIVED: 'Эрээнд', ARRIVED: 'УБ руу ачигдсан', PICKED_UP: 'Олгосон',
 }
 
 function fmtPrice(price: string | number, currency: 'MNT' | 'CNY') {
@@ -29,7 +29,7 @@ export default function AdminBatchesPage() {
   const [expanded, setExpanded] = useState<number | null>(null)
   const [logOpen, setLogOpen] = useState<number | null>(null)
   const [busy, setBusy] = useState<number | null>(null)
-  const [tab, setTab] = useState<'ALL' | 'EREEN_ARRIVED' | 'ARRIVED' | 'PICKED_UP'>('ALL')
+  const [tab, setTab] = useState<'ALL' | 'ARRIVED' | 'PICKED_UP'>('ALL')
 
   function load() {
     fetch('/api/batch')
@@ -66,11 +66,11 @@ export default function AdminBatchesPage() {
 
   return (
     <div className="page-wide" style={{ maxWidth: 760 }}>
-      <h1 className="section-title">Багц ачаа</h1>
+      <h1 className="section-title">УБ руу ачигдсан багцууд</h1>
 
       {/* Статусын шүүлт */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        {([['ALL', 'Бүгд'], ['EREEN_ARRIVED', 'Эрээнд'], ['ARRIVED', 'Ирсэн'], ['PICKED_UP', 'Олгосон']] as const).map(([k, label]) => (
+        {([['ALL', 'Бүгд'], ['ARRIVED', 'УБ руу ачигдсан'], ['PICKED_UP', 'Олгосон']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} style={{
             padding: '0.35rem 0.85rem', borderRadius: 100, border: '1px solid',
             fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',

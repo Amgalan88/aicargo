@@ -33,8 +33,15 @@ export async function GET(req: NextRequest) {
   const auth = await requireBatchAccess(req)
   if (auth.error) return auth.error
 
+  const phone = req.nextUrl.searchParams.get('phone')?.trim()
+  const status = req.nextUrl.searchParams.get('status')?.trim()
+
   const batches = await (prisma as any).batch.findMany({
-    where: { cargoId: auth.user!.cargoId },
+    where: {
+      cargoId: auth.user!.cargoId,
+      ...(phone ? { phone: { contains: phone } } : {}),
+      ...(status ? { status } : {}),
+    },
     orderBy: { id: 'desc' },
     take: 100,
     include: {

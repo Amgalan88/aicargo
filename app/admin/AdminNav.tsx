@@ -50,20 +50,33 @@ export default function AdminNav({
       .catch(() => {})
   }, [pathname])
 
-  const links = [
-    { href: '/admin/registered', label: 'Бүртгүүлсэн' },
-    { href: '/admin/import', label: ereemLabel || 'Эрээнд ирсэн' },
-    { href: '/admin/arrived', label: arrivedLabel || 'Ирсэн' },
-    { href: '/admin/handover', label: 'Ачаа олгох' },
-    { href: '/admin/history', label: 'Олгосон' },
-    ...(batchEnabled ? [{ href: '/admin/batches', label: 'Багц' }] : []),
-    ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт' }] : []),
-    { href: '/admin/notify', label: 'Мэдэгдэл' },
-    { href: '/admin/faq', label: 'FAQ' },
-    { href: '/admin/users', label: 'Хэрэглэгчид' },
-    { href: '/admin/settings', label: 'Тохиргоо' },
-    { href: '/admin/ai', label: 'AI Туслах' },
-  ]
+  // Батч горимт карго: Эрээн/Ирсэн шатгүй — Бүртгүүлсэн → УБ руу ачигдсан → Олгох → Олгосон
+  const links = batchEnabled
+    ? [
+        { href: '/admin/registered', label: 'Бүртгүүлсэн' },
+        { href: '/admin/batches', label: arrivedLabel || 'УБ руу ачигдсан' },
+        { href: '/admin/batch-handover', label: 'Ачаа олгох' },
+        { href: '/admin/history', label: 'Олгосон' },
+        ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт' }] : []),
+        { href: '/admin/notify', label: 'Мэдэгдэл' },
+        { href: '/admin/faq', label: 'FAQ' },
+        { href: '/admin/users', label: 'Хэрэглэгчид' },
+        { href: '/admin/settings', label: 'Тохиргоо' },
+        { href: '/admin/ai', label: 'AI Туслах' },
+      ]
+    : [
+        { href: '/admin/registered', label: 'Бүртгүүлсэн' },
+        { href: '/admin/import', label: ereemLabel || 'Эрээнд ирсэн' },
+        { href: '/admin/arrived', label: arrivedLabel || 'Ирсэн' },
+        { href: '/admin/handover', label: 'Ачаа олгох' },
+        { href: '/admin/history', label: 'Олгосон' },
+        ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт' }] : []),
+        { href: '/admin/notify', label: 'Мэдэгдэл' },
+        { href: '/admin/faq', label: 'FAQ' },
+        { href: '/admin/users', label: 'Хэрэглэгчид' },
+        { href: '/admin/settings', label: 'Тохиргоо' },
+        { href: '/admin/ai', label: 'AI Туслах' },
+      ]
 
   function copyInvite() {
     if (!cargoSlug) return
