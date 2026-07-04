@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 type Lang = 'mn' | 'cn'
 type Currency = 'MNT' | 'CNY'
 
-// Валют сонголт хэлийг дагуулна: ₮ → Монгол, ¥ → Хятад
+// Багц feature = юань тооцоотой карго. Toggle нь зөвхөн хэл солино.
 const T: Record<Lang, Record<string, string>> = {
   mn: {
     title: 'Багц ачаа бүртгэл',
@@ -76,8 +76,7 @@ function fmtPrice(price: string | number, currency: Currency) {
 
 export default function BatchClient() {
   const router = useRouter()
-  const [currency, setCurrency] = useState<Currency>('MNT')
-  const lang: Lang = currency === 'CNY' ? 'cn' : 'mn'
+  const [lang, setLang] = useState<Lang>('mn')
   const t = T[lang]
 
   const [codes, setCodes] = useState('')
@@ -97,15 +96,15 @@ export default function BatchClient() {
 
   useEffect(() => {
     try {
-      const c = localStorage.getItem('batch-currency')
-      if (c === 'CNY' || c === 'MNT') setCurrency(c)
+      const l = localStorage.getItem('batch-lang')
+      if (l === 'mn' || l === 'cn') setLang(l)
     } catch {}
     load()
   }, [])
 
-  function setCur(c: Currency) {
-    setCurrency(c)
-    try { localStorage.setItem('batch-currency', c) } catch {}
+  function switchLang(l: Lang) {
+    setLang(l)
+    try { localStorage.setItem('batch-lang', l) } catch {}
   }
 
   function load() {
@@ -115,8 +114,9 @@ export default function BatchClient() {
       .catch(() => {})
   }
 
+  // Зөвхөн мөрөөр тусгаарлана — кодод өөр шаардлага байхгүй (тоо, хэмжээ ч болно)
   function parseCodes(raw: string): string[] {
-    return Array.from(new Set(raw.split(/[\s,;]+/).map(c => c.trim().toUpperCase()).filter(c => c.length >= 4)))
+    return Array.from(new Set(raw.split(/\r?\n/).map(c => c.trim().toUpperCase()).filter(c => c.length > 0)))
   }
 
   const parsedCount = parseCodes(codes).length
@@ -131,7 +131,7 @@ export default function BatchClient() {
       const res = await fetch('/api/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codes: parseCodes(codes), phone, price: Number(price), currency }),
+        body: JSON.stringify({ codes: parseCodes(codes), phone, price: Number(price) }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Error'); return }
@@ -197,16 +197,16 @@ export default function BatchClient() {
       }}>
         <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t.title}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {/* Валют + хэл солигч */}
+          {/* Хэл солигч */}
           <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 100, overflow: 'hidden' }}>
-            {(['MNT', 'CNY'] as Currency[]).map(c => (
-              <button key={c} onClick={() => setCur(c)} style={{
+            {(['mn', 'cn'] as Lang[]).map(l => (
+              <button key={l} onClick={() => switchLang(l)} style={{
                 padding: '0.3rem 0.85rem', border: 'none', cursor: 'pointer',
                 fontSize: '0.8rem', fontWeight: 700, fontFamily: 'inherit',
-                background: currency === c ? 'var(--accent)' : 'var(--surface)',
-                color: currency === c ? '#fff' : 'var(--muted)',
+                background: lang === l ? 'var(--accent)' : 'var(--surface)',
+                color: lang === l ? '#fff' : 'var(--muted)',
               }}>
-                {c === 'MNT' ? '₮ Монгол' : '¥ 中文'}
+                {l === 'mn' ? 'Монгол' : '中文'}
               </button>
             ))}
           </div>
@@ -235,7 +235,7 @@ export default function BatchClient() {
                 value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 8))} />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
-              <label>{t.price} ({currency === 'CNY' ? '¥' : '₮'})</label>
+              <label>{t.price} (¥)</label>
               <input className="input" type="number" min="0" placeholder="0"
                 value={price} onChange={e => setPrice(e.target.value)} />
             </div>

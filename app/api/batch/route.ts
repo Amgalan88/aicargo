@@ -20,11 +20,12 @@ async function requireBatchAccess(req: NextRequest): Promise<{ user?: JwtPayload
   return { user: { ...user, name: rec?.name ?? '' } }
 }
 
+// Track кодод шаардлага тавихгүй — хоосон биш л бол болно (тоогоор дугаарлаж ч болно)
 function normCodes(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   const codes = raw
     .map(c => String(c).trim().toUpperCase())
-    .filter(c => c.length >= 4)
+    .filter(c => c.length > 0)
   return Array.from(new Set(codes))
 }
 
@@ -54,7 +55,8 @@ export async function POST(req: NextRequest) {
   const codes = normCodes(body.codes)
   const phone = String(body.phone ?? '').trim()
   const price = Number(body.price)
-  const currency = body.currency === 'CNY' ? 'CNY' : 'MNT'
+  // Багц feature = юань тооцоотой карго: үнэ үргэлж CNY
+  const currency = 'CNY'
 
   if (codes.length === 0) return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
   if (!/^\d{8}$/.test(phone)) return NextResponse.json({ error: 'Утасны дугаар 8 оронтой байна' }, { status: 400 })
@@ -64,8 +66,9 @@ export async function POST(req: NextRequest) {
   const owner = await prisma.user.findFirst({ where: { phone, cargoId }, select: { id: true } })
 
   const batch = await prisma.$transaction(async tx => {
+    // Эрээнээс ачигдсан багц ИРСЭН статустай бүртгэгдэнэ
     const b = await (tx as any).batch.create({
-      data: { cargoId, phone, userId: owner?.id ?? null, price, currency },
+      data: { cargoId, phone, userId: owner?.id ?? null, price, currency, status: 'ARRIVED' },
     })
     const now = new Date()
     for (const code of codes) {
@@ -73,16 +76,16 @@ export async function POST(req: NextRequest) {
       await tx.shipment.upsert({
         where: { trackCode_cargoId: { trackCode: code, cargoId } },
         update: {
-          status: 'EREEN_ARRIVED',
-          ereenArrivedAt: now,
+          status: 'ARRIVED',
+          arrivedAt: now,
           batchId: b.id,
           phone,
           ...(owner ? { userId: owner.id } : {}),
         } as any,
         create: {
           trackCode: code,
-          status: 'EREEN_ARRIVED',
-          ereenArrivedAt: now,
+          status: 'ARRIVED',
+          arrivedAt: now,
           batchId: b.id,
           phone,
           cargoId,
@@ -168,11 +171,12 @@ export async function PATCH(req: NextRequest) {
       const now = new Date()
       const phone = data.phone ?? batch.phone
       const userId = data.userId !== undefined ? data.userId : batch.userId
+      const stamp = batch.status === 'EREEN_ARRIVED' ? { ereenArrivedAt: now } : { arrivedAt: now }
       for (const code of addCodes) {
         await tx.shipment.upsert({
           where: { trackCode_cargoId: { trackCode: code, cargoId } },
-          update: { status: batch.status, batchId: id, phone, ...(userId ? { userId } : {}) } as any,
-          create: { trackCode: code, status: batch.status, ereenArrivedAt: now, batchId: id, phone, cargoId, ...(userId ? { userId } : {}) } as any,
+          update: { status: batch.status, ...stamp, batchId: id, phone, ...(userId ? { userId } : {}) } as any,
+          create: { trackCode: code, status: batch.status, ...stamp, batchId: id, phone, cargoId, ...(userId ? { userId } : {}) } as any,
         })
       }
       changes.push(`нэмсэн: ${addCodes.join(', ')}`)

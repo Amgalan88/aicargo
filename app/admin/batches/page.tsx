@@ -122,18 +122,18 @@ export default function AdminBatchesPage() {
                       </button>
                     )}
                     {b.status === 'ARRIVED' && (
-                      <>
-                        <button className="btn" disabled={busy === b.id}
-                          onClick={() => setStatus(b.id, 'PICKED_UP', `B-${b.id} багцыг бүхэлд нь ОЛГОСОН болгох уу? (${fmtPrice(b.price, b.currency)})`)}
-                          style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>
-                          {busy === b.id ? '...' : '→ Олгох'}
-                        </button>
-                        <button className="btn-ghost" disabled={busy === b.id}
-                          onClick={() => setStatus(b.id, 'EREEN_ARRIVED', `B-${b.id} багцыг Эрээнд ирсэн төлөвт буцаах уу?`)}
-                          style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>
-                          ↩ Эрээнд буцаах
-                        </button>
-                      </>
+                      <button className="btn" disabled={busy === b.id}
+                        onClick={() => setStatus(b.id, 'PICKED_UP', `B-${b.id} багцыг бүхэлд нь ОЛГОСОН болгох уу? (${fmtPrice(b.price, b.currency)})`)}
+                        style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>
+                        {busy === b.id ? '...' : '→ Олгох'}
+                      </button>
+                    )}
+                    {b.status === 'PICKED_UP' && (
+                      <button className="btn-ghost" disabled={busy === b.id}
+                        onClick={() => setStatus(b.id, 'ARRIVED', `B-${b.id} багцыг Ирсэн төлөвт буцаах уу?`)}
+                        style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>
+                        ↩ Ирсэн болгох
+                      </button>
                     )}
                     <button className="btn-ghost" onClick={() => setLogOpen(logOpen === b.id ? null : b.id)}
                       style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>

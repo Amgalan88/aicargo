@@ -93,6 +93,7 @@ export default function OrdersClient({
   arrivedLabel,
   ereemLabel,
   aiEnabled,
+  yuanMode = false,
   batches = [],
 }: {
   shipments: Shipment[]
@@ -115,6 +116,7 @@ export default function OrdersClient({
   arrivedLabel?: string | null
   ereemLabel?: string | null
   aiEnabled?: boolean
+  yuanMode?: boolean
   batches?: UserBatch[]
 }) {
   const router = useRouter()
@@ -210,6 +212,9 @@ export default function OrdersClient({
     setDeleting(null)
   }
 
+
+  // Багц feature астай карго бүхэлдээ юань тооцоотой
+  const CUR = yuanMode ? '¥' : '₮'
 
   // Багцад орсон ачаанууд энгийн жагсаалтад давхардахгүй — багц картаараа харагдана
   const soloShipments = shipments.filter(s => !s.batchId)
@@ -496,7 +501,7 @@ export default function OrdersClient({
               </span>
               {total > 0 && (
                 <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
-                  Нийт <strong style={{ color: 'var(--accent)' }}>₮{total.toLocaleString()}</strong>
+                  Нийт <strong style={{ color: 'var(--accent)' }}>{CUR}{total.toLocaleString()}</strong>
                 </span>
               )}
             </div>
@@ -655,7 +660,7 @@ export default function OrdersClient({
                     <div className="order-card-row">
                       <span>Карго төлбөр</span>
                       <span>{s.adminPrice
-                        ? <strong style={{ color: 'var(--accent)' }}>₮{Number(s.adminPrice).toLocaleString()}</strong>
+                        ? <strong style={{ color: 'var(--accent)' }}>{CUR}{Number(s.adminPrice).toLocaleString()}</strong>
                         : '—'}
                       </span>
                     </div>
