@@ -99,6 +99,7 @@ model Batch {
   userId    Int?
   price     Decimal    @db.Decimal(12, 2)
   currency  Currency   @default(MNT)
+  note      String?
   status    Status     @default(EREEN_ARRIVED)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt

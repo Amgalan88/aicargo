@@ -5,6 +5,7 @@ interface BatchShipment { id: number; trackCode: string }
 interface BatchLog { id: number; userName: string; action: string; detail: string | null; createdAt: string }
 interface Batch {
   id: number; phone: string; price: string; currency: 'MNT' | 'CNY'
+  note: string | null
   status: string; createdAt: string
   shipments: BatchShipment[]; logs: BatchLog[]
 }
@@ -48,6 +49,17 @@ export default function AdminBatchesPage() {
       body: JSON.stringify({ id, status }),
     })
     setBusy(null)
+    load()
+  }
+
+  async function editNote(b: Batch) {
+    const note = prompt('Тайлбар:', b.note ?? '')
+    if (note === null) return
+    await fetch('/api/batch', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: b.id, note }),
+    })
     load()
   }
 
@@ -108,6 +120,9 @@ export default function AdminBatchesPage() {
                   <strong style={{ color: 'var(--accent)', fontSize: '0.9rem' }}>{fmtPrice(b.price, b.currency)}</strong>
                   <span className={`badge badge-${b.status}`} style={{ fontSize: '0.65rem' }}>{STATUS_LABEL[b.status]}</span>
                 </div>
+                {b.note && (
+                  <div style={{ width: '100%', fontSize: '0.76rem', color: 'var(--muted)' }}>💬 {b.note}</div>
+                )}
               </div>
 
               {expanded === b.id && (
@@ -135,6 +150,10 @@ export default function AdminBatchesPage() {
                         ↩ Ирсэн болгох
                       </button>
                     )}
+                    <button className="btn-ghost" onClick={() => editNote(b)}
+                      style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>
+                      Тайлбар
+                    </button>
                     <button className="btn-ghost" onClick={() => setLogOpen(logOpen === b.id ? null : b.id)}
                       style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>
                       Түүх

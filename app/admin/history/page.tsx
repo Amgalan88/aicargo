@@ -26,7 +26,127 @@ function fmtDate(iso: string) {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
+// Батч горимт каргод Олгосон хуудас багцын түүхийг ¥ дүнтэй харуулна
 export default function HistoryPage() {
+  const [batchMode, setBatchMode] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setBatchMode(!!d?.batchEnabled))
+      .catch(() => setBatchMode(false))
+  }, [])
+
+  if (batchMode === null) return <p style={{ color: 'var(--muted)', padding: '2rem 5%' }}>Ачааллаж байна...</p>
+  if (batchMode) return <BatchHistory />
+  return <ClassicHistory />
+}
+
+interface HandedBatch {
+  id: number; phone: string; price: string; currency: 'MNT' | 'CNY'
+  note: string | null; updatedAt: string; createdAt: string
+  shipments: { id: number; trackCode: string }[]
+}
+
+function BatchHistory() {
+  const [batches, setBatches] = useState<HandedBatch[]>([])
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState('')
+  const [expanded, setExpanded] = useState<number | null>(null)
+
+  function load(phone?: string) {
+    setLoading(true)
+    const params = new URLSearchParams({ status: 'PICKED_UP' })
+    if (phone?.trim()) params.set('phone', phone.trim())
+    fetch(`/api/batch?${params}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setBatches(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }
+  useEffect(() => { load() }, [])
+
+  const total = batches.reduce((s, b) => s + Number(b.price), 0)
+
+  return (
+    <div className="page-wide" style={{ maxWidth: 680 }}>
+      <h1 className="section-title">Олгосон багцууд</h1>
+
+      <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', maxWidth: 400 }}>
+        <input
+          className="input"
+          placeholder="Утасны дугаараар хайх"
+          value={q}
+          onChange={e => setQ(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          onKeyDown={e => e.key === 'Enter' && load(q)}
+        />
+        <button className="btn" onClick={() => load(q)} disabled={loading} style={{ flexShrink: 0 }}>
+          {loading ? '...' : 'Хайх'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+        <span style={{ fontSize: '0.8rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
+          {batches.length} багц
+        </span>
+        {total > 0 && (
+          <span style={{ fontSize: '0.8rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: '0.2rem 0.75rem', color: 'var(--accent)', fontWeight: 700 }}>
+            Нийт ¥{total.toLocaleString()}
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p>
+      ) : batches.length === 0 ? (
+        <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Олгосон багц байхгүй байна.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          {batches.map(b => (
+            <div key={b.id} className="card" style={{ overflow: 'hidden' }}>
+              <div
+                onClick={() => setExpanded(expanded === b.id ? null : b.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.7rem 1rem', cursor: 'pointer', gap: '0.5rem', flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: '0.88rem' }}>B-{b.id}</strong>
+                  <span style={{ fontFamily: 'monospace', fontSize: '0.82rem', fontWeight: 700, color: 'var(--accent)' }}>{b.phone}</span>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>{b.shipments.length} ачаа · {fmtDate(b.updatedAt)}</span>
+                </div>
+                <strong style={{ color: 'var(--accent)', fontSize: '0.95rem' }}>
+                  {b.currency === 'CNY' ? `¥${Number(b.price).toLocaleString()}` : `₮${Number(b.price).toLocaleString()}`}
+                </strong>
+                {b.note && (
+                  <div style={{ width: '100%', fontSize: '0.76rem', color: 'var(--muted)' }}>💬 {b.note}</div>
+                )}
+              </div>
+              {expanded === b.id && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: '0.6rem 1rem', background: 'var(--bg)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.3rem' }}>
+                    {b.shipments.map(s => (
+                      <div key={s.id} style={{
+                        fontSize: '0.78rem', fontFamily: 'monospace',
+                        padding: '0.25rem 0.5rem', background: 'var(--surface)',
+                        border: '1px solid var(--border)', borderRadius: 6,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {s.trackCode}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ClassicHistory() {
   const [tab, setTab] = useState<'list' | 'report'>('list')
 
   // --- List tab ---

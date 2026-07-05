@@ -4,6 +4,7 @@ import { useState } from 'react'
 interface BatchShipment { id: number; trackCode: string }
 interface Batch {
   id: number; phone: string; price: string; currency: 'MNT' | 'CNY'
+  note: string | null
   status: string; createdAt: string
   shipments: BatchShipment[]
 }
@@ -101,7 +102,9 @@ export default function BatchHandoverPage() {
                       style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', flex: 1, minWidth: 0 }}
                     >
                       <strong style={{ fontSize: '0.9rem' }}>B-{b.id}</strong>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{b.shipments.length} ачаа · {fmtDT(b.createdAt)}</span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                        {b.shipments.length} ачаа · {fmtDT(b.createdAt)}{b.note ? ` · 💬 ${b.note}` : ''}
+                      </span>
                       <span style={{
                         fontSize: '0.7rem', color: 'var(--muted)',
                         transform: expanded === b.id ? 'rotate(90deg)' : 'none',

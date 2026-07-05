@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
   const codes = normCodes(body.codes)
   const phone = String(body.phone ?? '').trim()
   const price = Number(body.price)
+  const note = String(body.note ?? '').trim() || null
   // Багц feature = юань тооцоотой карго: үнэ үргэлж CNY
   const currency = 'CNY'
 
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
   const batch = await prisma.$transaction(async tx => {
     // Эрээнээс ачигдсан багц ИРСЭН статустай бүртгэгдэнэ
     const b = await (tx as any).batch.create({
-      data: { cargoId, phone, userId: owner?.id ?? null, price, currency, status: 'ARRIVED' },
+      data: { cargoId, phone, userId: owner?.id ?? null, price, currency, note, status: 'ARRIVED' },
     })
     const now = new Date()
     for (const code of codes) {
@@ -157,6 +158,13 @@ export async function PATCH(req: NextRequest) {
     if (currency !== batch.currency) {
       data.currency = currency
       changes.push(`валют: ${batch.currency} → ${currency}`)
+    }
+  }
+  if (body.note !== undefined) {
+    const note = String(body.note).trim() || null
+    if (note !== batch.note) {
+      data.note = note
+      changes.push(`тайлбар: ${note ?? '(хоосон)'}`)
     }
   }
 

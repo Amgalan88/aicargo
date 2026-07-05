@@ -47,6 +47,7 @@ interface UserBatch {
   phone: string
   price: string
   currency: 'MNT' | 'CNY'
+  note?: string | null
   status: string
   createdAt: string
   shipments: { id: number; trackCode: string }[]
@@ -610,6 +611,12 @@ export default function OrdersClient({
                       <span>Огноо</span>
                       <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{fmtDT(b.createdAt)}</span>
                     </div>
+                    {b.note && (
+                      <div className="order-card-row">
+                        <span>Тайлбар</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{b.note}</span>
+                      </div>
+                    )}
                     {expandedBatch === b.id && (
                       <div style={{ paddingTop: '0.5rem' }}>
                         <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.35rem', fontWeight: 600 }}>

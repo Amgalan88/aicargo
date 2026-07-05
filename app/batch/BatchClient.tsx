@@ -14,6 +14,8 @@ const T: Record<Lang, Record<string, string>> = {
     codesHint: 'Сканнер ашиглаж болно — код бүр шинэ мөрөнд',
     phone: 'Утасны дугаар',
     price: 'Нийт үнэ',
+    note: 'Тайлбар',
+    notePh: 'Нэмэлт тэмдэглэл (заавал биш)...',
     save: 'Бүртгэх',
     saving: 'Хадгалж байна...',
     listTitle: 'Сүүлийн багцууд',
@@ -40,6 +42,8 @@ const T: Record<Lang, Record<string, string>> = {
     codesHint: '可使用扫码枪 — 每个单号一行',
     phone: '电话号码',
     price: '总价',
+    note: '备注',
+    notePh: '附加说明（可选）...',
     save: '登记',
     saving: '保存中...',
     listTitle: '最近批次',
@@ -65,6 +69,7 @@ interface BatchShipment { id: number; trackCode: string }
 interface BatchLog { id: number; userName: string; action: string; detail: string | null; createdAt: string }
 interface Batch {
   id: number; phone: string; price: string; currency: Currency
+  note: string | null
   status: string; createdAt: string
   shipments: BatchShipment[]; logs: BatchLog[]
 }
@@ -82,6 +87,7 @@ export default function BatchClient() {
   const [codes, setCodes] = useState('')
   const [phone, setPhone] = useState('')
   const [price, setPrice] = useState('')
+  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
@@ -90,6 +96,7 @@ export default function BatchClient() {
   const [editId, setEditId] = useState<number | null>(null)
   const [editPhone, setEditPhone] = useState('')
   const [editPrice, setEditPrice] = useState('')
+  const [editNote, setEditNote] = useState('')
   const [editAdd, setEditAdd] = useState('')
   const [logOpen, setLogOpen] = useState<number | null>(null)
   const codesRef = useRef<HTMLTextAreaElement>(null)
@@ -131,12 +138,12 @@ export default function BatchClient() {
       const res = await fetch('/api/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codes: parseCodes(codes), phone, price: Number(price) }),
+        body: JSON.stringify({ codes: parseCodes(codes), phone, price: Number(price), note }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Error'); return }
       setMsg(`✓ ${t.created} — B-${data.id}`)
-      setCodes(''); setPhone(''); setPrice('')
+      setCodes(''); setPhone(''); setPrice(''); setNote('')
       load()
       setTimeout(() => codesRef.current?.focus(), 50)
       setTimeout(() => setMsg(''), 4000)
@@ -148,6 +155,7 @@ export default function BatchClient() {
     setEditId(b.id)
     setEditPhone(b.phone)
     setEditPrice(String(Number(b.price)))
+    setEditNote(b.note ?? '')
     setEditAdd('')
     setExpanded(b.id)
   }
@@ -161,6 +169,7 @@ export default function BatchClient() {
         id: editId,
         phone: editPhone,
         price: Number(editPrice),
+        note: editNote,
         addCodes: parseCodes(editAdd),
       }),
     })
@@ -240,6 +249,11 @@ export default function BatchClient() {
                 value={price} onChange={e => setPrice(e.target.value)} />
             </div>
           </div>
+          <div className="form-group" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
+            <label>{t.note}</label>
+            <input className="input" placeholder={t.notePh}
+              value={note} onChange={e => setNote(e.target.value)} />
+          </div>
           {error && <p className="msg-error" style={{ marginTop: '0.75rem' }}>{error}</p>}
           {msg && <p style={{ color: 'var(--green)', fontSize: '0.85rem', marginTop: '0.75rem' }}>{msg}</p>}
           <button className="btn" onClick={save} disabled={!canSave || saving} style={{ width: '100%', marginTop: '1rem' }}>
@@ -271,6 +285,9 @@ export default function BatchClient() {
                     <strong style={{ color: 'var(--accent)', fontSize: '0.88rem' }}>{fmtPrice(b.price, b.currency)}</strong>
                     <span className={`badge badge-${b.status}`} style={{ fontSize: '0.65rem' }}>{statusLabel[b.status] ?? b.status}</span>
                   </div>
+                  {b.note && (
+                    <div style={{ width: '100%', fontSize: '0.75rem', color: 'var(--muted)' }}>💬 {b.note}</div>
+                  )}
                 </div>
 
                 {expanded === b.id && (
@@ -283,6 +300,9 @@ export default function BatchClient() {
                           <input className="input" type="number" min="0" value={editPrice}
                             onChange={e => setEditPrice(e.target.value)} />
                         </div>
+                        <input className="input" placeholder={t.notePh} value={editNote}
+                          onChange={e => setEditNote(e.target.value)}
+                          style={{ marginBottom: '0.6rem' }} />
                         <textarea className="input" rows={2} placeholder={t.addCodesPh}
                           value={editAdd} onChange={e => setEditAdd(e.target.value)}
                           style={{ fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '0.6rem' }} />
