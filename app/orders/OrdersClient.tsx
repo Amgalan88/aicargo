@@ -96,6 +96,7 @@ export default function OrdersClient({
   aiEnabled,
   batchMode = false,
   batches = [],
+  aiSuggestions = [],
 }: {
   shipments: Shipment[]
   userName: string
@@ -119,6 +120,7 @@ export default function OrdersClient({
   aiEnabled?: boolean
   batchMode?: boolean
   batches?: UserBatch[]
+  aiSuggestions?: string[]
 }) {
   const router = useRouter()
   // Батч горимд: Эрээний шат нуугдаж, ARRIVED нь "УБ руу ачигдсан" нэртэй болно
@@ -352,7 +354,7 @@ export default function OrdersClient({
         </div>
       </nav>
       <ChatWidget open={faqOpen} onClose={() => setFaqOpen(false)} />
-      {aiEnabled && <UserAIWidget userName={userName} cargoName={cargoName} />}
+      {aiEnabled && <UserAIWidget userName={userName} cargoName={cargoName} suggestions={aiSuggestions} />}
       {profileOpen && <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />}
 
       {/* Delete all modal */}

@@ -124,6 +124,153 @@ export default function SuperAIConfigPage() {
           Prompt-д tool-аас авах боломжтой мэдээллийг давтаж бичих шаардлагагүй — FAQ болон cargo info tool-ууд байна.
         </p>
       </div>
+
+      <TrainingSection />
     </div>
   )
+}
+
+interface Training {
+  id: number
+  question: string
+  answer: string
+  active: boolean
+  order: number
+}
+
+// Сургалтын асуулт-хариулт: router шууд (LLM-гүй, үнэгүй) хариулахад ашиглана
+function TrainingSection() {
+  const [items, setItems] = useState<Training[]>([])
+  const [loading, setLoading] = useState(true)
+  const [question, setQuestion] = useState('')
+  const [answer, setAnswer] = useState('')
+  const [editId, setEditId] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  function load() {
+    fetch('/api/super/ai-training')
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setItems(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }
+  useEffect(() => { load() }, [])
+
+  function startEdit(t: Training) {
+    setEditId(t.id)
+    setQuestion(t.question)
+    setAnswer(t.answer)
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+  }
+
+  function reset() {
+    setEditId(null)
+    setQuestion('')
+    setAnswer('')
+    setErr('')
+  }
+
+  async function save() {
+    if (!question.trim() || !answer.trim()) { setErr('Асуулт, хариулт хоёулаа шаардлагатай'); return }
+    setSaving(true)
+    setErr('')
+    const res = await fetch('/api/super/ai-training', {
+      method: editId ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editId ? { id: editId, question, answer } : { question, answer }),
+    })
+    setSaving(false)
+    if (!res.ok) { const d = await res.json().catch(() => ({})); setErr(d.error || 'Алдаа гарлаа'); return }
+    reset()
+    load()
+  }
+
+  async function toggle(t: Training) {
+    await fetch('/api/super/ai-training', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: t.id, active: !t.active }),
+    })
+    load()
+  }
+
+  async function remove(id: number) {
+    if (!confirm('Энэ асуулт-хариултыг устгах уу?')) return
+    await fetch('/api/super/ai-training', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    load()
+  }
+
+  return (
+    <div style={{ marginTop: '1.5rem' }}>
+      <div style={{ marginBottom: '0.75rem' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>🎓 AI Сургалт — асуулт хариулт</h2>
+        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.3rem 0 0', lineHeight: 1.6 }}>
+          Хэрэглэгч эдгээртэй төстэй асуулт асуухад AI <strong style={{ color: 'var(--text)' }}>LLM дуудалгүй, үнэгүй, агшин зуур</strong> таны
+          бэлдсэн хариултыг өгнө. Эхний 3 идэвхтэй асуулт хэрэглэгчийн чатанд санал болгож харагдана.
+        </p>
+      </div>
+
+      {/* Жагсаалт */}
+      {loading ? (
+        <p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p>
+      ) : items.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+          {items.map(t => (
+            <div key={t.id} className="card" style={{ padding: '0.75rem 1rem', opacity: t.active ? 1 : 0.55 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.86rem' }}>
+                    {t.question}
+                    {!t.active && <span style={{ fontSize: '0.68rem', color: 'var(--muted)', marginLeft: 6 }}>(идэвхгүй)</span>}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: 2, whiteSpace: 'pre-wrap' }}>{t.answer}</div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+                  <button onClick={() => toggle(t)} title={t.active ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'} style={trainBtn}>
+                    {t.active ? '👁' : '🚫'}
+                  </button>
+                  <button onClick={() => startEdit(t)} title="Засах" style={trainBtn}>✏️</button>
+                  <button onClick={() => remove(t.id)} title="Устгах" style={{ ...trainBtn, color: 'var(--danger)' }}>🗑</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Нэмэх/засах форм */}
+      <div className="card" style={{ padding: '1.1rem 1.25rem' }}>
+        <div style={{ fontWeight: 700, fontSize: '0.86rem', marginBottom: '0.75rem' }}>
+          {editId ? `Засах — #${editId}` : '+ Шинэ асуулт хариулт'}
+        </div>
+        <div className="form-group">
+          <label>Асуулт</label>
+          <input className="input" placeholder="жш: Буцаалт хийж болох уу?"
+            value={question} onChange={e => setQuestion(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label>Хариулт</label>
+          <textarea className="input" rows={3}
+            placeholder="жш: Хүлээн аваад 24 цагийн дотор гэмтэлтэй бол буцаалт хийнэ. Админтай холбогдоно уу."
+            value={answer} onChange={e => setAnswer(e.target.value)} />
+        </div>
+        {err && <p className="msg-error" style={{ marginBottom: '0.6rem' }}>{err}</p>}
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn" onClick={save} disabled={saving} style={{ fontSize: '0.84rem' }}>
+            {saving ? 'Хадгалж...' : editId ? 'Хадгалах' : 'Нэмэх'}
+          </button>
+          {editId && <button className="btn-ghost" onClick={reset} style={{ fontSize: '0.84rem' }}>Болих</button>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const trainBtn: React.CSSProperties = {
+  background: 'none', border: '1px solid var(--border)', cursor: 'pointer',
+  padding: '0.25rem 0.45rem', borderRadius: 6, fontSize: '0.82rem', lineHeight: 1,
 }

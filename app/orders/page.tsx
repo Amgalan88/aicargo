@@ -17,6 +17,17 @@ export default async function OrdersPage() {
     select: { name: true, email: true, phone: true, cargoId: true },
   })
 
+  // AI сургалтын санал болгох асуултууд (AI астай каргод виджетэд chip болж гарна)
+  const suggestedQuestions: string[] = await (prisma as any).aiTraining
+    .findMany({
+      where: { active: true },
+      orderBy: [{ order: 'asc' }, { id: 'asc' }],
+      take: 3,
+      select: { question: true },
+    })
+    .then((rows: { question: string }[]) => rows.map(r => r.question))
+    .catch(() => [])
+
   // Хэрэглэгчийн багцууд (утас эсвэл эзнээр холбогдсон)
   const batches = userRecord?.cargoId
     ? await (prisma as any).batch.findMany({
@@ -60,6 +71,7 @@ export default async function OrdersPage() {
       aiEnabled={cargo?.aiEnabled ?? false}
       batchMode={cargo?.batchEnabled ?? false}
       batches={JSON.parse(JSON.stringify(batches))}
+      aiSuggestions={suggestedQuestions}
     />
   )
 }

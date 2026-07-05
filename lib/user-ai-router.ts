@@ -20,6 +20,30 @@ function has(q: string, words: string[]): boolean {
   return words.some(w => q.includes(w))
 }
 
+// Тээвэрлэлт саатсан гэж үзэх босго (дундаж + N хоног)
+const DELAY_THRESHOLD_DAYS = 5
+
+function normalize(s: string): string {
+  return s.toLowerCase().replace(/[?!.,;:'"«»()]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function tokens(s: string): string[] {
+  return normalize(s).split(' ').filter(w => w.length >= 3)
+}
+
+// Сургалтын асуулт хэрэглэгчийн асуулттай таарч буй эсэх:
+// бүтэн агуулагдах ЭСВЭЛ токены давхцал ≥65% (мин 2 токен)
+function questionMatches(userQ: string, knownQ: string): boolean {
+  const nu = normalize(userQ)
+  const nk = normalize(knownQ)
+  if (!nu || !nk) return false
+  if (nu.includes(nk) || nk.includes(nu)) return true
+  const kt = tokens(knownQ)
+  if (kt.length < 2) return false
+  const overlap = kt.filter(t => nu.includes(t)).length
+  return overlap / kt.length >= 0.65 && overlap >= 2
+}
+
 export async function routeUserQuestion(
   question: string,
   userId: number,
@@ -27,6 +51,30 @@ export async function routeUserQuestion(
 ): Promise<RouteResult> {
   const q = question.toLowerCase().trim()
   if (!q) return { matched: false }
+
+  // ── 0а. Super admin-ий сургалтын Q&A (хамгийн өндөр давуу эрхтэй) ──
+  const trainings = await (prisma as any).aiTraining.findMany({
+    where: { active: true },
+    orderBy: [{ order: 'asc' }, { id: 'asc' }],
+    select: { question: true, answer: true },
+  })
+  for (const t of trainings) {
+    if (questionMatches(question, t.question)) {
+      return { matched: true, reply: t.answer }
+    }
+  }
+
+  // ── 0б. Тухайн каргогийн FAQ ──
+  const faqs = await prisma.faq.findMany({
+    where: { cargoId },
+    orderBy: { order: 'asc' },
+    select: { question: true, answer: true },
+  })
+  for (const f of faqs) {
+    if (questionMatches(question, f.question)) {
+      return { matched: true, reply: f.answer }
+    }
+  }
 
   const cargo = await (prisma.cargo as any).findUnique({
     where: { id: cargoId },
@@ -138,6 +186,59 @@ export async function routeUserQuestion(
         ? `Таны төлөх дүн: ₮${total.toLocaleString()} (${arrived.length} ачаа).`
         : `Танд ${arrived.length} ирсэн ачаа байгаа ч үнэ тавигдаагүй байна. Админ үнийг оруулсны дараа харагдана.`,
     }
+  }
+
+  // ── 6б. Хэзээ ирэх вэ (ETA + саатлын илрүүлэлт) — батч биш каргод ──
+  if (!batchMode && has(q, ['хэзээ ир', 'хэзээ орж', 'хэд хоногт ир', 'хэд хонор', 'удаж бай', 'удаад бай', 'hezee'])) {
+    const waiting = await prisma.shipment.findMany({
+      where: { userId, cargoId, status: 'EREEN_ARRIVED', archived: false, ereenArrivedAt: { not: null } } as any,
+      select: { trackCode: true, ereenArrivedAt: true } as any,
+      orderBy: { ereenArrivedAt: 'asc' } as any,
+      take: 10,
+    })
+    if (waiting.length === 0) {
+      return { matched: true, reply: `Танд одоогоор Эрээнд хүлээгдэж буй ачаа алга.` }
+    }
+
+    // Сүүлийн 45 хоногийн дундаж тээврийн хугацаа (Эрээн → ирсэн)
+    const since = new Date(Date.now() - 45 * 86_400_000)
+    const samples = await prisma.shipment.findMany({
+      where: {
+        cargoId,
+        ereenArrivedAt: { not: null, gte: since },
+        arrivedAt: { not: null },
+      } as any,
+      select: { ereenArrivedAt: true, arrivedAt: true } as any,
+      take: 300,
+    })
+    if (samples.length < 5) {
+      return {
+        matched: true,
+        reply: `Танд Эрээнд ${waiting.length} ачаа хүлээгдэж байна. Тээврийн дундаж хугацааны өгөгдөл хуримтлагдаж байгаа тул яг хэзээ ирэхийг хэлэх боломжгүй — админаас лавлана уу.`,
+      }
+    }
+    const avgMs = samples.reduce((s, x: any) => s + (new Date(x.arrivedAt).getTime() - new Date(x.ereenArrivedAt).getTime()), 0) / samples.length
+    const avgDays = Math.max(1, Math.round(avgMs / 86_400_000))
+
+    const now = Date.now()
+    const lines: string[] = []
+    let delayed = false
+    for (const w of waiting as any[]) {
+      const eta = new Date(new Date(w.ereenArrivedAt).getTime() + avgMs)
+      if (now > eta.getTime() + DELAY_THRESHOLD_DAYS * 86_400_000) {
+        delayed = true
+        lines.push(`⚠ ${w.trackCode} — тээвэрлэлтийн явц саатсан бололтой`)
+      } else {
+        lines.push(`${w.trackCode} — ойролцоогоор ${fmtDate(eta)} орчим ирнэ`)
+      }
+    }
+    let reply = `${lines.join('\n')}\n(Дунджаар Эрээнээс ${avgDays} хоногт ирдэг.)`
+    if (delayed) {
+      reply += cargo.contactInfo?.trim()
+        ? `\n\nСаатсан ачааны талаар админтай холбогдоорой:\n${cargo.contactInfo.trim()}`
+        : '\n\nСаатсан ачааны талаар админтай холбогдоорой.'
+    }
+    return { matched: true, reply }
   }
 
   // ── 7. Ачааны байдал / ирсэн эсэх ──

@@ -26,7 +26,7 @@ function defaultPos() {
   return { x: window.innerWidth - BTN_W - 16, y: window.innerHeight - BTN_H - 20 }
 }
 
-export default function UserAIWidget({ userName, cargoName }: { userName: string; cargoName: string }) {
+export default function UserAIWidget({ userName, cargoName, suggestions = [] }: { userName: string; cargoName: string; suggestions?: string[] }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -321,6 +321,41 @@ export default function UserAIWidget({ userName, cargoName }: { userName: string
                     {a.label}
                   </button>
                 ))}
+
+                {/* Super admin-ий бэлдсэн санал болгох асуултууд */}
+                {suggestions.length > 0 && (
+                  <>
+                    <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.68rem', margin: '8px 0 2px' }}>
+                      Түгээмэл асуултууд
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
+                      {suggestions.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => sendMessage(s)}
+                          disabled={loading}
+                          style={{
+                            background: 'none', border: '1px solid var(--border)',
+                            borderRadius: 12, padding: '4px 10px',
+                            fontSize: '0.73rem', color: 'var(--muted)',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            transition: 'border-color 0.12s, color 0.12s',
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.borderColor = 'var(--accent)'
+                            e.currentTarget.style.color = 'var(--accent)'
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.borderColor = 'var(--border)'
+                            e.currentTarget.style.color = 'var(--muted)'
+                          }}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

@@ -111,7 +111,20 @@ export async function POST(req: NextRequest) {
   }
 
   const aiConfig = await (prisma as any).aiConfig.findUnique({ where: { id: 1 } })
-  const customPrompt: string | null = aiConfig?.userPrompt?.trim() || null
+  let customPrompt: string | null = aiConfig?.userPrompt?.trim() || null
+
+  // Super admin-ий сургалтын Q&A-г LLM-д лавлагаа болгон өгнө
+  const trainings = await (prisma as any).aiTraining.findMany({
+    where: { active: true },
+    orderBy: [{ order: 'asc' }, { id: 'asc' }],
+    take: 20,
+    select: { question: true, answer: true },
+  })
+  if (trainings.length > 0) {
+    const block = 'Лавлах асуулт-хариулт (ижил төстэй асуултад эдгээр хариултыг ашигла):\n' +
+      trainings.map((t: any) => `А: ${t.question}\nХ: ${t.answer}`).join('\n')
+    customPrompt = customPrompt ? `${customPrompt}\n\n${block}` : block
+  }
 
   const tools = toOpenAITools([...USER_AI_TOOLS, CLARIFY_TOOL])
 
