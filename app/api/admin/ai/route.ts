@@ -142,7 +142,8 @@ export async function POST(req: NextRequest) {
             const parsed = JSON.parse(result)
             if (parsed?.link?.href) capturedLink = parsed.link
           } catch {}
-          currentMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: result })
+          // Хэрэглэгчийн бичсэн текст агуулж болзошгүй тул <data>-д боож өгнө
+          currentMessages.push({ role: 'tool', tool_call_id: toolCall.id, content: `<data>${result}</data>` })
         }
         toolsExecuted = true
         continue

@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
         ereemPhone: '',
         ereemAddress: '',
         paidUntil,
-        aiEnabled: body.aiEnabled === true,
+        // AI туслах нэмэлт төлбөртэй — super admin гараар идэвхжүүлнэ
+        aiEnabled: false,
         searchByPhone: body.searchByPhone === true,
         notificationsEnabled: body.notificationsEnabled === true,
       },

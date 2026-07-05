@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 export const USER_AI_TOOLS = [
   {
     name: 'get_my_shipment_stats',
-    description: 'Өөрийн ачааны статистик: статус бүрийн тоо, нийт ачааны үнийн дүн',
+    description: 'Өөрийн ачааны статистик: статус бүрийн тоо, нийт төлбөрийн дүн. Жишээ асуултууд: "хэд төлөх вэ", "нийт хэдэн ачаатай вэ", "миний өр".',
     input_schema: { type: 'object', properties: {}, required: [] },
   },
   {
@@ -24,7 +24,7 @@ export const USER_AI_TOOLS = [
   },
   {
     name: 'get_my_recent_shipments',
-    description: 'Өөрийн сүүлийн ачааны жагсаалт',
+    description: 'Өөрийн сүүлийн ачааны жагсаалт. Жишээ асуултууд: "ачаа минь хаана яваа", "сүүлд юу захиалсан", "ачаанууд ирсэн үү".',
     input_schema: {
       type: 'object',
       properties: {
@@ -35,12 +35,12 @@ export const USER_AI_TOOLS = [
   },
   {
     name: 'get_cargo_public_info',
-    description: 'Карго компанийн нийтийн мэдээлэл: тариф, холбоо барих, банк, зарлал, цагийн хуваарь',
+    description: 'Карго компанийн нийтийн мэдээлэл: тариф, холбоо барих, банк, зарлал, Эрээний хаяг. Жишээ: "данс хэлээч", "тариф хэд вэ", "Эрээний хаяг".',
     input_schema: { type: 'object', properties: {}, required: [] },
   },
   {
     name: 'get_cargo_faq',
-    description: 'Карго компанийн түгээмэл асуулт хариулт (FAQ)',
+    description: 'Карго компанийн түгээмэл асуулт хариулт (FAQ) — ажлын цаг, дүрэм, журмын асуултад ЭХЛЭЭД үүнийг дууд. Жишээ: "хэдэн цагт ажилладаг вэ", "хэзээ авч болох вэ".',
     input_schema: { type: 'object', properties: {}, required: [] },
   },
 ] as const
@@ -54,7 +54,7 @@ export async function executeUserAITool(
   try {
     switch (toolName) {
       case 'get_my_shipment_stats': {
-        const [all, registered, ereemArrived, arrived, pickedUp, valueAgg] = await Promise.all([
+        const [all, registered, ereemArrived, arrived, pickedUp, valueAgg, cargo] = await Promise.all([
           prisma.shipment.count({ where: { userId, cargoId } }),
           prisma.shipment.count({ where: { userId, cargoId, status: 'REGISTERED', archived: false } }),
           prisma.shipment.count({ where: { userId, cargoId, status: 'EREEN_ARRIVED', archived: false } }),
@@ -64,10 +64,25 @@ export async function executeUserAITool(
             where: { userId, cargoId, archived: false },
             _sum: { adminPrice: true },
           }),
+          (prisma.cargo as any).findUnique({ where: { id: cargoId }, select: { batchEnabled: true } }),
         ])
         const totalValue = Number(valueAgg._sum?.adminPrice ?? 0)
         const result: any = { all, registered, ereemArrived, arrived, pickedUp }
         if (totalValue > 0) result.totalValue = totalValue
+
+        // Батч горимт карго: төлбөр багц дээр ¥-ээр хадгалагддаг
+        if (cargo?.batchEnabled) {
+          const batches = await (prisma as any).batch.findMany({
+            where: { cargoId, userId, status: 'ARRIVED' },
+            select: { price: true, shipments: { select: { id: true } } },
+          })
+          const batchTotalCNY = batches.reduce((s: number, b: any) => s + Number(b.price), 0)
+          result.batches = {
+            arrivedBatches: batches.length,
+            arrivedItems: batches.reduce((s: number, b: any) => s + b.shipments.length, 0),
+            batchTotalCNY,
+          }
+        }
         return JSON.stringify(result)
       }
 

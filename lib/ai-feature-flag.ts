@@ -1,1 +1,1 @@
-export const AI_SUPPORT_ENABLED = false
+export const AI_SUPPORT_ENABLED = true

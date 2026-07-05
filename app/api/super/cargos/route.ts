@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
       notificationsEnabled: (c as any).notificationsEnabled ?? false,
       searchByPhone: (c as any).searchByPhone ?? false,
       batchEnabled: (c as any).batchEnabled ?? false,
+      aiEnabled: (c as any).aiEnabled ?? false,
       paidUntil: (c as any).paidUntil ?? null,
       createdAt: c.createdAt,
       totalUsers: c._count.users,

@@ -24,7 +24,7 @@ model Cargo {
   lastNotifiedAt        DateTime?
   notificationsEnabled  Boolean    @default(false)
   searchByPhone         Boolean    @default(false)
-  aiEnabled         Boolean    @default(true)
+  aiEnabled         Boolean    @default(false)
   batchEnabled      Boolean    @default(false)
   tariff            String?
   announcement      String?
