@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AdminNav from './AdminNav'
+import OnboardingCard, { OnboardingState } from './OnboardingCard'
 import SuperAnnouncementModal from '@/app/components/SuperAnnouncementModal'
 
 const BANK_ACCOUNT = '5119007473'
@@ -116,7 +117,7 @@ function Row({ label, value, mono, copyable, highlight }: { label: string; value
   )
 }
 
-export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil, batchEnabled }: { children: React.ReactNode; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null; batchEnabled?: boolean }) {
+export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil, batchEnabled, onboarding }: { children: React.ReactNode; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null; batchEnabled?: boolean; onboarding?: OnboardingState | null }) {
   const router = useRouter()
   const [warningDismissed, setWarningDismissed] = useState(false)
 
@@ -141,6 +142,7 @@ export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, ha
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <AdminNav cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} />
+      {onboarding && <OnboardingCard state={onboarding} cargoSlug={cargoSlug} batchEnabled={batchEnabled} />}
       <div style={{ minHeight: 'calc(100vh - 96px)' }}>
         {children}
       </div>
