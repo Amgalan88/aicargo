@@ -247,7 +247,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
                   background: 'var(--surface2)', border: '1px solid var(--border)',
                   borderRadius: 6, padding: '1px 7px',
                 }}>
-                  {remaining}/10
+                  {remaining}/5
                 </span>
               )}
               {messages.length > 0 && (

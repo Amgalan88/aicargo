@@ -9,14 +9,15 @@ import { prisma } from '@/lib/prisma'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
-const MODEL = 'gpt-4o-mini'
+// Router энгийн асуултуудыг үнэгүй хариулдаг тул LLM-д ухаалаг модель + бага лимит
+const MODEL = 'gpt-4o'
 
 const ratelimit = new Ratelimit({
   redis: new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL!,
     token: process.env.UPSTASH_REDIS_REST_TOKEN!,
   }),
-  limiter: Ratelimit.slidingWindow(10, '1 d'),
+  limiter: Ratelimit.slidingWindow(5, '1 d'),
   prefix: 'user-ai',
 })
 
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
   const { success, remaining } = await ratelimit.limit(String(user.userId))
   if (!success) {
     return NextResponse.json(
-      { error: 'Өнөөдрийн хязгаарт хүрлээ (10 мессеж). Маргааш дахин ашиглана уу.' },
+      { error: 'Өнөөдрийн хязгаарт хүрлээ (5 мессеж). Түгээмэл асуултууд хязгаарт тооцогдохгүй тул тэдгээрийг чөлөөтэй асуугаарай.' },
       { status: 429 }
     )
   }

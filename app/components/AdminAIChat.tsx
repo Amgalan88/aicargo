@@ -110,7 +110,7 @@ export default function AdminAIChat() {
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>Admin AI Туслах</div>
             <div style={{ fontSize: '0.71rem', color: 'var(--muted)', marginTop: 1 }}>
-              {remaining !== null ? `Өнөөдөр үлдсэн: ${remaining}/30` : 'Датабаазаас мэдээлэл авна'}
+              {remaining !== null ? `Өнөөдөр үлдсэн: ${remaining}/15` : 'Датабаазаас мэдээлэл авна'}
             </div>
           </div>
         </div>

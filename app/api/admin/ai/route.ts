@@ -8,14 +8,14 @@ import { prisma } from '@/lib/prisma'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
-const MODEL = 'gpt-4o-mini'
+const MODEL = 'gpt-4o'
 
 const ratelimit = new Ratelimit({
   redis: new Redis({
     url: process.env.UPSTASH_REDIS_REST_URL!,
     token: process.env.UPSTASH_REDIS_REST_TOKEN!,
   }),
-  limiter: Ratelimit.slidingWindow(30, '1 d'),
+  limiter: Ratelimit.slidingWindow(15, '1 d'),
   prefix: 'admin-ai',
 })
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   const { success, remaining } = await ratelimit.limit(String(admin.userId))
   if (!success) {
     return NextResponse.json(
-      { error: 'Өнөөдрийн хязгаарт хүрлээ (30 мессеж). Маргааш дахин ашиглана уу.' },
+      { error: 'Өнөөдрийн хязгаарт хүрлээ (15 мессеж). Маргааш дахин ашиглана уу.' },
       { status: 429 }
     )
   }
