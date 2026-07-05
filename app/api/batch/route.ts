@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       ...(status ? { status } : {}),
     },
     orderBy: { id: 'desc' },
-    take: 100,
+    take: 500,
     include: {
       shipments: { select: { id: true, trackCode: true } },
       logs: { orderBy: { id: 'desc' }, take: 20 },
