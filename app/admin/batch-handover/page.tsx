@@ -96,9 +96,25 @@ export default function BatchHandoverPage() {
   return (
     <div className="page-wide" style={{ maxWidth: 680 }}>
       <h1 className="section-title">Ачаа олгох</h1>
-      <p style={{ color: 'var(--muted)', fontSize: '0.83rem', marginBottom: '1.25rem' }}>
+      <p style={{ color: 'var(--muted)', fontSize: '0.83rem', marginBottom: '0.9rem' }}>
         Утасны дугаараар хайж, УБ руу ачигдсан багцыг юанийн дүнгээр олгоно.
       </p>
+
+      {/* Заавар */}
+      <details style={{
+        background: 'var(--accent-light)', border: '1px solid var(--accent)',
+        borderRadius: 'var(--radius)', marginBottom: '1.25rem', overflow: 'hidden',
+      }}>
+        <summary style={{ padding: '0.7rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: 'var(--accent)', listStyle: 'none' }}>
+          ❓ Хэрхэн олгох вэ
+        </summary>
+        <ol style={{ margin: 0, padding: '0 1rem 0.9rem 2.2rem', fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <li>Доорх жагсаалтад олгохоор хүлээгдэж буй бүх хэрэглэгч ачааны тоо, нийт ¥ дүнтэйгээ харагдана.</li>
+          <li>Хэрэглэгч ирэхэд утасны дугаарыг нь хайх эсвэл жагсаалтаас дарна.</li>
+          <li>Багц дээр дарж доторх кодуудыг ачаатай нь тулгаад, ¥ дүнг хүлээн авч &quot;Олгох&quot; дарна — багцын бүх ачаа зэрэг &quot;Олгосон&quot; болно.</li>
+          <li>Андуурсан бол &quot;УБ руу ачигдсан&quot; хуудаснаас ↩ буцааж болно.</li>
+        </ol>
+      </details>
 
       <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem', maxWidth: 400 }}>
         <input

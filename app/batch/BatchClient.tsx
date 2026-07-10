@@ -6,7 +6,8 @@ type Lang = 'mn' | 'cn'
 type Currency = 'MNT' | 'CNY'
 
 // Багц feature = юань тооцоотой карго. Toggle нь зөвхөн хэл солино.
-const T: Record<Lang, Record<string, string>> = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const T: Record<Lang, any> = {
   mn: {
     title: 'Багц ачаа бүртгэл',
     codes: 'Трак кодууд',
@@ -34,6 +35,14 @@ const T: Record<Lang, Record<string, string>> = {
     statusA: 'УБ руу ачигдсан',
     statusP: 'Олгосон',
     confirmRemove: 'Энэ кодыг багцаас хасах уу?',
+    helpTitle: '❓ Хэрхэн ажиллах заавар',
+    helpSteps: [
+      'Нэг хэрэглэгчийн (нэг утасны дугаарын) ачаануудыг НЭГ багц болгон бүртгэнэ.',
+      'Трак код талбарт кодуудыг мөр мөрөөр бичнэ — Enter дарж дараагийн мөрөнд шилжинэ. Сканнер ашиглаж болно. Код биш энгийн дугаарлалт (1, 2, 3...) ч болно, гэхдээ давтагдахгүй байхаар (жш: 0705-1) дугаарлаарай.',
+      'Утасны дугаар — хэрэглэгчийн 8 оронтой дугаар. Нийт үнэ — багцын бүх ачааны НИЙТ дүн юаниар (¥).',
+      'Бүртгэх товч дармагц багц "УБ руу ачигдсан" төлөвтэй болж, хэрэглэгчид шууд харагдана.',
+      'Алдаа гаргасан бол доорх жагсаалтаас багцаа олоод Засах — утас, үнэ, тайлбар солих, код нэмэх/хасах боломжтой. Бүх засвар Түүхэнд бичигдэнэ.',
+    ],
   },
   cn: {
     title: '批量货物登记',
@@ -62,6 +71,14 @@ const T: Record<Lang, Record<string, string>> = {
     statusA: '已发往UB',
     statusP: '已取',
     confirmRemove: '从批次中移除此单号？',
+    helpTitle: '❓ 使用说明',
+    helpSteps: [
+      '将同一个客户（同一个电话号码）的货物登记为一个批次。',
+      '在单号栏中每行输入一个单号 — 按 Enter 换行。可以使用扫码枪。也可以用简单编号（1、2、3...），但请避免重复（例如：0705-1）。',
+      '电话号码 — 客户的8位号码。总价 — 该批次所有货物的总金额（人民币 ¥）。',
+      '点击登记后，批次状态变为"已发往UB"，客户立即可以看到。',
+      '如有错误，在下方列表中找到批次点击编辑 — 可修改电话、价格、备注，添加/移除单号。所有修改都会记录在历史中。',
+    ],
   },
 }
 
@@ -236,6 +253,26 @@ export default function BatchClient() {
       </div>
 
       <div className="page" style={{ maxWidth: 560 }}>
+        {/* Заавар */}
+        <details style={{
+          background: 'var(--accent-light)', border: '1px solid var(--accent)',
+          borderRadius: 'var(--radius)', marginBottom: '1rem', overflow: 'hidden',
+        }}>
+          <summary style={{
+            padding: '0.7rem 1rem', cursor: 'pointer', fontWeight: 700,
+            fontSize: '0.85rem', color: 'var(--accent)', listStyle: 'none',
+          }}>
+            {t.helpTitle}
+          </summary>
+          <ol style={{
+            margin: 0, padding: '0 1rem 0.9rem 2.2rem',
+            fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.65,
+            display: 'flex', flexDirection: 'column', gap: '0.4rem',
+          }}>
+            {(t.helpSteps as string[]).map((s, i) => <li key={i}>{s}</li>)}
+          </ol>
+        </details>
+
         {/* Бүртгэлийн форм */}
         <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
           <div className="form-group">

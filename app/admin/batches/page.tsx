@@ -86,6 +86,23 @@ export default function AdminBatchesPage() {
         </Link>
       </div>
 
+      {/* Заавар */}
+      <details style={{
+        background: 'var(--accent-light)', border: '1px solid var(--accent)',
+        borderRadius: 'var(--radius)', marginBottom: '1rem', overflow: 'hidden',
+      }}>
+        <summary style={{ padding: '0.7rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: 'var(--accent)', listStyle: 'none' }}>
+          ❓ Багцын урсгал хэрхэн ажилладаг вэ
+        </summary>
+        <ol style={{ margin: 0, padding: '0 1rem 0.9rem 2.2rem', fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          <li>Эрээний ажилтан (эсвэл та &quot;+ Багц бүртгэх&quot;-ээр) ачаа УБ руу ачигдахад олон трак код + 1 утас + нийт ¥ үнээр багц бүртгэнэ. Багц шууд &quot;УБ руу ачигдсан&quot; төлөвтэй болж хэрэглэгчид харагдана.</li>
+          <li>Багц дээр дарж дэлгээд доторх кодуудыг харна. &quot;Тайлбар&quot; товчоор тэмдэглэл нэмнэ, &quot;Түүх&quot;-ээр хэн юу зассаныг харна.</li>
+          <li>Ачаа УБ-д ирээд хэрэглэгч авахаар ирэхэд &quot;Ачаа олгох&quot; хуудаснаас утсаар нь хайж нэг товчоор олгоно (эсвэл эндээс &quot;→ Олгох&quot;).</li>
+          <li>Олгосон багц &quot;Олгосон&quot; хуудсанд ¥ дүнтэйгээ түүхэнд үлдэнэ. Андуурч олгосныг &quot;↩ Ирсэн болгох&quot;-оор буцаана.</li>
+          <li>Багц устгавал доторх ачаанууд устахгүй — зөвхөн багцаас салдаг. Олгогдсон багц устгагдахгүй.</li>
+        </ol>
+      </details>
+
       {/* Статусын шүүлт */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         {([['ALL', 'Бүгд'], ['ARRIVED', 'УБ руу ачигдсан'], ['PICKED_UP', 'Олгосон']] as const).map(([k, label]) => (
