@@ -95,7 +95,7 @@ export default function AdminNav({
     <header>
       <div className="header-accent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.7rem 5%', minHeight: 56, boxSizing: 'border-box', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Link href="/admin/import"><NavLogo name={cargoName} logoUrl={logoUrl} /></Link>
+          <Link href={batchEnabled ? '/admin/batches' : '/admin/import'}><NavLogo name={cargoName} logoUrl={logoUrl} /></Link>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {(() => {

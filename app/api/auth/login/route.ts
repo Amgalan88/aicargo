@@ -53,7 +53,15 @@ export async function POST(req: NextRequest) {
 
   const cargoId = user.role === 'SUPER_ADMIN' ? null : user.cargoId
   const token = signToken({ userId: user.id, role: user.role, cargoId, tokenVersion: user.tokenVersion })
-  const res = NextResponse.json({ ok: true, role: user.role })
+
+  // Батч горимт каргогийн админ өөр нүүр хуудастай
+  let batchMode = false
+  if (user.role === 'ADMIN' && cargoId) {
+    const cargo = await (prisma.cargo as any).findUnique({ where: { id: cargoId }, select: { batchEnabled: true } })
+    batchMode = !!cargo?.batchEnabled
+  }
+
+  const res = NextResponse.json({ ok: true, role: user.role, batchMode })
   setAuthCookie(res, token)
   return res
 }

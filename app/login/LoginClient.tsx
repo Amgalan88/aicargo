@@ -24,7 +24,7 @@ export default function LoginClient({ cargoName, logoUrl }: { cargoName?: string
     if (!res.ok) { setError(data.error); return }
     router.push(
       data.role === 'SUPER_ADMIN' ? '/super'
-      : data.role === 'ADMIN' ? '/admin/import'
+      : data.role === 'ADMIN' ? (data.batchMode ? '/admin/batches' : '/admin/import')
       : data.role === 'EREEN' ? '/batch'
       : '/orders'
     )

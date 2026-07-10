@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 
 interface Row { trackCode: string; phone?: string }
@@ -22,6 +23,16 @@ function getStatusLabel(arrivedLabel?: string | null, ereemLabel?: string | null
 }
 
 export default function ImportPage() {
+  const router = useRouter()
+
+  // Батч горимт каргод энэ хуудас хэрэглэгддэггүй — УБ руу ачигдсан руу үсэргэнэ
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.batchEnabled) router.replace('/admin/batches') })
+      .catch(() => {})
+  }, [router])
+
   const inputRef = useRef<HTMLInputElement>(null)
   const phoneRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)

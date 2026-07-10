@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 
 function fmtDT(iso: string) {
@@ -35,6 +36,16 @@ function CopyPhone({ phone }: { phone: string }) {
 }
 
 export default function ArrivedPage() {
+  const router = useRouter()
+
+  // Батч горимт каргод энэ хуудас хэрэглэгддэггүй
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.batchEnabled) router.replace('/admin/batches') })
+      .catch(() => {})
+  }, [router])
+
   const [form, setForm] = useState<Form>(EMPTY)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')

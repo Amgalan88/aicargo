@@ -11,7 +11,15 @@ export default async function Home() {
   const user = await getAuthUser()
   if (user) {
     if (user.role === 'SUPER_ADMIN') redirect('/super')
-    if (user.role === 'ADMIN') redirect('/admin/import')
+    if (user.role === 'ADMIN') {
+      // Батч горимт каргогийн админ УБ руу ачигдсан хуудсаар эхэлнэ
+      let batchMode = false
+      if (user.cargoId) {
+        const c = await (prisma.cargo as any).findUnique({ where: { id: user.cargoId }, select: { batchEnabled: true } })
+        batchMode = !!c?.batchEnabled
+      }
+      redirect(batchMode ? '/admin/batches' : '/admin/import')
+    }
     if (user.role === 'EREEN') redirect('/batch')
     redirect('/orders')
   }
