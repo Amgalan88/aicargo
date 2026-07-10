@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 
 interface BatchShipment { id: number; trackCode: string }
 interface BatchLog { id: number; userName: string; action: string; detail: string | null; createdAt: string }
@@ -78,7 +79,12 @@ export default function AdminBatchesPage() {
 
   return (
     <div className="page-wide" style={{ maxWidth: 760 }}>
-      <h1 className="section-title">УБ руу ачигдсан багцууд</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <h1 className="section-title" style={{ margin: 0 }}>УБ руу ачигдсан багцууд</h1>
+        <Link href="/batch" className="btn" style={{ fontSize: '0.82rem', padding: '0.5rem 1.1rem', textDecoration: 'none' }}>
+          + Багц бүртгэх
+        </Link>
+      </div>
 
       {/* Статусын шүүлт */}
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>

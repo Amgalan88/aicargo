@@ -99,6 +99,7 @@ export default function BatchClient() {
   const [editNote, setEditNote] = useState('')
   const [editAdd, setEditAdd] = useState('')
   const [logOpen, setLogOpen] = useState<number | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const codesRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -107,6 +108,8 @@ export default function BatchClient() {
       if (l === 'mn' || l === 'cn') setLang(l)
     } catch {}
     load()
+    // Админ орж ирсэн бол буцах линк харуулна (settings API зөвхөн админд нээлттэй)
+    fetch('/api/admin/settings').then(r => { if (r.ok) setIsAdmin(true) }).catch(() => {})
   }, [])
 
   function switchLang(l: Lang) {
@@ -219,10 +222,16 @@ export default function BatchClient() {
               </button>
             ))}
           </div>
-          <button onClick={logout} style={{
-            background: 'none', border: 'none', color: 'var(--muted)',
-            cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'inherit',
-          }}>{t.logout}</button>
+          {isAdmin ? (
+            <a href="/admin/batches" style={{ color: 'var(--muted)', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+              ← Админ
+            </a>
+          ) : (
+            <button onClick={logout} style={{
+              background: 'none', border: 'none', color: 'var(--muted)',
+              cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'inherit',
+            }}>{t.logout}</button>
+          )}
         </div>
       </div>
 
