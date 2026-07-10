@@ -66,9 +66,9 @@ export async function POST(req: NextRequest) {
   // Багц feature = юань тооцоотой карго: үнэ үргэлж CNY
   const currency = 'CNY'
 
-  if (codes.length === 0) return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
-  if (!/^\d{8}$/.test(phone)) return NextResponse.json({ error: 'Утасны дугаар 8 оронтой байна' }, { status: 400 })
-  if (!isFinite(price) || price < 0) return NextResponse.json({ error: 'Үнэ буруу байна' }, { status: 400 })
+  if (codes.length === 0) return NextResponse.json({ error: 'Трак код оруулна уу · 请输入单号' }, { status: 400 })
+  if (!/^\d{8}$/.test(phone)) return NextResponse.json({ error: 'Утасны дугаар 8 оронтой байна · 电话号码需8位' }, { status: 400 })
+  if (!isFinite(price) || price < 0) return NextResponse.json({ error: 'Үнэ буруу байна · 价格无效' }, { status: 400 })
 
   // Утсаар хэрэглэгч холбоно
   const owner = await prisma.user.findFirst({ where: { phone, cargoId }, select: { id: true } })
