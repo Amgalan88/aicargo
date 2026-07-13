@@ -89,6 +89,7 @@ model Shipment {
   @@index([cargoId, status])
   @@index([cargoId, updatedAt])
   @@index([batchId])
+  @@index([userId])
 }
 
 model Batch {
