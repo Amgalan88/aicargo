@@ -8,16 +8,9 @@ import NavLogo from '../components/NavLogo'
 import AnnouncementModal from '../components/AnnouncementModal'
 import UserAIWidget from '../components/UserAIWidget'
 import ThemeToggle from '../components/ThemeToggle'
+import { useUserLang } from '../components/useUserLang'
+import { dict, fmt, statusLabels, UserLang } from '@/lib/user-i18n'
 
-
-function getStatusLabel(arrivedLabel?: string | null, ereemLabel?: string | null): Record<string, string> {
-  return {
-    REGISTERED: 'Бүртгүүлсэн',
-    EREEN_ARRIVED: ereemLabel || 'Эрээнд ирсэн',
-    ARRIVED: arrivedLabel || 'Ирсэн',
-    PICKED_UP: 'Авсан',
-  }
-}
 
 const BASE_TABS = [
   { key: 'ALL', label: 'Бүгд' },
@@ -123,16 +116,14 @@ export default function OrdersClient({
   aiSuggestions?: string[]
 }) {
   const router = useRouter()
-  // Батч горимд: Эрээний шат нуугдаж, ARRIVED нь "УБ руу ачигдсан" нэртэй болно
-  const effArrivedLabel = arrivedLabel || (batchMode ? 'УБ руу ачигдсан' : null)
-  const STATUS_LABEL = getStatusLabel(effArrivedLabel, ereemLabel)
+  const [lang, setLang] = useUserLang()
+  const t = dict(lang)
+  // Батч горимд: Эрээний шат нуугдаж, ARRIVED нь "УБ руу ачигдсан" нэртэй болно.
+  // Каргогийн өөрийн тохируулсан нэр (arrivedLabel/ereemLabel) бүх хэлэнд хэвээр.
+  const { map: STATUS_LABEL, all: allLabel } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
   const TABS = BASE_TABS
-    .filter(t => !(batchMode && t.key === 'EREEN_ARRIVED'))
-    .map(t => {
-      if (t.key === 'ARRIVED') return { ...t, label: effArrivedLabel || 'Ирсэн' }
-      if (t.key === 'EREEN_ARRIVED') return { ...t, label: ereemLabel || 'Эрээнд' }
-      return t
-    })
+    .filter(tab => !(batchMode && tab.key === 'EREEN_ARRIVED'))
+    .map(tab => tab.key === 'ALL' ? { ...tab, label: allLabel } : { ...tab, label: STATUS_LABEL[tab.key] ?? tab.label })
   const [shipments, setShipments] = useState(initialShipments)
   const [activeTab, setActiveTab] = useState('ALL')
   const [page, setPage] = useState(1)
@@ -286,7 +277,7 @@ export default function OrdersClient({
         <Link href="/"><NavLogo name={cargoName || undefined} logoUrl={logoUrl || undefined} /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem' }}>
           <ThemeToggle />
-          <button onClick={() => setFaqOpen(o => !o)} title="Асуулт хариулт" style={{
+          <button onClick={() => setFaqOpen(o => !o)} title={t.faqTooltip} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 38, height: 38, borderRadius: '50%',
             background: 'none', border: 'none', cursor: 'pointer',
@@ -314,34 +305,52 @@ export default function OrdersClient({
                 borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                 minWidth: 200, padding: '0.75rem 1rem', zIndex: 999,
               }}>
-                <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Миний мэдээлэл</p>
+                <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.myInfo}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   <div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Нэр</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.name}</span>
                     <p style={{ fontSize: '0.85rem', fontWeight: 600, marginTop: '0.1rem' }}>{userName}</p>
                   </div>
                   <div>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Утас</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.phone}</span>
                     <p style={{ fontSize: '0.85rem', fontFamily: 'monospace', marginTop: '0.1rem' }}>{userPhone}</p>
                   </div>
                   {userEmail && (
                     <div>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>И-мэйл</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.email}</span>
                       <p style={{ fontSize: '0.85rem', marginTop: '0.1rem' }}>{userEmail}</p>
                     </div>
                   )}
                   {cargoName && (
                     <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.35rem', marginTop: '0.1rem' }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Карго</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.cargo}</span>
                       <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)', marginTop: '0.1rem' }}>{cargoName}</p>
                     </div>
                   )}
+                  {/* Хэл солигч */}
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.45rem', marginTop: '0.1rem' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.language}</span>
+                    <div style={{ display: 'flex', gap: 4, marginTop: '0.35rem' }}>
+                      {(['mn', 'en', 'cn'] as UserLang[]).map(l => (
+                        <button key={l} onClick={() => setLang(l)} style={{
+                          flex: 1, padding: '0.3rem 0.5rem', borderRadius: 8,
+                          border: '1px solid', cursor: 'pointer', fontFamily: 'inherit',
+                          fontSize: '0.75rem', fontWeight: 700,
+                          borderColor: lang === l ? 'var(--accent)' : 'var(--border)',
+                          background: lang === l ? 'var(--accent)' : 'var(--surface)',
+                          color: lang === l ? '#fff' : 'var(--muted)',
+                        }}>
+                          {l === 'mn' ? 'MN' : l === 'en' ? 'EN' : '中文'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
               </div>
             )}
           </div>
-          <button onClick={logout} title="Гарах" style={{
+          <button onClick={logout} title={t.logoutTooltip} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 38, height: 38, borderRadius: '50%',
             background: 'none', border: 'none', cursor: 'pointer',
@@ -366,7 +375,7 @@ export default function OrdersClient({
             padding: '1.5rem', width: 'calc(100% - 2rem)', maxWidth: 400,
             boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
           }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--danger)', marginBottom: '0.75rem' }}>⚠ Бүгдийг устгах</h2>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--danger)', marginBottom: '0.75rem' }}>{t.deleteAllTitle}</h2>
 
             {/* Checkboxes */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
@@ -374,20 +383,20 @@ export default function OrdersClient({
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem' }}>
                   <input type="checkbox" checked={deleteRegistered} onChange={e => setDeleteRegistered(e.target.checked)}
                     style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--danger)' }} />
-                  <span>Бүртгүүлсэн <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>({shipments.filter(s => s.status === 'REGISTERED').length})</span></span>
+                  <span>{STATUS_LABEL.REGISTERED} <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>({shipments.filter(s => s.status === 'REGISTERED').length})</span></span>
                 </label>
               )}
               {shipments.some(s => s.status === 'PICKED_UP') && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem' }}>
                   <input type="checkbox" checked={deletePickedUp} onChange={e => setDeletePickedUp(e.target.checked)}
                     style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--danger)' }} />
-                  <span>Авсан <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>({shipments.filter(s => s.status === 'PICKED_UP').length})</span></span>
+                  <span>{STATUS_LABEL.PICKED_UP} <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>({shipments.filter(s => s.status === 'PICKED_UP').length})</span></span>
                 </label>
               )}
             </div>
 
             <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem', color: 'var(--muted)', lineHeight: 1.5 }}>
-              Энэ үйлдлийг буцааж болохгүй. Үргэлжлүүлэхийн тулд <strong style={{ color: 'var(--text)' }}>УСТГАХ</strong> гэж бичнэ үү:
+              {t.deleteIrreversible}
             </p>
             <input
               className="input"
@@ -404,13 +413,13 @@ export default function OrdersClient({
                 disabled={deleteAllInput !== 'УСТГАХ' || deleteAllLoading || (!deleteRegistered && !deletePickedUp)}
                 style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', opacity: deleteAllInput === 'УСТГАХ' ? 1 : 0.4 }}
               >
-                {deleteAllLoading ? 'Устгаж байна...' : 'Устгах'}
+                {deleteAllLoading ? t.deleting : t.deleteBtn}
               </button>
               <button onClick={() => setDeleteAllModal(false)} style={{
                 flex: 1, padding: '0.6rem', borderRadius: 'var(--radius)',
                 border: '1px solid var(--border)', background: 'var(--surface2)',
                 color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem',
-              }}>Болих</button>
+              }}>{t.cancel}</button>
             </div>
           </div>
         </div>
@@ -429,7 +438,7 @@ export default function OrdersClient({
             width: 'calc(100% - 2rem)', maxWidth: 480,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Бараа бүртгэх</h2>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{t.addTitle}</h2>
               <button onClick={() => setAddOpen(false)} style={{
                 background: 'var(--surface2)', border: 'none', cursor: 'pointer',
                 width: 32, height: 32, borderRadius: '50%', fontSize: '1rem',
@@ -438,27 +447,27 @@ export default function OrdersClient({
             </div>
             <form onSubmit={submitAdd}>
               <div className="form-group">
-                <label>Трак код</label>
-                <input ref={addInputRef} className="input" placeholder="жш: YT2580126073683" required
+                <label>{t.trackCode}</label>
+                <input ref={addInputRef} className="input" placeholder={t.trackCodePh} required
                   value={addForm.trackCode}
                   onChange={e => setAddForm({ ...addForm, trackCode: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Тайлбар</label>
-                <textarea className="input" placeholder="Барааны тайлбар..." rows={2} required
+                <label>{t.description}</label>
+                <textarea className="input" placeholder={t.descriptionPh} rows={2} required
                   value={addForm.description}
                   onChange={e => setAddForm({ ...addForm, description: e.target.value })} />
               </div>
               {addError && <p className="msg-error">{addError}</p>}
               <button className="btn" type="submit" disabled={addLoading || !addForm.trackCode.trim() || !addForm.description.trim()}
                 style={{ width: '100%', marginTop: '0.25rem' }}>
-                {addLoading ? 'Хадгалж байна...' : 'Бүртгэх'}
+                {addLoading ? t.saving : t.registerBtn}
               </button>
             </form>
             {addedCodes.length > 0 && (
               <div style={{ marginTop: '1rem' }}>
                 <p style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600, marginBottom: '0.4rem' }}>
-                  Бүртгэгдсэн ({addedCodes.length})
+                  {t.registeredList} ({addedCodes.length})
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   {addedCodes.map((code, i) => (
@@ -480,7 +489,7 @@ export default function OrdersClient({
 
       <div className="page">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-          <h1 className="section-title" style={{ marginBottom: 0 }}>Миний захиалгууд</h1>
+          <h1 className="section-title" style={{ marginBottom: 0 }}>{t.myOrders}</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
               <button onClick={() => { setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true) }} style={{
@@ -489,11 +498,11 @@ export default function OrdersClient({
                 borderRadius: 'var(--radius)', color: 'var(--danger)',
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
-                Бүгдийг устгах
+                {t.deleteAll}
               </button>
             )}
             <button className="btn" onClick={() => setAddOpen(true)} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
-              + Бүртгэх
+              {t.addBtn}
             </button>
           </div>
         </div>
@@ -504,11 +513,11 @@ export default function OrdersClient({
           return (
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
               <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
-                Ирсэн <strong style={{ color: 'var(--text)' }}>{arrived.length} бараа</strong>
+                {STATUS_LABEL.ARRIVED} <strong style={{ color: 'var(--text)' }}>{arrived.length} {t.items}</strong>
               </span>
               {total > 0 && (
                 <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
-                  Нийт <strong style={{ color: 'var(--accent)' }}>{CUR}{total.toLocaleString()}</strong>
+                  {t.total} <strong style={{ color: 'var(--accent)' }}>{CUR}{total.toLocaleString()}</strong>
                 </span>
               )}
             </div>
@@ -518,14 +527,14 @@ export default function OrdersClient({
         {/* Search */}
         <input
           className="input"
-          placeholder="Трак кодоор хайх..."
+          placeholder={t.searchPh}
           value={searchQ}
           onChange={e => { setSearchQ(e.target.value); setPage(1) }}
           style={{ marginBottom: '0.9rem', maxWidth: 320 }}
         />
 
         {/* Tabs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.3rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
           {TABS.map(tab => {
             const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
             const active = activeTab === tab.key
@@ -560,17 +569,17 @@ export default function OrdersClient({
         {shipments.length === 0 && batches.length === 0 ? (
           <div className="empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.9rem' }}>
             <div style={{ fontSize: '2rem' }}>📦</div>
-            <p style={{ margin: 0 }}>Бүртгэлтэй бараа байхгүй байна.</p>
+            <p style={{ margin: 0 }}>{t.emptyNone}</p>
             <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
-              Захиалсан барааныхаа трак кодыг бүртгүүлбэл ирэх явцыг нь эндээс хянах боломжтой.
+              {t.emptyGuide}
             </p>
             <Link href="/orders/new" className="btn" style={{ textDecoration: 'none' }}>
-              + Эхний барааг бүртгэх
+              {t.emptyCta}
             </Link>
           </div>
         ) : (filtered.length === 0 && filteredBatches.length === 0) ? (
           <div className="empty">
-            <p>{searchQ ? `"${searchQ}" хайлтад тохирох бараа байхгүй.` : 'Энэ статуст бараа байхгүй байна.'}</p>
+            <p>{searchQ ? fmt(t.emptyNoMatch, { q: searchQ }) : t.emptyStatus}</p>
           </div>
         ) : (
           <>
@@ -584,13 +593,13 @@ export default function OrdersClient({
                     style={{ cursor: 'pointer' }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>📦 Багц B-{b.id}</span>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>📦 {t.batch} B-{b.id}</span>
                       <span style={{
                         fontSize: '0.7rem', color: 'var(--muted)',
                         background: 'var(--surface2)', border: '1px solid var(--border)',
                         borderRadius: 100, padding: '0.05rem 0.5rem', whiteSpace: 'nowrap',
                       }}>
-                        {b.shipments.length} ачаа
+                        {b.shipments.length} {t.batchItems}
                       </span>
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -604,25 +613,25 @@ export default function OrdersClient({
                   </div>
                   <div className="order-card-meta">
                     <div className="order-card-row">
-                      <span>Нийт төлбөр</span>
+                      <span>{t.totalPayment}</span>
                       <strong style={{ color: 'var(--accent)' }}>
                         {b.currency === 'CNY' ? `¥${Number(b.price).toLocaleString()}` : `₮${Number(b.price).toLocaleString()}`}
                       </strong>
                     </div>
                     <div className="order-card-row">
-                      <span>Огноо</span>
+                      <span>{t.date}</span>
                       <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{fmtDT(b.createdAt)}</span>
                     </div>
                     {b.note && (
                       <div className="order-card-row">
-                        <span>Тайлбар</span>
+                        <span>{t.description}</span>
                         <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{b.note}</span>
                       </div>
                     )}
                     {expandedBatch === b.id && (
                       <div style={{ paddingTop: '0.5rem' }}>
                         <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.35rem', fontWeight: 600 }}>
-                          Багц доторх ачаанууд:
+                          {t.batchInside}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                           {b.shipments.map(s => (
@@ -652,7 +661,7 @@ export default function OrdersClient({
                       <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>{fmtDT(s.updatedAt)}</span>
                       <span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status] ?? s.status}</span>
                       {(s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
-                        <button onClick={() => deleteShipment(s.id)} disabled={deleting === s.id} title={s.status === 'PICKED_UP' ? 'Архивлах' : 'Устгах'} style={{
+                        <button onClick={() => deleteShipment(s.id)} disabled={deleting === s.id} title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip} style={{
                           background: 'none', border: 'none', cursor: 'pointer',
                           color: 'var(--muted)', fontSize: '0.85rem', padding: '0.1rem 0.25rem',
                           borderRadius: '4px', lineHeight: 1, opacity: deleting === s.id ? 0.4 : 1,
@@ -665,13 +674,13 @@ export default function OrdersClient({
                   </div>
                   <div className="order-card-meta">
                     <div className="order-card-row">
-                      <span>Трак код</span>
+                      <span>{t.trackCode}</span>
                       <CopyText text={s.trackCode} style={{ fontFamily: 'monospace', fontWeight: 700 }}>
                         {s.trackCode}
                       </CopyText>
                     </div>
                     <div className="order-card-row">
-                      <span>Карго төлбөр</span>
+                      <span>{t.cargoPayment}</span>
                       <span>{s.adminPrice
                         ? <strong style={{ color: 'var(--accent)' }}>{CUR}{Number(s.adminPrice).toLocaleString()}</strong>
                         : '—'}
@@ -679,13 +688,13 @@ export default function OrdersClient({
                     </div>
                     {s.description && (
                       <div className="order-card-row">
-                        <span>Тайлбар</span>
+                        <span>{t.description}</span>
                         <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{s.description}</span>
                       </div>
                     )}
                     {s.adminNote && (
                       <div className="order-card-row">
-                        <span>Тэмдэглэл</span>
+                        <span>{t.adminNote}</span>
                         <CopyText text={s.adminNote}>{s.adminNote}</CopyText>
                       </div>
                     )}
@@ -695,7 +704,7 @@ export default function OrdersClient({
             </div>
             {renderPagination()}
             <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
-              Нийт {filtered.length} бараа
+              {fmt(t.totalItems, { n: filtered.length })}
             </p>
           </>
         )}

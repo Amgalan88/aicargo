@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { AIAvatar } from './AIAvatar'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
+import { useUserLang } from './useUserLang'
+import { dict, fmt } from '@/lib/user-i18n'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -9,12 +11,13 @@ interface Message {
   clarify?: { question: string; options: string[] }
 }
 
-const ACTIONS = [
-  { label: '📦 Миний ачааны байдал', prompt: 'Миний ачааны статистикийг харуул' },
-  { label: '✅ Ирсэн ачаа', prompt: 'Миний ARRIVED статустай ачааг харуул' },
-  { label: '🏢 Компанийн мэдээлэл', prompt: 'Карго компанийн цаг, хаяг, банкны мэдээлэл, дүрмийг харуул' },
-  { label: '📋 Сүүлийн ачаануудын жагсаалт', prompt: 'Миний сүүлийн 10 ачааг харуул' },
-]
+// prompt нь монголоороо үлдэнэ (router/AI-д таарахын тулд) — label нь орчуулагдана
+const ACTION_PROMPTS = {
+  stats: 'Миний ачааны статистикийг харуул',
+  arrived: 'Миний ARRIVED статустай ачааг харуул',
+  company: 'Карго компанийн цаг, хаяг, банкны мэдээлэл, дүрмийг харуул',
+  recent: 'Миний сүүлийн 10 ачааг харуул',
+} as const
 
 const BTN_H = 38
 const BTN_W = 100
@@ -27,6 +30,14 @@ function defaultPos() {
 }
 
 export default function UserAIWidget({ userName, cargoName, suggestions = [] }: { userName: string; cargoName: string; suggestions?: string[] }) {
+  const [lang] = useUserLang()
+  const t = dict(lang)
+  const ACTIONS = [
+    { label: t.aiActionStats, prompt: ACTION_PROMPTS.stats },
+    { label: t.aiActionArrived, prompt: ACTION_PROMPTS.arrived },
+    { label: t.aiActionCompany, prompt: ACTION_PROMPTS.company },
+    { label: t.aiActionRecent, prompt: ACTION_PROMPTS.recent },
+  ]
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -119,13 +130,13 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
         }])
         if (data.remaining !== undefined) setRemaining(data.remaining)
       } else if (res.ok && data.reply !== undefined) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Хариулт хоосон байна.' }])
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply || t.aiEmptyReply }])
         if (data.remaining !== undefined) setRemaining(data.remaining)
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.error || 'Алдаа гарлаа. Дахин оролдоно уу.' }])
+        setMessages(prev => [...prev, { role: 'assistant', content: data.error || t.aiErrGeneric }])
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Холболтын алдаа гарлаа.' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: t.aiErrConn }])
     } finally {
       setLoading(false)
     }
@@ -178,7 +189,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
-            <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'inherit' }}>Хаах</span>
+            <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'inherit' }}>{t.aiClose}</span>
           </>
         ) : (
           <>
@@ -186,7 +197,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
               <path d="M12 2L13.6 9.4L21 11L13.6 12.6L12 20L10.4 12.6L3 11L10.4 9.4L12 2Z" fill="white"/>
               <path d="M20 2L20.8 5.2L24 6L20.8 6.8L20 10L19.2 6.8L16 6L19.2 5.2L20 2Z" fill="white" opacity="0.7"/>
             </svg>
-            <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'inherit' }}>AI Туслах</span>
+            <span style={{ color: 'white', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'inherit' }}>{t.aiAssistant}</span>
           </>
         )}
       </button>
@@ -237,7 +248,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
           }}>
             <AIAvatar size={32} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text)' }}>AI Туслах</div>
+              <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text)' }}>{t.aiAssistant}</div>
               <div style={{ fontSize: '0.7rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cargoName}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
@@ -259,7 +270,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
                     fontSize: '0.7rem', padding: '2px 8px', fontFamily: 'inherit',
                   }}
                 >
-                  Цэвэрлэх
+                  {t.aiClear}
                 </button>
               )}
             </div>
@@ -293,7 +304,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
                   textAlign: 'center', color: 'var(--muted)',
                   fontSize: '0.76rem', margin: '4px 0 8px',
                 }}>
-                  Сайн байна уу, {userName}! Юу хийж өгөх вэ?
+                  {fmt(t.aiGreeting, { name: userName })}
                 </p>
                 {ACTIONS.map(a => (
                   <button
@@ -326,7 +337,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
                 {suggestions.length > 0 && (
                   <>
                     <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.68rem', margin: '8px 0 2px' }}>
-                      Түгээмэл асуултууд
+                      {t.aiCommonQs}
                     </p>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
                       {suggestions.map(s => (
@@ -470,7 +481,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKey}
-                placeholder="Асуулт бичих..."
+                placeholder={t.aiInputPh}
                 className="input"
                 autoComplete="off"
                 autoCorrect="off"
