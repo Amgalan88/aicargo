@@ -96,7 +96,7 @@ export default function NewCargoPage() {
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>Эрээний хаяг</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 0.75rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0 0.75rem' }}>
             <div className="form-group">
               <label>收货人 (Хүлээн авагч)</label>
               <input className="input" placeholder="Нэр + утас" required
@@ -124,7 +124,7 @@ export default function NewCargoPage() {
             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.8rem' }}>Админ бүртгэл</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 0.75rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0 0.75rem' }}>
             <div className="form-group">
               <label>Нэр</label>
               <input className="input" placeholder="Овог Нэр" required

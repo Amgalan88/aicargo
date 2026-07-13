@@ -287,7 +287,7 @@ export default function SuperPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label style={{ fontSize: '0.75rem' }}>Нэр</label>
                       <input className="input" value={editForm.name}
@@ -325,7 +325,7 @@ export default function SuperPage() {
                   {/* Bank fields */}
                   <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginBottom: '0.75rem' }}>
                     <p style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Төлбөр төлөх данс</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem' }}>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label style={{ fontSize: '0.75rem' }}>Банкны нэр</label>
                         <input className="input" placeholder="Хаан банк" value={editForm.bankName}
@@ -363,7 +363,7 @@ export default function SuperPage() {
                 <div>
                   {/* Top row: name + slug + edit button */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', minWidth: 0 }}>
                       <strong style={{ fontSize: '1rem' }}>{c.name}</strong>
                       <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace', background: 'var(--surface2,#1a1a1a)', padding: '0.1rem 0.5rem', borderRadius: 4 }}>
                         {c.slug}
@@ -374,7 +374,7 @@ export default function SuperPage() {
                         </span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                       <button
                         onClick={async () => {
                           await fetch(`/api/super/cargo/${c.id}`, {

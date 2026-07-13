@@ -46,7 +46,7 @@ export default function SuperAIConfigPage() {
 
   return (
     <div style={{ maxWidth: 820, margin: '0 auto', padding: '1rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <h1 className="section-title" style={{ margin: 0 }}>✨ AI Prompt Тохиргоо</h1>
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.35rem 0 0', lineHeight: 1.5 }}>
@@ -69,7 +69,7 @@ export default function SuperAIConfigPage() {
       {loading ? (
         <p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
           {/* User AI */}
           <div className="card" style={{ padding: '1.25rem' }}>
             <div style={{ marginBottom: '0.6rem' }}>
