@@ -235,8 +235,10 @@ export function statusLabels(
   opts: { arrivedLabel?: string | null; ereemLabel?: string | null; batchMode?: boolean }
 ): { map: Record<string, string>; all: string } {
   const d = STATUS_DEFAULTS[lang]
-  const arrived = opts.arrivedLabel || (opts.batchMode ? d.arrivedBatch : d.arrived)
-  const ereen = opts.ereemLabel || d.ereen
+  // Каргогийн өөрийн тохируулсан нэр зөвхөн монгол хэлэнд — EN/CN үед орчуулсан default
+  const useCustom = lang === 'mn'
+  const arrived = (useCustom && opts.arrivedLabel) || (opts.batchMode ? d.arrivedBatch : d.arrived)
+  const ereen = (useCustom && opts.ereemLabel) || d.ereen
   return {
     all: d.all,
     map: {
