@@ -9,7 +9,7 @@ import AnnouncementModal from '../components/AnnouncementModal'
 import UserAIWidget from '../components/UserAIWidget'
 import ThemeToggle from '../components/ThemeToggle'
 import { useUserLang } from '../components/useUserLang'
-import { dict, fmt, statusLabels, UserLang } from '@/lib/user-i18n'
+import { dict, fmt, statusLabels, LANG_CONFIRM, UserLang } from '@/lib/user-i18n'
 
 
 const BASE_TABS = [
@@ -332,7 +332,7 @@ export default function OrdersClient({
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.language}</span>
                     <div style={{ display: 'flex', gap: 4, marginTop: '0.35rem' }}>
                       {(['mn', 'en', 'cn'] as UserLang[]).map(l => (
-                        <button key={l} onClick={() => setLang(l)} style={{
+                        <button key={l} onClick={() => { if (l !== lang && confirm(LANG_CONFIRM[l])) setLang(l) }} style={{
                           flex: 1, padding: '0.3rem 0.5rem', borderRadius: 8,
                           border: '1px solid', cursor: 'pointer', fontFamily: 'inherit',
                           fontSize: '0.75rem', fontWeight: 700,
@@ -364,7 +364,8 @@ export default function OrdersClient({
       </nav>
       <ChatWidget open={faqOpen} onClose={() => setFaqOpen(false)} />
       {aiEnabled && <UserAIWidget userName={userName} cargoName={cargoName} suggestions={aiSuggestions} />}
-      {profileOpen && <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />}
+      {/* z-index 99: nav (z=100) доторх dropdown-ий товчнууд дарагдахуйц байхын тулд nav-аас доогуур */}
+      {profileOpen && <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />}
 
       {/* Delete all modal */}
       {deleteAllModal && (

@@ -223,6 +223,13 @@ const STATUS_DEFAULTS: Record<UserLang, { all: string; registered: string; ereen
   cn: { all: '全部', registered: '已登记', ereen: '已到二连', arrived: '已到达', arrivedBatch: '已发往UB', picked: '已取' },
 }
 
+// Хэл солихын өмнөх баталгаажуулалт — зорилтот хэл дээрээ асууна
+export const LANG_CONFIRM: Record<UserLang, string> = {
+  mn: 'Хэлийг Монгол болгох уу?',
+  en: 'Switch language to English?',
+  cn: '切换为中文？',
+}
+
 export function statusLabels(
   lang: UserLang,
   opts: { arrivedLabel?: string | null; ereemLabel?: string | null; batchMode?: boolean }
