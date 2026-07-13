@@ -78,6 +78,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [whDetail, setWhDetail] = useState<Warehouse | null>(null)
   const whScroll = useRef<HTMLDivElement>(null)
   const [shotIdx, setShotIdx] = useState<number | null>(null)
+  const [demoOpen, setDemoOpen] = useState(false)
   const shotScroll = useRef<HTMLDivElement>(null)
   const touchX = useRef<number | null>(null)
 
@@ -156,6 +157,9 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             <Link href="/signup-cargo" className="btn" style={{ padding: '0.8rem 1.8rem', fontSize: '0.95rem', textDecoration: 'none' }}>
               Каргогоо үнэгүй нээх →
             </Link>
+            <button onClick={() => setDemoOpen(true)} className="btn-ghost" style={{ padding: '0.8rem 1.5rem', fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit' }}>
+              🖥 Демо үзэх
+            </button>
             <a href="#track" className="btn-ghost" style={{ padding: '0.8rem 1.5rem', fontSize: '0.95rem', textDecoration: 'none' }}>
               Ачаагаа шалгах
             </a>
@@ -488,6 +492,60 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
       </div>
 
       {/* Агуулахын дэлгэрэнгүй — full screen */}
+      {/* ── Демо орчны модал ── */}
+      {demoOpen && (
+        <div
+          onClick={() => setDemoOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+          }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--surface)', borderRadius: 16, maxWidth: 400, width: '100%',
+            padding: '1.5rem', border: '1px solid var(--border)',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.28)', position: 'relative',
+          }}>
+            <button onClick={() => setDemoOpen(false)} aria-label="Хаах" style={{
+              position: 'absolute', top: '0.75rem', right: '0.75rem',
+              background: 'var(--surface2)', border: 'none', cursor: 'pointer',
+              color: 'var(--muted)', borderRadius: '50%', width: 28, height: 28,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem',
+            }}>✕</button>
+
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '0.4rem' }}>🖥 Демо орчин</h3>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '1rem' }}>
+              Бодит систем — админ болон хэрэглэгчийн аль алины нүдээр туршаарай.
+              Өгөгдөл өдөр бүр шөнө анхны байдалдаа ордог тул чөлөөтэй өөрчилж болно.
+            </p>
+
+            {[
+              { icon: '🛠', title: 'Каргогийн админаар', phone: '99999901' },
+              { icon: '👤', title: 'Хэрэглэгчээр', phone: '99999902' },
+            ].map(acc => (
+              <div key={acc.phone} style={{
+                background: 'var(--surface2)', borderRadius: 10, padding: '0.7rem 0.85rem',
+                marginBottom: '0.6rem', border: '1px solid var(--border)',
+              }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+                  {acc.icon} {acc.title}
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <CopyChip label="Утас:" value={acc.phone} />
+                  <CopyChip label="Нууц үг:" value="demo123" />
+                </div>
+              </div>
+            ))}
+
+            <a href="https://demo.aicargo.mn/login" target="_blank" rel="noopener noreferrer"
+              className="btn" style={{ display: 'block', textAlign: 'center', marginTop: '1rem', padding: '0.7rem', textDecoration: 'none', fontSize: '0.9rem' }}>
+              demo.aicargo.mn нээх →
+            </a>
+          </div>
+        </div>
+      )}
+
       {whDetail && (
         <div style={{
           position: 'fixed', inset: 0, background: 'var(--bg)',
