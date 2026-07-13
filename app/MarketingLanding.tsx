@@ -119,8 +119,38 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
     }
   }
 
+  // Google-д зориулсан бүтэцлэгдсэн өгөгдөл: байгууллага + SaaS бүтээгдэхүүн, үнэ
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        name: 'AiCargo',
+        url: 'https://www.aicargo.mn',
+        logo: 'https://www.aicargo.mn/icon-512.png',
+        sameAs: [FB_URL],
+      },
+      {
+        '@type': 'SoftwareApplication',
+        name: 'AiCargo',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'Web',
+        url: 'https://www.aicargo.mn',
+        description: 'Карго компанид зориулсан ачаа бүртгэл, хяналтын систем — Эрээн агуулахаас олголт хүртэл, AI туслахтай.',
+        inLanguage: 'mn',
+        offers: {
+          '@type': 'Offer',
+          price: '50000',
+          priceCurrency: 'MNT',
+          description: 'Эхний 30 хоног үнэгүй · цаашид сарын ₮50,000',
+        },
+      },
+    ],
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <nav className="nav">
         <NavLogo />
         <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginLeft: 'auto', flexShrink: 0 }}>

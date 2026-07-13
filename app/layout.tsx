@@ -11,13 +11,18 @@ export const viewport: Viewport = {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  let title = 'Ai cargohub — Ачаа тээвэр'
+  let title = 'AiCargo — Карго менежментийн систем | Ачаа бүртгэл, хяналт'
   let ogTitle = 'Карго бизнесээ 5 минутад онлайн болго'
   let ogSub = 'aicargo.mn · Эхний 30 хоног үнэгүй'
-  let description = 'Карго бараа хянах систем'
+  let description = 'Карго бизнесээ 5 минутад онлайн болго — өөрийн вэб хаягтай ачаа бүртгэл, хяналтын систем. Эрээн агуулахаас олголт хүртэл, AI туслахтай. Эхний 30 хоног үнэгүй.'
   let icon = '/favicon.svg'
   let apple = '/apple-icon.png'
   let baseUrl = 'https://www.aicargo.mn'
+  // Үндсэн домэйнд л хайлтын түлхүүр үгс өгнө (каргогийн subdomain-д хэрэггүй)
+  let keywords: string[] | undefined = [
+    'карго систем', 'карго программ', 'ачаа бүртгэл', 'ачаа хяналт',
+    'карго менежмент', 'Эрээн карго', 'карго нээх', 'cargo tracking', 'AiCargo',
+  ]
 
   try {
     const h = await headers()
@@ -34,6 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
         ogTitle = cargo.name
         ogSub = `${slug}.aicargo.mn · Ачаа хянах систем`
         description = `${cargo.name} — ачаагаа трак кодоор хянах, бүртгэх систем`
+        keywords = undefined
         if (cargo.logoUrl) {
           icon = '/api/cargo-icon'
           apple = '/api/cargo-icon'
@@ -47,6 +53,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
+    keywords,
     icons: { icon, apple },
     manifest: '/api/manifest.webmanifest',
     openGraph: {
