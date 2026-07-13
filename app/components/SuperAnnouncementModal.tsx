@@ -8,23 +8,24 @@ interface SuperBanner {
   expiresAt: string | null
 }
 
-export default function SuperAnnouncementModal() {
+// endpoint: 'admin' (default) — админд, 'user' — хэрэглэгчид зориулсан баннер
+export default function SuperAnnouncementModal({ endpoint = 'admin' }: { endpoint?: 'admin' | 'user' }) {
   const [banner, setBanner] = useState<SuperBanner | null>(null)
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    fetch('/api/admin/super-banner')
+    fetch(`/api/${endpoint}/super-banner`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data) { setBanner(data); setVisible(true) }
       })
       .catch(() => {})
-  }, [])
+  }, [endpoint])
 
   async function dismiss() {
     if (!banner) return
     setVisible(false)
-    fetch('/api/admin/super-banner/dismiss', {
+    fetch(`/api/${endpoint}/super-banner/dismiss`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ superBannerId: banner.id }),

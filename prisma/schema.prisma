@@ -181,6 +181,7 @@ model SuperBanner {
   content   String
   imageUrl  String?
   expiresAt DateTime?
+  audience  String    @default("ADMIN") // ADMIN | USER | ALL
   createdAt DateTime  @default(now())
   dismisses SuperBannerDismiss[]
 }

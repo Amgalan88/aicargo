@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   const banner = await (prisma.superBanner as any).findFirst({
     orderBy: { createdAt: 'desc' },
-    select: { id: true, content: true, imageUrl: true, expiresAt: true, createdAt: true },
+    select: { id: true, content: true, imageUrl: true, expiresAt: true, audience: true, createdAt: true },
   })
   return NextResponse.json(banner ?? null)
 }
@@ -19,10 +19,11 @@ export async function POST(req: NextRequest) {
   if (!user) return unauthorized()
   if (user.role !== 'SUPER_ADMIN') return forbidden()
 
-  const { content, imageUrl, expiresAt } = await req.json()
+  const { content, imageUrl, expiresAt, audience } = await req.json()
   if (!content?.trim()) {
     return NextResponse.json({ error: 'Мэдэгдлийн текст хоосон байна' }, { status: 400 })
   }
+  const aud = ['ADMIN', 'USER', 'ALL'].includes(audience) ? audience : 'ADMIN'
 
   await (prisma.superBanner as any).deleteMany({})
 
@@ -31,8 +32,9 @@ export async function POST(req: NextRequest) {
       content: content.trim(),
       imageUrl: imageUrl || null,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
+      audience: aud,
     },
-    select: { id: true, content: true, imageUrl: true, expiresAt: true, createdAt: true },
+    select: { id: true, content: true, imageUrl: true, expiresAt: true, audience: true, createdAt: true },
   })
   return NextResponse.json(banner, { status: 201 })
 }

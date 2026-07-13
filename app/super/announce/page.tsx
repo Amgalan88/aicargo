@@ -1,7 +1,13 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 
-interface SuperBanner { id: number; content: string; imageUrl: string | null; expiresAt: string | null; createdAt: string }
+interface SuperBanner { id: number; content: string; imageUrl: string | null; expiresAt: string | null; audience?: string; createdAt: string }
+
+const AUDIENCE_LABEL: Record<string, string> = {
+  ADMIN: '🛠 Админуудад',
+  USER: '👤 Хэрэглэгчдэд',
+  ALL: '🌐 Бүгдэд',
+}
 
 function PreviewModal({ data, onClose }: { data: { content: string; imageUrl: string | null; expiresAt: string | null }; onClose: () => void }) {
   return (
@@ -24,6 +30,7 @@ export default function SuperAnnouncePage() {
   const [content, setContent] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
+  const [audience, setAudience] = useState<'ADMIN' | 'USER' | 'ALL'>('ADMIN')
   const [saving, setSaving] = useState(false)
   const [uploadingImg, setUploadingImg] = useState(false)
   const [confirmNew, setConfirmNew] = useState(false)
@@ -71,7 +78,7 @@ export default function SuperAnnouncePage() {
     try {
       const res = await fetch('/api/super/banner', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: c, imageUrl: img || null, expiresAt: exp || null }),
+        body: JSON.stringify({ content: c, imageUrl: img || null, expiresAt: exp || null, audience }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -96,7 +103,7 @@ export default function SuperAnnouncePage() {
 
   return (
     <div className="page" style={{ maxWidth: 520 }}>
-      <h1 className="section-title">Adminуудад мэдэгдэл илгээх</h1>
+      <h1 className="section-title">Системийн мэдэгдэл илгээх</h1>
 
       {previewing && <PreviewModal data={previewData} onClose={() => setPreviewing(false)} />}
 
@@ -104,7 +111,7 @@ export default function SuperAnnouncePage() {
       {banner && (
         <div className="card" style={{ padding: '1.25rem', marginBottom: '1.25rem', border: '1px solid var(--accent)' }}>
           <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>
-            Идэвхтэй мэдэгдэл
+            Идэвхтэй мэдэгдэл · {AUDIENCE_LABEL[banner.audience ?? 'ADMIN']}
           </p>
           {banner.imageUrl && <img src={banner.imageUrl} alt="" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginBottom: '0.75rem' }} />}
           <p style={{ fontSize: '0.9rem', whiteSpace: 'pre-wrap', color: 'var(--text)', marginBottom: '0.5rem' }}>{banner.content}</p>
@@ -125,6 +132,23 @@ export default function SuperAnnouncePage() {
         <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1rem' }}>
           {banner ? 'Шинэ мэдэгдэл тохируулах' : 'Мэдэгдэл үүсгэх'}
         </p>
+
+        <div className="form-group">
+          <label>Хэнд илгээх вэ</label>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            {(['ADMIN', 'USER', 'ALL'] as const).map(a => (
+              <button key={a} type="button" onClick={() => setAudience(a)} style={{
+                padding: '0.4rem 0.9rem', borderRadius: 100, border: '1px solid',
+                fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                borderColor: audience === a ? 'var(--accent)' : 'var(--border)',
+                background: audience === a ? 'var(--accent)' : 'var(--surface)',
+                color: audience === a ? '#fff' : 'var(--muted)',
+              }}>
+                {AUDIENCE_LABEL[a]}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="form-group">
           <label>Текст <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(emoji дэмжинэ)</span></label>
