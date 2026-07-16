@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
+import { Analytics } from '@vercel/analytics/next'
 import { prisma } from '@/lib/prisma'
 import './globals.css'
 import PwaRegister from './components/PwaRegister'
@@ -85,6 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <PwaRegister />
         {children}
+        <Analytics />
       </body>
     </html>
   )
