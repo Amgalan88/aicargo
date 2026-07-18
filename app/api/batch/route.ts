@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden, JwtPayload } from '@/lib/auth'
 
+// Том багц (олон трак код) DB руу мөр мөрөөр upsert хийвэл round-tripихдэж
+// Vercel-ийн function timeout-д мөргөж "Connection error" гардаг байсан тул нэмэв.
+export const maxDuration = 60
+
 // Багц бүртгэл: EREEN ажилтан болон ADMIN хоёулаа хандана.
 // Карго нь batchEnabled байх ёстой.
 async function requireBatchAccess(req: NextRequest): Promise<{ user?: JwtPayload & { name: string }; error?: NextResponse }> {
@@ -79,28 +83,22 @@ export async function POST(req: NextRequest) {
       data: { cargoId, phone, userId: owner?.id ?? null, price, currency, note, status: 'ARRIVED' },
     })
     const now = new Date()
-    for (const code of codes) {
-      // Өмнө нь бүртгэгдсэн ачаа автоматаар багцад шингэнэ (эзэн нь хадгалагдана)
-      await tx.shipment.upsert({
-        where: { trackCode_cargoId: { trackCode: code, cargoId } },
-        update: {
-          status: 'ARRIVED',
-          arrivedAt: now,
-          batchId: b.id,
-          phone,
-          ...(owner ? { userId: owner.id } : {}),
-        } as any,
-        create: {
-          trackCode: code,
-          status: 'ARRIVED',
-          arrivedAt: now,
-          batchId: b.id,
-          phone,
-          cargoId,
-          ...(owner ? { userId: owner.id } : {}),
-        } as any,
-      })
-    }
+    // Мөр мөрөөр (40 удаа) upsert хийвэл алслагдсан DB руу 40 тусдаа round-trip
+    // үүсгэж, том багцад Vercel function timeout-д хүрч холболт тасардаг байсан.
+    // Тиймээс бүх кодыг НЭГ query-гээр bulk upsert хийнэ (өмнө нь бүртгэгдсэн ачаа
+    // автоматаар багцад шингэнэ — эзэн нь хадгалагдана).
+    await tx.$executeRaw`
+      INSERT INTO "Shipment" ("trackCode", status, "arrivedAt", "batchId", phone, "cargoId", "userId", "createdAt", "updatedAt")
+      SELECT t.code, 'ARRIVED'::"Status", ${now}, ${b.id}, ${phone}, ${cargoId}, ${owner?.id ?? null}, ${now}, ${now}
+      FROM unnest(${codes}::text[]) AS t(code)
+      ON CONFLICT ("trackCode", "cargoId") DO UPDATE SET
+        status = EXCLUDED.status,
+        "arrivedAt" = EXCLUDED."arrivedAt",
+        "batchId" = EXCLUDED."batchId",
+        phone = EXCLUDED.phone,
+        "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
+        "updatedAt" = EXCLUDED."updatedAt"
+    `
     await (tx as any).batchLog.create({
       data: {
         batchId: b.id,
