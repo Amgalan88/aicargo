@@ -178,19 +178,39 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // Код нэмэх
+    // Код нэмэх — POST-той адил шалтгаанаар (олон код нэмэхэд round-trip
+    // хэтэрч timeout болохоос сэргийлж) НЭГ bulk upsert query ашиглана.
     const addCodes = normCodes(body.addCodes)
     if (addCodes.length > 0) {
       const now = new Date()
       const phone = data.phone ?? batch.phone
       const userId = data.userId !== undefined ? data.userId : batch.userId
-      const stamp = batch.status === 'EREEN_ARRIVED' ? { ereenArrivedAt: now } : { arrivedAt: now }
-      for (const code of addCodes) {
-        await tx.shipment.upsert({
-          where: { trackCode_cargoId: { trackCode: code, cargoId } },
-          update: { status: batch.status, ...stamp, batchId: id, phone, ...(userId ? { userId } : {}) } as any,
-          create: { trackCode: code, status: batch.status, ...stamp, batchId: id, phone, cargoId, ...(userId ? { userId } : {}) } as any,
-        })
+      if (batch.status === 'EREEN_ARRIVED') {
+        await tx.$executeRaw`
+          INSERT INTO "Shipment" ("trackCode", status, "ereenArrivedAt", "batchId", phone, "cargoId", "userId", "createdAt", "updatedAt")
+          SELECT t.code, ${batch.status}::"Status", ${now}, ${id}, ${phone}, ${cargoId}, ${userId ?? null}, ${now}, ${now}
+          FROM unnest(${addCodes}::text[]) AS t(code)
+          ON CONFLICT ("trackCode", "cargoId") DO UPDATE SET
+            status = EXCLUDED.status,
+            "ereenArrivedAt" = EXCLUDED."ereenArrivedAt",
+            "batchId" = EXCLUDED."batchId",
+            phone = EXCLUDED.phone,
+            "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
+            "updatedAt" = EXCLUDED."updatedAt"
+        `
+      } else {
+        await tx.$executeRaw`
+          INSERT INTO "Shipment" ("trackCode", status, "arrivedAt", "batchId", phone, "cargoId", "userId", "createdAt", "updatedAt")
+          SELECT t.code, ${batch.status}::"Status", ${now}, ${id}, ${phone}, ${cargoId}, ${userId ?? null}, ${now}, ${now}
+          FROM unnest(${addCodes}::text[]) AS t(code)
+          ON CONFLICT ("trackCode", "cargoId") DO UPDATE SET
+            status = EXCLUDED.status,
+            "arrivedAt" = EXCLUDED."arrivedAt",
+            "batchId" = EXCLUDED."batchId",
+            phone = EXCLUDED.phone,
+            "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
+            "updatedAt" = EXCLUDED."updatedAt"
+        `
       }
       changes.push(`нэмсэн: ${addCodes.join(', ')}`)
     }

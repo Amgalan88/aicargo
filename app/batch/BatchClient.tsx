@@ -84,6 +84,7 @@ export default function BatchClient() {
   const [editPrice, setEditPrice] = useState('')
   const [editNote, setEditNote] = useState('')
   const [editAdd, setEditAdd] = useState('')
+  const [editError, setEditError] = useState('')
   const [logOpen, setLogOpen] = useState<number | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const codesRef = useRef<HTMLTextAreaElement>(null)
@@ -137,33 +138,41 @@ export default function BatchClient() {
     setEditPrice(String(Number(b.price)))
     setEditNote(b.note ?? '')
     setEditAdd('')
+    setEditError('')
     setExpanded(b.id)
   }
 
   async function saveEdit() {
     if (editId === null) return
-    const res = await fetch('/api/batch', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: editId,
-        phone: editPhone,
-        price: Number(editPrice),
-        note: editNote,
-        addCodes: parseCodes(editAdd),
-      }),
-    })
-    if (res.ok) { setEditId(null); load() }
-    else { const d = await res.json().catch(() => ({})); setError(d.error || 'Error') }
+    setEditError('')
+    try {
+      const res = await fetch('/api/batch', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editId,
+          phone: editPhone,
+          price: Number(editPrice),
+          note: editNote,
+          addCodes: parseCodes(editAdd),
+        }),
+      })
+      if (res.ok) { setEditId(null); load() }
+      else { const d = await res.json().catch(() => ({})); setEditError(d.error || 'Error') }
+    } catch { setEditError('Connection error') }
   }
 
   async function removeCode(batchId: number, shipmentId: number) {
     if (!confirm(T.confirmRemove)) return
-    await fetch('/api/batch', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: batchId, removeShipmentIds: [shipmentId] }),
-    })
+    setEditError('')
+    try {
+      const res = await fetch('/api/batch', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: batchId, removeShipmentIds: [shipmentId] }),
+      })
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setEditError(d.error || 'Error'); return }
+    } catch { setEditError('Connection error'); return }
     load()
   }
 
@@ -297,9 +306,10 @@ export default function BatchClient() {
                         <textarea className="input" rows={2} placeholder={T.addCodesPh}
                           value={editAdd} onChange={e => setEditAdd(e.target.value)}
                           style={{ fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '0.6rem' }} />
+                        {editError && <p className="msg-error" style={{ marginBottom: '0.6rem' }}>{editError}</p>}
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button className="btn" onClick={saveEdit} style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>{T.saveEdit}</button>
-                          <button className="btn-ghost" onClick={() => setEditId(null)} style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>{T.cancel}</button>
+                          <button className="btn-ghost" onClick={() => { setEditId(null); setEditError('') }} style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>{T.cancel}</button>
                         </div>
                       </>
                     ) : (
