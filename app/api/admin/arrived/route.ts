@@ -3,6 +3,11 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 
+// Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
+// round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
+// доор бүх мөрийг НЭГ bulk upsert query-гээр бичнэ.
+export const maxDuration = 60
+
 export async function PUT(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
   if (!admin) return unauthorized()
@@ -12,33 +17,70 @@ export async function PUT(req: NextRequest) {
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: 'Өгөгдөл хоосон' }, { status: 400 })
   }
+  const cargoId = admin.cargoId!
 
-  const results = await Promise.all(rows.map(async ({ trackCode, phone: manualPhone, price }) => {
-    const code = trackCode.trim().toUpperCase()
-    const existing = await prisma.shipment.findUnique({
-      where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-      include: { user: { select: { phone: true } } },
-    })
-    if (existing?.status === 'PICKED_UP') return null
+  // Нэг импортод ижил код давхар орвол сүүлийнх нь дийлдэнэ (bulk upsert нэг
+  // conflict target-ийг хоёр удаа хөндөж чадахгүй тул урьдчилан dedupe хийнэ)
+  const rowByCode = new Map<string, { trackCode: string; phone?: string; price?: number }>()
+  for (const r of rows) rowByCode.set(r.trackCode.trim().toUpperCase(), r)
+  const codes = Array.from(rowByCode.keys())
+
+  const existingRows = await prisma.shipment.findMany({
+    where: { cargoId, trackCode: { in: codes } },
+    include: { user: { select: { phone: true } } },
+  })
+  const existingByCode = new Map(existingRows.map(s => [s.trackCode, s]))
+
+  const resolvedPhoneByCode = new Map<string, string | null>()
+  const phonesNeedingLookup = new Set<string>()
+  for (const code of codes) {
+    const existing = existingByCode.get(code)
+    const manualPhone = rowByCode.get(code)!.phone?.trim() || null
     const resolvedPhone = existing?.user?.phone || existing?.phone || manualPhone || null
-    let resolvedUserId = existing?.userId ?? null
-    if (!resolvedUserId && resolvedPhone) {
-      const matchedUser = await prisma.user.findFirst({ where: { phone: resolvedPhone, cargoId: admin.cargoId! } })
-      if (matchedUser) resolvedUserId = matchedUser.id
-    }
-    return prisma.shipment.upsert({
-      where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-      update: { status: 'ARRIVED', arrivedAt: new Date(), adminPrice: price ?? null, phone: resolvedPhone, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
-      create: { trackCode: code, status: 'ARRIVED', arrivedAt: new Date(), adminPrice: price ?? null, phone: resolvedPhone, cargoId: admin.cargoId!, ...(resolvedUserId ? { userId: resolvedUserId } : {}) },
-    })
-  }))
+    resolvedPhoneByCode.set(code, resolvedPhone)
+    if (!existing?.userId && resolvedPhone) phonesNeedingLookup.add(resolvedPhone)
+  }
+  const matchedUsers = phonesNeedingLookup.size > 0
+    ? await prisma.user.findMany({ where: { cargoId, phone: { in: Array.from(phonesNeedingLookup) } }, select: { id: true, phone: true } })
+    : []
+  const userIdByPhone = new Map(matchedUsers.map(u => [u.phone, u.id]))
+
+  const prices: (number | null)[] = []
+  const phones: (string | null)[] = []
+  const userIds: (number | null)[] = []
+  for (const code of codes) {
+    const existing = existingByCode.get(code)
+    const resolvedPhone = resolvedPhoneByCode.get(code) ?? null
+    const resolvedUserId = existing?.userId ?? (resolvedPhone ? userIdByPhone.get(resolvedPhone) ?? null : null)
+    const price = rowByCode.get(code)!.price
+    prices.push(typeof price === 'number' ? price : null)
+    phones.push(resolvedPhone)
+    userIds.push(resolvedUserId)
+  }
+
+  const now = new Date()
+  await prisma.$executeRaw`
+    INSERT INTO "Shipment" ("trackCode", status, "arrivedAt", "adminPrice", phone, "cargoId", "userId", "createdAt", "updatedAt")
+    SELECT t.code, 'ARRIVED'::"Status", ${now}, t.price, t.phone, ${cargoId}, t.userId, ${now}, ${now}
+    FROM unnest(${codes}::text[], ${prices}::numeric[], ${phones}::text[], ${userIds}::int[]) AS t(code, price, phone, userId)
+    ON CONFLICT ("trackCode", "cargoId") DO UPDATE SET
+      status = 'ARRIVED',
+      "arrivedAt" = ${now},
+      "adminPrice" = EXCLUDED."adminPrice",
+      phone = EXCLUDED.phone,
+      "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
+      "updatedAt" = ${now}
+    WHERE "Shipment".status != 'PICKED_UP'
+  `
 
   checkCrossCargoOnImport(
     rows.map(r => ({ trackCode: r.trackCode.trim().toUpperCase(), phone: r.phone?.trim() || null, status: 'ARRIVED' })),
-    admin.cargoId!
+    cargoId
   ).catch(console.error)
 
-  return NextResponse.json({ count: results.filter(Boolean).length })
+  // PICKED_UP статустай мөрүүд WHERE-д тааруулагдаагүй тул бодитоор шинэчлэгдээгүй
+  const skipped = codes.filter(c => existingByCode.get(c)?.status === 'PICKED_UP').length
+  return NextResponse.json({ count: codes.length - skipped })
 }
 
 export async function POST(req: NextRequest) {
