@@ -85,6 +85,7 @@ export default function BatchClient() {
   const [editNote, setEditNote] = useState('')
   const [editAdd, setEditAdd] = useState('')
   const [editError, setEditError] = useState('')
+  const [editBusy, setEditBusy] = useState(false)
   const [logOpen, setLogOpen] = useState<number | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const codesRef = useRef<HTMLTextAreaElement>(null)
@@ -143,7 +144,8 @@ export default function BatchClient() {
   }
 
   async function saveEdit() {
-    if (editId === null) return
+    if (editId === null || editBusy) return
+    setEditBusy(true)
     setEditError('')
     try {
       const res = await fetch('/api/batch', {
@@ -160,10 +162,13 @@ export default function BatchClient() {
       if (res.ok) { setEditId(null); load() }
       else { const d = await res.json().catch(() => ({})); setEditError(d.error || 'Error') }
     } catch { setEditError('Connection error') }
+    finally { setEditBusy(false) }
   }
 
   async function removeCode(batchId: number, shipmentId: number) {
+    if (editBusy) return
     if (!confirm(T.confirmRemove)) return
+    setEditBusy(true)
     setEditError('')
     try {
       const res = await fetch('/api/batch', {
@@ -173,6 +178,7 @@ export default function BatchClient() {
       })
       if (!res.ok) { const d = await res.json().catch(() => ({})); setEditError(d.error || 'Error'); return }
     } catch { setEditError('Connection error'); return }
+    finally { setEditBusy(false) }
     load()
   }
 
@@ -308,7 +314,7 @@ export default function BatchClient() {
                           style={{ fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '0.6rem' }} />
                         {editError && <p className="msg-error" style={{ marginBottom: '0.6rem' }}>{editError}</p>}
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button className="btn" onClick={saveEdit} style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>{T.saveEdit}</button>
+                          <button className="btn" onClick={saveEdit} disabled={editBusy} style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>{editBusy ? T.saving : T.saveEdit}</button>
                           <button className="btn-ghost" onClick={() => { setEditId(null); setEditError('') }} style={{ fontSize: '0.8rem', padding: '0.45rem 1rem' }}>{T.cancel}</button>
                         </div>
                       </>
@@ -332,9 +338,10 @@ export default function BatchClient() {
                         }}>
                           {s.trackCode}
                           {editId === b.id && (
-                            <button onClick={() => removeCode(b.id, s.id)} style={{
+                            <button onClick={() => removeCode(b.id, s.id)} disabled={editBusy} style={{
                               background: 'none', border: 'none', color: 'var(--danger)',
-                              cursor: 'pointer', fontSize: '0.72rem', fontFamily: 'inherit',
+                              cursor: editBusy ? 'default' : 'pointer', fontSize: '0.72rem', fontFamily: 'inherit',
+                              opacity: editBusy ? 0.5 : 1,
                             }}>{T.remove}</button>
                           )}
                         </div>
