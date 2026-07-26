@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { AnimatedNumber } from '@/app/components/motion'
 
 interface Shipment {
   id: number; trackCode: string; phone: string | null
@@ -91,8 +92,8 @@ function ReportPageInner() {
               }}>Цэвэрлэх</button>
             )}
             <span style={{ fontSize: '0.82rem', color: 'var(--muted)', marginLeft: 'auto' }}>
-              <strong style={{ color: 'var(--text)' }}>{filteredCount}</strong> ачаа &nbsp;·&nbsp;
-              <strong style={{ color: 'var(--accent)' }}>₮{filteredTotal.toLocaleString()}</strong>
+              <strong style={{ color: 'var(--text)' }}><AnimatedNumber value={filteredCount} duration={0.7} /></strong> ачаа &nbsp;·&nbsp;
+              <strong style={{ color: 'var(--accent)' }}>₮<AnimatedNumber value={filteredTotal} duration={0.9} /></strong>
             </span>
           </div>
 

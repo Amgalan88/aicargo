@@ -1,7 +1,14 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import NavLogo from './components/NavLogo'
+import { Reveal, Stagger, StaggerItem, AnimatedNumber, TiltCard } from './components/motion'
+import { Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search } from 'lucide-react'
+import { toast } from 'sonner'
+
+// 3D hero — зөвхөн client дээр, тусдаа chunk (SSR-гүй)
+const Hero3D = dynamic(() => import('./components/Hero3D'), { ssr: false })
 
 const STATUS_LABEL: Record<string, string> = {
   REGISTERED: 'Бүртгүүлсэн',
@@ -24,12 +31,12 @@ const SHOTS = [
 ]
 
 const FEATURES = [
-  { icon: '🌐', title: 'Өөрийн вэб хаяг', desc: 'tanaikargo.aicargo.mn — таны нэр, лого, өнгөтэй. Хэрэглэгч тань утсандаа апп шиг суулгана.' },
-  { icon: '📦', title: 'Ачааны бүрэн хяналт', desc: 'Бүртгүүлсэн → Эрээнд → Ирсэн → Олгосон. Хэрэглэгч бүр өөрийн ачааг бодит цагт хардаг.' },
-  { icon: '📊', title: 'Excel bulk оруулалт', desc: 'Олон зуун трак кодыг Excel файлаас нэг дор. Гараар шивэх цаг дууслаа.' },
-  { icon: '✨', title: 'AI туслах', desc: 'Хэрэглэгчийн "ачаа хаана?", "хэд төлөх?" асуултад AI хариулна — таны утас чимээгүй болно.' },
-  { icon: '🔔', title: 'Автомат мэдэгдэл', desc: 'Шинэ ачаа бүртгэгдэхэд танд, ачаа ирэхэд хэрэглэгчид мэдэгдэнэ.' },
-  { icon: '💰', title: 'Тайлан ба орлого', desc: 'Өдрийн олголт, орлогын дүн, хэрэглэгч бүрийн түүх — нэг дэлгэцээс.' },
+  { icon: <Globe size={19} strokeWidth={2} />, title: 'Өөрийн вэб хаяг', desc: 'tanaikargo.aicargo.mn — таны нэр, лого, өнгөтэй. Хэрэглэгч тань утсандаа апп шиг суулгана.' },
+  { icon: <Package size={19} strokeWidth={2} />, title: 'Ачааны бүрэн хяналт', desc: 'Бүртгүүлсэн → Эрээнд → Ирсэн → Олгосон. Хэрэглэгч бүр өөрийн ачааг бодит цагт хардаг.' },
+  { icon: <FileSpreadsheet size={19} strokeWidth={2} />, title: 'Excel bulk оруулалт', desc: 'Олон зуун трак кодыг Excel файлаас нэг дор. Гараар шивэх цаг дууслаа.' },
+  { icon: <Sparkles size={19} strokeWidth={2} />, title: 'AI туслах', desc: 'Хэрэглэгчийн "ачаа хаана?", "хэд төлөх?" асуултад AI хариулна — таны утас чимээгүй болно.' },
+  { icon: <Bell size={19} strokeWidth={2} />, title: 'Автомат мэдэгдэл', desc: 'Шинэ ачаа бүртгэгдэхэд танд, ачаа ирэхэд хэрэглэгчид мэдэгдэнэ.' },
+  { icon: <BarChart3 size={19} strokeWidth={2} />, title: 'Тайлан ба орлого', desc: 'Өдрийн олголт, орлогын дүн, хэрэглэгч бүрийн түүх — нэг дэлгэцээс.' },
 ]
 
 const STEPS = [
@@ -46,22 +53,20 @@ interface Warehouse {
 }
 
 function CopyChip({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false)
   function copy() {
     navigator.clipboard.writeText(value)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    toast.success('Хуулагдлаа')
   }
   return (
     <button onClick={copy} style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       background: 'var(--surface2)', border: '1px solid var(--border)',
       borderRadius: 6, padding: '0.2rem 0.55rem', cursor: 'pointer',
-      fontSize: '0.74rem', color: copied ? 'var(--green)' : 'var(--text)',
+      fontSize: '0.74rem', color: 'var(--text)',
       fontFamily: 'inherit',
     }}>
       <span style={{ color: 'var(--muted)' }}>{label}</span>
-      {copied ? '✓ Хуулагдлаа' : value}
+      {value}
     </button>
   )
 }
@@ -165,40 +170,74 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
       <div style={{ flex: 1 }}>
 
         {/* ── HERO ── */}
-        <section style={{ padding: '3.5rem 5% 2.5rem', textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
+        <section style={{
+          position: 'relative', padding: '4rem 5% 3rem', textAlign: 'center', maxWidth: 900, margin: '0 auto',
+          minHeight: 'min(78vh, 680px)', display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        }}>
+          {/* Акцент өнгөний зөөлөн градиент ар тал */}
           <div style={{
-            display: 'inline-block', fontSize: '0.72rem', fontWeight: 700,
+            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+            background: 'radial-gradient(ellipse 70% 55% at 50% 38%, rgba(201,100,66,0.13), transparent 65%)',
+          }} />
+          {/* 3D ар тал — контентын доор */}
+          <Hero3D />
+          <div style={{ position: 'relative', zIndex: 1, maxWidth: 720, margin: '0 auto' }}>
+          <Reveal y={14}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+            fontSize: '0.72rem', fontWeight: 700,
             color: 'var(--accent)', background: 'var(--accent-light)',
             border: '1px solid var(--accent)', borderRadius: 100,
-            padding: '0.25rem 0.85rem', marginBottom: '1rem',
+            padding: '0.3rem 0.9rem', marginBottom: '1.1rem',
             textTransform: 'uppercase', letterSpacing: '0.06em',
+            boxShadow: '0 2px 8px rgba(201,100,66,0.12)',
           }}>
-            ✨ Монголын анхны AI-суурьтай карго платформ
+            <Sparkles size={13} strokeWidth={2.5} style={{ flexShrink: 0 }} />
+            Монголын анхны AI-суурьтай карго платформ
           </div>
-          <h1 style={{ fontSize: 'clamp(1.7rem, 5vw, 2.6rem)', fontWeight: 800, letterSpacing: '-1px', lineHeight: 1.15, marginBottom: '0.9rem' }}>
+          </Reveal>
+          <Reveal y={22} delay={0.08}>
+          <h1 style={{
+            fontSize: 'clamp(2rem, 5.5vw, 3.1rem)', fontWeight: 800, letterSpacing: '-1.2px',
+            lineHeight: 1.1, marginBottom: '1rem',
+          }}>
             Карго бизнесээ<br />
-            <span style={{ color: 'var(--accent)' }}>5 минутад онлайн</span> болго
+            <span style={{
+              color: 'var(--accent)',
+              background: 'linear-gradient(135deg, var(--accent), #e0885f)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>5 минутад онлайн</span> болго
           </h1>
-          <p style={{ color: 'var(--muted)', fontSize: '0.95rem', lineHeight: 1.7, maxWidth: 520, margin: '0 auto 1.5rem' }}>
+          </Reveal>
+          <Reveal y={22} delay={0.16}>
+          <p style={{ color: 'var(--muted)', fontSize: '1.02rem', lineHeight: 1.75, maxWidth: 540, margin: '0 auto 1.6rem' }}>
             Өөрийн вэб хаягтай ачаа хяналтын систем — бүртгэлээс олголт хүртэл.
             Хэрэглэгч тань ачаагаа өөрөө хянаж, AI туслах асуултад нь хариулна.
           </p>
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
-            <Link href="/signup-cargo" className="btn" style={{ padding: '0.8rem 1.8rem', fontSize: '0.95rem', textDecoration: 'none' }}>
+          </Reveal>
+          <Reveal y={22} delay={0.24}>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '0.7rem' }}>
+            <Link href="/signup-cargo" className="btn" style={{
+              padding: '0.85rem 2rem', fontSize: '0.98rem', textDecoration: 'none',
+              boxShadow: '0 4px 14px rgba(201,100,66,0.35)',
+            }}>
               Каргогоо үнэгүй нээх →
             </Link>
-            <button onClick={() => setDemoOpen(true)} className="btn-ghost" style={{ padding: '0.8rem 1.5rem', fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit' }}>
-              🖥 Демо үзэх
+            <button onClick={() => setDemoOpen(true)} className="btn-ghost" style={{ padding: '0.85rem 1.6rem', fontSize: '0.98rem', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+              <Monitor size={16} strokeWidth={2} /> Демо үзэх
             </button>
-            <a href="#track" className="btn-ghost" style={{ padding: '0.8rem 1.5rem', fontSize: '0.95rem', textDecoration: 'none' }}>
+            <a href="#track" className="btn-ghost" style={{ padding: '0.85rem 1.6rem', fontSize: '0.98rem', textDecoration: 'none' }}>
               Ачаагаа шалгах
             </a>
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '2rem' }}>
+          <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '2.2rem' }}>
             Эхний 30 хоног үнэгүй · цаашид сарын ₮50,000
           </p>
+          </Reveal>
 
           {/* Бодит тоо — итгэл төрүүлэх hook */}
+          <Reveal y={18} delay={0.32}>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(1.5rem, 6vw, 3.5rem)', flexWrap: 'wrap' }}>
             {[
               { v: stats.cargos, label: 'Карго компани' },
@@ -207,11 +246,13 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             ].map(s => (
               <div key={s.label}>
                 <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.1 }}>
-                  {s.v.toLocaleString()}+
+                  <AnimatedNumber value={s.v} suffix="+" />
                 </div>
                 <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2 }}>{s.label}</div>
               </div>
             ))}
+          </div>
+          </Reveal>
           </div>
         </section>
 
@@ -245,47 +286,70 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
-        {/* ── ИТГЭЛ: түншлэгч байгууллагуудын гүйдэг лого ── */}
+        {/* ── ТҮНШЛЭГЧ КАРГОНУУД — Logo Wall ── */}
         {partnerCargos.length > 0 && (
-          <section style={{ padding: '1.5rem 0 2rem', overflow: 'hidden' }}>
-            <p style={{
-              textAlign: 'center', fontSize: '0.72rem', fontWeight: 700,
-              color: 'var(--muted)', textTransform: 'uppercase',
-              letterSpacing: '0.08em', marginBottom: '1rem',
-            }}>
-              Манай түншлэгч байгууллагууд
-            </p>
-            <style>{`
-              @keyframes lpMarquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-              .lp-marquee-track { animation: lpMarquee ${Math.max(18, partnerCargos.length * 3.5)}s linear infinite; }
-              .lp-marquee:hover .lp-marquee-track { animation-play-state: paused; }
-            `}</style>
-            <div className="lp-marquee" style={{
-              overflow: 'hidden',
-              maskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
-              WebkitMaskImage: 'linear-gradient(to right, transparent, black 8%, black 92%, transparent)',
-            }}>
-              <div className="lp-marquee-track" style={{
-                display: 'flex', gap: '0.75rem', width: 'max-content',
-                padding: '2px 0',
-              }}>
-                {[0, 1].map(copy => (
-                  <div key={copy} aria-hidden={copy === 1} style={{ display: 'flex', gap: '0.75rem', paddingRight: '0.75rem' }}>
-                    {partnerCargos.map(c => (
-                      <div key={`${copy}-${c.id}`} style={{
-                        display: 'flex', alignItems: 'center', gap: '0.5rem',
-                        padding: '0.45rem 0.9rem', background: 'var(--surface)',
-                        border: '1px solid var(--border)', borderRadius: 100,
-                        flexShrink: 0,
-                      }}>
-                        {c.logoUrl && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={c.logoUrl} alt={c.name} width={22} height={22}
-                            style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                        )}
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{c.name}</span>
+          <section style={{ padding: '2rem 5% 2.5rem', borderTop: '1px solid var(--border)' }}>
+            <div style={{ maxWidth: 900, margin: '0 auto' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.4rem' }}>
+                Түшлэгч каргонууд
+              </h2>
+              <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.82rem', marginBottom: '1.75rem' }}>
+                Таны мэддэг, итгэдэг каргонууд аль хэдийн энд бүртгэлтэй
+              </p>
+              <style>{`
+                .lp-logo-wall {
+                  display: grid;
+                  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                  gap: 0.9rem;
+                }
+                .lp-logo-item {
+                  display: flex; flex-direction: column; align-items: center; gap: 0.55rem;
+                  padding: 1rem 0.75rem; background: var(--surface);
+                  border: 1px solid var(--border); border-radius: 14px;
+                  text-decoration: none; color: inherit;
+                  transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+                }
+                .lp-logo-item:hover {
+                  border-color: var(--accent);
+                  transform: translateY(-3px);
+                  box-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(201,100,66,0.08);
+                }
+                .lp-logo-img {
+                  width: 52px; height: 52px; border-radius: 12px;
+                  object-fit: cover; flex-shrink: 0;
+                  border: 1px solid var(--border);
+                }
+                .lp-logo-fallback {
+                  width: 52px; height: 52px; border-radius: 12px;
+                  background: var(--surface2); border: 1px solid var(--border);
+                  display: flex; align-items: center; justify-content: center;
+                  font-size: 1.3rem; font-weight: 800; color: var(--accent);
+                }
+                .lp-logo-name {
+                  font-size: 0.78rem; font-weight: 600; text-align: center;
+                  color: var(--text); line-height: 1.3;
+                  overflow: hidden; text-overflow: ellipsis;
+                  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+                }
+                @media (max-width: 500px) {
+                  .lp-logo-wall { grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+                  .lp-logo-item { padding: 0.75rem 0.5rem; }
+                  .lp-logo-img, .lp-logo-fallback { width: 44px; height: 44px; }
+                  .lp-logo-name { font-size: 0.7rem; }
+                }
+              `}</style>
+              <div className="lp-logo-wall">
+                {partnerCargos.map(c => (
+                  <div key={c.id} className="lp-logo-item">
+                    {c.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.logoUrl} alt={c.name} className="lp-logo-img" loading="lazy" />
+                    ) : (
+                      <div className="lp-logo-fallback">
+                        {c.name.charAt(0).toUpperCase()}
                       </div>
-                    ))}
+                    )}
+                    <span className="lp-logo-name">{c.name}</span>
                   </div>
                 ))}
               </div>
@@ -352,46 +416,61 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         {/* ── FEATURES ── */}
         <section style={{ padding: '2.5rem 5%', background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
           <div style={{ maxWidth: 860, margin: '0 auto' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.4rem' }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.45rem', letterSpacing: '-0.4px' }}>
               Каргод чинь хэрэгтэй бүхэн
             </h2>
-            <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.75rem' }}>
+            <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>
               Excel, дэвтэр, мессежийн орооцолдооноос гарцгаая
             </p>
             <style>{`
-              .lp-feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.9rem; }
-              .lp-feat-card { padding: 1.1rem 1.2rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
-              .lp-feat-icon { font-size: 1.4rem; margin-bottom: 0.4rem; }
-              .lp-feat-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 0.25rem; }
-              .lp-feat-desc { font-size: 0.79rem; color: var(--muted); line-height: 1.55; }
+              .lp-feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+              .lp-feat-card {
+                padding: 1.3rem 1.3rem; background: var(--bg);
+                border: 1px solid var(--border); border-radius: 14px;
+                transition: border-color 0.18s, box-shadow 0.18s;
+              }
+              .lp-feat-card:hover {
+                border-color: rgba(201,100,66,0.4);
+                box-shadow: 0 8px 24px rgba(0,0,0,0.07), 0 2px 8px rgba(201,100,66,0.08);
+              }
+              .lp-feat-icon {
+                width: 40px; height: 40px; border-radius: 10px;
+                background: var(--accent-light); border: 1px solid rgba(201,100,66,0.25);
+                display: flex; align-items: center; justify-content: center;
+                color: var(--accent); margin-bottom: 0.6rem;
+              }
+              .lp-feat-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.3rem; }
+              .lp-feat-desc { font-size: 0.83rem; color: var(--muted); line-height: 1.6; }
               @media (max-width: 600px) {
-                .lp-feat-grid { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-                .lp-feat-card { padding: 0.7rem 0.75rem; }
-                .lp-feat-icon { font-size: 1.05rem; margin-bottom: 0.2rem; }
-                .lp-feat-title { font-size: 0.76rem; margin-bottom: 0.15rem; }
-                .lp-feat-desc { font-size: 0.67rem; line-height: 1.45; }
+                .lp-feat-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+                .lp-feat-card { padding: 0.85rem 0.85rem; }
+                .lp-feat-icon { width: 34px; height: 34px; font-size: 1rem; margin-bottom: 0.35rem; }
+                .lp-feat-title { font-size: 0.8rem; margin-bottom: 0.18rem; }
+                .lp-feat-desc { font-size: 0.7rem; line-height: 1.5; }
               }
             `}</style>
-            <div className="lp-feat-grid">
+            <Stagger className="lp-feat-grid" gap={0.08}>
               {FEATURES.map(f => (
-                <div key={f.title} className="lp-feat-card">
-                  <div className="lp-feat-icon">{f.icon}</div>
-                  <div className="lp-feat-title">{f.title}</div>
-                  <div className="lp-feat-desc">{f.desc}</div>
-                </div>
+                <StaggerItem key={f.title}>
+                  <TiltCard max={5} className="lp-feat-card" style={{ height: '100%' }}>
+                    <div className="lp-feat-icon">{f.icon}</div>
+                    <div className="lp-feat-title">{f.title}</div>
+                    <div className="lp-feat-desc">{f.desc}</div>
+                  </TiltCard>
+                </StaggerItem>
               ))}
-            </div>
+            </Stagger>
           </div>
         </section>
 
         {/* ── HOW IT WORKS ── */}
         <section style={{ padding: '2.5rem 5%', maxWidth: 720, margin: '0 auto' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, textAlign: 'center', marginBottom: '1.75rem' }}>
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '2rem', letterSpacing: '-0.4px' }}>
             Хэрхэн эхлэх вэ?
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+          <Stagger style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }} gap={0.12}>
             {STEPS.map(s => (
-              <div key={s.n} style={{ textAlign: 'center' }}>
+              <StaggerItem key={s.n} style={{ textAlign: 'center' }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: '50%',
                   background: 'var(--accent)', color: '#fff',
@@ -400,16 +479,16 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 }}>{s.n}</div>
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.25rem' }}>{s.title}</div>
                 <div style={{ fontSize: '0.79rem', color: 'var(--muted)', lineHeight: 1.55 }}>{s.desc}</div>
-              </div>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </section>
 
         {/* ── TRACK SEARCH (хэрэглэгчдэд) ── */}
         <section id="track" style={{ padding: '2.5rem 5%', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.4rem' }}>
-              📦 Ачаагаа шалгах
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.45rem', letterSpacing: '-0.4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <Search size={22} strokeWidth={2.2} style={{ color: 'var(--accent)' }} /> Ачаагаа шалгах
             </h2>
             <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
               Аль ч каргогийн хэрэглэгч трак кодоороо шалгаж болно
@@ -466,7 +545,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         {/* ── FAQ ── */}
         <section style={{ padding: '2.5rem 5%', borderTop: '1px solid var(--border)' }}>
           <div style={{ maxWidth: 640, margin: '0 auto' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, textAlign: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '1.6rem', letterSpacing: '-0.4px' }}>
               Түгээмэл асуултууд
             </h2>
             <style>{`
@@ -508,14 +587,20 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         </section>
 
         {/* ── FINAL CTA ── */}
-        <section style={{ padding: '3rem 5%', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+        <section style={{
+          padding: '3.5rem 5%', textAlign: 'center', borderTop: '1px solid var(--border)',
+          background: 'radial-gradient(ellipse 60% 60% at 50% 50%, rgba(201,100,66,0.07), transparent 70%)',
+        }}>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.6rem', letterSpacing: '-0.5px' }}>
             Өнөөдөр эхэлье
           </h2>
-          <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginBottom: '1.25rem' }}>
+          <p style={{ color: 'var(--muted)', fontSize: '0.92rem', marginBottom: '1.4rem' }}>
             Эхний 30 хоног бүрэн үнэгүй · цаашид сарын ₮50,000 · 2 минутад бэлэн
           </p>
-          <Link href="/signup-cargo" className="btn" style={{ padding: '0.8rem 2rem', fontSize: '0.95rem', textDecoration: 'none' }}>
+          <Link href="/signup-cargo" className="btn" style={{
+            padding: '0.9rem 2.2rem', fontSize: '1rem', textDecoration: 'none',
+            boxShadow: '0 4px 16px rgba(201,100,66,0.35)',
+          }}>
             Каргогоо үнэгүй нээх →
           </Link>
         </section>

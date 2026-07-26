@@ -9,7 +9,11 @@ import AnnouncementModal from '../components/AnnouncementModal'
 import SuperAnnouncementModal from '../components/SuperAnnouncementModal'
 import UserAIWidget from '../components/UserAIWidget'
 import ThemeToggle from '../components/ThemeToggle'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useUserLang } from '../components/useUserLang'
+import { StaggerItem } from '../components/motion'
+import { motion } from 'framer-motion'
+import { toast } from 'sonner'
 import { dict, fmt, statusLabels, LANG_CONFIRM, UserLang } from '@/lib/user-i18n'
 
 
@@ -53,16 +57,14 @@ function fmtDT(iso: string) {
 }
 
 function CopyText({ text, children, style }: { text: string; children: React.ReactNode; style?: React.CSSProperties }) {
-  const [copied, setCopied] = useState(false)
   function copy(e: React.MouseEvent) {
     e.stopPropagation()
     navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    toast.success('Хуулагдлаа')
   }
   return (
     <span onClick={copy} title="Хуулах" style={{ cursor: 'pointer', ...style }}>
-      {copied ? <span style={{ color: 'var(--green)' }}>✓ Хуулагдлаа</span> : children}
+      {children}
     </span>
   )
 }
@@ -129,6 +131,7 @@ export default function OrdersClient({
   const [activeTab, setActiveTab] = useState('ALL')
   const [page, setPage] = useState(1)
   const [deleting, setDeleting] = useState<number | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
   const [deleteAllModal, setDeleteAllModal] = useState(false)
   const [deleteAllInput, setDeleteAllInput] = useState('')
   const [deleteAllLoading, setDeleteAllLoading] = useState(false)
@@ -136,8 +139,7 @@ export default function OrdersClient({
   const [deletePickedUp, setDeletePickedUp] = useState(true)
   const [searchQ, setSearchQ] = useState('')
   const [expandedBatch, setExpandedBatch] = useState<number | null>(null)
-  const [faqOpen, setFaqOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
+  const [navPopup, setNavPopup] = useState<'faq' | 'profile' | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState({ trackCode: '', description: '' })
   const [addLoading, setAddLoading] = useState(false)
@@ -200,15 +202,22 @@ export default function OrdersClient({
   }
 
   async function deleteShipment(id: number) {
-    if (!confirm('Энэ барааг жагсаалтаас устгах уу?')) return
     setDeleting(id)
-    await fetch('/api/orders', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    })
-    setShipments(prev => prev.filter(s => s.id !== id))
-    setDeleting(null)
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error()
+      setShipments(prev => prev.filter(s => s.id !== id))
+      toast.success('Устгагдлаа')
+    } catch {
+      toast.error('Устгахад алдаа гарлаа. Дахин оролдоно уу.')
+    } finally {
+      setDeleting(null)
+      setConfirmDelete(null)
+    }
   }
 
 
@@ -231,7 +240,7 @@ export default function OrdersClient({
     (!q || b.shipments.some(s => s.trackCode.toUpperCase().includes(q)) || b.phone.includes(q))
   )
 
-  function switchTab(key: string) { setActiveTab(key); setPage(1) }
+  function switchTab(key: string) { setActiveTab(key); setPage(1); setNavPopup(null) }
 
   function renderPagination() {
     if (totalPages <= 1) return null
@@ -247,14 +256,14 @@ export default function OrdersClient({
     }
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'center' }}>
-        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{
+        <button onClick={() => { setNavPopup(null); setPage(p => Math.max(1, p - 1)) }} disabled={page === 1} style={{
           width: 32, height: 32, borderRadius: '8px', border: '1px solid var(--border)',
           background: 'var(--surface)', cursor: page === 1 ? 'not-allowed' : 'pointer',
           opacity: page === 1 ? 0.4 : 1, fontSize: '0.9rem', color: 'var(--text)',
         }}>‹</button>
         {pages.map((p, i) => p === '...'
           ? <span key={`e${i}`} style={{ fontSize: '0.78rem', color: 'var(--muted)', padding: '0 0.1rem' }}>…</span>
-          : <button key={p} onClick={() => setPage(p)} style={{
+          : <button key={p} onClick={() => { setNavPopup(null); setPage(p) }} style={{
             width: 32, height: 32, borderRadius: '8px', border: '1px solid',
             borderColor: p === page ? 'var(--accent)' : 'var(--border)',
             background: p === page ? 'var(--accent)' : 'var(--surface)',
@@ -262,7 +271,7 @@ export default function OrdersClient({
             cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
           }}>{p}</button>
         )}
-        <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{
+        <button onClick={() => { setNavPopup(null); setPage(p => Math.min(totalPages, p + 1)) }} disabled={page === totalPages} style={{
           width: 32, height: 32, borderRadius: '8px', border: '1px solid var(--border)',
           background: 'var(--surface)', cursor: page === totalPages ? 'not-allowed' : 'pointer',
           opacity: page === totalPages ? 0.4 : 1, fontSize: '0.9rem', color: 'var(--text)',
@@ -279,34 +288,34 @@ export default function OrdersClient({
         <Link href="/"><NavLogo name={cargoName || undefined} logoUrl={logoUrl || undefined} /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem' }}>
           <ThemeToggle />
-          <button onClick={() => setFaqOpen(o => !o)} title={t.faqTooltip} style={{
+          <button onClick={() => setNavPopup(navPopup === 'faq' ? null : 'faq')} title={t.faqTooltip} style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 38, height: 38, borderRadius: '50%',
             background: 'none', border: 'none', cursor: 'pointer',
-            color: faqOpen ? 'var(--accent)' : 'var(--muted)',
+            color: navPopup === 'faq' ? 'var(--accent)' : 'var(--muted)',
           }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/>
             </svg>
           </button>
           <div style={{ position: 'relative' }}>
-            <button onClick={() => setProfileOpen(o => !o)} title={userName} style={{
+            <button onClick={() => setNavPopup(navPopup === 'profile' ? null : 'profile')} title={userName} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 38, height: 38, borderRadius: '50%',
               background: 'none', border: 'none', cursor: 'pointer',
-              color: profileOpen ? 'var(--accent)' : 'var(--muted)',
+              color: navPopup === 'profile' ? 'var(--accent)' : 'var(--muted)',
             }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>
             </button>
-            {profileOpen && (
+            {navPopup === 'profile' && (
               <div style={{
-                position: 'absolute', top: 'calc(100% + 0.5rem)', right: 0,
+                position: 'fixed', top: '3.5rem', right: '1rem',
                 background: 'var(--surface)', border: '1px solid var(--border)',
                 borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                minWidth: 200, padding: '0.75rem 1rem', zIndex: 999,
+                minWidth: 200, padding: '0.75rem 1rem', zIndex: 1000,
               }}>
                 <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '0.5rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.myInfo}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
@@ -365,10 +374,10 @@ export default function OrdersClient({
           </button>
         </div>
       </nav>
-      <ChatWidget open={faqOpen} onClose={() => setFaqOpen(false)} />
+      <ChatWidget open={navPopup === 'faq'} onClose={() => setNavPopup(null)} />
       {aiEnabled && <UserAIWidget userName={userName} cargoName={cargoName} suggestions={aiSuggestions} />}
       {/* z-index 99: nav (z=100) доторх dropdown-ий товчнууд дарагдахуйц байхын тулд nav-аас доогуур */}
-      {profileOpen && <div onClick={() => setProfileOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />}
+      {navPopup === 'profile' && <div onClick={() => setNavPopup(null)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />}
 
       {/* Delete all modal */}
       {deleteAllModal && (
@@ -496,7 +505,7 @@ export default function OrdersClient({
           <h1 className="section-title" style={{ marginBottom: 0 }}>{t.myOrders}</h1>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
-              <button onClick={() => { setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true) }} style={{
+              <button onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true) }} style={{
                 fontSize: '0.8rem', padding: '0.5rem 0.85rem',
                 background: 'none', border: '1px solid var(--danger)',
                 borderRadius: 'var(--radius)', color: 'var(--danger)',
@@ -505,7 +514,7 @@ export default function OrdersClient({
                 {t.deleteAll}
               </button>
             )}
-            <button className="btn" onClick={() => setAddOpen(true)} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
+            <button className="btn" onClick={() => { setNavPopup(null); setAddOpen(true) }} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
               {t.addBtn}
             </button>
           </div>
@@ -533,7 +542,7 @@ export default function OrdersClient({
           className="input"
           placeholder={t.searchPh}
           value={searchQ}
-          onChange={e => { setSearchQ(e.target.value); setPage(1) }}
+          onChange={e => { setSearchQ(e.target.value); setPage(1); setNavPopup(null) }}
           style={{ marginBottom: '0.9rem', maxWidth: 320 }}
         />
 
@@ -589,11 +598,17 @@ export default function OrdersClient({
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.5rem' }}>
               {/* Багц ачаанууд — нэг карт, дарахад track кодууд дэлгэгдэнэ */}
-              {filteredBatches.map(b => (
-                <div key={`batch-${b.id}`} className={`order-card order-card-${b.status}`}>
+              {filteredBatches.map((b, bi) => (
+                <motion.div
+                  key={`batch-${b.id}`}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: Math.min(bi * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
+                >
+                <div className={`order-card order-card-${b.status}`}>
                   <div
                     className="order-card-head"
-                    onClick={() => setExpandedBatch(expandedBatch === b.id ? null : b.id)}
+                    onClick={() => { setNavPopup(null); setExpandedBatch(expandedBatch === b.id ? null : b.id) }}
                     style={{ cursor: 'pointer' }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
@@ -653,10 +668,17 @@ export default function OrdersClient({
                     )}
                   </div>
                 </div>
+                </motion.div>
               ))}
 
-              {paged.map(s => (
-                <div key={s.id} className={`order-card order-card-${s.status}`}>
+              {paged.map((s, si) => (
+                <motion.div
+                  key={s.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: Math.min(si * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
+                >
+                <div className={`order-card order-card-${s.status}`}>
                   <div className="order-card-head">
                     <CopyText text={s.phone || userPhone} style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' }}>
                       {s.phone || userPhone}
@@ -665,7 +687,7 @@ export default function OrdersClient({
                       <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>{fmtDT(s.updatedAt)}</span>
                       <span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status] ?? s.status}</span>
                       {(s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
-                        <button onClick={() => deleteShipment(s.id)} disabled={deleting === s.id} title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip} style={{
+                        <button onClick={() => { setNavPopup(null); setConfirmDelete(s.id) }} disabled={deleting === s.id} title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip} style={{
                           background: 'none', border: 'none', cursor: 'pointer',
                           color: 'var(--muted)', fontSize: '0.85rem', padding: '0.1rem 0.25rem',
                           borderRadius: '4px', lineHeight: 1, opacity: deleting === s.id ? 0.4 : 1,
@@ -704,6 +726,7 @@ export default function OrdersClient({
                     )}
                   </div>
                 </div>
+                </motion.div>
               ))}
             </div>
             {renderPagination()}
@@ -714,6 +737,17 @@ export default function OrdersClient({
         )}
 
       </div>
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Бараа устгах уу?"
+        message="Энэ бараа жагсаалтаас бүрмөсөн устна. Буцаах боломжгүй."
+        confirmLabel="Устгах"
+        cancelLabel="Болих"
+        danger
+        loading={deleting !== null}
+        onConfirm={() => confirmDelete !== null && deleteShipment(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
+      />
       <SiteFooter cargoName={cargoName} ereemReceiver={ereemReceiver} ereemPhone={ereemPhone} ereemRegion={ereemRegion} ereemAddress={ereemAddress} tariff={tariff} announcement={announcement} contactInfo={contactInfo} bankName={bankName} bankAccountHolder={bankAccountHolder} bankAccountNumber={bankAccountNumber} bankTransferNote={bankTransferNote} />
     </>
   )

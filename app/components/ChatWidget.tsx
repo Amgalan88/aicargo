@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface Faq { id: number; question: string; answer: string }
 
@@ -21,18 +21,44 @@ export default function ChatWidget({ open, onClose }: { open: boolean; onClose: 
   const [selected, setSelected] = useState<Faq | null>(null)
   const [loaded, setLoaded] = useState(false)
 
-  async function load() {
-    if (loaded) return
-    const res = await fetch('/api/faq')
-    if (res.ok) { setFaqs(await res.json()); setLoaded(true) }
-  }
+  // Нээгдэх бүрт л нэг удаа ачаална (render дотор fetch дуудахгүй — StrictMode double-render-ээс хамгаална)
+  useEffect(() => {
+    if (!open || loaded) return
+    let cancelled = false
+    fetch('/api/faq')
+      .then(r => (r.ok ? r.json() : []))
+      .then(data => { if (!cancelled) { setFaqs(data); setLoaded(true) } })
+      .catch(() => { if (!cancelled) setLoaded(true) })
+    return () => { cancelled = true }
+  }, [open, loaded])
+
+  // Хаагдах үед сонгосон асуултыг цэвэрлэх — дахин нээхэд жагсаалтаас эхэлнэ
+  useEffect(() => {
+    if (!open) setSelected(null)
+  }, [open])
+
+  // Esc дарж хаах
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onClose])
 
   if (!open) return null
-  if (!loaded && faqs.length === 0) load()
 
   return (
+    <>
+      {/* Backdrop — гадна дарж хаах (давхар popup нээгдэхээс сэргийлнэ) */}
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, zIndex: 1001 }}
+        aria-hidden
+      />
     <div style={{
-      position: 'fixed', top: '3.5rem', right: '1rem', zIndex: 1000,
+      position: 'fixed', top: '3.5rem', right: '1rem', zIndex: 1002,
       width: 272, maxHeight: 360, display: 'flex', flexDirection: 'column',
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: '12px', boxShadow: '0 6px 24px rgba(0,0,0,0.14)',
@@ -89,5 +115,6 @@ export default function ChatWidget({ open, onClose }: { open: boolean; onClose: 
         )}
       </div>
     </div>
+    </>
   )
 }
