@@ -32,12 +32,11 @@ export default async function Home() {
     prisma.cargo.count(),
     prisma.user.count({ where: { role: 'USER' } }),
     prisma.shipment.count(),
-    // Итгэл төрүүлэх: төлбөр идэвхтэй + логотой каргонууд
+    // Итгэл төрүүлэх: төлбөр хэвийн (эсвэл дуусаад 20 хоног болоогүй) + логотой бүх каргонууд
     prisma.cargo.findMany({
-      where: { logoUrl: { not: null }, paidUntil: { gte: new Date() } },
+      where: { logoUrl: { not: null }, paidUntil: { gte: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) } },
       select: { id: true, name: true, logoUrl: true },
       orderBy: { id: 'asc' },
-      take: 12,
     }),
     (prisma as any).partnerWarehouse.findMany({
       where: { active: true },

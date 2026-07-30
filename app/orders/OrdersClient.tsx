@@ -70,21 +70,19 @@ function CopyText({ text, children, style }: { text: string; children: React.Rea
   )
 }
 
-// Nav дээрх дүрс товч тус бүрийн дор жижиг үсгээр юу болохыг тайлбарлана
+// Nav дээрх дүрс товч тус бүрийн дор жижиг үсгээр юу болохыг тайлбарлана.
+// Шошгын багана нарийн (44px) тул урт үг байсан ч дараагийн мөрөнд өөрөө
+// шилждэг — өргөн дэлгэц дээр ч, нарийн утсан дээр ч мөр давахгүй.
 function NavItem({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem', width: 44, flexShrink: 0 }}>
       {children}
-      <span style={{ fontSize: '0.6rem', color: 'var(--muted)', lineHeight: 1.15, textAlign: 'center' }}>{label}</span>
+      <span style={{
+        fontSize: '0.58rem', color: 'var(--muted)', lineHeight: 1.15, textAlign: 'center',
+        width: '100%', overflowWrap: 'break-word', wordBreak: 'break-word',
+      }}>{label}</span>
     </div>
   )
-}
-
-// Урт хоёр үгтэй шошгыг (жш "Түгээмэл асуулт") 2 мөр болгож хуваана
-function twoLine(s: string): React.ReactNode {
-  const i = s.indexOf(' ')
-  if (i === -1) return s
-  return <>{s.slice(0, i)}<br />{s.slice(i + 1)}</>
 }
 
 export default function OrdersClient({
@@ -303,10 +301,9 @@ export default function OrdersClient({
       <AnnouncementModal />
       <SuperAnnouncementModal endpoint="user" />
       <nav className="nav">
-        <Link href="/"><NavLogo name={cargoName || undefined} logoUrl={logoUrl || undefined} /></Link>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.3rem' }}>
-          <NavItem label={t.navTheme}><ThemeToggle /></NavItem>
-          <NavItem label={twoLine(t.navFaq)}>
+        <Link href="/" style={{ minWidth: 0, overflow: 'hidden' }}><NavLogo name={cargoName || undefined} logoUrl={logoUrl || undefined} /></Link>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.1rem', flexShrink: 0 }}>
+          <NavItem label={t.navFaq}>
             <button onClick={() => setNavPopup(navPopup === 'faq' ? null : 'faq')} title={t.faqTooltip} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 38, height: 38, borderRadius: '50%',
@@ -318,7 +315,7 @@ export default function OrdersClient({
               </svg>
             </button>
           </NavItem>
-          <NavItem label={twoLine(t.navSearch)}>
+          <NavItem label={t.navSearch}>
             <button onClick={() => setNavPopup(navPopup === 'nameless' ? null : 'nameless')} title={t.namelessTooltip} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 38, height: 38, borderRadius: '50%',
@@ -390,23 +387,30 @@ export default function OrdersClient({
                       ))}
                     </div>
                   </div>
+                  {/* Дэлгэцийн горим */}
+                  <div style={{
+                    borderTop: '1px solid var(--border)', paddingTop: '0.45rem', marginTop: '0.1rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.navTheme}</span>
+                    <ThemeToggle />
+                  </div>
                 </div>
 
+                <button onClick={logout} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', width: '100%',
+                  marginTop: '0.6rem', padding: '0.5rem 0', border: 'none', borderTop: '1px solid var(--border)',
+                  background: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: '0.82rem', color: 'var(--danger)',
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  {t.navLogout}
+                </button>
               </div>
             )}
           </div>
-          </NavItem>
-          <NavItem label={t.navLogout}>
-            <button onClick={logout} title={t.logoutTooltip} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 38, height: 38, borderRadius: '50%',
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--muted)',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-            </button>
           </NavItem>
         </div>
       </nav>
@@ -539,7 +543,14 @@ export default function OrdersClient({
 
       <div className="page">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-          <h1 className="section-title" style={{ marginBottom: 0 }}>{t.myOrders}</h1>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+            <h1 className="section-title" style={{ marginBottom: 0 }}>{t.myOrders}</h1>
+            {filtered.length > 0 && (
+              <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                {fmt(t.totalItems, { n: filtered.length })}
+              </span>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
               <button onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true) }} style={{
@@ -717,9 +728,14 @@ export default function OrdersClient({
                 >
                 <div className={`order-card order-card-${s.status}`}>
                   <div className="order-card-head">
-                    <CopyText text={s.phone || userPhone} style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' }}>
-                      {s.phone || userPhone}
-                    </CopyText>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 700, flexShrink: 0 }}>
+                        #{(page - 1) * PAGE_SIZE + si + 1}
+                      </span>
+                      <CopyText text={s.phone || userPhone} style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' }}>
+                        {s.phone || userPhone}
+                      </CopyText>
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>{fmtDT(s.updatedAt)}</span>
                       <span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status] ?? s.status}</span>

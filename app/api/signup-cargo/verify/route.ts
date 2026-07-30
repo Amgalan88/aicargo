@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
       !/^\S+@\S+\.\S+$/.test(email) || password.length < 6 || !/^\d{6}$/.test(code)) {
     return NextResponse.json({ error: 'Мэдээлэл дутуу эсвэл буруу байна' }, { status: 400 })
   }
+  if (!body.logoBase64) {
+    return NextResponse.json({ error: 'Лого оруулна уу' }, { status: 400 })
+  }
   const slugErr = validateSlug(slug)
   if (slugErr) return NextResponse.json({ error: slugErr }, { status: 400 })
 

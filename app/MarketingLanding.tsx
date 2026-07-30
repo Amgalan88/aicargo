@@ -291,7 +291,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           <section style={{ padding: '2rem 5% 2.5rem', borderTop: '1px solid var(--border)' }}>
             <div style={{ maxWidth: 900, margin: '0 auto' }}>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.4rem' }}>
-                Түшлэгч каргонууд
+                Түншлэгч каргонууд
               </h2>
               <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.82rem', marginBottom: '1.75rem' }}>
                 Таны мэддэг, итгэдэг каргонууд аль хэдийн энд бүртгэлтэй
@@ -308,22 +308,32 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                   border: 1px solid var(--border); border-radius: 14px;
                   text-decoration: none; color: inherit;
                   transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
+                  perspective: 500px;
                 }
                 .lp-logo-item:hover {
                   border-color: var(--accent);
                   transform: translateY(-3px);
                   box-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(201,100,66,0.08);
                 }
+                .lp-logo-img, .lp-logo-fallback {
+                  transition: transform 0.35s ease, box-shadow 0.35s ease;
+                  transform-style: preserve-3d;
+                }
+                .lp-logo-item:hover .lp-logo-img,
+                .lp-logo-item:hover .lp-logo-fallback {
+                  transform: rotateY(18deg) rotateX(6deg) scale(1.1);
+                  box-shadow: -6px 6px 14px rgba(0,0,0,0.16);
+                }
                 .lp-logo-img {
-                  width: 52px; height: 52px; border-radius: 12px;
+                  width: 44px; height: 44px; border-radius: 11px;
                   object-fit: cover; flex-shrink: 0;
                   border: 1px solid var(--border);
                 }
                 .lp-logo-fallback {
-                  width: 52px; height: 52px; border-radius: 12px;
+                  width: 44px; height: 44px; border-radius: 11px;
                   background: var(--surface2); border: 1px solid var(--border);
                   display: flex; align-items: center; justify-content: center;
-                  font-size: 1.3rem; font-weight: 800; color: var(--accent);
+                  font-size: 1.1rem; font-weight: 800; color: var(--accent);
                 }
                 .lp-logo-name {
                   font-size: 0.78rem; font-weight: 600; text-align: center;
@@ -334,8 +344,12 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 @media (max-width: 500px) {
                   .lp-logo-wall { grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
                   .lp-logo-item { padding: 0.75rem 0.5rem; }
-                  .lp-logo-img, .lp-logo-fallback { width: 44px; height: 44px; }
+                  .lp-logo-img, .lp-logo-fallback { width: 38px; height: 38px; }
                   .lp-logo-name { font-size: 0.7rem; }
+                }
+                @media (hover: none) {
+                  .lp-logo-item:hover .lp-logo-img,
+                  .lp-logo-item:hover .lp-logo-fallback { transform: none; box-shadow: none; }
                 }
               `}</style>
               <div className="lp-logo-wall">

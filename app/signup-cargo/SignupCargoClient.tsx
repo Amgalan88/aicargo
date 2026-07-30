@@ -79,6 +79,7 @@ export default function SignupCargoClient() {
   const canSubmit =
     form.cargoName.trim().length >= 2 &&
     slugStatus === 'ok' &&
+    !!logoBase64 &&
     form.adminName.trim().length >= 2 &&
     /^\d{8}$/.test(form.phone) &&
     /^\S+@\S+\.\S+$/.test(form.email) &&
@@ -165,7 +166,7 @@ export default function SignupCargoClient() {
             </div>
 
             <div className="form-group">
-              <label>Лого <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(заавал биш — дараа нэмж болно)</span></label>
+              <label>Лого <span style={{ color: 'var(--danger)' }}>*</span></label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 {logoBase64 && (
                   // eslint-disable-next-line @next/next/no-img-element
