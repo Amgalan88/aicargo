@@ -71,6 +71,15 @@ export default function ArrivedPage() {
   const [xlsxMsg, setXlsxMsg] = useState('')
   const [xlsxLoading, setXlsxLoading] = useState(false)
 
+  // Огноогоор bulk буцаах
+  const [revertModal, setRevertModal] = useState(false)
+  const [revertDate, setRevertDate] = useState('')
+  const [revertPreview, setRevertPreview] = useState<SearchResult[] | null>(null)
+  const [revertPreviewLoading, setRevertPreviewLoading] = useState(false)
+  const [revertConfirm, setRevertConfirm] = useState('')
+  const [revertLoading, setRevertLoading] = useState(false)
+  const [revertMsg, setRevertMsg] = useState('')
+
   function buildTodayList(shipments: SearchResult[]) {
     const todayStr = new Date().toLocaleDateString('en-CA')
     const today = shipments.filter(s => {
@@ -189,6 +198,50 @@ export default function ArrivedPage() {
     if (res.ok) setSearchResults(prev => prev?.filter(s => s.id !== id) ?? null)
   }
 
+  function openRevertModal() {
+    setRevertModal(true)
+    setRevertDate('')
+    setRevertPreview(null)
+    setRevertConfirm('')
+    setRevertMsg('')
+  }
+
+  function pickRevertDate(date: string) {
+    setRevertDate(date)
+    setRevertConfirm('')
+    setRevertPreview(null)
+    if (!date) return
+    setRevertPreviewLoading(true)
+    fetch(`/api/admin/arrived/search?date=${encodeURIComponent(date)}`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(setRevertPreview)
+      .catch(() => setRevertPreview([]))
+      .finally(() => setRevertPreviewLoading(false))
+  }
+
+  async function revertByDate() {
+    if (revertConfirm !== 'УСТГАХ' || !revertDate || revertLoading) return
+    setRevertLoading(true)
+    try {
+      const res = await fetch('/api/admin/arrived', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: revertDate, confirm: revertConfirm }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setRevertMsg(data.error || 'Алдаа гарлаа'); return }
+      setRevertMsg(`✓ ${data.count} бараа Эрээнд буцлаа`)
+      setRevertModal(false)
+      loadToday()
+      setSearchResults(null)
+      setSearchQ('')
+    } catch {
+      setRevertMsg('Холболтын алдаа гарлаа')
+    } finally {
+      setRevertLoading(false)
+    }
+  }
+
   async function search(e: React.FormEvent) {
     e.preventDefault()
     setSearching(true)
@@ -281,6 +334,19 @@ export default function ArrivedPage() {
           {xlsxLoading ? 'Оруулж байна...' : 'Excel-ээр bulk оруулах'}
         </button>
         {xlsxMsg && <span style={{ fontSize: '0.8rem', color: xlsxMsg.startsWith('✓') ? 'var(--accent)' : 'var(--danger)' }}>{xlsxMsg}</span>}
+
+        <button onClick={openRevertModal} style={{
+          display: 'flex', alignItems: 'center', gap: '0.5rem',
+          background: 'var(--surface)', border: '1px dashed var(--border)',
+          borderRadius: 'var(--radius)', padding: '0.5rem 1rem',
+          cursor: 'pointer', fontSize: '0.83rem', color: 'var(--muted)', fontFamily: 'inherit',
+        }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/><line x1="12" y1="7" x2="12" y2="12"/><line x1="12" y1="12" x2="15" y2="15"/>
+          </svg>
+          Огноогоор буцаах
+        </button>
+        {revertMsg && <span style={{ fontSize: '0.8rem', color: revertMsg.startsWith('✓') ? 'var(--accent)' : 'var(--danger)' }}>{revertMsg}</span>}
       </div>
 
       <div className="arrived-grid">
@@ -557,6 +623,49 @@ export default function ArrivedPage() {
             <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.5rem' }}>
               <button className="btn" onClick={saveEdit} disabled={editLoading} style={{ flex: 1 }}>{editLoading ? 'Хадгалж байна...' : 'Хадгалах'}</button>
               <button onClick={() => setEditing(null)} style={{ flex: 1, padding: '0.6rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Болих</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {revertModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: 420, padding: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 700, color: 'var(--danger)' }}>⚠ Огноогоор Эрээнд буцаах</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem', lineHeight: 1.6 }}>
+              Сонгосон өдөр <strong style={{ color: 'var(--text)' }}>Ирсэн</strong> болсон бүх бараа <strong style={{ color: 'var(--text)' }}>Эрээнд ирсэн</strong> төлөвт буцаж, үнэ нь цэвэрлэгдэнэ. Энэ үйлдлийг буцааж болохгүй.
+            </p>
+            <div className="form-group">
+              <label>Огноо</label>
+              <input className="input" type="date" value={revertDate}
+                onChange={e => pickRevertDate(e.target.value)}
+                max={new Date().toLocaleDateString('en-CA')} />
+            </div>
+            {revertDate && (
+              <p style={{ fontSize: '0.82rem', marginBottom: '0.75rem', color: 'var(--muted)' }}>
+                {revertPreviewLoading ? 'Шалгаж байна...' :
+                  revertPreview === null ? '' :
+                  revertPreview.length === 0 ? 'Энэ өдөр Ирсэн бараа алга.' :
+                  <>Тохирох: <strong style={{ color: 'var(--text)' }}>{revertPreview.length} бараа</strong></>}
+              </p>
+            )}
+            {revertDate && revertPreview && revertPreview.length > 0 && (
+              <>
+                <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem' }}>
+                  Үргэлжлүүлэхийн тулд <strong>УСТГАХ</strong> гэж бичнэ үү:
+                </p>
+                <input className="input" placeholder="УСТГАХ" value={revertConfirm}
+                  onChange={e => setRevertConfirm(e.target.value)}
+                  style={{ marginBottom: '1rem', borderColor: revertConfirm === 'УСТГАХ' ? 'var(--danger)' : undefined }} />
+              </>
+            )}
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button className="btn" onClick={revertByDate}
+                disabled={revertConfirm !== 'УСТГАХ' || !revertPreview?.length || revertLoading}
+                style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', opacity: revertConfirm === 'УСТГАХ' ? 1 : 0.4 }}>
+                {revertLoading ? 'Буцааж байна...' : 'Буцаах'}
+              </button>
+              <button onClick={() => setRevertModal(false)} style={{ flex: 1, padding: '0.6rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Болих</button>
             </div>
           </div>
         </div>

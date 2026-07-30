@@ -166,7 +166,26 @@ export async function DELETE(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { id } = await req.json()
+  const body = await req.json()
+
+  // Огноогоор bulk буцаах — тухайн өдөр Ирсэн болгосон бүх барааг Эрээнд буцаана
+  if (body.date) {
+    if (body.confirm !== 'УСТГАХ') {
+      return NextResponse.json({ error: 'Баталгаажуулалт буруу' }, { status: 400 })
+    }
+    const dayStart = new Date(`${body.date}T00:00:00`)
+    const dayEnd = new Date(`${body.date}T23:59:59.999`)
+    if (isNaN(dayStart.getTime())) {
+      return NextResponse.json({ error: 'Огноо буруу байна' }, { status: 400 })
+    }
+    const { count } = await prisma.shipment.updateMany({
+      where: { cargoId: admin.cargoId!, status: 'ARRIVED', arrivedAt: { gte: dayStart, lte: dayEnd } },
+      data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null },
+    })
+    return NextResponse.json({ count })
+  }
+
+  const { id } = body
   if (!id) return NextResponse.json({ error: 'ID шаардлагатай' }, { status: 400 })
 
   const target = await prisma.shipment.findUnique({
