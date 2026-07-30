@@ -131,17 +131,31 @@ export default function ArrivedPage() {
         const wb = XLSX.read(ev.target?.result, { type: 'array' })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const data: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
-        const rows = data
+        const parsedAll = data
           .map(row => {
+            const phoneRaw = String(row[1] ?? '').trim()
             const priceRaw = Number(row[2])
             return {
               trackCode: String(row[0] ?? '').trim().toUpperCase(),
-              phone: String(row[1] ?? '').trim() || undefined,
+              phoneRaw,
+              phone: /^\d{8}$/.test(phoneRaw) ? phoneRaw : undefined,
               price: !isNaN(priceRaw) && priceRaw > 0 ? priceRaw : undefined,
             }
           })
           .filter(r => r.trackCode.length >= 4)
-        if (rows.length === 0) { setXlsxMsg('Трак код олдсонгүй'); return }
+        if (parsedAll.length === 0) { setXlsxMsg('Трак код олдсонгүй'); return }
+
+        // B баганад 8 оронтой тоо биш утга (жш нэр) орсон бол баганын дараалал буруу байж магадгүй
+        const badPhoneRows = parsedAll.filter(r => r.phoneRaw && !r.phone)
+        if (badPhoneRows.length > 0) {
+          const examples = badPhoneRows.slice(0, 5).map(r => `${r.trackCode} → "${r.phoneRaw}"`).join('\n')
+          const proceed = confirm(
+            `⚠ ${badPhoneRows.length} мөрөнд утасны багана (B) 8 оронтой тоо биш байна — багана дараалал буруу байж магадгүй:\n\n${examples}${badPhoneRows.length > 5 ? '\n...' : ''}\n\nЭдгээр мөрүүд утасгүйгээр (зөвхөн трак кодоор) орно. Үргэлжлүүлэх үү?`
+          )
+          if (!proceed) return
+        }
+
+        const rows = parsedAll.map(({ trackCode, phone, price }) => ({ trackCode, phone, price }))
         if (!confirm(`${rows.length} бараа Ирсэн статустай болгох уу?`)) return
         setXlsxLoading(true)
         const res = await fetch('/api/admin/arrived', {
@@ -316,13 +330,41 @@ export default function ArrivedPage() {
     <div className="page-wide">
       <h1 className="section-title">Ирсэн</h1>
 
+      {/* Excel формат — жишээ */}
+      <details style={{
+        background: 'var(--accent-light)', border: '1px solid var(--accent)',
+        borderRadius: 'var(--radius)', marginBottom: '0.75rem', overflow: 'hidden',
+      }}>
+        <summary style={{ padding: '0.6rem 0.9rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', color: 'var(--accent)', listStyle: 'none' }}>
+          ❓ Excel формат — жишээ
+        </summary>
+        <div style={{ padding: '0 0.9rem 0.9rem' }}>
+          <table style={{ borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+            <thead>
+              <tr>
+                {['A: Трак код', 'B: Утас (8 орон)', 'C: Үнэ'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '0.3rem 0.7rem 0.3rem 0', borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[['YT8853194305559', '99001122', '3000'], ['JT5467125484093', '99001122', '1500']].map((row, i) => (
+                <tr key={i}>
+                  {row.map((c, j) => <td key={j} style={{ fontFamily: 'monospace', padding: '0.25rem 0.7rem 0.25rem 0' }}>{c}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.6rem', lineHeight: 1.5 }}>
+            B баганад <strong>зөвхөн 8 оронтой утасны дугаар</strong> байх ёстой. Нэр, огноо зэрэг өөр төрлийн утга орвол (жш баганын дараалал андуурсан үед) систем автоматаар илрүүлж анхааруулна.
+          </p>
+        </div>
+      </details>
+
       {/* Excel bulk upload */}
       <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <input ref={xlsxRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleExcel} style={{ display: 'none' }} />
-        <button onClick={() => {
-          alert('Excel форматын дагуу оруулна уу:\n\nA багана — Трак код (заавал)\nB багана — Утасны дугаар (заавал)\nC багана — Үнэ (заавал)\n\nЖишээ:\nYT8853194305559  99001122  3000\nJT5467125484093  99001122  1500')
-          xlsxRef.current?.click()
-        }} disabled={xlsxLoading} style={{
+        <button onClick={() => xlsxRef.current?.click()} disabled={xlsxLoading} style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
           background: 'var(--surface)', border: '1px dashed var(--border)',
           borderRadius: 'var(--radius)', padding: '0.5rem 1rem',

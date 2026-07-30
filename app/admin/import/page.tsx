@@ -93,17 +93,31 @@ export default function ImportPage() {
         const wb = XLSX.read(ev.target?.result, { type: 'array' })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const data: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
-        const rawParsed = data
+        const rawParsedAll = data
           .map(row => {
             const col1 = String(row[1] ?? '').trim()
             const isPhone = /^\d{8}$/.test(col1)
             return {
               trackCode: String(row[0] ?? '').trim().toUpperCase(),
+              phoneRaw: col1,
               phone: isPhone ? col1 : undefined,
             }
           })
           .filter(r => r.trackCode.length >= 4)
-        if (rawParsed.length === 0) { setXlsxMsg('Трак код олдсонгүй'); return }
+        if (rawParsedAll.length === 0) { setXlsxMsg('Трак код олдсонгүй'); return }
+
+        // B баганад 8 оронтой тоо биш утга (жш нэр) орсон бол баганын дараалал буруу байж магадгүй —
+        // ийм утас чимээгүй хаягдчихдаггүй, харин админд анхааруулна
+        const badPhoneRows = rawParsedAll.filter(r => r.phoneRaw && !r.phone)
+        if (badPhoneRows.length > 0) {
+          const examples = badPhoneRows.slice(0, 5).map(r => `${r.trackCode} → "${r.phoneRaw}"`).join('\n')
+          const proceed = confirm(
+            `⚠ ${badPhoneRows.length} мөрөнд утасны багана (B) 8 оронтой тоо биш байна — багана дараалал буруу байж магадгүй:\n\n${examples}${badPhoneRows.length > 5 ? '\n...' : ''}\n\nЭдгээр мөрүүд утасгүйгээр (зөвхөн трак кодоор) орно. Үргэлжлүүлэх үү?`
+          )
+          if (!proceed) return
+        }
+
+        const rawParsed = rawParsedAll.map(({ trackCode, phone }) => ({ trackCode, phone }))
 
         // Detect within-file duplicates
         const seenInFile = new Set<string>()
@@ -177,6 +191,11 @@ export default function ImportPage() {
       setLastAdded(`⚠ ${code} аль хэдийн нэмэгдсэн`)
       return
     }
+    const ph = mode === 'track+phone' ? phoneInput.trim() : undefined
+    if (ph && !/^\d{8}$/.test(ph)) {
+      setLastAdded(`⚠ Утасны дугаар 8 оронтой тоо байх ёстой: "${ph}"`)
+      return
+    }
     // DB check
     try {
       const res = await fetch(`/api/admin/bulk-import?codes=${encodeURIComponent(code)}`)
@@ -188,7 +207,6 @@ export default function ImportPage() {
         }
       }
     } catch {}
-    const ph = mode === 'track+phone' ? phoneInput.trim() : undefined
     setRows(prev => {
       const next = [...prev, { trackCode: code, phone: ph || undefined }]
       setPage(Math.ceil(next.length / PAGE_SIZE))
@@ -271,13 +289,41 @@ export default function ImportPage() {
       </div>
       {deleteMsg && <p style={{ fontSize: '0.82rem', color: deleteMsg.startsWith('✓') ? 'var(--green)' : 'var(--danger)', marginBottom: '0.75rem' }}>{deleteMsg}</p>}
 
+      {/* Excel формат — жишээ */}
+      <details style={{
+        background: 'var(--accent-light)', border: '1px solid var(--accent)',
+        borderRadius: 'var(--radius)', marginBottom: '0.75rem', overflow: 'hidden',
+      }}>
+        <summary style={{ padding: '0.6rem 0.9rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', color: 'var(--accent)', listStyle: 'none' }}>
+          ❓ Excel формат — жишээ
+        </summary>
+        <div style={{ padding: '0 0.9rem 0.9rem' }}>
+          <table style={{ borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+            <thead>
+              <tr>
+                {['A: Трак код', 'B: Утас (заавал биш, 8 орон)'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '0.3rem 0.7rem 0.3rem 0', borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[['YT8853194305559', '99001122'], ['JT5467125484093', '']].map((row, i) => (
+                <tr key={i}>
+                  {row.map((c, j) => <td key={j} style={{ fontFamily: 'monospace', padding: '0.25rem 0.7rem 0.25rem 0' }}>{c}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.6rem', lineHeight: 1.5 }}>
+            B баганад <strong>зөвхөн 8 оронтой утасны дугаар</strong> байх ёстой (хоосон байж болно). Нэр, огноо зэрэг өөр төрлийн утга орвол систем автоматаар илрүүлж анхааруулна.
+          </p>
+        </div>
+      </details>
+
       {/* Excel upload */}
       <div style={{ marginBottom: '1rem' }}>
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleExcel} style={{ display: 'none' }} />
-        <button onClick={() => {
-          alert('Excel форматын дагуу оруулна уу:\n\nA багана — Трак код\nB багана — Утасны дугаар (заавал биш, 8 оронтой)\n\nЖишээ:\nYT8853194305559  99001122\nJT5467125484093')
-          fileRef.current?.click()
-        }} style={{
+        <button onClick={() => fileRef.current?.click()} style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
           background: 'var(--surface)', border: '1px dashed var(--border)',
           borderRadius: 'var(--radius)', padding: '0.55rem 1rem',
