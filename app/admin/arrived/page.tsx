@@ -17,7 +17,7 @@ interface SearchResult {
   user?: { name: string; phone: string } | null
 }
 
-interface TodayEntry { phone: string; description: string }
+interface TodayEntry { display: string; isPhone: boolean; description: string }
 
 function CopyPhone({ phone }: { phone: string }) {
   const [copied, setCopied] = useState(false)
@@ -53,6 +53,7 @@ export default function ArrivedPage() {
   const [phoneLocked, setPhoneLocked] = useState(false)
   const [keepPhone, setKeepPhone] = useState(false)
   const [phoneWarning, setPhoneWarning] = useState('')
+  const [nameless, setNameless] = useState(false)
   const [touched, setTouched] = useState<Partial<Record<keyof Form, boolean>>>({})
   const trackRef = useRef<HTMLInputElement>(null)
   const phoneRef = useRef<HTMLInputElement>(null)
@@ -77,19 +78,25 @@ export default function ArrivedPage() {
       return new Date(s.updatedAt).toLocaleDateString('en-CA') === todayStr
     })
     const map = new Map<string, Map<string, number>>()
+    const nameless: TodayEntry[] = []
     for (const s of today) {
-      const phone = s.phone ?? '—'
-      if (!map.has(phone)) map.set(phone, new Map())
+      // Утасгүй (нэр дугааргүй) ачааг утсаар нь бүлэглэх боломжгүй тул
+      // тус бүрийг өөрийн трак кодоор нь тусад нь харуулна
+      if (!s.phone) {
+        nameless.push({ display: s.trackCode, isPhone: false, description: s.adminNote ?? '' })
+        continue
+      }
+      if (!map.has(s.phone)) map.set(s.phone, new Map())
       const desc = s.adminNote ?? ''
-      map.get(phone)!.set(desc, (map.get(phone)!.get(desc) ?? 0) + 1)
+      map.get(s.phone)!.set(desc, (map.get(s.phone)!.get(desc) ?? 0) + 1)
     }
     const result: TodayEntry[] = []
     for (const [phone, descMap] of map) {
       let topDesc = ''; let topCount = 0
       for (const [desc, count] of descMap) { if (count > topCount) { topCount = count; topDesc = desc } }
-      result.push({ phone, description: topDesc })
+      result.push({ display: phone, isPhone: true, description: topDesc })
     }
-    setTodayList(result)
+    setTodayList([...result, ...nameless])
   }
 
   async function loadToday() {
@@ -220,8 +227,8 @@ export default function ArrivedPage() {
 
   const valid = {
     trackCode: form.trackCode.trim().length >= 4,
-    phone: /^\d{8}$/.test(form.phone.trim()),
-    adminPrice: form.adminPrice.trim() !== '' && Number(form.adminPrice) >= 0,
+    phone: nameless || /^\d{8}$/.test(form.phone.trim()),
+    adminPrice: nameless || (form.adminPrice.trim() !== '' && Number(form.adminPrice) >= 0),
   }
   const canSave = valid.trackCode && valid.phone && valid.adminPrice
 
@@ -247,6 +254,7 @@ export default function ArrivedPage() {
     setTouched({})
     setPhoneLocked(false)
     setPhoneWarning('')
+    setNameless(false)
     loadToday()
     setTimeout(() => trackRef.current?.focus(), 50)
   }
@@ -379,12 +387,16 @@ export default function ArrivedPage() {
               </div>
               <div className="card" style={{ overflow: 'hidden' }}>
                 {todayList.map((t, i) => (
-                  <div key={t.phone} style={{
+                  <div key={`${t.display}-${i}`} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '0.38rem 0.9rem', gap: '0.6rem',
                     borderBottom: i < todayList.length - 1 ? '1px solid var(--border)' : 'none',
                   }}>
-                    <CopyPhone phone={t.phone} />
+                    {t.isPhone
+                      ? <CopyPhone phone={t.display} />
+                      : <span title="Нэр дугааргүй — трак код">
+                          <CopyPhone phone={t.display} /> <span style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>(нэргүй)</span>
+                        </span>}
                     {t.description && (
                       <span style={{ fontSize: '0.8rem', color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {t.description}
@@ -412,19 +424,47 @@ export default function ArrivedPage() {
                 {fe('trackCode') && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.3rem' }}>Хамгийн багадаа 4 тэмдэгт</p>}
               </div>
 
+              <div style={{ margin: 0, paddingTop: '0.3rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer',
+                  fontSize: '0.78rem', fontWeight: 600,
+                  color: nameless ? 'var(--accent)' : 'var(--muted)',
+                }}>
+                  <input type="checkbox" checked={nameless}
+                    onChange={e => {
+                      const on = e.target.checked
+                      setNameless(on)
+                      if (on) {
+                        setForm(f => ({ ...f, phone: '' }))
+                        setPhoneLocked(false)
+                        setKeepPhone(false)
+                        setPhoneWarning('')
+                      }
+                    }}
+                    style={{ accentColor: 'var(--accent)' }} />
+                  Нэр дугааргүй
+                </label>
+                {nameless && (
+                  <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem', textAlign: 'right' }}>
+                    Зөвхөн трак кодоор бүртгэнэ — утас, үнэ дараа нэмж болно.
+                  </p>
+                )}
+              </div>
+
               <div className="form-group" style={{ margin: 0 }}>
                 <label>
-                  Утасны дугаар <span style={{ color: 'var(--danger)' }}>*</span>
+                  Утасны дугаар {!nameless && <span style={{ color: 'var(--danger)' }}>*</span>}
                   {phoneLocked && <span style={{ fontSize: '0.72rem', color: 'var(--muted)', marginLeft: '0.4rem' }}>— олдлоо</span>}
                 </label>
-                <input ref={phoneRef} className="input" type="tel" placeholder="99001122"
+                <input ref={phoneRef} className="input" type="tel" placeholder={nameless ? 'Тодорхойгүй' : '99001122'}
                   value={form.phone}
                   onChange={e => { set('phone', e.target.value); setPhoneLocked(false); setKeepPhone(false); setPhoneWarning('') }}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); priceRef.current?.focus() } }}
                   readOnly={phoneLocked}
+                  disabled={nameless}
                   style={{
                     borderColor: fe('phone') ? 'var(--danger)' : undefined,
-                    background: phoneLocked ? 'var(--surface2)' : undefined,
+                    background: phoneLocked || nameless ? 'var(--surface2)' : undefined,
                   }} />
                 {fe('phone') && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.3rem' }}>Утасны дугаар оруулна уу</p>}
                 <label style={{
@@ -433,7 +473,7 @@ export default function ArrivedPage() {
                   color: keepPhone ? 'var(--accent)' : 'var(--muted)',
                 }}>
                   <input type="checkbox" checked={keepPhone}
-                    disabled={!/^\d{8}$/.test(form.phone.trim())}
+                    disabled={nameless || !/^\d{8}$/.test(form.phone.trim())}
                     onChange={e => setKeepPhone(e.target.checked)}
                     style={{ accentColor: 'var(--accent)' }} />
                   Дугаарыг дараагийн бүртгэлд хадгалах
@@ -442,7 +482,7 @@ export default function ArrivedPage() {
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
-                <label>Үнэ (₮) <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <label>Үнэ (₮) {!nameless && <span style={{ color: 'var(--danger)' }}>*</span>}</label>
                 <input ref={priceRef} className="input" type="number" placeholder="0" min="0"
                   value={form.adminPrice}
                   onChange={e => set('adminPrice', e.target.value)}

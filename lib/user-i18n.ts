@@ -5,7 +5,18 @@ export type UserLang = 'mn' | 'en' | 'cn'
 
 const MN = {
   // Nav / profile
+  navTheme: 'Дэлгэц',
+  navFaq: 'Түгээмэл асуулт',
+  navSearch: 'Нэр дугааргүй',
+  navProfile: 'Тохиргоо',
+  navLogout: 'Гарах',
   faqTooltip: 'Асуулт хариулт',
+  namelessTooltip: 'Эзэнгүй ачаа хайх',
+  namelessTitle: 'Эзэнгүй ачаа',
+  namelessSearchBtn: 'Хайх',
+  namelessMinChars: 'Хамгийн багадаа 3 тэмдэгт бичнэ үү',
+  namelessEmpty: 'Тохирох ачаа олдсонгүй.',
+  namelessHint: 'Энд өөрийн ачааг олвол утасны дугаараа мэдэгдэж холбуулахын тулд компанидаа хандана уу.',
   logoutTooltip: 'Гарах',
   myInfo: 'Миний мэдээлэл',
   name: 'Нэр',
@@ -77,7 +88,18 @@ const MN = {
 export type UserDict = typeof MN
 
 const EN: Partial<UserDict> = {
+  navTheme: 'Display',
+  navFaq: 'FAQ',
+  navSearch: 'Unclaimed',
+  navProfile: 'Settings',
+  navLogout: 'Log out',
   faqTooltip: 'FAQ',
+  namelessTooltip: 'Search unclaimed cargo',
+  namelessTitle: 'Unclaimed cargo',
+  namelessSearchBtn: 'Search',
+  namelessMinChars: 'Type at least 3 characters',
+  namelessEmpty: 'No matching cargo found.',
+  namelessHint: 'Found your package here? Contact us with your phone number to link it to your account.',
   logoutTooltip: 'Log out',
   myInfo: 'My info',
   name: 'Name',
@@ -141,7 +163,18 @@ const EN: Partial<UserDict> = {
 }
 
 const CN: Partial<UserDict> = {
+  navTheme: '显示',
+  navFaq: '常见问题',
+  navSearch: '无主货物',
+  navProfile: '设置',
+  navLogout: '退出',
   faqTooltip: '常见问题',
+  namelessTooltip: '查找无主货物',
+  namelessTitle: '无主货物',
+  namelessSearchBtn: '搜索',
+  namelessMinChars: '请至少输入3个字符',
+  namelessEmpty: '未找到匹配的货物。',
+  namelessHint: '如果在此找到您的货物，请联系我们并提供电话号码以关联到您的账户。',
   logoutTooltip: '退出',
   myInfo: '我的信息',
   name: '姓名',

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SiteFooter from '../components/SiteFooter'
 import ChatWidget from '../components/ChatWidget'
+import NamelessSearch from '../components/NamelessSearch'
 import NavLogo from '../components/NavLogo'
 import AnnouncementModal from '../components/AnnouncementModal'
 import SuperAnnouncementModal from '../components/SuperAnnouncementModal'
@@ -67,6 +68,23 @@ function CopyText({ text, children, style }: { text: string; children: React.Rea
       {children}
     </span>
   )
+}
+
+// Nav дээрх дүрс товч тус бүрийн дор жижиг үсгээр юу болохыг тайлбарлана
+function NavItem({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem' }}>
+      {children}
+      <span style={{ fontSize: '0.6rem', color: 'var(--muted)', lineHeight: 1.15, textAlign: 'center' }}>{label}</span>
+    </div>
+  )
+}
+
+// Урт хоёр үгтэй шошгыг (жш "Түгээмэл асуулт") 2 мөр болгож хуваана
+function twoLine(s: string): React.ReactNode {
+  const i = s.indexOf(' ')
+  if (i === -1) return s
+  return <>{s.slice(0, i)}<br />{s.slice(i + 1)}</>
 }
 
 export default function OrdersClient({
@@ -139,7 +157,7 @@ export default function OrdersClient({
   const [deletePickedUp, setDeletePickedUp] = useState(true)
   const [searchQ, setSearchQ] = useState('')
   const [expandedBatch, setExpandedBatch] = useState<number | null>(null)
-  const [navPopup, setNavPopup] = useState<'faq' | 'profile' | null>(null)
+  const [navPopup, setNavPopup] = useState<'faq' | 'nameless' | 'profile' | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState({ trackCode: '', description: '' })
   const [addLoading, setAddLoading] = useState(false)
@@ -286,18 +304,33 @@ export default function OrdersClient({
       <SuperAnnouncementModal endpoint="user" />
       <nav className="nav">
         <Link href="/"><NavLogo name={cargoName || undefined} logoUrl={logoUrl || undefined} /></Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.1rem' }}>
-          <ThemeToggle />
-          <button onClick={() => setNavPopup(navPopup === 'faq' ? null : 'faq')} title={t.faqTooltip} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 38, height: 38, borderRadius: '50%',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: navPopup === 'faq' ? 'var(--accent)' : 'var(--muted)',
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/>
-            </svg>
-          </button>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.3rem' }}>
+          <NavItem label={t.navTheme}><ThemeToggle /></NavItem>
+          <NavItem label={twoLine(t.navFaq)}>
+            <button onClick={() => setNavPopup(navPopup === 'faq' ? null : 'faq')} title={t.faqTooltip} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: navPopup === 'faq' ? 'var(--accent)' : 'var(--muted)',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/>
+              </svg>
+            </button>
+          </NavItem>
+          <NavItem label={twoLine(t.navSearch)}>
+            <button onClick={() => setNavPopup(navPopup === 'nameless' ? null : 'nameless')} title={t.namelessTooltip} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: navPopup === 'nameless' ? 'var(--accent)' : 'var(--muted)',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </button>
+          </NavItem>
+          <NavItem label={t.navProfile}>
           <div style={{ position: 'relative' }}>
             <button onClick={() => setNavPopup(navPopup === 'profile' ? null : 'profile')} title={userName} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -362,19 +395,23 @@ export default function OrdersClient({
               </div>
             )}
           </div>
-          <button onClick={logout} title={t.logoutTooltip} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 38, height: 38, borderRadius: '50%',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--muted)',
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </button>
+          </NavItem>
+          <NavItem label={t.navLogout}>
+            <button onClick={logout} title={t.logoutTooltip} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--muted)',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
+          </NavItem>
         </div>
       </nav>
       <ChatWidget open={navPopup === 'faq'} onClose={() => setNavPopup(null)} />
+      <NamelessSearch open={navPopup === 'nameless'} onClose={() => setNavPopup(null)} t={t} />
       {aiEnabled && <UserAIWidget userName={userName} cargoName={cargoName} suggestions={aiSuggestions} />}
       {/* z-index 99: nav (z=100) доторх dropdown-ий товчнууд дарагдахуйц байхын тулд nav-аас доогуур */}
       {navPopup === 'profile' && <div onClick={() => setNavPopup(null)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />}
