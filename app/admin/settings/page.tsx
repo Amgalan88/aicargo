@@ -1,14 +1,23 @@
 'use client'
 import { useState, useEffect } from 'react'
 
+interface Tier { min: string; price: string }
+
 export default function SettingsPage() {
   const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '' })
+  const [tiers, setTiers] = useState<Tier[]>([])
   const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null; batchEnabled?: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [logoError, setLogoError] = useState('')
+  // Ямар нэг өөрчлөлт орсон эсэхийг мэдэхийн тулд ачаалсан үеийн байдлыг хадгална
+  const [baseline, setBaseline] = useState('')
+
+  const snapshotOf = (f: typeof form, t: Tier[], logo: string | null) => JSON.stringify([f, t, !!logo])
+  const dirty = baseline !== '' && snapshotOf(form, tiers, logoBase64) !== baseline
 
   function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -25,27 +34,52 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(d => {
         setCargo(d)
-        setForm({ tariff: d.tariff ?? '', priceCubic: d.priceCubic ? String(Number(d.priceCubic)) : '', priceWeight: d.priceWeight ? String(Number(d.priceWeight)) : '', priceWeightUnit: d.priceWeightUnit === 't' ? 't' : 'kg', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '' })
+        const loadedForm = { tariff: d.tariff ?? '', priceCubic: d.priceCubic ? String(Number(d.priceCubic)) : '', priceWeight: d.priceWeight ? String(Number(d.priceWeight)) : '', priceWeightUnit: d.priceWeightUnit === 't' ? 't' : 'kg', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '' }
+        let loadedTiers: Tier[] = []
+        try {
+          const parsed = d.priceWeightTiers ? JSON.parse(d.priceWeightTiers) : []
+          if (Array.isArray(parsed)) loadedTiers = parsed.map((t: any) => ({ min: String(t.min), price: String(t.price) }))
+        } catch {}
+        setForm(loadedForm)
+        setTiers(loadedTiers)
+        setBaseline(snapshotOf(loadedForm, loadedTiers, null))
         setLoading(false)
       })
   }, [])
 
   async function save() {
+    if (saving || !dirty) return
     setSaving(true)
     setSaved(false)
-    const res = await fetch('/api/admin/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, ...(logoBase64 ? { logoBase64 } : {}) }),
-    })
-    if (res.ok) {
+    setSaveError('')
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          priceWeightTiers: tiers
+            .map(t => ({ min: Number(t.min), price: Number(t.price) }))
+            .filter(t => t.min > 0 && t.price > 0),
+          ...(logoBase64 ? { logoBase64 } : {}),
+        }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setSaveError(d.error || 'Хадгалахад алдаа гарлаа. Дахин оролдоно уу.')
+        return
+      }
       const updated = await res.json()
       if (updated?.logoUrl) setCargo(c => c ? { ...c, logoUrl: updated.logoUrl } : c)
       setLogoBase64(null)
+      setBaseline(snapshotOf(form, tiers, null))
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch {
+      setSaveError('Холболтын алдаа гарлаа. Дахин оролдоно уу.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
   }
 
   if (loading) return <p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p>
@@ -189,6 +223,45 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Жингийн шатлалтай үнэ */}
+        {form.priceWeight && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500 }}>
+              Шатлалтай үнэ <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(заавал биш — жш: 100 кг-аас дээш бол өөр үнээр)</span>
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.45rem' }}>
+              {tiers.map((tier, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                  <input className="input" type="number" min="0" placeholder="100"
+                    value={tier.min}
+                    onChange={e => setTiers(ts => ts.map((t, j) => j === i ? { ...t, min: e.target.value } : t))}
+                    style={{ width: 100, padding: '0.45rem 0.6rem', fontSize: '0.85rem' }} />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)', flexShrink: 0 }}>кг-аас дээш →</span>
+                  <input className="input" type="number" min="0" placeholder={form.priceWeightUnit === 't' ? '2000000' : '2000'}
+                    value={tier.price}
+                    onChange={e => setTiers(ts => ts.map((t, j) => j === i ? { ...t, price: e.target.value } : t))}
+                    style={{ width: 130, padding: '0.45rem 0.6rem', fontSize: '0.85rem' }} />
+                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)', flexShrink: 0 }}>₮/{form.priceWeightUnit === 't' ? 'тонн' : 'кг'}</span>
+                  <button type="button" onClick={() => setTiers(ts => ts.filter((_, j) => j !== i))} style={{
+                    background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer',
+                    fontSize: '0.9rem', padding: '0.2rem 0.4rem', fontFamily: 'inherit',
+                  }}>✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setTiers(ts => [...ts, { min: '', price: '' }])} style={{
+                alignSelf: 'flex-start', background: 'none', border: '1px dashed var(--border)',
+                borderRadius: 'var(--radius)', color: 'var(--muted)', cursor: 'pointer',
+                fontSize: '0.78rem', padding: '0.35rem 0.8rem', fontFamily: 'inherit',
+              }}>
+                + Шатлал нэмэх
+              </button>
+            </div>
+            <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.4rem' }}>
+              Жин нь босго давсан тохиолдолд НИЙТ жин тухайн шатлалын үнээр бодогдоно.
+            </p>
+          </div>
+        )}
+
         <div className="form-group">
           <label>Анхааруулга <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(чухал мэдэгдэл)</span></label>
           <textarea
@@ -239,11 +312,16 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button className="btn" onClick={save} disabled={saving}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <button className="btn" onClick={save} disabled={saving || !dirty}
+            style={{ opacity: saving || !dirty ? 0.5 : 1 }}>
             {saving ? 'Хадгалж байна...' : 'Хадгалах'}
           </button>
-          {saved && <span style={{ fontSize: '0.82rem', color: 'var(--green)' }}>✓ Хадгалагдлаа</span>}
+          {saved && <span style={{ fontSize: '0.82rem', color: 'var(--green)' }}>✓ Амжилттай хадгалагдлаа</span>}
+          {saveError && <span style={{ fontSize: '0.82rem', color: 'var(--danger)' }}>✗ {saveError}</span>}
+          {!saved && !saveError && dirty && !saving && (
+            <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Хадгалаагүй өөрчлөлт байна</span>
+          )}
         </div>
       </div>
     </>

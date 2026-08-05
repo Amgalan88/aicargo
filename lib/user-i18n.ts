@@ -82,6 +82,9 @@ const MN = {
   calcDisclaimer: 'Энэ бол ойролцоо тооцоо — эцсийн үнэ каргоноос баталгаажна.',
   calcFillBoth: 'Илүү ойролцоо үнэ тооцоолохыг хүсвэл хэмжээ болон жин хоёуланг нь бөглөнө үү.',
   calcTooLarge: 'Тооцоолсон үнэ хэт өндөр байна — оруулсан хэмжээ/жингээ шалгаад, зөв бол карготой холбогдож үнийн санал солилцоно уу.',
+  calcNotConfigured: 'Карго үнийн тооцооллоо тохируулаагүй байна — үнийн мэдээллийг каргоноос лавлана уу.',
+  calcTierAbove: '{n} кг-аас дээш: {p}',
+  calcTierApplied: 'Шатлалтай үнэ хэрэглэгдлээ',
 
   // AI widget
   aiAssistant: 'AI Туслах',
@@ -173,6 +176,9 @@ const EN: Partial<UserDict> = {
   calcDisclaimer: 'This is an estimate — the final price is confirmed by the cargo company.',
   calcFillBoth: 'For a more accurate estimate, fill in both the dimensions and the weight.',
   calcTooLarge: 'The estimated price is very large — double-check your inputs, and if correct, contact the cargo company for a quote.',
+  calcNotConfigured: 'The cargo company has not configured pricing yet — please ask them for rates.',
+  calcTierAbove: 'above {n} kg: {p}',
+  calcTierApplied: 'Tiered price applied',
 
   aiAssistant: 'AI Assistant',
   aiClose: 'Close',
@@ -261,6 +267,9 @@ const CN: Partial<UserDict> = {
   calcDisclaimer: '此为估算价格 — 最终价格以货运公司确认为准。',
   calcFillBoth: '如需更准确的估价，请同时填写尺寸和重量。',
   calcTooLarge: '预估价格过高 — 请核对输入，如无误请联系货运公司获取报价。',
+  calcNotConfigured: '货运公司尚未设置价格 — 请向其咨询运费。',
+  calcTierAbove: '{n} kg以上：{p}',
+  calcTierApplied: '已按阶梯价计算',
 
   aiAssistant: 'AI 助手',
   aiClose: '关闭',

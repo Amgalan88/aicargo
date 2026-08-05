@@ -1,11 +1,15 @@
 'use client'
 import { useState } from 'react'
+import { fmt } from '@/lib/user-i18n'
 import type { UserDict } from '@/lib/user-i18n'
 
-export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUnit, t }: {
+export interface WeightTier { min: number; price: number }
+
+export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUnit, priceWeightTiers = [], t }: {
   priceCubic: number | null
   priceWeight: number | null
   priceWeightUnit: string
+  priceWeightTiers?: WeightTier[]
   t: UserDict
 }) {
   const [open, setOpen] = useState(false)
@@ -16,7 +20,7 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
   const [hei, setHei] = useState('')
   const [kg, setKg] = useState('')
 
-  if (!priceCubic && !priceWeight) return null
+  const configured = !!priceCubic || !!priceWeight
 
   // Үүнээс дээш бодогдвол утга нь бодитой бус эсвэл тусгай тохиролцоо шаардлагатай
   // гэж үзээд үнэ харуулахын оронд карготой холбогдохыг зөвлөнө
@@ -29,7 +33,13 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
   const hasWeight = weightKg > 0
 
   const volumeM3 = hasDims ? (l * w * h) / divisor : 0
-  const perKg = priceWeight ? (priceWeightUnit === 't' ? priceWeight / 1000 : priceWeight) : 0
+  // Тохируулсан нэгжийг ₮/кг болгож хөрвүүлнэ
+  const toPerKg = (p: number) => (priceWeightUnit === 't' ? p / 1000 : p)
+  // Шатлал: жин нь босго давсан бол хамгийн өндөр тохирох шатлалын үнээр НИЙТ жинг бодно
+  const applicableTier = hasWeight
+    ? priceWeightTiers.filter(tr => weightKg >= tr.min).sort((a, b) => b.min - a.min)[0] ?? null
+    : null
+  const perKg = priceWeight ? toPerKg(applicableTier ? applicableTier.price : priceWeight) : 0
 
   const cubicPrice = priceCubic && hasDims ? volumeM3 * priceCubic : null
   const weightPrice = priceWeight && hasWeight ? weightKg * perKg : null
@@ -76,9 +86,25 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
         }}>▶</span>
       </button>
 
-      {open && (
+      {open && !configured && (
         <div style={{ borderTop: '1px solid var(--border)', padding: '1rem 1.1rem' }}>
-          <p style={{ fontSize: '0.76rem', color: 'var(--muted)', lineHeight: 1.5, marginBottom: '0.9rem' }}>{t.calcHint}</p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
+            ℹ️ {t.calcNotConfigured}
+          </p>
+        </div>
+      )}
+
+      {open && configured && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: '1rem 1.1rem' }}>
+          <p style={{ fontSize: '0.76rem', color: 'var(--muted)', lineHeight: 1.5, marginBottom: '0.35rem' }}>{t.calcHint}</p>
+          {priceWeightTiers.length > 0 && !!priceWeight && (
+            <p style={{ fontSize: '0.72rem', color: 'var(--muted)', lineHeight: 1.5, marginBottom: '0.9rem' }}>
+              {priceWeightTiers.map(tr =>
+                fmt(t.calcTierAbove, { n: tr.min, p: `₮${tr.price.toLocaleString()}/${priceWeightUnit === 't' ? 't' : 'kg'}` })
+              ).join(' · ')}
+            </p>
+          )}
+          {(priceWeightTiers.length === 0 || !priceWeight) && <div style={{ marginBottom: '0.55rem' }} />}
 
           {priceCubic && (
             <>
@@ -163,6 +189,7 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
                     <strong style={{ fontSize: '1.3rem', color: 'var(--accent)' }}>{fmtT(final)}</strong>
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
                       {winner === 'cubic' ? t.calcByCubic : t.calcByWeight}
+                      {winner === 'weight' && applicableTier ? ` · ${t.calcTierApplied}` : ''}
                     </span>
                   </div>
                   {fillBothHint && (

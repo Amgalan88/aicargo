@@ -101,6 +101,7 @@ export default function OrdersClient({
   priceCubic = null,
   priceWeight = null,
   priceWeightUnit = 'kg',
+  priceWeightTiers = [],
   announcement,
   contactInfo,
   bankName,
@@ -128,6 +129,7 @@ export default function OrdersClient({
   priceCubic?: number | null
   priceWeight?: number | null
   priceWeightUnit?: string
+  priceWeightTiers?: { min: number; price: number }[]
   announcement?: string | null
   contactInfo?: string | null
   bankName?: string | null
@@ -796,7 +798,7 @@ export default function OrdersClient({
           </>
         )}
 
-        <PriceCalculator priceCubic={priceCubic} priceWeight={priceWeight} priceWeightUnit={priceWeightUnit} t={t} />
+        <PriceCalculator priceCubic={priceCubic} priceWeight={priceWeight} priceWeightUnit={priceWeightUnit} priceWeightTiers={priceWeightTiers} t={t} />
       </div>
       <ConfirmDialog
         open={confirmDelete !== null}

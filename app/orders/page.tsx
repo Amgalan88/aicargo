@@ -43,7 +43,7 @@ export default async function OrdersPage() {
   const cargo = userRecord?.cargoId
     ? await (prisma.cargo.findUnique as any)({
         where: { id: userRecord.cargoId },
-        select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true },
+        select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true },
       })
     : null
 
@@ -63,6 +63,12 @@ export default async function OrdersPage() {
       priceCubic={cargo?.priceCubic ? Number(cargo.priceCubic) : null}
       priceWeight={cargo?.priceWeight ? Number(cargo.priceWeight) : null}
       priceWeightUnit={cargo?.priceWeightUnit ?? 'kg'}
+      priceWeightTiers={(() => {
+        try {
+          const p = cargo?.priceWeightTiers ? JSON.parse(cargo.priceWeightTiers) : []
+          return Array.isArray(p) ? p : []
+        } catch { return [] }
+      })()}
       announcement={cargo?.announcement ?? null}
       contactInfo={cargo?.contactInfo ?? null}
       bankName={cargo?.bankName ?? null}

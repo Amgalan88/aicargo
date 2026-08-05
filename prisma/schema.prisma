@@ -30,6 +30,8 @@ model Cargo {
   priceCubic        Decimal?   @db.Decimal(12, 2)
   priceWeight       Decimal?   @db.Decimal(12, 2)
   priceWeightUnit   String     @default("kg")
+  // Жингийн шатлалтай үнэ: JSON [{"min":100,"price":2000}] — min кг-аас дээш бол тухайн үнээр
+  priceWeightTiers  String?
   announcement      String?
   contactInfo       String?
   bankName          String?
