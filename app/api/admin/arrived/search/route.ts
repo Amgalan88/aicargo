@@ -10,7 +10,9 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim()
   const statsOnly = req.nextUrl.searchParams.get('stats') === '1'
   const dateParam = req.nextUrl.searchParams.get('date')?.trim()
-  const isPhone = q && /^\d+$/.test(q)
+  // Зөвхөн 8 оронтой утга бол утас гэж үзнэ — урт тоон трак код (жш "465547193524742")
+  // үүнд орохгүй тул трак кодоор нь зөв хайгдана
+  const isPhone = q && /^\d{8}$/.test(q)
 
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
