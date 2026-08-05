@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const cargo = await (prisma.cargo as any).findUnique({
     where: { id: admin.cargoId! },
-    select: { name: true, logoUrl: true, batchEnabled: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true },
+    select: { name: true, logoUrl: true, batchEnabled: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true },
   })
   return NextResponse.json(cargo)
 }
@@ -20,7 +20,18 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { tariff, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, logoBase64 } = await req.json()
+  const { tariff, priceCubic, priceWeight, priceWeightUnit, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, logoBase64 } = await req.json()
+
+  // Үнэ бодогчийн тохиргоо — хоосон бол null, эс бол 0-ээс их тоо байх ёстой
+  function parsePrice(v: unknown): number | null | undefined {
+    if (v === undefined) return undefined
+    if (v === null || v === '') return null
+    const n = Number(v)
+    return isFinite(n) && n > 0 ? n : null
+  }
+  const cubic = parsePrice(priceCubic)
+  const weight = parsePrice(priceWeight)
+  const weightUnit = priceWeightUnit === 't' ? 't' : priceWeightUnit === 'kg' ? 'kg' : undefined
 
   // Лого шинээр оруулсан бол Cloudinary-д байршуулна
   let logoUrl: string | undefined
@@ -46,6 +57,9 @@ export async function PATCH(req: NextRequest) {
       ...(ereemRegion !== undefined ? { ereemRegion: String(ereemRegion).trim() } : {}),
       ...(ereemAddress !== undefined ? { ereemAddress: String(ereemAddress).trim() } : {}),
       ...(tariff !== undefined ? { tariff: tariff || null } : {}),
+      ...(cubic !== undefined ? { priceCubic: cubic } : {}),
+      ...(weight !== undefined ? { priceWeight: weight } : {}),
+      ...(weightUnit !== undefined ? { priceWeightUnit: weightUnit } : {}),
       ...(announcement !== undefined ? { announcement: announcement || null } : {}),
       ...(contactInfo !== undefined ? { contactInfo: contactInfo || null } : {}),
       ...(bankName !== undefined ? { bankName: bankName || null } : {}),

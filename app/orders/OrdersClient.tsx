@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import SiteFooter from '../components/SiteFooter'
 import ChatWidget from '../components/ChatWidget'
 import NamelessSearch from '../components/NamelessSearch'
+import PriceCalculator from '../components/PriceCalculator'
 import NavLogo from '../components/NavLogo'
 import AnnouncementModal from '../components/AnnouncementModal'
 import SuperAnnouncementModal from '../components/SuperAnnouncementModal'
@@ -97,6 +98,9 @@ export default function OrdersClient({
   ereemRegion,
   ereemAddress,
   tariff,
+  priceCubic = null,
+  priceWeight = null,
+  priceWeightUnit = 'kg',
   announcement,
   contactInfo,
   bankName,
@@ -121,6 +125,9 @@ export default function OrdersClient({
   ereemRegion?: string
   ereemAddress: string
   tariff?: string | null
+  priceCubic?: number | null
+  priceWeight?: number | null
+  priceWeightUnit?: string
   announcement?: string | null
   contactInfo?: string | null
   bankName?: string | null
@@ -789,6 +796,7 @@ export default function OrdersClient({
           </>
         )}
 
+        <PriceCalculator priceCubic={priceCubic} priceWeight={priceWeight} priceWeightUnit={priceWeightUnit} t={t} />
       </div>
       <ConfirmDialog
         open={confirmDelete !== null}

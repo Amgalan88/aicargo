@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 
 export default function SettingsPage() {
-  const [form, setForm] = useState({ tariff: '', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '' })
+  const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '' })
   const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null; batchEnabled?: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -25,7 +25,7 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(d => {
         setCargo(d)
-        setForm({ tariff: d.tariff ?? '', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '' })
+        setForm({ tariff: d.tariff ?? '', priceCubic: d.priceCubic ? String(Number(d.priceCubic)) : '', priceWeight: d.priceWeight ? String(Number(d.priceWeight)) : '', priceWeightUnit: d.priceWeightUnit === 't' ? 't' : 'kg', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '' })
         setLoading(false)
       })
   }, [])
@@ -153,6 +153,40 @@ export default function SettingsPage() {
             onChange={e => setForm(f => ({ ...f, tariff: e.target.value }))}
             style={{ resize: 'vertical', fontFamily: 'inherit' }}
           />
+        </div>
+
+        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.25rem 0' }} />
+        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Үнэ бодогч</p>
+        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+          Хэрэглэгч ачааныхаа хэмжээ (урт·өргөн·өндөр) болон жинг оруулж үнэ урьдчилан тооцоолно — кубын болон жингийн үнийн <strong>өндөр</strong> нь баримтлагдана. Хоёулаа хоосон бол хэрэглэгчид энэ хэсэг харагдахгүй.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label>Кубын үнэ <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(₮ / м³)</span></label>
+            <input className="input" type="number" min="0" placeholder="жш: 350000"
+              value={form.priceCubic}
+              onChange={e => setForm(f => ({ ...f, priceCubic: e.target.value }))} />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label>Жингийн үнэ</label>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <input className="input" type="number" min="0" placeholder={form.priceWeightUnit === 't' ? 'жш: 3500000' : 'жш: 3500'}
+                value={form.priceWeight}
+                onChange={e => setForm(f => ({ ...f, priceWeight: e.target.value }))}
+                style={{ flex: 1, minWidth: 0 }} />
+              {(['kg', 't'] as const).map(u => (
+                <button key={u} type="button" onClick={() => setForm(f => ({ ...f, priceWeightUnit: u }))} style={{
+                  padding: '0 0.75rem', borderRadius: 'var(--radius)', border: '1px solid',
+                  cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0,
+                  borderColor: form.priceWeightUnit === u ? 'var(--accent)' : 'var(--border)',
+                  background: form.priceWeightUnit === u ? 'var(--accent)' : 'var(--surface)',
+                  color: form.priceWeightUnit === u ? '#fff' : 'var(--muted)',
+                }}>
+                  ₮/{u === 'kg' ? 'кг' : 'тонн'}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="form-group">

@@ -27,6 +27,9 @@ model Cargo {
   aiEnabled         Boolean    @default(false)
   batchEnabled      Boolean    @default(false)
   tariff            String?
+  priceCubic        Decimal?   @db.Decimal(12, 2)
+  priceWeight       Decimal?   @db.Decimal(12, 2)
+  priceWeightUnit   String     @default("kg")
   announcement      String?
   contactInfo       String?
   bankName          String?
