@@ -80,9 +80,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="mn" suppressHydrationWarning>
       <body>
+        {/* Landing (/) нь нэвтрээгүй зочдод зориулсан танилцуулга тул хэрэглэгчийн
+            өмнө хадгалсан горим (шөнийн/нүдэнд ээлтэй) энд нөлөөлөхгүй — үргэлж нэг өнгөтэй */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem('theme');if(t==='night'||t==='comfort')document.documentElement.dataset.theme=t}catch(e){}`,
+            __html: `try{if(location.pathname!=='/'){var t=localStorage.getItem('theme');if(t==='night'||t==='comfort')document.documentElement.dataset.theme=t}}catch(e){}`,
           }}
         />
         <PwaRegister />
