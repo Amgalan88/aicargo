@@ -21,6 +21,14 @@ interface DateGroup {
 const PAGE_SIZE = 20
 const REPORT_PAGE = 10
 
+const todayStr = () => new Date().toLocaleDateString('en-CA')
+const daysAgoStr = (n: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toLocaleDateString('en-CA')
+}
+type ReportPreset = 'half' | 'month' | 'custom' | null
+
 function fmtDate(iso: string) {
   const d = new Date(iso)
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
@@ -180,23 +188,34 @@ function ClassicHistory() {
 
   // --- Report tab ---
   const [rPhone, setRPhone] = useState('')
-  const [rDate, setRDate] = useState('')
+  const [rPreset, setRPreset] = useState<ReportPreset>(null)
+  const [rFromDate, setRFromDate] = useState('')
+  const [rToDate, setRToDate] = useState('')
   const [rData, setRData] = useState<{ dates: DateGroup[]; totalCount: number; totalValue: number } | null>(null)
   const [rLoading, setRLoading] = useState(false)
+  const [rError, setRError] = useState('')
   const [rExpandedDate, setRExpandedDate] = useState<string | null>(null)
   const [rExpandedPhone, setRExpandedPhone] = useState<string | null>(null)
   const [rPage, setRPage] = useState(1)
 
+  function pickReportPreset(p: 'half' | 'month') {
+    setRPreset(p)
+    setRFromDate(daysAgoStr(p === 'half' ? 15 : 30))
+    setRToDate(todayStr())
+  }
+
   async function loadReport() {
     const ph = rPhone.trim()
-    if (!ph && !rDate) return
-    setRLoading(true); setRData(null); setRExpandedDate(null); setRExpandedPhone(null); setRPage(1)
+    if (!ph && !rFromDate && !rToDate) { setRError('Утас эсвэл хугацаа сонгоно уу'); return }
+    setRLoading(true); setRError(''); setRData(null); setRExpandedDate(null); setRExpandedPhone(null); setRPage(1)
     const params = new URLSearchParams()
     if (ph) params.set('phone', ph)
-    if (rDate) { params.set('from', rDate); params.set('to', rDate) }
+    if (rFromDate) params.set('from', rFromDate)
+    if (rToDate) params.set('to', rToDate)
     const res = await fetch(`/api/admin/report?${params}`)
     setRLoading(false)
     if (res.ok) setRData(await res.json())
+    else setRError((await res.json().catch(() => ({}))).error || 'Алдаа гарлаа')
   }
 
   const rDates = rData?.dates ?? []
@@ -312,24 +331,50 @@ function ClassicHistory() {
         <>
           <h1 className="section-title">Тайлан</h1>
 
-          <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label style={{ fontSize: '0.75rem' }}>Утасны дугаар</label>
-              <input className="input" placeholder="99001122" value={rPhone}
-                style={{ width: 160 }}
-                onChange={e => setRPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                onKeyDown={e => e.key === 'Enter' && loadReport()} />
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: 500, display: 'block', marginBottom: '0.5rem' }}>Хугацаа</label>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+              {([['half', 'Хагас сар (сүүлийн 15 хоног)'], ['month', '1 сар (сүүлийн 30 хоног)']] as const).map(([p, label]) => (
+                <button key={p} onClick={() => pickReportPreset(p)} style={{
+                  padding: '0.4rem 0.9rem', borderRadius: 100, border: '1px solid',
+                  cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
+                  borderColor: rPreset === p ? 'var(--accent)' : 'var(--border)',
+                  background: rPreset === p ? 'var(--accent)' : 'var(--surface)',
+                  color: rPreset === p ? '#fff' : 'var(--muted)',
+                }}>{label}</button>
+              ))}
+              <button onClick={() => setRPreset('custom')} style={{
+                padding: '0.4rem 0.9rem', borderRadius: 100, border: '1px solid',
+                cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
+                borderColor: rPreset === 'custom' ? 'var(--accent)' : 'var(--border)',
+                background: rPreset === 'custom' ? 'var(--accent)' : 'var(--surface)',
+                color: rPreset === 'custom' ? '#fff' : 'var(--muted)',
+              }}>Өөрөө сонгох</button>
             </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label style={{ fontSize: '0.75rem' }}>Огноо</label>
-              <input className="input" type="date" value={rDate}
-                style={{ width: 160 }}
-                onChange={e => setRDate(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && loadReport()} />
+
+            {rPreset === 'custom' && (
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+                <input className="input" type="date" value={rFromDate} max={rToDate || undefined}
+                  onChange={e => setRFromDate(e.target.value)} style={{ width: 160 }} />
+                <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>—</span>
+                <input className="input" type="date" value={rToDate} min={rFromDate || undefined} max={todayStr()}
+                  onChange={e => setRToDate(e.target.value)} style={{ width: 160 }} />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label style={{ fontSize: '0.75rem' }}>Утасны дугаар (заавал биш)</label>
+                <input className="input" placeholder="99001122" value={rPhone}
+                  style={{ width: 160 }}
+                  onChange={e => setRPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  onKeyDown={e => e.key === 'Enter' && loadReport()} />
+              </div>
+              <button className="btn" onClick={loadReport} disabled={rLoading} style={{ height: 40 }}>
+                {rLoading ? '...' : 'Харах'}
+              </button>
             </div>
-            <button className="btn" onClick={loadReport} disabled={rLoading || (!rPhone.trim() && !rDate)} style={{ height: 40 }}>
-              {rLoading ? '...' : 'Харах'}
-            </button>
+            {rError && <p className="msg-error" style={{ marginTop: '0.5rem' }}>{rError}</p>}
           </div>
 
           {rData && (
@@ -344,8 +389,8 @@ function ClassicHistory() {
 
               {rPaged.length === 0 ? (
                 <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Тохирох бараа байхгүй байна.</p>
-              ) : (rPhone.trim() && rDate) ? (
-                // Both phone + date: flat list, no dropdown
+              ) : (rPhone.trim() && (rFromDate || rToDate)) ? (
+                // Both phone + date range: flat list, no dropdown
                 <div className="card" style={{ overflow: 'hidden' }}>
                   {rPaged.flatMap(g => g.shipments).map((s, si, arr) => (
                     <div key={s.id} style={{

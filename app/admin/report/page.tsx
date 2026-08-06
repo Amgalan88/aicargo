@@ -14,34 +14,60 @@ interface ReportData {
   totalValue: number
 }
 
+const todayStr = () => new Date().toLocaleDateString('en-CA')
+const daysAgoStr = (n: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toLocaleDateString('en-CA')
+}
+
+type Preset = 'half' | 'month' | 'custom' | null
+
 function ReportPageInner() {
   const searchParams = useSearchParams()
   const [phone, setPhone] = useState('')
+  const [preset, setPreset] = useState<Preset>(null)
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [filterDate, setFilterDate] = useState('')
   const [data, setData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const PAGE = 10
 
-  async function search(override?: string) {
-    const ph = (override ?? phone).trim()
-    if (!ph) return
+  function pickPreset(p: 'half' | 'month') {
+    setPreset(p)
+    setFromDate(daysAgoStr(p === 'half' ? 15 : 30))
+    setToDate(todayStr())
+  }
+
+  async function search(override?: { phone?: string; from?: string; to?: string }) {
+    const ph = (override?.phone ?? phone).trim()
+    const from = override?.from ?? (preset ? fromDate : '')
+    const to = override?.to ?? (preset ? toDate : '')
+    if (!ph && !from && !to) { setError('Утас эсвэл хугацаа сонгоно уу'); return }
     setLoading(true)
+    setError('')
     setData(null)
     setExpanded(null)
     setFilterDate('')
     setPage(1)
-    const params = new URLSearchParams({ phone: ph })
+    const params = new URLSearchParams()
+    if (ph) params.set('phone', ph)
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
     const res = await fetch(`/api/admin/report?${params}`)
     setLoading(false)
     if (res.ok) setData(await res.json())
+    else setError((await res.json().catch(() => ({}))).error || 'Алдаа гарлаа')
   }
 
   // AI туслахаас ирсэн deep-link: ?phone=... байвал автоматаар хайна
   useEffect(() => {
     const p = searchParams.get('phone')?.trim()
-    if (p) { setPhone(p); search(p) }
+    if (p) { setPhone(p); search({ phone: p }) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -60,18 +86,51 @@ function ReportPageInner() {
     <div className="page-wide" style={{ maxWidth: 600 }}>
       <h1 className="section-title">Тайлан</h1>
 
-      {/* Phone search */}
-      <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem', maxWidth: 400 }}>
-        <input
-          className="input"
-          placeholder="Утасны дугаар"
-          value={phone}
-          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
-          onKeyDown={e => e.key === 'Enter' && search()}
-        />
-        <button className="btn" onClick={() => search()} disabled={loading || !phone.trim()} style={{ flexShrink: 0 }}>
-          {loading ? '...' : 'Хайх'}
-        </button>
+      {/* Хугацаа сонгох */}
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ fontSize: '0.82rem', fontWeight: 500, display: 'block', marginBottom: '0.5rem' }}>Хугацаа</label>
+        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+          {([['half', 'Хагас сар (сүүлийн 15 хоног)'], ['month', '1 сар (сүүлийн 30 хоног)']] as const).map(([p, label]) => (
+            <button key={p} onClick={() => pickPreset(p)} style={{
+              padding: '0.4rem 0.9rem', borderRadius: 100, border: '1px solid',
+              cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
+              borderColor: preset === p ? 'var(--accent)' : 'var(--border)',
+              background: preset === p ? 'var(--accent)' : 'var(--surface)',
+              color: preset === p ? '#fff' : 'var(--muted)',
+            }}>{label}</button>
+          ))}
+          <button onClick={() => setPreset('custom')} style={{
+            padding: '0.4rem 0.9rem', borderRadius: 100, border: '1px solid',
+            cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
+            borderColor: preset === 'custom' ? 'var(--accent)' : 'var(--border)',
+            background: preset === 'custom' ? 'var(--accent)' : 'var(--surface)',
+            color: preset === 'custom' ? '#fff' : 'var(--muted)',
+          }}>Өөрөө сонгох</button>
+        </div>
+
+        {preset === 'custom' && (
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+            <input className="input" type="date" value={fromDate} max={toDate || undefined}
+              onChange={e => setFromDate(e.target.value)} style={{ width: 160 }} />
+            <span style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>—</span>
+            <input className="input" type="date" value={toDate} min={fromDate || undefined} max={todayStr()}
+              onChange={e => setToDate(e.target.value)} style={{ width: 160 }} />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '0.6rem', maxWidth: 400 }}>
+          <input
+            className="input"
+            placeholder="Утасны дугаар (заавал биш)"
+            value={phone}
+            onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
+            onKeyDown={e => e.key === 'Enter' && search()}
+          />
+          <button className="btn" onClick={() => search()} disabled={loading} style={{ flexShrink: 0 }}>
+            {loading ? '...' : 'Харах'}
+          </button>
+        </div>
+        {error && <p className="msg-error" style={{ marginTop: '0.5rem' }}>{error}</p>}
       </div>
 
       {data && (
