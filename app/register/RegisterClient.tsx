@@ -24,6 +24,9 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
   const [form, setForm] = useState({ name: '', phone: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [moveStep, setMoveStep] = useState<'confirm' | 'otp' | null>(null)
+  const [maskedEmail, setMaskedEmail] = useState('')
+  const [otpCode, setOtpCode] = useState('')
 
   const filteredCargos = cargoSearch.trim()
     ? cargos.filter(c => c.name.toLowerCase().includes(cargoSearch.toLowerCase()))
@@ -40,6 +43,46 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...form, cargoId: selectedCargo.id }),
+    })
+    const data = await res.json()
+    setLoading(false)
+    if (!res.ok) {
+      if (data.code === 'NEEDS_MOVE') {
+        setMaskedEmail(data.maskedEmail || '')
+        setMoveStep('confirm')
+        return
+      }
+      setError(data.error)
+      return
+    }
+    router.push('/orders')
+  }
+
+  async function requestMoveOtp() {
+    if (!selectedCargo) return
+    setLoading(true)
+    setError('')
+    const res = await fetch('/api/auth/register/move/request-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: form.phone, cargoId: selectedCargo.id }),
+    })
+    const data = await res.json()
+    setLoading(false)
+    if (!res.ok) { setError(data.error); return }
+    setMaskedEmail(data.maskedEmail || maskedEmail)
+    setMoveStep('otp')
+  }
+
+  async function verifyMove(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedCargo) return
+    setLoading(true)
+    setError('')
+    const res = await fetch('/api/auth/register/move/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.name, phone: form.phone, password: form.password, cargoId: selectedCargo.id, code: otpCode }),
     })
     const data = await res.json()
     setLoading(false)
@@ -111,7 +154,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
                 {!locked && (
                   <button
-                    onClick={() => { setSelectedCargo(null); setError('') }}
+                    onClick={() => { setSelectedCargo(null); setError(''); setMoveStep(null); setOtpCode('') }}
                     style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'inherit', padding: 0 }}
                   >
                     ←
@@ -142,7 +185,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                 </div>
                 {!locked && (
                   <button
-                    onClick={() => { setSelectedCargo(null); setError('') }}
+                    onClick={() => { setSelectedCargo(null); setError(''); setMoveStep(null); setOtpCode('') }}
                     style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 6, padding: '0.25rem 0.6rem', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'inherit' }}
                   >
                     Өөрчлөх
@@ -151,36 +194,74 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
               </div>
             </div>
 
-            <form onSubmit={submit}>
-              <div className="form-group">
-                <label>Нэр</label>
-                <input className="input" placeholder="Нэр" required
-                  value={form.name} onChange={e => set('name', e.target.value)} />
+            {moveStep === 'confirm' ? (
+              /* ── Өөр каргод байгаа бүртгэлийг шилжүүлэх баталгаажуулалт ── */
+              <div>
+                <p style={{ fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '1rem' }}>
+                  Энэ утасны дугаар өөр карго компанид бүртгэлтэй байна.
+                  {maskedEmail && <> Танай <strong>{maskedEmail}</strong> и-мэйл рүү баталгаажуулах код илгээж,</> } бүртгэлийг <strong>{selectedCargo.name}</strong> компанид шилжүүлж болно.
+                </p>
+                {error && <p className="msg-error">{error}</p>}
+                <div className="form-actions" style={{ marginTop: '1rem', display: 'flex', gap: '0.6rem' }}>
+                  <button type="button" className="btn" disabled={loading} onClick={requestMoveOtp} style={{ flex: 1 }}>
+                    {loading ? 'Түр хүлээнэ үү...' : 'Код илгээх'}
+                  </button>
+                  <button type="button" onClick={() => { setMoveStep(null); setError('') }} style={{
+                    background: 'none', border: '1px solid var(--border)', color: 'var(--muted)',
+                    borderRadius: 'var(--radius)', padding: '0 1rem', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>Цуцлах</button>
+                </div>
               </div>
-              <div className="form-group">
-                <label>Утасны дугаар</label>
-                <input className="input" type="tel" placeholder="99000000" required
-                  maxLength={8} pattern="\d{8}"
-                  value={form.phone}
-                  onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 8))} />
-              </div>
-              <div className="form-group">
-                <label>И-мэйл</label>
-                <input className="input" type="email" placeholder="example@gmail.com" required
-                  value={form.email} onChange={e => set('email', e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Нууц үг</label>
-                <input className="input" type="password" placeholder="Хамгийн багадаа 6 тэмдэгт" required
-                  value={form.password} onChange={e => set('password', e.target.value)} />
-              </div>
-              {error && <p className="msg-error">{error}</p>}
-              <div className="form-actions" style={{ marginTop: '1rem' }}>
-                <button className="btn" type="submit" disabled={loading} style={{ width: '100%' }}>
-                  {loading ? 'Түр хүлээнэ үү...' : 'Бүртгүүлэх'}
-                </button>
-              </div>
-            </form>
+            ) : moveStep === 'otp' ? (
+              /* ── OTP код баталгаажуулах ── */
+              <form onSubmit={verifyMove}>
+                <p style={{ fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '1rem' }}>
+                  <strong>{maskedEmail}</strong> хаяг руу илгээсэн 6 оронтой кодыг оруулна уу.
+                </p>
+                <div className="form-group">
+                  <label>Баталгаажуулах код</label>
+                  <input className="input" placeholder="000000" required maxLength={6} pattern="\d{6}"
+                    value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
+                </div>
+                {error && <p className="msg-error">{error}</p>}
+                <div className="form-actions" style={{ marginTop: '1rem' }}>
+                  <button className="btn" type="submit" disabled={loading} style={{ width: '100%' }}>
+                    {loading ? 'Түр хүлээнэ үү...' : 'Баталгаажуулж шилжих'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={submit}>
+                <div className="form-group">
+                  <label>Нэр</label>
+                  <input className="input" placeholder="Нэр" required
+                    value={form.name} onChange={e => set('name', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Утасны дугаар</label>
+                  <input className="input" type="tel" placeholder="99000000" required
+                    maxLength={8} pattern="\d{8}"
+                    value={form.phone}
+                    onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 8))} />
+                </div>
+                <div className="form-group">
+                  <label>И-мэйл</label>
+                  <input className="input" type="email" placeholder="example@gmail.com" required
+                    value={form.email} onChange={e => set('email', e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Нууц үг</label>
+                  <input className="input" type="password" placeholder="Хамгийн багадаа 6 тэмдэгт" required
+                    value={form.password} onChange={e => set('password', e.target.value)} />
+                </div>
+                {error && <p className="msg-error">{error}</p>}
+                <div className="form-actions" style={{ marginTop: '1rem' }}>
+                  <button className="btn" type="submit" disabled={loading} style={{ width: '100%' }}>
+                    {loading ? 'Түр хүлээнэ үү...' : 'Бүртгүүлэх'}
+                  </button>
+                </div>
+              </form>
+            )}
             <hr className="divider" />
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
               Бүртгэлтэй юу? <Link href="/login" style={{ color: 'var(--accent)' }}>Нэвтрэх</Link>

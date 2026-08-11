@@ -29,6 +29,19 @@ export async function sendCargoSignupOtpEmail(email: string, code: string, cargo
   })
 }
 
+export async function sendMoveOtpEmail(email: string, code: string, cargoName: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `"${cargoName}" компанид шилжих баталгаажуулах код`,
+    text: `Таны бүртгэлийг "${cargoName}" компанид шилжүүлэх баталгаажуулах код: ${code}\n\nЭнэ код 10 минутын дараа хүчингүй болно.\n\nТа өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлож, нууц үгээ солиход зөвлөж байна.\n\n— Aicargo`,
+    html: `<p>Таны бүртгэлийг <strong>"${cargoName}"</strong> компанид шилжүүлэх баталгаажуулах код:</p>
+<p style="font-size:2rem;font-weight:800;letter-spacing:6px;">${code}</p>
+<p style="color:#888;font-size:0.85rem;">Энэ код <strong>10 минутын</strong> дараа хүчингүй болно.</p>
+<p style="color:#888;font-size:0.8rem;">Та өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлож, нууц үгээ солиход зөвлөж байна.</p>`,
+  })
+}
+
 export async function sendNotificationEmail(
   email: string,
   _name: string,
