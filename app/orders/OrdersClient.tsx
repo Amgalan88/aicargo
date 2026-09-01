@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SiteFooter from '../components/SiteFooter'
@@ -154,6 +154,8 @@ export default function OrdersClient({
     .map(tab => tab.key === 'ALL' ? { ...tab, label: allLabel } : { ...tab, label: STATUS_LABEL[tab.key] ?? tab.label })
   const [shipments, setShipments] = useState(initialShipments)
   const [activeTab, setActiveTab] = useState('ALL')
+  const [viewMode, setViewMode] = useState<'list' | 'byDate'>('list')
+  const [expandedDate, setExpandedDate] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
@@ -256,8 +258,31 @@ export default function OrdersClient({
     .filter(s => !searchQ.trim() || s.trackCode.toLowerCase().includes(searchQ.trim().toLowerCase()) || (s.phone || '').includes(searchQ.trim()))
 
   const filtered = activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab)
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+
+  // Өдрөөр бүлэглэсэн харагдац — сонгосон таб/хайлтад тааруулсан жагсаалтыг
+  // огноогоор (сүүлийнхээс эхлээд) бүлэглэнэ, admin/report-той адил хэлбэр.
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, Shipment[]>()
+    for (const s of filtered) {
+      const d = new Date(s.updatedAt)
+      const key = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(s)
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([date, items]) => ({
+        date,
+        items,
+        total: items.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0),
+      }))
+  }, [filtered])
+
+  const totalPages = viewMode === 'byDate'
+    ? Math.max(1, Math.ceil(groupedByDate.length / PAGE_SIZE))
+    : Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const pagedDateGroups = groupedByDate.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const q = searchQ.trim().toUpperCase()
   const filteredBatches = batches.filter(b =>
@@ -265,7 +290,8 @@ export default function OrdersClient({
     (!q || b.shipments.some(s => s.trackCode.toUpperCase().includes(q)) || b.phone.includes(q))
   )
 
-  function switchTab(key: string) { setActiveTab(key); setPage(1); setNavPopup(null) }
+  function switchTab(key: string) { setActiveTab(key); setPage(1); setExpandedDate(null); setNavPopup(null) }
+  function switchView(mode: 'list' | 'byDate') { setViewMode(mode); setPage(1); setExpandedDate(null); setNavPopup(null) }
 
   function renderPagination() {
     if (totalPages <= 1) return null
@@ -595,13 +621,26 @@ export default function OrdersClient({
         })()}
 
         {/* Search */}
-        <input
-          className="input"
-          placeholder={t.searchPh}
-          value={searchQ}
-          onChange={e => { setSearchQ(e.target.value); setPage(1); setNavPopup(null) }}
-          style={{ marginBottom: '0.9rem', maxWidth: 320 }}
-        />
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+          <input
+            className="input"
+            placeholder={t.searchPh}
+            value={searchQ}
+            onChange={e => { setSearchQ(e.target.value); setPage(1); setNavPopup(null) }}
+            style={{ maxWidth: 320, flex: 1, minWidth: 160 }}
+          />
+          <div style={{ display: 'flex', gap: '0.2rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: 3, flexShrink: 0 }}>
+            {([['list', t.viewList], ['byDate', t.viewByDate]] as const).map(([mode, label]) => (
+              <button key={mode} onClick={() => switchView(mode)} style={{
+                padding: '0.4rem 0.8rem', borderRadius: 100, border: 'none',
+                cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600,
+                background: viewMode === mode ? 'var(--accent)' : 'transparent',
+                color: viewMode === mode ? '#fff' : 'var(--muted)',
+                transition: 'background 0.15s, color 0.15s',
+              }}>{label}</button>
+            ))}
+          </div>
+        </div>
 
         {/* Tabs */}
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
@@ -728,7 +767,7 @@ export default function OrdersClient({
                 </motion.div>
               ))}
 
-              {paged.map((s, si) => (
+              {viewMode === 'list' ? paged.map((s, si) => (
                 <motion.div
                   key={s.id}
                   initial={{ opacity: 0, y: 16 }}
@@ -789,6 +828,53 @@ export default function OrdersClient({
                   </div>
                 </div>
                 </motion.div>
+              )) : pagedDateGroups.map(g => (
+                <div key={g.date} className="card" style={{ overflow: 'hidden' }}>
+                  <div
+                    onClick={() => setExpandedDate(expandedDate === g.date ? null : g.date)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '0.75rem 1.1rem', cursor: 'pointer', gap: '0.5rem',
+                      borderBottom: expandedDate === g.date ? '1px solid var(--border)' : 'none',
+                      background: expandedDate === g.date ? 'var(--surface2)' : 'var(--surface)',
+                      transition: 'background 0.12s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--muted)', transform: expandedDate === g.date ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', display: 'inline-block' }}>▶</span>
+                      <strong style={{ fontSize: '0.9rem' }}>{g.date}</strong>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: '0.1rem 0.55rem', flexShrink: 0 }}>
+                        {g.items.length} {t.items}
+                      </span>
+                    </div>
+                    {g.total > 0 && (
+                      <strong style={{ color: 'var(--accent)', fontSize: '0.88rem', flexShrink: 0 }}>{CUR}{g.total.toLocaleString()}</strong>
+                    )}
+                  </div>
+                  {expandedDate === g.date && (
+                    <div>
+                      {g.items.length === 0 ? (
+                        <p style={{ padding: '0.75rem 1.1rem', fontSize: '0.8rem', color: 'var(--muted)' }}>{t.groupNoItems}</p>
+                      ) : g.items.map((s, si) => (
+                        <div key={s.id} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '0.55rem 1.1rem', gap: '0.5rem', fontSize: '0.82rem', background: 'var(--bg)',
+                          borderBottom: si < g.items.length - 1 ? '1px solid var(--border)' : 'none',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, overflow: 'hidden' }}>
+                            <CopyText text={s.trackCode} style={{ fontFamily: 'monospace', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {s.trackCode}
+                            </CopyText>
+                            <span className={`badge badge-${s.status}`} style={{ fontSize: '0.62rem', padding: '0.15rem 0.5rem', flexShrink: 0 }}>{STATUS_LABEL[s.status] ?? s.status}</span>
+                          </div>
+                          <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600, flexShrink: 0 }}>
+                            {s.adminPrice ? `${CUR}${Number(s.adminPrice).toLocaleString()}` : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
             {renderPagination()}

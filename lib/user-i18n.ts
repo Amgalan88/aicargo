@@ -31,6 +31,9 @@ const MN = {
   items: 'бараа',
   searchPh: 'Трак кодоор хайх...',
   totalItems: 'Нийт {n} бараа',
+  viewList: 'Жагсаалт',
+  viewByDate: 'Өдрөөр',
+  groupNoItems: 'Энэ өдөр бараа байхгүй.',
 
   // Empty states
   emptyNone: 'Бүртгэлтэй бараа байхгүй байна.',
@@ -130,6 +133,9 @@ const EN: Partial<UserDict> = {
   items: 'items',
   searchPh: 'Search by track code...',
   totalItems: 'Total {n} items',
+  viewList: 'List',
+  viewByDate: 'By day',
+  groupNoItems: 'No items on this day.',
 
   emptyNone: 'No registered items yet.',
   emptyGuide: 'Register your track codes to follow their journey here.',
@@ -221,6 +227,9 @@ const CN: Partial<UserDict> = {
   items: '件',
   searchPh: '按单号搜索...',
   totalItems: '共 {n} 件',
+  viewList: '列表',
+  viewByDate: '按日期',
+  groupNoItems: '这一天没有货物。',
 
   emptyNone: '暂无登记的货物。',
   emptyGuide: '登记您的快递单号，即可在此跟踪货物动态。',
