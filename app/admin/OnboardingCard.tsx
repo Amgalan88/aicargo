@@ -89,6 +89,24 @@ export default function OnboardingCard({ state, cargoSlug, batchEnabled }: {
           }}>✕</button>
         </div>
 
+        <a
+          href="https://www.facebook.com/share/v/1M7EyJVdBy/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
+            background: 'var(--accent-light)', border: '1px solid var(--accent)',
+            borderRadius: 8, padding: '0.55rem 0.85rem', marginBottom: '0.85rem',
+            textDecoration: 'none', color: 'var(--text)',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', fontSize: '0.84rem', fontWeight: 600 }}>
+            <span style={{ fontSize: '1rem' }}>🎥</span>
+            Системийг хэрхэн ашиглахыг видео зааврыг үзээрэй
+          </span>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', flexShrink: 0 }}>Үзэх →</span>
+        </a>
+
         {/* Progress bar */}
         <div style={{ height: 5, background: 'var(--surface2)', borderRadius: 100, marginBottom: '0.85rem', overflow: 'hidden' }}>
           <div style={{
