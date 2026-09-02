@@ -23,6 +23,7 @@ export default function AdminNav({
   hasGroup,
   paidUntil,
   batchEnabled,
+  isStaffAdmin,
 }: {
   cargoName?: string
   logoUrl?: string
@@ -30,6 +31,7 @@ export default function AdminNav({
   hasGroup?: boolean
   paidUntil?: string | null
   batchEnabled?: boolean
+  isStaffAdmin?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -63,6 +65,7 @@ export default function AdminNav({
         { href: '/admin/users', label: 'Хэрэглэгчид' },
         { href: '/admin/settings', label: 'Тохиргоо' },
         { href: '/admin/ai', label: 'AI Туслах' },
+        ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог' }] : []),
       ]
     : [
         { href: '/admin/registered', label: 'Бүртгүүлсэн' },
@@ -76,6 +79,7 @@ export default function AdminNav({
         { href: '/admin/users', label: 'Хэрэглэгчид' },
         { href: '/admin/settings', label: 'Тохиргоо' },
         { href: '/admin/ai', label: 'AI Туслах' },
+        ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог' }] : []),
       ]
 
   function copyInvite() {

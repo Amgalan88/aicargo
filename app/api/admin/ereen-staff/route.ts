@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { logAdminAction } from '@/lib/audit'
 
 async function requireAdmin(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
   if (!admin) return { error: unauthorized() }
   if (admin.role !== 'ADMIN') return { error: forbidden() }
+  if (admin.isStaffAdmin) return { error: forbidden() } // Эрээний ажилтны эрх зөвхөн эзэмшигчид
   const cargo = await (prisma.cargo as any).findUnique({
     where: { id: admin.cargoId! },
     select: { batchEnabled: true },
@@ -50,6 +52,10 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true, name: true, phone: true },
   })
+  await logAdminAction(prisma, {
+    cargoId: auth.admin!.cargoId!, userId: auth.admin!.userId, userName: auth.admin!.name,
+    action: 'ereen-staff:create', detail: `${staff.name} (${staff.phone})`,
+  })
   return NextResponse.json(staff, { status: 201 })
 }
 
@@ -74,6 +80,10 @@ export async function PATCH(req: NextRequest) {
       tokenVersion: { increment: 1 }, // хуучин session-уудыг хүчингүй болгоно
     },
   })
+  await logAdminAction(prisma, {
+    cargoId: auth.admin!.cargoId!, userId: auth.admin!.userId, userName: auth.admin!.name,
+    action: 'ereen-staff:reset-password', detail: `${staff.name} (${staff.phone})`,
+  })
   return NextResponse.json({ ok: true })
 }
 
@@ -88,5 +98,9 @@ export async function DELETE(req: NextRequest) {
   if (!staff) return NextResponse.json({ error: 'Олдсонгүй' }, { status: 404 })
 
   await prisma.user.delete({ where: { id: staff.id } })
+  await logAdminAction(prisma, {
+    cargoId: auth.admin!.cargoId!, userId: auth.admin!.userId, userName: auth.admin!.name,
+    action: 'ereen-staff:delete', detail: `${staff.name} (${staff.phone})`,
+  })
   return NextResponse.json({ ok: true })
 }

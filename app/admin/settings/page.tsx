@@ -7,6 +7,7 @@ export default function SettingsPage() {
   const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '' })
   const [tiers, setTiers] = useState<Tier[]>([])
   const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null; batchEnabled?: boolean } | null>(null)
+  const [me, setMe] = useState({ isStaffAdmin: false, canEditBank: false, canEditAddress: false, canEditLogo: false })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -34,6 +35,7 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(d => {
         setCargo(d)
+        setMe({ isStaffAdmin: !!d.isStaffAdmin, canEditBank: !!d.canEditBank, canEditAddress: !!d.canEditAddress, canEditLogo: !!d.canEditLogo })
         const loadedForm = { tariff: d.tariff ?? '', priceCubic: d.priceCubic ? String(Number(d.priceCubic)) : '', priceWeight: d.priceWeight ? String(Number(d.priceWeight)) : '', priceWeightUnit: d.priceWeightUnit === 't' ? 't' : 'kg', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '' }
         let loadedTiers: Tier[] = []
         try {
@@ -84,6 +86,11 @@ export default function SettingsPage() {
 
   if (loading) return <p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p>
 
+  const allowBank = !me.isStaffAdmin || me.canEditBank
+  const allowAddress = !me.isStaffAdmin || me.canEditAddress
+  const allowLogo = !me.isStaffAdmin || me.canEditLogo
+  const ownerOnlyNote = <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.4rem' }}>Зөвхөн эзэн админ солих боломжтой.</p>
+
   return (
     <>
       <div style={{ marginBottom: '1.5rem' }}>
@@ -92,7 +99,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Logo */}
-      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem', opacity: allowLogo ? 1 : 0.6 }}>
         <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>Лого</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           {(logoBase64 || cargo?.logoUrl) ? (
@@ -110,21 +117,26 @@ export default function SettingsPage() {
             }}>🏷</div>
           )}
           <div style={{ minWidth: 200, flex: 1 }}>
-            <input type="file" accept="image/*" onChange={handleLogo} style={{ fontSize: '0.82rem' }} />
-            <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.35rem' }}>
-              Вэб хаяг, апп-ын икон, нүүр хуудсанд харагдана. Сонгоод доорх "Хадгалах" товчийг дарна.
-            </p>
+            <input type="file" accept="image/*" onChange={handleLogo} disabled={!allowLogo} style={{ fontSize: '0.82rem' }} />
+            {allowLogo ? (
+              <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.35rem' }}>
+                Вэб хаяг, апп-ын икон, нүүр хуудсанд харагдана. Сонгоод доорх "Хадгалах" товчийг дарна.
+              </p>
+            ) : ownerOnlyNote}
             {logoBase64 && <p style={{ fontSize: '0.75rem', color: 'var(--accent)', marginTop: '0.25rem' }}>Шинэ лого сонгогдлоо — хадгалахаа мартуузай</p>}
             {logoError && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.25rem' }}>{logoError}</p>}
           </div>
         </div>
       </div>
 
-      {/* Эрээний ажилтны нэвтрэлт — багц бүртгэл идэвхтэй үед */}
-      {cargo?.batchEnabled && <EreenStaffSection />}
+      {/* Эрээний ажилтны нэвтрэлт — багц бүртгэл идэвхтэй үед, зөвхөн эзэн админд */}
+      {cargo?.batchEnabled && !me.isStaffAdmin && <EreenStaffSection />}
+
+      {/* Ажилтан admin — зөвхөн эзэн админд */}
+      {!me.isStaffAdmin && <StaffAdminSection />}
 
       {/* Ereen address — админ өөрөө тохируулна */}
-      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem', opacity: allowAddress ? 1 : 0.6 }}>
         <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Эрээний хаяг</p>
         <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
           Хэрэглэгчид тань Хятадаас бараа захиалахдаа энэ хаягийг ашиглана. Нүүр хуудсанд хуулах товчтой харагдана.
@@ -132,25 +144,26 @@ export default function SettingsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <div className="form-group" style={{ margin: 0 }}>
             <label>收货人 (Хүлээн авагчийн нэр)</label>
-            <input className="input" placeholder="жш: 王明" value={form.ereemReceiver}
+            <input className="input" disabled={!allowAddress} placeholder="жш: 王明" value={form.ereemReceiver}
               onChange={e => setForm(f => ({ ...f, ereemReceiver: e.target.value }))} />
           </div>
           <div className="form-group" style={{ margin: 0 }}>
             <label>手机号 (Утас)</label>
-            <input className="input" placeholder="жш: 15848201234" value={form.ereemPhone}
+            <input className="input" disabled={!allowAddress} placeholder="жш: 15848201234" value={form.ereemPhone}
               onChange={e => setForm(f => ({ ...f, ereemPhone: e.target.value }))} />
           </div>
         </div>
         <div className="form-group" style={{ marginTop: '0.75rem' }}>
           <label>地区 (Бүс) <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(· тэмдгээр тусгаарлана, жш: 内蒙古 · 锡林郭勒盟 · 二连浩特市)</span></label>
-          <input className="input" placeholder="内蒙古 · 锡林郭勒盟 · 二连浩特市" value={form.ereemRegion}
+          <input className="input" disabled={!allowAddress} placeholder="内蒙古 · 锡林郭勒盟 · 二连浩特市" value={form.ereemRegion}
             onChange={e => setForm(f => ({ ...f, ereemRegion: e.target.value }))} />
         </div>
         <div className="form-group" style={{ marginBottom: 0 }}>
           <label>详细地址 (Дэлгэрэнгүй хаяг)</label>
-          <input className="input" placeholder="жш: XX小区 X号楼 XXX" value={form.ereemAddress}
+          <input className="input" disabled={!allowAddress} placeholder="жш: XX小区 X号楼 XXX" value={form.ereemAddress}
             onChange={e => setForm(f => ({ ...f, ereemAddress: e.target.value }))} />
         </div>
+        {!allowAddress && ownerOnlyNote}
       </div>
 
       {/* Editable fields */}
@@ -287,27 +300,28 @@ export default function SettingsPage() {
         </div>
 
         <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.25rem 0' }} />
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1rem' }}>Төлбөр төлөх данс</p>
+        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: allowBank ? '1rem' : '0.35rem' }}>Төлбөр төлөх данс</p>
+        {!allowBank && ownerOnlyNote}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem', opacity: allowBank ? 1 : 0.6, marginTop: allowBank ? 0 : '0.75rem' }}>
           <div className="form-group" style={{ margin: 0 }}>
             <label>Банкны нэр</label>
-            <input className="input" placeholder="Хаан банк" value={form.bankName}
+            <input className="input" disabled={!allowBank} placeholder="Хаан банк" value={form.bankName}
               onChange={e => setForm(f => ({ ...f, bankName: e.target.value }))} />
           </div>
           <div className="form-group" style={{ margin: 0 }}>
             <label>Хүлээн авагчийн нэр</label>
-            <input className="input" placeholder="Овог Нэр" value={form.bankAccountHolder}
+            <input className="input" disabled={!allowBank} placeholder="Овог Нэр" value={form.bankAccountHolder}
               onChange={e => setForm(f => ({ ...f, bankAccountHolder: e.target.value }))} />
           </div>
           <div className="form-group" style={{ margin: 0 }}>
             <label>Дансны дугаар</label>
-            <input className="input" placeholder="5000123456" value={form.bankAccountNumber}
+            <input className="input" disabled={!allowBank} placeholder="5000123456" value={form.bankAccountNumber}
               onChange={e => setForm(f => ({ ...f, bankAccountNumber: e.target.value }))} />
           </div>
           <div className="form-group" style={{ margin: 0 }}>
             <label>Гүйлгээний утга <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(зааварчилгаа)</span></label>
-            <input className="input" placeholder="Утасны дугаараа заавал бичнэ үү" value={form.bankTransferNote}
+            <input className="input" disabled={!allowBank} placeholder="Утасны дугаараа заавал бичнэ үү" value={form.bankTransferNote}
               onChange={e => setForm(f => ({ ...f, bankTransferNote: e.target.value }))} />
           </div>
         </div>
@@ -440,6 +454,164 @@ function EreenStaffSection() {
           style={{ padding: '0.6rem 1rem', fontSize: '0.82rem' }}>
           {busy ? '...' : '+ Үүсгэх'}
         </button>
+      </div>
+      {err && <p className="msg-error" style={{ marginTop: '0.6rem' }}>{err}</p>}
+      {msg && <p style={{ color: 'var(--green)', fontSize: '0.82rem', marginTop: '0.6rem' }}>{msg}</p>}
+    </div>
+  )
+}
+
+interface StaffAdmin { id: number; name: string; phone: string; canEditBank: boolean; canEditAddress: boolean; canEditLogo: boolean }
+
+const PERM_OPTIONS: { key: 'canEditBank' | 'canEditAddress' | 'canEditLogo'; label: string }[] = [
+  { key: 'canEditBank', label: 'Дансны мэдээлэл засах' },
+  { key: 'canEditAddress', label: 'Эрээний хаяг засах' },
+  { key: 'canEditLogo', label: 'Лого солих' },
+]
+
+function StaffAdminSection() {
+  const [staff, setStaff] = useState<StaffAdmin[]>([])
+  const [form, setForm] = useState({ name: '', phone: '', password: '', canEditBank: false, canEditAddress: false, canEditLogo: false })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
+  function load() {
+    fetch('/api/admin/staff-admin')
+      .then(r => r.ok ? r.json() : [])
+      .then(setStaff)
+      .catch(() => {})
+  }
+  useEffect(() => { load() }, [])
+
+  async function create() {
+    setBusy(true); setErr(''); setMsg('')
+    const res = await fetch('/api/admin/staff-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+    setBusy(false)
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) { setErr(d.error || 'Алдаа гарлаа'); return }
+    setMsg('✓ Ажилтны admin нэвтрэлт үүслээ')
+    setForm({ name: '', phone: '', password: '', canEditBank: false, canEditAddress: false, canEditLogo: false })
+    load()
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  async function togglePerm(s: StaffAdmin, key: 'canEditBank' | 'canEditAddress' | 'canEditLogo') {
+    const next = !s[key]
+    setStaff(prev => prev.map(x => x.id === s.id ? { ...x, [key]: next } : x)) // optimistic
+    const res = await fetch('/api/admin/staff-admin', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: s.id, [key]: next }),
+    })
+    if (!res.ok) setStaff(prev => prev.map(x => x.id === s.id ? { ...x, [key]: s[key] } : x)) // revert on failure
+  }
+
+  async function resetPw(id: number) {
+    const pw = prompt('Шинэ нууц үг (6+ тэмдэгт):')
+    if (!pw || pw.length < 6) return
+    await fetch('/api/admin/staff-admin', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password: pw }),
+    })
+    setMsg('✓ Нууц үг солигдлоо')
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  async function remove(id: number) {
+    if (!confirm('Энэ ажилтны admin нэвтрэлтийг устгах уу?')) return
+    await fetch('/api/admin/staff-admin', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    load()
+  }
+
+  return (
+    <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+      <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Ажилтан admin</p>
+      <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+        Энэ эрхээр нэвтэрсэн хүн бусад admin-тэй адил бүртгэл/олголт/мэдэгдэл хийж чадна, гэхдээ доор тэмдэглэсэн эрхийг л
+        онгойлгосон тохиолдолд Дансны мэдээлэл, Эрээний хаяг, Лого зэргийг засах боломжтой болно — та бусад ажилтан admin
+        болон Эрээний ажилтны нэвтрэлт үүсгэх эрхийг зөвхөн өөрөө хадгална.
+      </p>
+
+      {staff.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+          {staff.map(s => (
+            <div key={s.id} style={{
+              padding: '0.6rem 0.75rem', background: 'var(--bg)',
+              border: '1px solid var(--border)', borderRadius: 8,
+              display: 'flex', flexDirection: 'column', gap: '0.5rem',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.84rem' }}>
+                  <strong>{s.name}</strong>
+                  <span style={{ fontFamily: 'monospace', color: 'var(--muted)', marginLeft: 8 }}>{s.phone}</span>
+                </span>
+                <span style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button onClick={() => resetPw(s.id)} style={{
+                    background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+                    fontSize: '0.72rem', padding: '0.2rem 0.6rem', cursor: 'pointer',
+                    color: 'var(--muted)', fontFamily: 'inherit',
+                  }}>Нууц үг солих</button>
+                  <button onClick={() => remove(s.id)} style={{
+                    background: 'none', border: '1px solid var(--danger)', borderRadius: 6,
+                    fontSize: '0.72rem', padding: '0.2rem 0.6rem', cursor: 'pointer',
+                    color: 'var(--danger)', fontFamily: 'inherit',
+                  }}>Устгах</button>
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap' }}>
+                {PERM_OPTIONS.map(p => (
+                  <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--muted)' }}>
+                    <input type="checkbox" checked={s[p.key]} onChange={() => togglePerm(s, p.key)}
+                      style={{ width: 14, height: 14, cursor: 'pointer', accentColor: 'var(--accent)' }} />
+                    {p.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.5rem', alignItems: 'end' }} className="admin-form-2col">
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Нэр</label>
+          <input className="input" placeholder="Ажилтны нэр" value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Утас</label>
+          <input className="input" type="tel" maxLength={8} placeholder="99001122" value={form.phone}
+            onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label>Нууц үг</label>
+          <input className="input" type="text" placeholder="6+ тэмдэгт" value={form.password}
+            onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+        </div>
+        <button className="btn" onClick={create}
+          disabled={busy || form.name.trim().length < 2 || !/^\d{8}$/.test(form.phone) || form.password.length < 6}
+          style={{ padding: '0.6rem 1rem', fontSize: '0.82rem' }}>
+          {busy ? '...' : '+ Үүсгэх'}
+        </button>
+      </div>
+      <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
+        {PERM_OPTIONS.map(p => (
+          <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--muted)' }}>
+            <input type="checkbox" checked={form[p.key]} onChange={e => setForm(f => ({ ...f, [p.key]: e.target.checked }))}
+              style={{ width: 14, height: 14, cursor: 'pointer', accentColor: 'var(--accent)' }} />
+            {p.label}
+          </label>
+        ))}
       </div>
       {err && <p className="msg-error" style={{ marginTop: '0.6rem' }}>{err}</p>}
       {msg && <p style={{ color: 'var(--green)', fontSize: '0.82rem', marginTop: '0.6rem' }}>{msg}</p>}

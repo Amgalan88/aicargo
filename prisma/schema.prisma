@@ -50,6 +50,7 @@ model Cargo {
   notifications Notification[]
   banners       Banner[]
   batches       Batch[]
+  auditLogs     AdminAuditLog[]
 }
 
 model User {
@@ -62,6 +63,10 @@ model User {
   cargoId      Int
   cargo        Cargo      @relation(fields: [cargoId], references: [id])
   tokenVersion Int        @default(0)
+  isStaffAdmin   Boolean  @default(false)
+  canEditBank    Boolean  @default(false)
+  canEditAddress Boolean  @default(false)
+  canEditLogo    Boolean  @default(false)
   createdAt    DateTime   @default(now())
   shipments    Shipment[]
   bannerDismisses      BannerDismiss[]
@@ -127,6 +132,19 @@ model BatchLog {
   createdAt DateTime @default(now())
 
   @@index([batchId])
+}
+
+model AdminAuditLog {
+  id        Int      @id @default(autoincrement())
+  cargoId   Int
+  cargo     Cargo    @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  userId    Int
+  userName  String
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([cargoId, createdAt])
 }
 
 enum Currency {

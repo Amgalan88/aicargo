@@ -13,6 +13,16 @@ export interface JwtPayload {
   tokenVersion?: number
 }
 
+// DB-ээс шинэчлэгдэж авдаг эрхийн мэдээлэл — JWT-д хадгалагдахгүй тул
+// ажилтны эрх өөрчлөгдмөгц (logout шаардахгүйгээр) дараагийн хүсэлт дээр шууд хэрэгжинэ.
+export interface VerifiedUser extends JwtPayload {
+  name: string
+  isStaffAdmin: boolean
+  canEditBank: boolean
+  canEditAddress: boolean
+  canEditLogo: boolean
+}
+
 export function signToken(payload: JwtPayload, expiresIn = '90d'): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn } as jwt.SignOptions)
 }
@@ -39,7 +49,16 @@ export function clearAuthCookie(res: NextResponse) {
   res.cookies.set(COOKIE_NAME, '', { maxAge: 0, path: '/' })
 }
 
-export async function getAuthUser(): Promise<JwtPayload | null> {
+const VERIFY_SELECT = {
+  tokenVersion: true,
+  name: true,
+  isStaffAdmin: true,
+  canEditBank: true,
+  canEditAddress: true,
+  canEditLogo: true,
+} as const
+
+export async function getAuthUser(): Promise<VerifiedUser | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
   if (!token) return null
@@ -47,10 +66,17 @@ export async function getAuthUser(): Promise<JwtPayload | null> {
   if (!payload) return null
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { tokenVersion: true },
+    select: VERIFY_SELECT,
   })
   if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) return null
-  return payload
+  return {
+    ...payload,
+    name: user.name,
+    isStaffAdmin: user.isStaffAdmin,
+    canEditBank: user.canEditBank,
+    canEditAddress: user.canEditAddress,
+    canEditLogo: user.canEditLogo,
+  }
 }
 
 export function getAuthUserFromRequest(req: NextRequest): JwtPayload | null {
@@ -59,15 +85,22 @@ export function getAuthUserFromRequest(req: NextRequest): JwtPayload | null {
   return verifyToken(token)
 }
 
-export async function getVerifiedUserFromRequest(req: NextRequest): Promise<JwtPayload | null> {
+export async function getVerifiedUserFromRequest(req: NextRequest): Promise<VerifiedUser | null> {
   const payload = getAuthUserFromRequest(req)
   if (!payload) return null
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { tokenVersion: true },
+    select: VERIFY_SELECT,
   })
   if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) return null
-  return payload
+  return {
+    ...payload,
+    name: user.name,
+    isStaffAdmin: user.isStaffAdmin,
+    canEditBank: user.canEditBank,
+    canEditAddress: user.canEditAddress,
+    canEditLogo: user.canEditLogo,
+  }
 }
 
 export function unauthorized() {

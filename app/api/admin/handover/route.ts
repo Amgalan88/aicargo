@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { logAdminAction } from '@/lib/audit'
 
 // GET /api/admin/handover?q=phone_or_trackcode
 // GET /api/admin/handover?summary=1
@@ -98,6 +99,11 @@ export async function POST(req: NextRequest) {
   await prisma.shipment.updateMany({
     where: { id: { in: shipmentIds }, status: 'ARRIVED', cargoId: admin.cargoId! },
     data: { status: 'PICKED_UP' },
+  })
+
+  await logAdminAction(prisma, {
+    cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+    action: 'shipment:handover', detail: `${shipmentIds.length} бараа`,
   })
 
   return NextResponse.json({ ok: true, count: shipmentIds.length })

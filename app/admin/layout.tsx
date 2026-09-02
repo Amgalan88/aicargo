@@ -38,5 +38,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }
   }
 
-  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding}>{children}</AdminShell>
+  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin}>{children}</AdminShell>
 }

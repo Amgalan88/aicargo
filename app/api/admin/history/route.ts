@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { logAdminAction } from '@/lib/audit'
 
 const PAGE_SIZE = 20
 
@@ -56,5 +57,9 @@ export async function PATCH(req: NextRequest) {
   }
 
   await prisma.shipment.update({ where: { id: Number(id) }, data: { status: 'ARRIVED' } })
+  await logAdminAction(prisma, {
+    cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+    action: 'shipment:revert-pickup', detail: shipment.trackCode,
+  })
   return NextResponse.json({ ok: true })
 }

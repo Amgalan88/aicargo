@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
+import { logAdminAction } from '@/lib/audit'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -139,6 +140,12 @@ export async function POST(req: NextRequest) {
 
   checkCrossCargoOnImport([{ trackCode: code, phone: resolvedPhone, status: 'ARRIVED' }], admin.cargoId!).catch(console.error)
 
+  await logAdminAction(prisma, {
+    cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+    action: 'shipment:register-arrived',
+    detail: `${code}${resolvedPhone ? ' · ' + resolvedPhone : ''}${adminPrice ? ' · ' + Number(adminPrice).toLocaleString() + '₮' : ''}`,
+  })
+
   return NextResponse.json(shipment)
 }
 
@@ -182,6 +189,12 @@ export async function DELETE(req: NextRequest) {
       where: { cargoId: admin.cargoId!, status: 'ARRIVED', arrivedAt: { gte: dayStart, lte: dayEnd } },
       data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null },
     })
+    if (count > 0) {
+      await logAdminAction(prisma, {
+        cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+        action: 'shipment:revert-arrived', detail: `${body.date}: ${count} ачаа`,
+      })
+    }
     return NextResponse.json({ count })
   }
 
@@ -199,6 +212,10 @@ export async function DELETE(req: NextRequest) {
   await prisma.shipment.update({
     where: { id: Number(id), cargoId: admin.cargoId! },
     data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null },
+  })
+  await logAdminAction(prisma, {
+    cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+    action: 'shipment:revert-arrived', detail: target.trackCode,
   })
   return NextResponse.json({ ok: true })
 }
