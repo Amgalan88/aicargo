@@ -13,6 +13,7 @@ export interface PublicImage {
 }
 
 export interface PublicWarehouse {
+  id: number
   name: string
   description: string | null
   phone: string | null
@@ -24,6 +25,7 @@ export interface PublicWarehouse {
   services: string | null
   pricePerTonCny: string | null
   pricePerM3Cny: string | null
+  pricePerKgMnt: string | null
   contractFee: string
   acceptingContracts: boolean
   images: PublicImage[]
@@ -56,7 +58,7 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
   const tabs = WAREHOUSE_IMAGE_CATEGORIES.filter(c => photos.some(p => p.category === c.value))
   const shown = filter === 'ALL' ? photos : photos.filter(p => p.category === filter)
   const services = (wh.services ?? '').split('\n').map(s => s.trim()).filter(Boolean)
-  const hasTariff = wh.pricePerTonCny != null || wh.pricePerM3Cny != null
+  const hasTariff = wh.pricePerTonCny != null || wh.pricePerM3Cny != null || wh.pricePerKgMnt != null
 
   return (
     <>
@@ -143,9 +145,12 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
                   <li key={p}><Check size={14} strokeWidth={2.6} />{p}</li>
                 ))}
               </ul>
-              <button className="whv-cta" disabled>
-                {wh.acceptingContracts ? 'Цахим гэрээ удахгүй нээгдэнэ' : 'Шинэ гэрээ түр хаалттай'}
-              </button>
+              {wh.acceptingContracts ? (
+                <Link className="whv-cta" href={`/admin/warehouse?new=${wh.id}`}>Цахим гэрээ байгуулах</Link>
+              ) : (
+                <button className="whv-cta" disabled>Шинэ гэрээ түр хаалттай</button>
+              )}
+              <p className="whv-note">Карго компанийн админ эрхээр нэвтэрч байгуулна.</p>
               <p className="whv-note">Төлбөр гэрээ цуцлагдсан ч буцаагдахгүй.</p>
             </div>
 
@@ -158,6 +163,9 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
                   )}
                   {wh.pricePerM3Cny != null && (
                     <div><span>1 м³</span><b>¥{Number(wh.pricePerM3Cny).toLocaleString('en-US')}</b></div>
+                  )}
+                  {wh.pricePerKgMnt != null && (
+                    <div><span>1 кг</span><b>{formatMnt(wh.pricePerKgMnt)}</b></div>
                   )}
                 </div>
                 <p className="whv-note">Тухайн өдрийн ханшаар төгрөгт хөрвүүлнэ.</p>
@@ -425,7 +433,7 @@ const CSS = `
 .whv-points { list-style: none; padding: 0; margin: 1rem 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .whv-points li { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.82rem; line-height: 1.4; }
 .whv-points svg { flex-shrink: 0; color: var(--green); margin-top: 1px; }
-.whv-cta { width: 100%; border: none; border-radius: 10px; padding: 0.75rem; font: inherit; font-size: 0.86rem; font-weight: 700;
+.whv-cta { display: block; text-align: center; box-sizing: border-box; text-decoration: none; width: 100%; border: none; border-radius: 10px; padding: 0.75rem; font: inherit; font-size: 0.86rem; font-weight: 700;
   background: var(--accent); color: #fff; cursor: pointer; }
 .whv-cta:disabled { background: var(--surface2); color: var(--muted); cursor: default; }
 .whv-note { font-size: 0.72rem; color: var(--muted); margin: 0.6rem 0 0; text-align: center; }

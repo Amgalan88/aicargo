@@ -42,6 +42,15 @@ export async function uploadWarehouseGalleryImage(base64: string, warehouseId: n
   return { url: result.secure_url, publicId: result.public_id }
 }
 
+// Гэрээний төлбөрийн баримт — URL таамаглагдахгүй байхаар санамсаргүй нэртэй
+export async function uploadPaymentProof(base64: string, contractId: number): Promise<string> {
+  const result = await cloudinary.uploader.upload(base64, {
+    folder: `contract-payments/${contractId}`,
+    transformation: [{ width: 1600, height: 1600, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+  })
+  return result.secure_url
+}
+
 export async function deleteCloudinaryImage(publicId: string): Promise<void> {
   await cloudinary.uploader.destroy(publicId)
 }

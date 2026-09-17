@@ -15,6 +15,7 @@ export const WAREHOUSE_FIELD_LABELS: Record<string, string> = {
   services: 'Үйлчилгээ',
   pricePerTonCny: '1 тонны тариф',
   pricePerM3Cny: '1 м³ тариф',
+  pricePerKgMnt: '1 кг үнэ',
   acceptingContracts: 'Гэрээ хүлээн авах',
 }
 
@@ -73,7 +74,5 @@ export const WAREHOUSE_LOG_ACTIONS: Record<string, string> = {
   SETTINGS_CHANGED: 'Тохиргоо өөрчилсөн',
   IMAGE_ADDED: 'Зураг нэмсэн',
   IMAGE_DELETED: 'Зураг устгасан',
-  SECTION_ADDED: 'Зай талбай нэмсэн',
-  SECTION_UPDATED: 'Зай талбай засварласан',
-  SECTION_DELETED: 'Зай талбай устгасан',
+  TEMPLATE_SAVED: 'Гэрээний загвар хадгалсан',
 }

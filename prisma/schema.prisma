@@ -51,6 +51,7 @@ model Cargo {
   banners       Banner[]
   batches       Batch[]
   auditLogs     AdminAuditLog[]
+  warehouseContracts WarehouseContract[]
 }
 
 model User {
@@ -245,23 +246,100 @@ model PartnerWarehouse {
   services    String?
   pricePerTonCny Decimal? @db.Decimal(12, 2)
   pricePerM3Cny  Decimal? @db.Decimal(12, 2)
+  pricePerKgMnt  Decimal? @db.Decimal(12, 2)
   acceptingContracts Boolean @default(true)
   images      WarehouseImage[]
-  sections    WarehouseSection[]
   logs        WarehouseLog[]
+  templates   ContractTemplate[]
+  contracts   WarehouseContract[]
 }
 
-// Эрээний агуулах доторх зай талбай — гэрээ бүрт нэг хэсэг оногдоно (хэмжээ заахгүй)
-model WarehouseSection {
+// Гэрээний загвар — хадгалах бүрт шинэ хувилбар; гэрээ нь гарын үсэг зурсан хувилбараа хөлдөөж хадгална
+model ContractTemplate {
   id          Int      @id @default(autoincrement())
   warehouseId Int
   warehouse   PartnerWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  code        String
-  note        String?
-  active      Boolean  @default(true)
+  version     Int
+  titleMn     String
+  titleCn     String
+  // JSON: [{ kind: "text"|"heading"|"clause", no?: "2.1", mn: "...{{x}}...", cn: "...{{x}}..." }]
+  body        String
+  createdBy   String
   createdAt   DateTime @default(now())
+  contracts   WarehouseContract[]
 
-  @@unique([warehouseId, code])
+  @@unique([warehouseId, version])
+}
+
+enum ContractStatus {
+  DRAFT
+  AWAITING_PAYMENT
+  PAYMENT_REVIEW
+  ACTIVE
+  TERMINATION_PENDING
+  TERMINATED
+  REJECTED
+}
+
+model WarehouseContract {
+  id           Int      @id @default(autoincrement())
+  contractNo   String   @unique
+  warehouseId  Int
+  warehouse    PartnerWarehouse @relation(fields: [warehouseId], references: [id])
+  cargoId      Int
+  cargo        Cargo    @relation(fields: [cargoId], references: [id])
+  templateId   Int
+  template     ContractTemplate @relation(fields: [templateId], references: [id])
+  status       ContractStatus @default(DRAFT)
+  // JSON: каргогийн бөглөсөн талбарууд
+  values       String   @default("{}")
+  // Гарын үсэг зурсан мөчийн хөлдөөсөн гэрээ (JSON) ба түүний sha256
+  renderedBody String?
+  bodyHash     String?
+  fee          Decimal  @db.Decimal(12, 2)
+  payToBank    String?
+  payToAccount String?
+  payToHolder  String?
+  paymentProofUrl  String?
+  paymentNote      String?
+  paymentClaimedAt DateTime?
+  paidAt           DateTime?
+  cargoSignedAt   DateTime?
+  cargoSignerId   Int?
+  cargoSignerName String?
+  cargoSignerEmail String?
+  cargoSignIp     String?
+  approvedAt      DateTime?
+  approvedById    Int?
+  approvedByName  String?
+  warehouseNote   String?
+  rejectReason    String?
+  terminationRequestedAt DateTime?
+  terminationRequestedBy String?
+  terminationReason      String?
+  terminationEffectiveAt DateTime?
+  terminatedAt    DateTime?
+  createdById     Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  events          ContractEvent[]
+
+  @@index([cargoId, status])
+  @@index([warehouseId, status])
+  @@index([status, updatedAt])
+}
+
+model ContractEvent {
+  id         Int      @id @default(autoincrement())
+  contractId Int
+  contract   WarehouseContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  actorId    Int?
+  actorName  String
+  action     String
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([contractId, createdAt])
 }
 
 // Агуулахын тохиргооны өөрчлөлт (ялангуяа данс) — AdminAuditLog нь cargoId шаарддаг тул тусдаа

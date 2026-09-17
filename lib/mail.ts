@@ -72,3 +72,32 @@ ${cargoName} өнөөдөр ${closingTime} цаг хүртэл ажиллаж б
 <p style="color:#888;font-size:0.85rem;">— ${cargoName}</p>`,
   })
 }
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+}
+
+export async function sendContractOtpEmail(email: string, code: string, contractNo: string, warehouseName: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `Гэрээ ${contractNo} баталгаажуулах код`,
+    text: `"${warehouseName}"-тай байгуулах ${contractNo} дугаартай гэрээг цахимаар баталгаажуулах код: ${code}\n\nЭнэ код 10 минутын дараа хүчингүй болно.\n\nТа өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлож, нууц үгээ солино уу.\n\n— Aicargo`,
+    html: `<p><strong>"${escapeHtml(warehouseName)}"</strong>-тай байгуулах <strong>${escapeHtml(contractNo)}</strong> дугаартай гэрээг цахимаар баталгаажуулах код:</p>
+<p style="font-size:2rem;font-weight:800;letter-spacing:6px;">${code}</p>
+<p style="color:#888;font-size:0.85rem;">Энэ код <strong>10 минутын</strong> дараа хүчингүй болно.</p>
+<p style="color:#888;font-size:0.8rem;">Та өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлож, нууц үгээ солино уу.</p>`,
+  })
+}
+
+export async function sendContractEmail(to: string[], subject: string, lines: string[]) {
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject,
+    text: `${lines.join('\n')}\n\n— Aicargo`,
+    html: `${lines.map(l => /^https?:\/\//.test(l)
+      ? `<p><a href="${escapeHtml(l)}">${escapeHtml(l)}</a></p>`
+      : `<p>${escapeHtml(l)}</p>`).join('')}<p style="color:#888;font-size:0.8rem;">— Aicargo</p>`,
+  })
+}

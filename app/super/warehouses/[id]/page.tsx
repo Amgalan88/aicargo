@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   WAREHOUSE_IMAGE_CATEGORIES, MAX_GALLERY_IMAGES, cloudinaryThumb, formatMnt,
 } from '@/lib/warehouse'
+import { resizeImage } from '@/lib/image-resize'
 
 interface GalleryImage {
   id: number
@@ -31,6 +32,7 @@ interface Warehouse {
   services: string | null
   pricePerTonCny: string | null
   pricePerM3Cny: string | null
+  pricePerKgMnt: string | null
   acceptingContracts: boolean
   images: GalleryImage[]
 }
@@ -38,7 +40,7 @@ interface Warehouse {
 const FORM_KEYS = [
   'slug', 'legalNameMn', 'legalNameCn', 'registerNo', 'directorName',
   'bankName', 'bankAccount', 'bankHolder', 'contractFee', 'services',
-  'pricePerTonCny', 'pricePerM3Cny',
+  'pricePerTonCny', 'pricePerM3Cny', 'pricePerKgMnt',
 ] as const
 type FormKey = typeof FORM_KEYS[number]
 type Form = Record<FormKey, string> & { acceptingContracts: boolean }
@@ -48,25 +50,6 @@ function toForm(w: Warehouse): Form {
   for (const k of FORM_KEYS) f[k] = w[k] == null ? '' : String(w[k])
   if (f.contractFee) f.contractFee = String(Math.round(Number(f.contractFee)))
   return f
-}
-
-// Утаснаас авсан 5-10MB зургийг browser дээр 1600px болгож багасгана — Vercel body хязгаар 4.5MB
-function resizeImage(file: File, max = 1600): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.onload = () => {
-      const scale = Math.min(1, max / Math.max(img.width, img.height))
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.round(img.width * scale)
-      canvas.height = Math.round(img.height * scale)
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
-      URL.revokeObjectURL(url)
-      resolve(canvas.toDataURL('image/jpeg', 0.85))
-    }
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Зураг уншигдсангүй')) }
-    img.src = url
-  })
 }
 
 export default function WarehouseSettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -258,6 +241,8 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
             value={form.pricePerTonCny} onChange={v => set('pricePerTonCny', v)} />
           <Field label="1 м³ (юань)" placeholder="жш: 450" inputMode="decimal"
             value={form.pricePerM3Cny} onChange={v => set('pricePerM3Cny', v)} />
+          <Field label="1 кг (төгрөг)" placeholder="жш: 2500" inputMode="decimal"
+            value={form.pricePerKgMnt} onChange={v => set('pricePerKgMnt', v)} />
         </div>
         <div className="form-group" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
           <label>Үйлчилгээ</label>

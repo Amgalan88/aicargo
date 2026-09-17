@@ -16,7 +16,6 @@ export default async function WarehouseLayout({ children, params }: {
     where: { id },
     select: {
       id: true, name: true, slug: true, active: true,
-      _count: { select: { sections: true } },
     },
   })
   if (!wh) notFound()
@@ -37,7 +36,7 @@ export default async function WarehouseLayout({ children, params }: {
           </a>
         )}
       </div>
-      <WarehouseTabs id={wh.id} sectionCount={wh._count.sections} />
+      <WarehouseTabs id={wh.id} />
       {children}
     </div>
   )

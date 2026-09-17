@@ -75,7 +75,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
     data.contractFee = fee
   }
-  for (const f of ['pricePerTonCny', 'pricePerM3Cny'] as const) {
+  for (const f of ['pricePerTonCny', 'pricePerM3Cny', 'pricePerKgMnt'] as const) {
     if (body[f] === undefined) continue
     const v = parseMoney(body[f])
     if (v === 'invalid') return NextResponse.json({ error: 'Тарифын дүн буруу байна' }, { status: 400 })

@@ -16,7 +16,7 @@ async function getWarehouse(slug: string) {
     select: {
       id: true, name: true, slug: true, description: true, phone: true, wechat: true,
       address: true, imageUrl: true, legalNameMn: true, legalNameCn: true,
-      services: true, pricePerTonCny: true, pricePerM3Cny: true,
+      services: true, pricePerTonCny: true, pricePerM3Cny: true, pricePerKgMnt: true,
       contractFee: true, acceptingContracts: true,
       images: {
         orderBy: [{ order: 'asc' }, { id: 'asc' }],
@@ -52,6 +52,7 @@ export default async function WarehousePage({ params }: { params: Promise<{ slug
         contractFee: wh.contractFee.toString(),
         pricePerTonCny: wh.pricePerTonCny?.toString() ?? null,
         pricePerM3Cny: wh.pricePerM3Cny?.toString() ?? null,
+        pricePerKgMnt: wh.pricePerKgMnt?.toString() ?? null,
       }} />
     </>
   )

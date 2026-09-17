@@ -63,6 +63,7 @@ export default function AdminNav({
         { href: '/admin/notify', label: 'Мэдэгдэл' },
         { href: '/admin/faq', label: 'FAQ' },
         { href: '/admin/users', label: 'Хэрэглэгчид' },
+        { href: '/admin/warehouse', label: 'Эрээний агуулах' },
         { href: '/admin/settings', label: 'Тохиргоо' },
         { href: '/admin/ai', label: 'AI Туслах' },
         ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог' }] : []),
@@ -77,6 +78,7 @@ export default function AdminNav({
         { href: '/admin/notify', label: 'Мэдэгдэл' },
         { href: '/admin/faq', label: 'FAQ' },
         { href: '/admin/users', label: 'Хэрэглэгчид' },
+        { href: '/admin/warehouse', label: 'Эрээний агуулах' },
         { href: '/admin/settings', label: 'Тохиргоо' },
         { href: '/admin/ai', label: 'AI Туслах' },
         ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог' }] : []),
@@ -152,7 +154,7 @@ export default function AdminNav({
       </div>
       <nav className="admin-nav">
         {links.map(l => (
-          <Link key={l.href} href={l.href} className={`admin-nav-link${pathname === l.href ? ' active' : ''}`}>
+          <Link key={l.href} href={l.href} className={`admin-nav-link${pathname === l.href || (l.href === '/admin/warehouse' && pathname.startsWith('/admin/warehouse/')) ? ' active' : ''}`}>
             {l.label}
           </Link>
         ))}

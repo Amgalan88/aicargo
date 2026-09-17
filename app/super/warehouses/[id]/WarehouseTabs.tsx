@@ -2,12 +2,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export default function WarehouseTabs({ id, sectionCount }: { id: number; sectionCount: number }) {
+export default function WarehouseTabs({ id }: { id: number }) {
   const pathname = usePathname()
   const base = `/super/warehouses/${id}`
   const tabs = [
     { href: base, label: 'Тохиргоо, зураг' },
-    { href: `${base}/sections`, label: `Зай талбай (${sectionCount})` },
+    { href: `${base}/template`, label: 'Гэрээний загвар' },
+    { href: `/super/contracts?warehouseId=${id}`, label: 'Гэрээнүүд' },
     { href: `${base}/history`, label: 'Өөрчлөлтийн түүх' },
   ]
   return (
