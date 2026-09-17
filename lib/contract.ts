@@ -157,6 +157,8 @@ export const STATUS_INFO: Record<ContractStatus, { label: string; color: string 
 export const PDF_STATUSES: ContractStatus[] = ['ACTIVE', 'TERMINATION_PENDING', 'TERMINATED']
 
 export const TERMINATION_NOTICE_DAYS = 30
+// Гэрээ байгуулсан каргод вэбсайтыг үнэгүй ашиглуулах хоног (гэрээний 3.5-р заалт)
+export const WEBSITE_BONUS_DAYS = 60
 export const PAYMENT_WAIT_DAYS = 30
 
 export const EVENT_LABELS: Record<string, string> = {
@@ -169,6 +171,8 @@ export const EVENT_LABELS: Record<string, string> = {
   TERMINATION_CANCELLED: 'Цуцлах мэдэгдлийг буцаасан',
   TERMINATED: 'Гэрээ цуцлагдсан',
   EXPIRED_UNPAID: 'Төлбөр хугацаандаа ороогүй тул хаагдсан',
+  WEBSITE_BONUS: 'Вэбсайт 60 хоног үнэгүй олгосон',
+  LINKED_TO_CARGO: 'Шинээр нээсэн каргод холбогдсон',
 }
 
 // ── Огноо, мөнгө ──

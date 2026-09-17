@@ -2,8 +2,8 @@ import crypto from 'crypto'
 import { Prisma, PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
-  ContractBody, CargoValues, parseBody, renderBody, formatAmount, formatContractDate,
-  mnMoneyWords, cnMoneyWords, TERMINATION_NOTICE_DAYS,
+  ContractBody, CargoValues, parseBody, renderBody, formatAmount, formatContractDate, formatDateTime,
+  mnMoneyWords, cnMoneyWords, TERMINATION_NOTICE_DAYS, WEBSITE_BONUS_DAYS,
 } from '@/lib/contract'
 import { sendContractOtpEmail, sendContractEmail, sendGuestContractLinks } from '@/lib/mail'
 
@@ -109,6 +109,32 @@ export function safeValues(json: string): CargoValues {
 export async function addEvent(db: Db, contractId: number, actor: { id: number | null; name: string }, action: string, detail?: string | null) {
   await db.contractEvent.create({
     data: { contractId, actorId: actor.id, actorName: actor.name, action, detail: detail ?? null },
+  })
+}
+
+// Гэрээ хүчин төгөлдөр болсон каргын вэбсайтын эрхийг 60 хоногоор сунгана (нэг гэрээнд нэг удаа).
+// Эрх дуусаагүй бол үлдсэн хугацаан дээр нь нэмнэ. Олгосон бол шинэ дуусах огноог буцаана
+export async function grantWebsiteBonus(db: Db, contractId: number, cargoId: number, actor: { id: number | null; name: string }): Promise<Date | null> {
+  const now = new Date()
+  const claimed = await db.warehouseContract.updateMany({
+    where: { id: contractId, cargoId, websiteBonusAt: null },
+    data: { websiteBonusAt: now },
+  })
+  if (claimed.count !== 1) return null
+  const cargo = await db.cargo.findUnique({ where: { id: cargoId }, select: { paidUntil: true } })
+  const base = cargo?.paidUntil && cargo.paidUntil > now ? cargo.paidUntil : now
+  const paidUntil = new Date(base.getTime() + WEBSITE_BONUS_DAYS * 86_400_000)
+  await db.cargo.update({ where: { id: cargoId }, data: { paidUntil } })
+  await addEvent(db, contractId, actor, 'WEBSITE_BONUS', `Вэбсайтын эрх ${formatDateTime(paidUntil).slice(0, 10)} хүртэл`)
+  return paidUntil
+}
+
+// Бүртгэлгүй хүний хүчинтэй гэрээ — "каргогоо нээх" саналд ашиглана
+export function findSignupContract(token: string) {
+  if (!ACCESS_TOKEN_RE.test(token)) return Promise.resolve(null)
+  return prisma.warehouseContract.findFirst({
+    where: { accessToken: token, cargoId: null, websiteBonusAt: null, status: { in: ['ACTIVE', 'TERMINATION_PENDING'] } },
+    select: { id: true, contractNo: true, guestEmail: true, values: true, warehouse: { select: { name: true } } },
   })
 }
 

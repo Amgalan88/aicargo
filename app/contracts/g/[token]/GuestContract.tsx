@@ -11,6 +11,7 @@ export default function GuestContract({ token }: { token: string }) {
       backLabel="Агуулахууд"
       newContractHref={w => `${warehousePath(w)}/contract`}
       afterDeleteHref="/warehouses"
+      signupHref={`/signup-cargo?contract=${token}`}
     />
   )
 }

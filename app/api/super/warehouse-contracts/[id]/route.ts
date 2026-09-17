@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireSuperAdmin, bad, readJson } from '@/lib/contract-auth'
-import { parseBody, CARGO_FIELDS, TERMINATION_NOTICE_DAYS, formatDateTime, ContractStatus } from '@/lib/contract'
-import { safeValues, addEvent, notifyParty, contractBodyFor, requestOrigin, WAREHOUSE_CONTRACT_SELECT } from '@/lib/contract-server'
+import { parseBody, CARGO_FIELDS, TERMINATION_NOTICE_DAYS, WEBSITE_BONUS_DAYS, formatDateTime, ContractStatus } from '@/lib/contract'
+import { safeValues, addEvent, notifyParty, contractBodyFor, requestOrigin, grantWebsiteBonus, appUrl, WAREHOUSE_CONTRACT_SELECT } from '@/lib/contract-server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -74,9 +74,17 @@ export async function POST(req: NextRequest, { params }: Params) {
         warehouseNote: note,
       }, 'APPROVED', note)
       if (!ok) return bad('Энэ гэрээг батлах боломжгүй төлөвт байна', 409)
+      // Гэрээтэй карго вэбсайтаа 60 хоног үнэгүй ашиглана; бүртгэлгүй бол карго нээх үед олгоно
+      const cargoId = c.cargoId
+      const bonusUntil = cargoId ? await prisma.$transaction(tx => grantWebsiteBonus(tx, c.id, cargoId, actor)) : null
       await notifyParty(c, `Гэрээ ${c.contractNo} хүчин төгөлдөр боллоо`, [
         `"${c.warehouse.name}" агуулахтай байгуулсан ${c.contractNo} гэрээний төлбөр баталгаажиж, гэрээ хүчин төгөлдөр боллоо.`,
         ...(note ? [`Агуулахын тэмдэглэл: ${note}`] : []),
+        ...(bonusUntil ? [`Бэлэг: таны aicargo вэбсайтын эрх ${WEBSITE_BONUS_DAYS} хоногоор сунгагдаж ${formatDateTime(bonusUntil).slice(0, 10)} хүртэл боллоо.`] : []),
+        ...(!c.cargoId && c.accessToken ? [
+          `Бэлэг: өөрийн каргогийн вэбсайтыг нээж ${WEBSITE_BONUS_DAYS} хоног үнэгүй ашиглаарай:`,
+          appUrl(`/signup-cargo?contract=${c.accessToken}`, origin),
+        ] : []),
         'Гэрээний PDF хувийг доорх холбоосоор татаж авна уу.',
       ], origin)
       return NextResponse.json({ ok: true })

@@ -24,6 +24,7 @@ export default function AdminNav({
   paidUntil,
   batchEnabled,
   isStaffAdmin,
+  hasWarehouseContract,
 }: {
   cargoName?: string
   logoUrl?: string
@@ -32,6 +33,7 @@ export default function AdminNav({
   paidUntil?: string | null
   batchEnabled?: boolean
   isStaffAdmin?: boolean
+  hasWarehouseContract?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -63,7 +65,7 @@ export default function AdminNav({
         { href: '/admin/notify', label: 'Мэдэгдэл' },
         { href: '/admin/faq', label: 'FAQ' },
         { href: '/admin/users', label: 'Хэрэглэгчид' },
-        { href: '/admin/warehouse', label: 'Эрээний агуулах' },
+        ...(hasWarehouseContract ? [{ href: '/admin/warehouse', label: 'Эрээний агуулах' }] : []),
         { href: '/admin/settings', label: 'Тохиргоо' },
         { href: '/admin/ai', label: 'AI Туслах' },
         ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог' }] : []),
@@ -78,7 +80,7 @@ export default function AdminNav({
         { href: '/admin/notify', label: 'Мэдэгдэл' },
         { href: '/admin/faq', label: 'FAQ' },
         { href: '/admin/users', label: 'Хэрэглэгчид' },
-        { href: '/admin/warehouse', label: 'Эрээний агуулах' },
+        ...(hasWarehouseContract ? [{ href: '/admin/warehouse', label: 'Эрээний агуулах' }] : []),
         { href: '/admin/settings', label: 'Тохиргоо' },
         { href: '/admin/ai', label: 'AI Туслах' },
         ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог' }] : []),

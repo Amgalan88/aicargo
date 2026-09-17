@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Copy, Download, FileText, CheckCircle2, Clock, AlertTriangle } from 'lucide-react'
 import { ContractDocument, ContractTimeline, StatusBadge, ContractEventRow } from '@/app/components/ContractDocument'
 import type { CargoField, ContractBody } from '@/lib/contract'
-import { formatDateTime, TERMINATION_NOTICE_DAYS, PDF_STATUSES, ContractStatus } from '@/lib/contract'
+import { formatDateTime, TERMINATION_NOTICE_DAYS, PDF_STATUSES, ContractStatus, WEBSITE_BONUS_DAYS } from '@/lib/contract'
 import { formatMnt } from '@/lib/warehouse'
 import { resizeImage } from '@/lib/image-resize'
 
@@ -49,6 +49,8 @@ interface Links {
   backLabel: string
   newContractHref: (warehouse: { id: number; slug: string | null }) => string
   afterDeleteHref: string
+  // Бүртгэлгүй хүний хүчинтэй гэрээнд: каргогоо нээж 60 хоног үнэгүй ашиглах санал
+  signupHref?: string
 }
 
 const STEPS = ['Мэдээлэл бөглөх', 'Цахимаар баталгаажуулах', 'Төлбөр төлөх', 'Гэрээ хүчинтэй']
@@ -125,6 +127,19 @@ export default function ContractWorkspace(links: Links) {
       {d.status === 'AWAITING_PAYMENT' && <PaymentPanel d={d} act={act} reload={load} />}
       {d.status === 'PAYMENT_REVIEW' && <ReviewPanel d={d} />}
       {(d.status === 'ACTIVE' || d.status === 'TERMINATION_PENDING') && <ActivePanel d={d} act={act} reload={load} pdfHref={links.pdfHref} />}
+      {d.guest && d.status === 'ACTIVE' && links.signupHref && (
+        <div className="card ct-panel" style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
+          <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>🎁</span>
+          <div style={{ flex: 1 }}>
+            <b>Каргогоо нээж {WEBSITE_BONUS_DAYS} хоног үнэгүй ашиглаарай</b>
+            <p>
+              Гэрээ байгуулсны бэлэг: өөрийн вэб хаягтай карго хянах систем — хэрэглэгч тань ачаагаа өөрөө хянана.
+              Гэрээ тань шинэ каргод автоматаар холбогдоно.
+            </p>
+            <Link href={links.signupHref} className="btn" style={btnSm}>Карго нээх →</Link>
+          </div>
+        </div>
+      )}
       {d.status === 'REJECTED' && (
         <div className="card ct-panel ct-bad">
           <AlertTriangle size={20} />

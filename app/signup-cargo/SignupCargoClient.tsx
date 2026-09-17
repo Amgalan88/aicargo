@@ -30,10 +30,23 @@ type Form = {
   aiEnabled: boolean; searchByPhone: boolean; notificationsEnabled: boolean
 }
 
-export default function SignupCargoClient() {
+export interface ContractOffer {
+  token: string
+  contractNo: string
+  warehouseName: string
+  email: string
+  cargoName: string
+  adminName: string
+  phone: string
+  days: number
+}
+
+export default function SignupCargoClient({ offer = null, offerInvalid = false }: { offer?: ContractOffer | null; offerInvalid?: boolean }) {
   const [step, setStep] = useState<'form' | 'otp' | 'done'>('form')
+  const [trialDays, setTrialDays] = useState(offer?.days ?? 30)
   const [form, setForm] = useState<Form>({
-    cargoName: '', slug: '', adminName: '', phone: '', email: '', password: '',
+    cargoName: offer?.cargoName ?? '', slug: '', adminName: offer?.adminName ?? '', phone: offer?.phone ?? '',
+    email: offer?.email ?? '', password: '',
     aiEnabled: true, searchByPhone: true, notificationsEnabled: true,
   })
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'ok' | 'taken'>('idle')
@@ -110,11 +123,12 @@ export default function SignupCargoClient() {
       const res = await fetch('/api/signup-cargo/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, code: otp, logoBase64 }),
+        body: JSON.stringify({ ...form, code: otp, logoBase64, contractToken: offer?.token }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
       setDoneSlug(data.slug)
+      if (data.trialDays) setTrialDays(data.trialDays)
       setStep('done')
     } catch { setError('Холболтын алдаа гарлаа') }
     finally { setLoading(false) }
@@ -134,9 +148,26 @@ export default function SignupCargoClient() {
         {step === 'form' && (
           <>
             <h1 className="section-title" style={{ marginBottom: '0.3rem' }}>Шинэ карго нээх</h1>
-            <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              Эхний 30 хоног үнэгүй, цаашид сарын ₮50,000. Хэдхэн минутад өөрийн карго хянах системтэй болно.
-            </p>
+            {offer ? (
+              <div style={{
+                background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)',
+                padding: '0.85rem 1rem', margin: '0.4rem 0 1.25rem', fontSize: '0.84rem', lineHeight: 1.55,
+              }}>
+                <b>🎁 {offer.days} хоног үнэгүй</b> — "{offer.warehouseName}" агуулахтай байгуулсан {offer.contractNo} гэрээний бэлэг.
+                <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 2 }}>
+                  Гэрээ тань шинэ каргод автоматаар холбогдоно. Гэрээний и-мэйлээр ({offer.email}) бүртгүүлнэ.
+                </div>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+                Эхний 30 хоног үнэгүй, цаашид сарын ₮50,000. Хэдхэн минутад өөрийн карго хянах системтэй болно.
+              </p>
+            )}
+            {offerInvalid && (
+              <p className="msg-error" style={{ marginBottom: '1rem' }}>
+                Гэрээний холбоос хүчингүй эсвэл аль хэдийн ашиглагдсан байна. Ердийн 30 хоногийн туршилтаар нээгдэнэ.
+              </p>
+            )}
 
             <div className="form-group">
               <label>Каргоны нэр <span style={{ color: 'var(--danger)' }}>*</span></label>
@@ -202,7 +233,7 @@ export default function SignupCargoClient() {
 
             <div className="form-group">
               <label>И-мэйл <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input className="input" type="email" placeholder="tanii@mail.com"
+              <input className="input" type="email" placeholder="tanii@mail.com" readOnly={!!offer}
                 value={form.email} onChange={e => set('email', e.target.value)} />
               <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.3rem' }}>
                 Энэ хаяг руу баталгаажуулах код очно
@@ -299,7 +330,7 @@ export default function SignupCargoClient() {
               </a>
             </p>
             <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-              30 хоногийн үнэгүй туршилт эхэллээ.<br />
+              {trialDays} хоногийн үнэгүй хугацаа эхэллээ.<br />
               Тохиргоо хэсгээс Эрээний хаяг, тариф, банкны мэдээллээ бөглөөрэй.
             </p>
             <a href={`https://${doneSlug}.aicargo.mn/admin/settings`} className="btn" style={{ textDecoration: 'none' }}>

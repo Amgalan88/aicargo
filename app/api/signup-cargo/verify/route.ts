@@ -4,12 +4,15 @@ import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
 import { uploadLogo } from '@/lib/cloudinary'
 import { validateSlug, TRIAL_DAYS } from '@/lib/cargo-signup'
+import { WEBSITE_BONUS_DAYS } from '@/lib/contract'
+import { findSignupContract, grantWebsiteBonus, addEvent } from '@/lib/contract-server'
 
 export async function POST(req: NextRequest) {
   let body: {
     cargoName?: string; slug?: string
     adminName?: string; phone?: string; email?: string; password?: string
     code?: string
+    contractToken?: string
     aiEnabled?: boolean; searchByPhone?: boolean; notificationsEnabled?: boolean
     logoBase64?: string
   }
@@ -50,8 +53,16 @@ export async function POST(req: NextRequest) {
   if (phoneTaken) return NextResponse.json({ error: 'Энэ утасны дугаар бүртгэлтэй байна' }, { status: 409 })
   if (emailTaken) return NextResponse.json({ error: 'Энэ и-мэйл бүртгэлтэй байна' }, { status: 409 })
 
+  // Эрээний агуулахтай хүчинтэй гэрээтэй бол 60 хоног үнэгүй — гэрээг тухайн хүний и-мэйлээр л ашиглана
+  const signupContract = body.contractToken ? await findSignupContract(body.contractToken) : null
+  if (body.contractToken && (!signupContract || signupContract.guestEmail !== email)) {
+    return NextResponse.json({ error: 'Гэрээний холбоос хүчингүй эсвэл өөр и-мэйлтэй байна' }, { status: 400 })
+  }
+  const trialDays = signupContract ? WEBSITE_BONUS_DAYS : TRIAL_DAYS
+
   const hashed = await bcrypt.hash(password, 10)
-  const paidUntil = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000)
+  // Гэрээтэй бол paidUntil-ийг grantWebsiteBonus тооцно; эхлээд одоогийн мөчөөр үүсгэнэ
+  const paidUntil = new Date(Date.now() + (signupContract ? 0 : TRIAL_DAYS) * 24 * 60 * 60 * 1000)
 
   // Cargo + ADMIN хэрэглэгчийг нэг transaction-д — аль нэг нь бүтэлгүйтвэл хоёулаа буцна
   const result = await prisma.$transaction(async tx => {
@@ -79,8 +90,23 @@ export async function POST(req: NextRequest) {
         cargoId: cargo.id,
       },
     })
+    if (signupContract) {
+      // Зочны гэрээг шинэ каргод шилжүүлж, нууц холбоосыг хүчингүй болгоно
+      const moved = await tx.warehouseContract.updateMany({
+        where: { id: signupContract.id, cargoId: null, websiteBonusAt: null },
+        data: { cargoId: cargo.id, createdById: admin.id, accessToken: null, guestEmail: null },
+      })
+      if (moved.count !== 1) throw new Error('CONTRACT_TAKEN')
+      const actor = { id: admin.id, name: adminName }
+      await addEvent(tx, signupContract.id, actor, 'LINKED_TO_CARGO', `${cargoName} (${slug}.aicargo.mn)`)
+      await grantWebsiteBonus(tx, signupContract.id, cargo.id, actor)
+    }
     return { cargo, admin }
+  }).catch(err => {
+    if (err instanceof Error && err.message === 'CONTRACT_TAKEN') return null
+    throw err
   })
+  if (!result) return NextResponse.json({ error: 'Энэ гэрээ өөр каргод холбогдсон байна' }, { status: 409 })
 
   await prisma.otp.update({ where: { id: otp.id }, data: { used: true } })
 
@@ -104,7 +130,8 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({
     ok: true,
     slug: result.cargo.slug,
-    trialDays: TRIAL_DAYS,
+    trialDays,
+    contractNo: signupContract?.contractNo ?? null,
   })
   setAuthCookie(res, token)
   return res
