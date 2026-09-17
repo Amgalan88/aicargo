@@ -286,8 +286,11 @@ model WarehouseContract {
   contractNo   String   @unique
   warehouseId  Int
   warehouse    PartnerWarehouse @relation(fields: [warehouseId], references: [id])
-  cargoId      Int
-  cargo        Cargo    @relation(fields: [cargoId], references: [id])
+  // Нэвтэрсэн каргогийн гэрээнд cargoId; нэвтрэлтгүй (зочны) гэрээнд guestEmail + accessToken
+  cargoId      Int?
+  cargo        Cargo?   @relation(fields: [cargoId], references: [id])
+  guestEmail   String?
+  accessToken  String?  @unique
   templateId   Int
   template     ContractTemplate @relation(fields: [templateId], references: [id])
   status       ContractStatus @default(DRAFT)
@@ -319,7 +322,7 @@ model WarehouseContract {
   terminationReason      String?
   terminationEffectiveAt DateTime?
   terminatedAt    DateTime?
-  createdById     Int
+  createdById     Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   events          ContractEvent[]
@@ -327,6 +330,7 @@ model WarehouseContract {
   @@index([cargoId, status])
   @@index([warehouseId, status])
   @@index([status, updatedAt])
+  @@index([guestEmail])
 }
 
 model ContractEvent {

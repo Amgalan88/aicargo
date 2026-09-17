@@ -17,7 +17,8 @@ interface Row {
   approvedAt: string | null
   terminationEffectiveAt: string | null
   cargoLegalName: string
-  cargo: { id: number; name: string; slug: string }
+  guestEmail: string | null
+  cargo: { id: number; name: string; slug: string } | null
   warehouse: { id: number; name: string }
 }
 
@@ -106,8 +107,10 @@ function SuperContracts() {
                 <tr key={c.id} onClick={() => router.push(`/super/contracts/${c.id}`)} style={{ cursor: 'pointer', borderTop: '1px solid var(--border)' }}>
                   <td style={td}><Link href={`/super/contracts/${c.id}`} style={{ fontWeight: 700, color: 'var(--text)' }}>{c.contractNo}</Link></td>
                   <td style={td}>
-                    <div style={{ fontWeight: 600 }}>{c.cargoLegalName || c.cargo.name}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{c.cargo.slug}.aicargo.mn</div>
+                    <div style={{ fontWeight: 600 }}>{c.cargoLegalName || c.cargo?.name || c.guestEmail}</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                      {c.cargo ? `${c.cargo.slug}.aicargo.mn` : <>Бүртгэлгүй · {c.guestEmail}</>}
+                    </div>
                   </td>
                   <td style={td}>{c.warehouse.name}</td>
                   <td style={td}>{formatMnt(c.fee)}</td>

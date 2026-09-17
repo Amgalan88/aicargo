@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { PAYMENT_WAIT_DAYS } from '@/lib/contract'
-import { addEvent, notifyCargo, appUrl } from '@/lib/contract-server'
+import { addEvent, notifyParty } from '@/lib/contract-server'
 
 export const maxDuration = 60
 
 const SYSTEM = { id: null, name: 'Систем' }
+const GUEST_DRAFT_DAYS = 14
 
 // Өдөр бүр: 30 хоногийн мэдэгдлийн хугацаа дууссан гэрээг цуцална, удаан төлөгдөөгүй гэрээг хаана
 export async function GET(req: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const due = await prisma.warehouseContract.findMany({
     where: { status: 'TERMINATION_PENDING', terminationEffectiveAt: { lte: now } },
-    select: { id: true, contractNo: true, cargoId: true },
+    select: { id: true, contractNo: true, cargoId: true, guestEmail: true, accessToken: true },
   })
   let terminated = 0
   for (const c of due) {
@@ -31,16 +32,15 @@ export async function GET(req: NextRequest) {
     })
     if (!ok) continue
     terminated++
-    await notifyCargo(c.cargoId, `Гэрээ ${c.contractNo} цуцлагдлаа`, [
+    await notifyParty(c, `Гэрээ ${c.contractNo} цуцлагдлаа`, [
       `${c.contractNo} гэрээний цуцлах мэдэгдлийн хугацаа дуусч, гэрээ цуцлагдлаа.`,
-      appUrl(`/admin/warehouse/${c.id}`),
     ])
   }
 
   const unpaidBefore = new Date(now.getTime() - PAYMENT_WAIT_DAYS * 86_400_000)
   const stale = await prisma.warehouseContract.findMany({
     where: { status: 'AWAITING_PAYMENT', cargoSignedAt: { lte: unpaidBefore } },
-    select: { id: true, contractNo: true, cargoId: true },
+    select: { id: true, contractNo: true, cargoId: true, guestEmail: true, accessToken: true },
   })
   let expired = 0
   for (const c of stale) {
@@ -55,11 +55,15 @@ export async function GET(req: NextRequest) {
     })
     if (!ok) continue
     expired++
-    await notifyCargo(c.cargoId, `Гэрээ ${c.contractNo} хаагдлаа`, [
+    await notifyParty(c, `Гэрээ ${c.contractNo} хаагдлаа`, [
       `${c.contractNo} гэрээний төлбөр ${PAYMENT_WAIT_DAYS} хоногийн дотор ороогүй тул хаагдлаа. Шаардлагатай бол шинээр гэрээ байгуулна уу.`,
-      appUrl('/admin/warehouse'),
     ])
   }
 
-  return NextResponse.json({ terminated, expired })
+  // Хөндөгдөөгүй зочны ноорог — и-мэйл оруулаад орхисон хүсэлтүүд
+  const staleDrafts = await prisma.warehouseContract.deleteMany({
+    where: { status: 'DRAFT', cargoId: null, updatedAt: { lte: new Date(now.getTime() - GUEST_DRAFT_DAYS * 86_400_000) } },
+  })
+
+  return NextResponse.json({ terminated, expired, guestDraftsDeleted: staleDrafts.count })
 }

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Check, Copy, Images, MapPin, Phone, MessageCircle, ChevronLeft, ChevronRight, X, FileSignature } from 'lucide-react'
-import { WAREHOUSE_IMAGE_CATEGORIES, categoryLabel, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
+import { WAREHOUSE_IMAGE_CATEGORIES, categoryLabel, cloudinaryThumb, formatMnt, warehousePath } from '@/lib/warehouse'
 
 export interface PublicImage {
   id: number
@@ -14,6 +14,7 @@ export interface PublicImage {
 
 export interface PublicWarehouse {
   id: number
+  slug: string | null
   name: string
   description: string | null
   phone: string | null
@@ -146,11 +147,11 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
                 ))}
               </ul>
               {wh.acceptingContracts ? (
-                <Link className="whv-cta" href={`/admin/warehouse?new=${wh.id}`}>Цахим гэрээ байгуулах</Link>
+                <Link className="whv-cta" href={`${warehousePath(wh)}/contract`}>Цахим гэрээ байгуулах</Link>
               ) : (
                 <button className="whv-cta" disabled>Шинэ гэрээ түр хаалттай</button>
               )}
-              <p className="whv-note">Карго компанийн админ эрхээр нэвтэрч байгуулна.</p>
+              <p className="whv-note">Бүртгэл шаардлагагүй — и-мэйлээр баталгаажуулна.</p>
               <p className="whv-note">Төлбөр гэрээ цуцлагдсан ч буцаагдахгүй.</p>
             </div>
 

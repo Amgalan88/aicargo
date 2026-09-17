@@ -5,7 +5,7 @@ import {
   ContractBody, CargoValues, parseBody, renderBody, formatAmount, formatContractDate,
   mnMoneyWords, cnMoneyWords, TERMINATION_NOTICE_DAYS,
 } from '@/lib/contract'
-import { sendContractOtpEmail, sendContractEmail } from '@/lib/mail'
+import { sendContractOtpEmail, sendContractEmail, sendGuestContractLinks } from '@/lib/mail'
 
 type Db = PrismaClient | Prisma.TransactionClient
 
@@ -174,6 +174,36 @@ export async function notifySuper(subject: string, lines: string[]) {
     if (to.length) await sendContractEmail(to, subject, lines)
   } catch (err) {
     console.error('notifySuper failed:', subject, err)
+  }
+}
+
+// Зочны гэрээний нууц холбоос — 192 бит санамсаргүй
+export function newAccessToken(): string {
+  return crypto.randomBytes(24).toString('base64url')
+}
+
+export const ACCESS_TOKEN_RE = /^[A-Za-z0-9_-]{32}$/
+
+export function guestLink(token: string): string {
+  return appUrl(`/contracts/g/${token}`)
+}
+
+export async function sendGuestLinks(email: string, items: { warehouseName: string; contractNo: string; status: string; token: string }[]) {
+  await sendGuestContractLinks(email, items.map(i => ({ ...i, link: guestLink(i.token) })))
+}
+
+// Б тал руу мэдэгдэл: бүртгэлтэй каргод эзэмшигч админ(ууд) руу, зочинд өөрийн нууц холбоосоор
+export async function notifyParty(
+  c: { id: number; cargoId: number | null; guestEmail: string | null; accessToken: string | null },
+  subject: string,
+  lines: string[],
+) {
+  if (c.cargoId) return notifyCargo(c.cargoId, subject, [...lines, appUrl(`/admin/warehouse/${c.id}`)])
+  if (!c.guestEmail || !c.accessToken) return
+  try {
+    await sendContractEmail([c.guestEmail], subject, [...lines, 'Гэрээгээ доорх холбоосоор харна уу (бусадтай хуваалцахгүй байна уу):', guestLink(c.accessToken)])
+  } catch (err) {
+    console.error('notifyParty failed:', subject, err)
   }
 }
 

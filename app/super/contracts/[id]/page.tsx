@@ -37,7 +37,8 @@ interface Detail {
   terminatedAt: string | null
   templateVersion: number
   events: ContractEventRow[]
-  cargo: { id: number; name: string; slug: string }
+  cargo: { id: number; name: string; slug: string } | null
+  guestEmail: string | null
   warehouse: { id: number; name: string }
 }
 
@@ -89,7 +90,8 @@ export default function SuperContractPage({ params }: { params: Promise<{ id: st
         <StatusBadge status={d.status} />
       </div>
       <p style={{ color: 'var(--muted)', fontSize: '0.82rem', margin: '0.2rem 0 1.2rem' }}>
-        {d.values.cargoLegalName || d.cargo.name} ({d.cargo.slug}.aicargo.mn) ↔{' '}
+        {d.values.cargoLegalName || d.cargo?.name || d.guestEmail}{' '}
+        ({d.cargo ? `${d.cargo.slug}.aicargo.mn` : `бүртгэлгүй · ${d.guestEmail}`}) ↔{' '}
         <Link href={`/super/warehouses/${d.warehouse.id}`}>{d.warehouse.name}</Link> · загвар v{d.templateVersion}
       </p>
 

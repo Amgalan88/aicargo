@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       OR: [
         { contractNo: { contains: q, mode: 'insensitive' } },
         { cargo: { name: { contains: q, mode: 'insensitive' } } },
+        { guestEmail: { contains: q, mode: 'insensitive' } },
         { values: { contains: q, mode: 'insensitive' } },
       ],
     } : {}),
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
       take: 200,
       select: {
         id: true, contractNo: true, status: true, fee: true, updatedAt: true, cargoSignedAt: true,
-        paymentClaimedAt: true, approvedAt: true, terminationEffectiveAt: true, values: true,
+        paymentClaimedAt: true, approvedAt: true, terminationEffectiveAt: true, values: true, guestEmail: true,
         cargo: { select: { id: true, name: true, slug: true } },
         warehouse: { select: { id: true, name: true } },
       },

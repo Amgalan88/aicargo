@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireSuperAdmin, bad, readJson } from '@/lib/contract-auth'
 import { parseBody, CARGO_FIELDS, TERMINATION_NOTICE_DAYS, formatDateTime, ContractStatus } from '@/lib/contract'
-import { safeValues, addEvent, notifyCargo, appUrl, contractBodyFor, WAREHOUSE_CONTRACT_SELECT } from '@/lib/contract-server'
+import { safeValues, addEvent, notifyParty, contractBodyFor, WAREHOUSE_CONTRACT_SELECT } from '@/lib/contract-server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   }) : null
   if (!c) return bad('Гэрээ олдсонгүй', 404)
 
-  const { template, warehouse, values, renderedBody, ...rest } = c
+  const { template, warehouse, values, renderedBody, accessToken: _token, ...rest } = c
   return NextResponse.json({
     ...rest,
     values: safeValues(values),
@@ -51,10 +51,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const c = id ? await prisma.warehouseContract.findUnique({
     where: { id },
-    select: { id: true, contractNo: true, status: true, cargoId: true, warehouse: { select: { name: true } } },
+    select: { id: true, contractNo: true, status: true, cargoId: true, guestEmail: true, accessToken: true, warehouse: { select: { name: true } } },
   }) : null
   if (!c) return bad('Гэрээ олдсонгүй', 404)
-  const link = appUrl(`/admin/warehouse/${c.id}`)
   const now = new Date()
 
   // Төлөв зөвхөн заасан төлвүүдээс шилжинэ — зэрэг хоёр үйлдэл давхцахаас хамгаална
@@ -74,11 +73,10 @@ export async function POST(req: NextRequest, { params }: Params) {
         warehouseNote: note,
       }, 'APPROVED', note)
       if (!ok) return bad('Энэ гэрээг батлах боломжгүй төлөвт байна', 409)
-      await notifyCargo(c.cargoId, `Гэрээ ${c.contractNo} хүчин төгөлдөр боллоо`, [
+      await notifyParty(c, `Гэрээ ${c.contractNo} хүчин төгөлдөр боллоо`, [
         `"${c.warehouse.name}" агуулахтай байгуулсан ${c.contractNo} гэрээний төлбөр баталгаажиж, гэрээ хүчин төгөлдөр боллоо.`,
         ...(note ? [`Агуулахын тэмдэглэл: ${note}`] : []),
         'Гэрээний PDF хувийг доорх холбоосоор татаж авна уу.',
-        link,
       ])
       return NextResponse.json({ ok: true })
     }
@@ -88,10 +86,9 @@ export async function POST(req: NextRequest, { params }: Params) {
       if (reason.length < 3) return bad('Татгалзах шалтгаан бичнэ үү')
       const ok = await transition(['AWAITING_PAYMENT', 'PAYMENT_REVIEW'], { status: 'REJECTED', rejectReason: reason }, 'REJECTED', reason)
       if (!ok) return bad('Энэ гэрээнээс татгалзах боломжгүй төлөвт байна', 409)
-      await notifyCargo(c.cargoId, `Гэрээ ${c.contractNo} татгалзагдлаа`, [
+      await notifyParty(c, `Гэрээ ${c.contractNo} татгалзагдлаа`, [
         `"${c.warehouse.name}" агуулахтай байгуулах ${c.contractNo} гэрээ татгалзагдлаа.`,
         `Шалтгаан: ${reason}`,
-        link,
       ])
       return NextResponse.json({ ok: true })
     }
@@ -108,11 +105,10 @@ export async function POST(req: NextRequest, { params }: Params) {
             : {}),
         }, 'TERMINATED', reason)
         if (!ok) return bad('Энэ гэрээг цуцлах боломжгүй төлөвт байна', 409)
-        await notifyCargo(c.cargoId, `Гэрээ ${c.contractNo} цуцлагдлаа`, [
+        await notifyParty(c, `Гэрээ ${c.contractNo} цуцлагдлаа`, [
           `"${c.warehouse.name}" агуулахтай байгуулсан ${c.contractNo} гэрээ цуцлагдлаа.`,
           `Шалтгаан: ${reason}`,
           'Гэрээний төлбөр буцаагдахгүй (гэрээний 2.8, 6.4-р заалт).',
-          link,
         ])
         return NextResponse.json({ ok: true })
       }
@@ -122,10 +118,9 @@ export async function POST(req: NextRequest, { params }: Params) {
         terminationReason: reason, terminationEffectiveAt: effective,
       }, 'TERMINATION_REQUESTED', reason)
       if (!ok) return bad('Зөвхөн хүчинтэй гэрээг цуцлах боломжтой', 409)
-      await notifyCargo(c.cargoId, `Гэрээ ${c.contractNo} цуцлах мэдэгдэл`, [
+      await notifyParty(c, `Гэрээ ${c.contractNo} цуцлах мэдэгдэл`, [
         `"${c.warehouse.name}" агуулах ${c.contractNo} гэрээг ${TERMINATION_NOTICE_DAYS} хоногийн дараа (${formatDateTime(effective).slice(0, 10)}) цуцлах мэдэгдэл өглөө.`,
         `Шалтгаан: ${reason}`,
-        link,
       ])
       return NextResponse.json({ ok: true })
     }
@@ -136,9 +131,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         terminationReason: null, terminationEffectiveAt: null,
       }, 'TERMINATION_CANCELLED')
       if (!ok) return bad('Цуцлагдаж буй гэрээ биш байна', 409)
-      await notifyCargo(c.cargoId, `Гэрээ ${c.contractNo} цуцлалт буцаагдлаа`, [
+      await notifyParty(c, `Гэрээ ${c.contractNo} цуцлалт буцаагдлаа`, [
         `${c.contractNo} гэрээг цуцлах мэдэгдэл буцаагдаж, гэрээ хүчинтэй хэвээр байна.`,
-        link,
       ])
       return NextResponse.json({ ok: true })
     }
