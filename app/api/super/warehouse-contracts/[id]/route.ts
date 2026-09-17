@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireSuperAdmin, bad, readJson } from '@/lib/contract-auth'
 import { parseBody, CARGO_FIELDS, TERMINATION_NOTICE_DAYS, formatDateTime, ContractStatus } from '@/lib/contract'
-import { safeValues, addEvent, notifyParty, contractBodyFor, WAREHOUSE_CONTRACT_SELECT } from '@/lib/contract-server'
+import { safeValues, addEvent, notifyParty, contractBodyFor, requestOrigin, WAREHOUSE_CONTRACT_SELECT } from '@/lib/contract-server'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   }) : null
   if (!c) return bad('Гэрээ олдсонгүй', 404)
   const now = new Date()
+  const origin = requestOrigin(req)
 
   // Төлөв зөвхөн заасан төлвүүдээс шилжинэ — зэрэг хоёр үйлдэл давхцахаас хамгаална
   const transition = (from: ContractStatus[], data: Prisma.WarehouseContractUpdateManyMutationInput, action: string, detail?: string | null) =>
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         `"${c.warehouse.name}" агуулахтай байгуулсан ${c.contractNo} гэрээний төлбөр баталгаажиж, гэрээ хүчин төгөлдөр боллоо.`,
         ...(note ? [`Агуулахын тэмдэглэл: ${note}`] : []),
         'Гэрээний PDF хувийг доорх холбоосоор татаж авна уу.',
-      ])
+      ], origin)
       return NextResponse.json({ ok: true })
     }
 
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       await notifyParty(c, `Гэрээ ${c.contractNo} татгалзагдлаа`, [
         `"${c.warehouse.name}" агуулахтай байгуулах ${c.contractNo} гэрээ татгалзагдлаа.`,
         `Шалтгаан: ${reason}`,
-      ])
+      ], origin)
       return NextResponse.json({ ok: true })
     }
 
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           `"${c.warehouse.name}" агуулахтай байгуулсан ${c.contractNo} гэрээ цуцлагдлаа.`,
           `Шалтгаан: ${reason}`,
           'Гэрээний төлбөр буцаагдахгүй (гэрээний 2.8, 6.4-р заалт).',
-        ])
+        ], origin)
         return NextResponse.json({ ok: true })
       }
       const effective = new Date(now.getTime() + TERMINATION_NOTICE_DAYS * 86_400_000)
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       await notifyParty(c, `Гэрээ ${c.contractNo} цуцлах мэдэгдэл`, [
         `"${c.warehouse.name}" агуулах ${c.contractNo} гэрээг ${TERMINATION_NOTICE_DAYS} хоногийн дараа (${formatDateTime(effective).slice(0, 10)}) цуцлах мэдэгдэл өглөө.`,
         `Шалтгаан: ${reason}`,
-      ])
+      ], origin)
       return NextResponse.json({ ok: true })
     }
 
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       if (!ok) return bad('Цуцлагдаж буй гэрээ биш байна', 409)
       await notifyParty(c, `Гэрээ ${c.contractNo} цуцлалт буцаагдлаа`, [
         `${c.contractNo} гэрээг цуцлах мэдэгдэл буцаагдаж, гэрээ хүчинтэй хэвээр байна.`,
-      ])
+      ], origin)
       return NextResponse.json({ ok: true })
     }
 

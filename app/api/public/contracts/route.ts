@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { bad, readJson } from '@/lib/contract-auth'
 import {
   WAREHOUSE_CONTRACT_SELECT, warehouseReadiness, getLatestTemplate, addEvent, contractNoFor,
-  isUniqueViolation, newAccessToken, sendGuestLinks, clientIp,
+  isUniqueViolation, newAccessToken, sendGuestLinks, clientIp, requestOrigin,
 } from '@/lib/contract-server'
 
 const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL!, token: process.env.UPSTASH_REDIS_REST_TOKEN! })
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
   if (contract?.accessToken) {
     try {
-      await sendGuestLinks(email, [{ warehouseName: warehouse.name, contractNo: contract.contractNo, status: contract.status, token: contract.accessToken }])
+      await sendGuestLinks(email, [{ warehouseName: warehouse.name, contractNo: contract.contractNo, status: contract.status, token: contract.accessToken }], requestOrigin(req))
     } catch (err) {
       console.error('guest link email failed:', err)
       return bad('И-мэйл илгээж чадсангүй. Дахин оролдоно уу', 502)

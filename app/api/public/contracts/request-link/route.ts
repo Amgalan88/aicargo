@@ -3,7 +3,7 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { prisma } from '@/lib/prisma'
 import { bad, readJson } from '@/lib/contract-auth'
-import { sendGuestLinks, clientIp } from '@/lib/contract-server'
+import { sendGuestLinks, clientIp, requestOrigin } from '@/lib/contract-server'
 
 const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL!, token: process.env.UPSTASH_REDIS_REST_TOKEN! })
 const byIp = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '15 m'), prefix: 'guest-link-ip' })
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     try {
       await sendGuestLinks(email, contracts.map(c => ({
         warehouseName: c.warehouse.name, contractNo: c.contractNo, status: c.status, token: c.accessToken!,
-      })))
+      })), requestOrigin(req))
     } catch (err) {
       console.error('guest link resend failed:', err)
     }

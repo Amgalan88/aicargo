@@ -184,12 +184,12 @@ export function newAccessToken(): string {
 
 export const ACCESS_TOKEN_RE = /^[A-Za-z0-9_-]{32}$/
 
-export function guestLink(token: string): string {
-  return appUrl(`/contracts/g/${token}`)
+export function guestLink(token: string, origin?: string): string {
+  return appUrl(`/contracts/g/${token}`, origin)
 }
 
-export async function sendGuestLinks(email: string, items: { warehouseName: string; contractNo: string; status: string; token: string }[]) {
-  await sendGuestContractLinks(email, items.map(i => ({ ...i, link: guestLink(i.token) })))
+export async function sendGuestLinks(email: string, items: { warehouseName: string; contractNo: string; status: string; token: string }[], origin?: string) {
+  await sendGuestContractLinks(email, items.map(i => ({ ...i, link: guestLink(i.token, origin) })))
 }
 
 // Б тал руу мэдэгдэл: бүртгэлтэй каргод эзэмшигч админ(ууд) руу, зочинд өөрийн нууц холбоосоор
@@ -197,19 +197,31 @@ export async function notifyParty(
   c: { id: number; cargoId: number | null; guestEmail: string | null; accessToken: string | null },
   subject: string,
   lines: string[],
+  origin?: string,
 ) {
-  if (c.cargoId) return notifyCargo(c.cargoId, subject, [...lines, appUrl(`/admin/warehouse/${c.id}`)])
+  if (c.cargoId) return notifyCargo(c.cargoId, subject, [...lines, appUrl(`/admin/warehouse/${c.id}`, origin)])
   if (!c.guestEmail || !c.accessToken) return
   try {
-    await sendContractEmail([c.guestEmail], subject, [...lines, 'Гэрээгээ доорх холбоосоор харна уу (бусадтай хуваалцахгүй байна уу):', guestLink(c.accessToken)])
+    await sendContractEmail([c.guestEmail], subject, [...lines, 'Гэрээгээ доорх холбоосоор харна уу (бусадтай хуваалцахгүй байна уу):', guestLink(c.accessToken, origin)])
   } catch (err) {
     console.error('notifyParty failed:', subject, err)
   }
 }
 
-export function appUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://www.aicargo.mn'
-  return base.replace(/\/$/, '') + path
+export const SITE_URL = 'https://www.aicargo.mn'
+
+// И-мэйлийн холбоосыг хэрэглэгчийн орсон сайтаар үүсгэнэ (локал dev → localhost, production → aicargo.mn).
+// Host-ыг хуурамчаар өгч нууц холбоосыг өөр сайт руу чиглүүлэхээс сэргийлж зөвхөн манай домэйнуудыг зөвшөөрнө
+export function requestOrigin(req: { nextUrl: URL }): string {
+  const { protocol, hostname, origin } = req.nextUrl
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return origin
+  if (hostname === 'aicargo.mn' || hostname.endsWith('.aicargo.mn')) return SITE_URL
+  if (protocol === 'https:' && hostname.endsWith('.vercel.app') && hostname.startsWith('aicargo')) return origin
+  return SITE_URL
+}
+
+export function appUrl(path: string, origin: string = SITE_URL): string {
+  return origin.replace(/\/$/, '') + path
 }
 
 export function clientIp(headers: Headers): string | null {

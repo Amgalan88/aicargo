@@ -11,7 +11,7 @@ import {
 } from '@/lib/contract'
 import {
   WAREHOUSE_CONTRACT_SELECT, ContractWarehouse, warehouseReadiness, getLatestTemplate, buildVars,
-  hashBody, safeValues, addEvent, issueContractOtp, consumeContractOtp, notifySuper, appUrl, clientIp,
+  hashBody, safeValues, addEvent, issueContractOtp, consumeContractOtp, notifySuper, appUrl, clientIp, requestOrigin,
 } from '@/lib/contract-server'
 import { uploadPaymentProof } from '@/lib/cloudinary'
 
@@ -139,6 +139,7 @@ interface ActionBody {
 
 export async function partyAction(req: NextRequest, access: PartyAccess) {
   const { actor } = access
+  const origin = requestOrigin(req)
   const body = await readJson<ActionBody>(req)
   if (!body) return bad('Invalid JSON')
   const c = await loadContract(access.where)
@@ -217,7 +218,7 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
       await notifySuper(`Шинэ гэрээ: ${c.contractNo}`, [
         `${who} "${wh.name}" агуулахтай ${c.contractNo} дугаартай гэрээг цахимаар баталгаажууллаа.`,
         'Төлбөр орсны дараа гэрээг баталгаажуулна уу.',
-        appUrl(`/super/contracts/${c.id}`),
+        appUrl(`/super/contracts/${c.id}`, origin),
       ])
       return NextResponse.json({ ok: true })
     }
@@ -248,7 +249,7 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
       await notifySuper(`Төлбөр шалгах: ${c.contractNo}`, [
         `${who} ${c.contractNo} гэрээний төлбөрөө төлсөн гэж мэдэгдлээ.`,
         `Данс: ${c.payToBank} ${c.payToAccount} · Дүн: ${Number(c.fee).toLocaleString('en-US')}₮`,
-        appUrl(`/super/contracts/${c.id}`),
+        appUrl(`/super/contracts/${c.id}`, origin),
       ])
       return NextResponse.json({ ok: true })
     }
@@ -277,7 +278,7 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
       if (!res) return bad('Гэрээний төлөв өөрчлөгдсөн байна', 409)
       await notifySuper(`Гэрээ цуцлах мэдэгдэл: ${c.contractNo}`, [
         `${who} ${c.contractNo} гэрээг цуцлах мэдэгдэл өглөө. Шалтгаан: ${reason}`,
-        appUrl(`/super/contracts/${c.id}`),
+        appUrl(`/super/contracts/${c.id}`, origin),
       ])
       return NextResponse.json({ ok: true })
     }
