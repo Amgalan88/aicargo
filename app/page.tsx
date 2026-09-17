@@ -7,9 +7,11 @@ import MarketingLanding from './MarketingLanding'
 
 export const revalidate = 0
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ preview?: string }> }) {
   const user = await getAuthUser()
-  if (user) {
+  // Super admin "/?preview=1"-ээр нэвтэрсэн хэвээр нүүр хуудсыг харна
+  const superPreview = user?.role === 'SUPER_ADMIN' && (await searchParams).preview === '1'
+  if (user && !superPreview) {
     if (user.role === 'SUPER_ADMIN') redirect('/super')
     if (user.role === 'ADMIN') {
       // Батч горимт каргогийн админ УБ руу ачигдсан хуудсаар эхэлнэ
@@ -51,6 +53,7 @@ export default async function Home() {
       stats={{ cargos, users, shipments }}
       partnerCargos={JSON.parse(JSON.stringify(partnerCargos))}
       warehouses={JSON.parse(JSON.stringify(warehouses))}
+      superPreview={superPreview}
     />
   )
 }

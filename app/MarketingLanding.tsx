@@ -70,10 +70,11 @@ function CopyChip({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function MarketingLanding({ stats, partnerCargos = [], warehouses = [] }: {
+export default function MarketingLanding({ stats, partnerCargos = [], warehouses = [], superPreview = false }: {
   stats: { cargos: number; users: number; shipments: number }
   partnerCargos?: PartnerCargo[]
   warehouses?: Warehouse[]
+  superPreview?: boolean
 }) {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<any>(null)
@@ -157,11 +158,19 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
       <nav className="nav">
         <NavLogo />
         <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginLeft: 'auto', flexShrink: 0 }}>
-          <Link href="/login" style={{ whiteSpace: 'nowrap' }}>Нэвтрэх</Link>
-          <Link href="/register" style={{ whiteSpace: 'nowrap' }}>Бүртгүүлэх</Link>
-          <Link href="/signup-cargo" className="btn" style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-            Карго нээх
-          </Link>
+          {superPreview ? (
+            <Link href="/super" className="btn" style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+              ← Super admin
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" style={{ whiteSpace: 'nowrap' }}>Нэвтрэх</Link>
+              <Link href="/register" style={{ whiteSpace: 'nowrap' }}>Бүртгүүлэх</Link>
+              <Link href="/signup-cargo" className="btn" style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                Карго нээх
+              </Link>
+            </>
+          )}
         </div>
       </nav>
 

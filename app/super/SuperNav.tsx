@@ -54,6 +54,7 @@ export default function SuperNav() {
             background: 'var(--accent-light)', border: '1px solid var(--accent)',
             borderRadius: 100, padding: '0.2rem 0.6rem',
           }}>Super Admin</span>
+          <Link href="/?preview=1" style={{ color: 'var(--muted)', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>Нүүр хуудас</Link>
           <button onClick={logout} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
             Гарах
           </button>
