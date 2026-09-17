@@ -2,7 +2,7 @@ import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
 import GuestContract from './GuestContract'
 
-export const metadata = { title: 'Агуулахын гэрээ — Aicargo', robots: { index: false, follow: false } }
+export const metadata = { title: 'Агуулахын гэрээ — Aicargo', robots: { index: false, follow: false }, referrer: 'no-referrer' as const }
 
 // Нэвтрэлтгүй гэрээ — нууц холбоос нь хандах эрх; хуудас хайлтын системд орохгүй
 export default async function GuestContractPage({ params }: { params: Promise<{ token: string }> }) {

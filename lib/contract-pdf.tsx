@@ -47,14 +47,14 @@ const s = StyleSheet.create({
   clauseNo: { width: 24, fontWeight: 700 },
   clauseBody: { flex: 1, textAlign: 'justify' },
   banner: { borderWidth: 1, borderColor: '#dc2626', color: '#dc2626', padding: 6, marginBottom: 10, textAlign: 'center', fontWeight: 700 },
-  signWrap: { flexDirection: 'row', marginTop: 18, gap: 12 },
+  signWrap: { flexDirection: 'row', marginTop: 10, gap: 12 },
   signBox: { flex: 1, borderWidth: 0.8, borderColor: LINE, borderRadius: 4, padding: 10 },
   signHead: { fontWeight: 700, fontSize: 10, marginBottom: 6, paddingBottom: 4, borderBottomWidth: 0.6, borderColor: LINE },
   row: { flexDirection: 'row', marginBottom: 2.5, fontSize: 8.6 },
   rowLabel: { width: 104, color: MUTED },
   rowVal: { flex: 1 },
   stamp: { marginTop: 8, padding: 5, borderWidth: 0.8, borderColor: '#16a34a', borderRadius: 3, color: '#15803d', fontSize: 8.2 },
-  verify: { marginTop: 14, padding: 8, backgroundColor: '#fafaf9', borderWidth: 0.6, borderColor: LINE, borderRadius: 4, fontSize: 8 },
+  verify: { marginTop: 8, padding: 7, backgroundColor: '#fafaf9', borderWidth: 0.6, borderColor: LINE, borderRadius: 4, fontSize: 8 },
   footerLeft: { position: 'absolute', bottom: 24, left: 48, fontSize: 7.4, color: MUTED },
 })
 
@@ -65,6 +65,7 @@ export interface ContractPdfData {
   cargoSignedAt: Date
   cargoSignerName: string
   cargoSignerEmail: string | null
+  cargoSignIp: string | null
   approvedAt: Date
   approvedByName: string
   paidAt: Date | null
@@ -92,7 +93,7 @@ function ContractPdf({ d }: { d: ContractPdfData }) {
       <Page size="A4" style={s.page} wrap>
         <View style={s.topBar} fixed>
           <Text>Гэрээ № / 协议编号: {d.contractNo}</Text>
-          <Text render={({ pageNumber, totalPages }) => `aicargo.mn · ${pageNumber} / ${totalPages}`} />
+          <Text>aicargo.mn</Text>
         </View>
 
         {d.status === 'TERMINATED' && d.terminatedAt && (
@@ -147,7 +148,7 @@ function ContractPdf({ d }: { d: ContractPdfData }) {
         })}
 
         <View wrap={false}>
-          <Text style={[s.headingMn, { marginTop: 16 }]}>Гэрээ байгуулсан</Text>
+          <Text style={[s.headingMn, { marginTop: 12 }]}>Гэрээ байгуулсан</Text>
           <Text style={s.headingCn}>协议签署方</Text>
           <View style={s.signWrap}>
             <View style={s.signBox}>
@@ -174,19 +175,19 @@ function ContractPdf({ d }: { d: ContractPdfData }) {
                 <Text style={{ fontWeight: 700 }}>Цахимаар баталгаажуулсан / 已电子签署</Text>
                 <Text>{formatDateTime(d.cargoSignedAt)}</Text>
                 <Text>{d.cargoSignerName}{d.cargoSignerEmail ? ` · ${d.cargoSignerEmail}` : ''}</Text>
-                <Text>И-мэйл кодоор баталгаажсан / 邮箱验证码确认</Text>
+                <Text>aicargo.mn вэбээр баталгаажсан / 网页确认{d.cargoSignIp ? ` · IP ${d.cargoSignIp}` : ''}</Text>
               </View>
             </View>
           </View>
-        </View>
 
-        <View style={s.verify} wrap={false}>
+        <View style={s.verify}>
             <Text>
               Энэхүү гэрээг aicargo.mn системээр цахимаар байгуулсан. Гэрээний агуулгын SHA-256 хяналтын код:
             </Text>
             <Text style={{ fontFamily: 'Courier', fontSize: 7.4, marginVertical: 2 }}>{d.bodyHash}</Text>
             <Text style={s.cn}>本协议通过aicargo.mn系统以电子方式订立，上方为协议内容的SHA-256校验码。</Text>
             <Text style={{ marginTop: 2 }}>Шалгах / 验证: {d.verifyUrl}</Text>
+        </View>
         </View>
 
         <Text style={s.footerLeft} fixed>{d.contractNo} · SHA-256 {shortHash}…</Text>

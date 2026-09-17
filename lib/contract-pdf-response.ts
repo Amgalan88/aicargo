@@ -26,6 +26,7 @@ export async function contractPdfResponse(where: Prisma.WarehouseContractWhereIn
     cargoSignedAt: c.cargoSignedAt,
     cargoSignerName: c.cargoSignerName ?? '',
     cargoSignerEmail: c.cargoSignerEmail,
+    cargoSignIp: c.cargoSignIp,
     approvedAt: c.approvedAt,
     approvedByName: c.approvedByName ?? '',
     paidAt: c.paidAt,

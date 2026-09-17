@@ -5,7 +5,7 @@ import {
   ContractBody, CargoValues, parseBody, renderBody, formatAmount, formatContractDate, formatDateTime,
   mnMoneyWords, cnMoneyWords, TERMINATION_NOTICE_DAYS, WEBSITE_BONUS_DAYS,
 } from '@/lib/contract'
-import { sendContractOtpEmail, sendContractEmail, sendGuestContractLinks } from '@/lib/mail'
+import { sendContractEmail, sendGuestContractLinks } from '@/lib/mail'
 
 type Db = PrismaClient | Prisma.TransactionClient
 
@@ -140,30 +140,6 @@ export function findSignupContract(token: string) {
 
 export function contractNoFor(id: number, date = new Date()): string {
   return `AC${date.getFullYear()}-${String(id).padStart(5, '0')}`
-}
-
-// ── OTP ── Otp хүснэгтийг нууц үг сэргээхтэй хуваалцдаг тул email талбарт гэрээний түлхүүр угтварлана
-function otpKey(contractId: number, email: string) {
-  return `contract:${contractId}:${email.toLowerCase()}`
-}
-
-export async function issueContractOtp(contractId: number, email: string, contractNo: string, warehouseName: string) {
-  const key = otpKey(contractId, email)
-  await prisma.otp.updateMany({ where: { email: key, used: false }, data: { used: true } })
-  const code = crypto.randomInt(100000, 1000000).toString()
-  await prisma.otp.create({ data: { email: key, code, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } })
-  await sendContractOtpEmail(email, code, contractNo, warehouseName)
-}
-
-export async function consumeContractOtp(db: Db, contractId: number, email: string, code: string): Promise<boolean> {
-  const otp = await db.otp.findFirst({
-    where: { email: otpKey(contractId, email), code, used: false, expiresAt: { gt: new Date() } },
-    orderBy: { id: 'desc' },
-    select: { id: true },
-  })
-  if (!otp) return false
-  const res = await db.otp.updateMany({ where: { id: otp.id, used: false }, data: { used: true } })
-  return res.count === 1
 }
 
 // ── Мэдэгдэл ──

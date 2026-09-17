@@ -5,18 +5,18 @@ import { prisma } from '@/lib/prisma'
 import { bad, readJson } from '@/lib/contract-auth'
 import {
   WAREHOUSE_CONTRACT_SELECT, warehouseReadiness, getLatestTemplate, addEvent, contractNoFor,
-  isUniqueViolation, newAccessToken, sendGuestLinks, clientIp, requestOrigin,
+  newAccessToken, sendGuestLinks, clientIp, requestOrigin,
 } from '@/lib/contract-server'
 
 const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL!, token: process.env.UPSTASH_REDIS_REST_TOKEN! })
 const byIp = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '15 m'), prefix: 'guest-contract-ip' })
 const byEmail = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '15 m'), prefix: 'guest-contract-email' })
 
-const OPEN = ['DRAFT', 'AWAITING_PAYMENT', 'PAYMENT_REVIEW', 'ACTIVE', 'TERMINATION_PENDING'] as const
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
-// Нэвтрэлтгүй гэрээ эхлүүлэх: ноорог үүсгээд нууц холбоосыг зөвхөн и-мэйлээр илгээнэ (хариунд буцаахгүй) —
-// ингэснээр холбоос нээсэн хүн тухайн и-мэйлийг эзэмшдэг нь батлагдана
+// Нэвтрэлтгүй гэрээ эхлүүлэх: ноорог үүсгээд нууц холбоосыг шууд буцаана — хэрэглэгч вэб дээрээ үргэлжлүүлнэ.
+// И-мэйл нь зөвхөн холбоо барих, мэдэгдэл авах хаяг (баталгаажуулдаггүй) тул и-мэйлээр хуучин гэрээг хэзээ ч буцаахгүй;
+// холбоос нь хөтчид хадгалагдаж, хүсвэл и-мэйлээр нөөц болж очно
 export async function POST(req: NextRequest) {
   const body = await readJson<{ warehouseId?: number; email?: string; website?: string }>(req)
   if (!body) return bad('Invalid JSON')
@@ -39,46 +39,31 @@ export async function POST(req: NextRequest) {
     return bad('Энэ агуулах одоогоор цахим гэрээ хүлээн авахгүй байна', 409)
   }
 
-  const findOpen = () => prisma.warehouseContract.findFirst({
-    where: { cargoId: null, guestEmail: email, warehouseId, status: { in: [...OPEN] } },
-    select: { contractNo: true, status: true, accessToken: true },
+  const token = newAccessToken()
+  const contract = await prisma.$transaction(async tx => {
+    const created = await tx.warehouseContract.create({
+      data: {
+        contractNo: `TMP-${crypto.randomUUID()}`,
+        warehouseId,
+        guestEmail: email,
+        accessToken: token,
+        templateId: template.id,
+        fee: warehouse.contractFee,
+        values: JSON.stringify({ repPosition: 'Захирал', destination: 'Улаанбаатар хот' }),
+      },
+      select: { id: true, createdAt: true },
+    })
+    const contractNo = contractNoFor(created.id, created.createdAt)
+    await tx.warehouseContract.update({ where: { id: created.id }, data: { contractNo } })
+    await addEvent(tx, created.id, { id: null, name: email }, 'CREATED', 'Бүртгэлгүй хэрэглэгч')
+    return { contractNo }
   })
 
-  let contract = await findOpen()
-  if (!contract) {
-    try {
-      contract = await prisma.$transaction(async tx => {
-        const token = newAccessToken()
-        const created = await tx.warehouseContract.create({
-          data: {
-            contractNo: `TMP-${crypto.randomUUID()}`,
-            warehouseId,
-            guestEmail: email,
-            accessToken: token,
-            templateId: template.id,
-            fee: warehouse.contractFee,
-            values: JSON.stringify({ repPosition: 'Захирал', destination: 'Улаанбаатар хот' }),
-          },
-          select: { id: true, createdAt: true },
-        })
-        const contractNo = contractNoFor(created.id, created.createdAt)
-        await tx.warehouseContract.update({ where: { id: created.id }, data: { contractNo } })
-        await addEvent(tx, created.id, { id: null, name: email }, 'CREATED', 'Бүртгэлгүй хэрэглэгч')
-        return { contractNo, status: 'DRAFT' as const, accessToken: token }
-      })
-    } catch (err) {
-      if (!isUniqueViolation(err)) throw err
-      contract = await findOpen()
-    }
+  // Нөөц холбоос — илгээгдээгүй ч гэрээ үргэлжилнэ
+  try {
+    await sendGuestLinks(email, [{ warehouseName: warehouse.name, contractNo: contract.contractNo, status: 'DRAFT', token }], requestOrigin(req))
+  } catch (err) {
+    console.error('guest link email failed:', err)
   }
-
-  if (contract?.accessToken) {
-    try {
-      await sendGuestLinks(email, [{ warehouseName: warehouse.name, contractNo: contract.contractNo, status: contract.status, token: contract.accessToken }], requestOrigin(req))
-    } catch (err) {
-      console.error('guest link email failed:', err)
-      return bad('И-мэйл илгээж чадсангүй. Дахин оролдоно уу', 502)
-    }
-  }
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, token })
 }

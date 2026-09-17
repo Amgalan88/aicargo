@@ -51,6 +51,8 @@ interface Links {
   afterDeleteHref: string
   // Бүртгэлгүй хүний хүчинтэй гэрээнд: каргогоо нээж 60 хоног үнэгүй ашиглах санал
   signupHref?: string
+  onLoaded?: (d: { contractNo: string; warehouse: { id: number; name: string } }) => void
+  onMissing?: () => void
 }
 
 const STEPS = ['Мэдээлэл бөглөх', 'Цахимаар баталгаажуулах', 'Төлбөр төлөх', 'Гэрээ хүчинтэй']
@@ -63,7 +65,7 @@ function stepOf(s: ContractStatus): number {
 }
 
 export default function ContractWorkspace(links: Links) {
-  const { api, backHref, backLabel } = links
+  const { api, backHref, backLabel, onLoaded, onMissing } = links
   const router = useRouter()
   const [d, setD] = useState<Detail | null>(null)
   const [error, setError] = useState('')
@@ -71,9 +73,14 @@ export default function ContractWorkspace(links: Links) {
   const load = useCallback(async () => {
     const res = await fetch(api)
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) { setError(data.error || 'Ачаалахад алдаа гарлаа'); return }
+    if (!res.ok) {
+      setError(data.error || 'Ачаалахад алдаа гарлаа')
+      if (res.status === 404) onMissing?.()
+      return
+    }
     setD(data)
-  }, [api])
+    onLoaded?.(data)
+  }, [api, onLoaded, onMissing])
   useEffect(() => { load() }, [load])
 
   async function act(body: Record<string, unknown>): Promise<boolean> {
@@ -110,7 +117,7 @@ export default function ContractWorkspace(links: Links) {
       </div>
       <p style={{ color: 'var(--muted)', fontSize: '0.82rem', margin: '0 0 1.1rem' }}>
         Гэрээ № {d.contractNo}
-        {d.guest && d.me.email && <> · {d.me.email} · <span style={{ color: '#d97706' }}>энэ хуудасны холбоосыг бусадтай хуваалцахгүй байна уу</span></>}
+        {d.guest && d.me.email && <> · {d.me.email} · <span style={{ color: '#d97706' }}>энэ хуудасны холбоосыг хадгалж авна уу, бусадтай хуваалцахгүй</span></>}
       </p>
 
       {!closed && (
@@ -186,8 +193,6 @@ function DraftPanel({ d, api, reload, act, onDeleted }: {
   const [saving, setSaving] = useState(false)
   const [agree, setAgree] = useState(false)
   const [signer, setSigner] = useState(d.me.name)
-  const [otpSentTo, setOtpSentTo] = useState<string | null>(null)
-  const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -208,26 +213,18 @@ function DraftPanel({ d, api, reload, act, onDeleted }: {
     const next = { ...values, [key]: v }
     setValues(next)
     setDirty(true)
-    setOtpSentTo(null)
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => save(next), 900)
   }
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
-  async function sendOtp() {
+  async function sign() {
+    if (timer.current) clearTimeout(timer.current)
     if (dirty && !await save(values)) return
     setBusy(true)
-    const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send-otp' }) })
-    const data = await res.json().catch(() => ({}))
-    setBusy(false)
-    if (!res.ok) { toast.error(data.error || 'Код илгээж чадсангүй'); return }
-    setOtpSentTo(data.email)
-    toast.success('Баталгаажуулах код илгээлээ')
-  }
-
-  async function sign() {
-    setBusy(true)
-    const ok = await act({ action: 'sign', code, signerName: signer, agree, previewHash: d.previewHash })
+    // Хадгалсны дараах хамгийн сүүлийн текстийн hash-ийг ашиглана
+    const fresh = await fetch(api).then(r => r.ok ? r.json() : null).catch(() => null)
+    const ok = await act({ action: 'sign', signerName: signer, agree, previewHash: fresh?.previewHash ?? d.previewHash })
     setBusy(false)
     if (!ok) return
     toast.success('Гэрээг баталгаажууллаа')
@@ -297,32 +294,13 @@ function DraftPanel({ d, api, reload, act, onDeleted }: {
                   <label>Баталгаажуулж буй хүний бүтэн нэр</label>
                   <input className="input" value={signer} onChange={e => setSigner(e.target.value)} />
                 </div>
-                {!otpSentTo ? (
-                  <button className="btn" style={{ width: '100%' }} disabled={!agree || signer.trim().length < 3 || busy || saving}
-                    onClick={sendOtp}>
-                    {busy ? 'Илгээж байна...' : 'И-мэйлээр код авах'}
-                  </button>
-                ) : (
-                  <>
-                    <p style={{ fontSize: '0.8rem', margin: '0 0 0.5rem' }}>
-                      <b>{otpSentTo}</b> хаягт 6 оронтой код илгээлээ.{' '}
-                      <button className="ct-link" onClick={sendOtp} disabled={busy}>Дахин илгээх</button>
-                    </p>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input className="input" inputMode="numeric" maxLength={6} placeholder="123456" value={code}
-                        onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-                        style={{ letterSpacing: '0.3em', fontWeight: 700, textAlign: 'center' }} />
-                      <button className="btn" disabled={code.length !== 6 || !agree || busy || dirty} onClick={sign}>
-                        {busy ? '...' : 'Баталгаажуулах'}
-                      </button>
-                    </div>
-                  </>
-                )}
-                {!d.me.email && !d.guest && (
-                  <p className="msg-error" style={{ marginTop: '0.6rem', fontSize: '0.78rem' }}>
-                    Таны бүртгэлд и-мэйл алга тул код илгээх боломжгүй. Aicargo-той холбогдож и-мэйлээ бүртгүүлнэ үү.
-                  </p>
-                )}
+                <button className="btn" style={{ width: '100%' }} disabled={!agree || signer.trim().length < 3 || busy || saving}
+                  onClick={sign}>
+                  {busy ? 'Баталгаажуулж байна...' : 'Гэрээг баталгаажуулах'}
+                </button>
+                <p className="ct-muted" style={{ fontSize: '0.72rem', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
+                  Энэ товчийг дарснаар гэрээнд цахимаар гарын үсэг зурсанд тооцогдоно. Таны нэр, огноо, IP хаяг гэрээнд бүртгэгдэнэ.
+                </p>
               </>
             )}
             <button className="ct-link" style={{ marginTop: '0.9rem', color: 'var(--danger)' }} onClick={remove}>Ноорог устгах</button>

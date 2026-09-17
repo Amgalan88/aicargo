@@ -1,8 +1,6 @@
 // Гэрээний тал (Б тал)-ын үйлдлүүд — нэвтэрсэн каргогийн админ болон нууц холбоостой зочин хоёуланд ижил
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
-import { Ratelimit } from '@upstash/ratelimit'
-import { Redis } from '@upstash/redis'
 import { prisma } from '@/lib/prisma'
 import { bad, readJson } from '@/lib/contract-auth'
 import {
@@ -11,7 +9,7 @@ import {
 } from '@/lib/contract'
 import {
   WAREHOUSE_CONTRACT_SELECT, ContractWarehouse, warehouseReadiness, getLatestTemplate, buildVars,
-  hashBody, safeValues, addEvent, issueContractOtp, consumeContractOtp, notifySuper, appUrl, clientIp, requestOrigin,
+  hashBody, safeValues, addEvent, notifySuper, appUrl, clientIp, requestOrigin,
 } from '@/lib/contract-server'
 import { uploadPaymentProof } from '@/lib/cloudinary'
 
@@ -24,15 +22,6 @@ export interface PartyAccess {
   signerName: string
   guest: boolean
 }
-
-const otpLimit = new Ratelimit({
-  redis: new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-  }),
-  limiter: Ratelimit.slidingWindow(3, '10 m'),
-  prefix: 'contract-otp',
-})
 
 async function loadContract(where: Prisma.WarehouseContractWhereInput) {
   return prisma.warehouseContract.findFirst({
@@ -128,7 +117,6 @@ export async function deleteDraft(access: PartyAccess) {
 
 interface ActionBody {
   action?: string
-  code?: string
   signerName?: string
   agree?: boolean
   previewHash?: string
@@ -148,26 +136,13 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
   const who = access.guest ? `${values.cargoLegalName || access.email} (бүртгэлгүй)` : `"${values.cargoLegalName}" карго`
 
   switch (body.action) {
-    case 'send-otp': {
-      if (c.status !== 'DRAFT') return bad('Гэрээ аль хэдийн баталгаажсан байна', 409)
-      const missing = missingFields(values)
-      if (missing.length) return bad(`Дутуу талбар: ${missing.map(f => f.label).join(', ')}`)
-      if (!access.email) return bad('Таны бүртгэлд и-мэйл хаяг алга. Баталгаажуулах код илгээхийн тулд и-мэйлээ бүртгүүлнэ үү', 409)
-      const { success } = await otpLimit.limit(`c${c.id}:${access.email}`)
-      if (!success) return bad('Хэт олон оролдлого. 10 минутын дараа дахин оролдоно уу', 429)
-      await issueContractOtp(c.id, access.email, c.contractNo, c.warehouse.name)
-      return NextResponse.json({ ok: true, email: maskEmail(access.email) })
-    }
-
     case 'sign': {
       if (c.status !== 'DRAFT') return bad('Гэрээ аль хэдийн баталгаажсан байна', 409)
       if (body.agree !== true) return bad('Гэрээний нөхцөлийг зөвшөөрнө үү')
       const signerName = body.signerName?.replace(/\s+/g, ' ').trim() ?? ''
       if (signerName.length < 3) return bad('Бүтэн нэрээ бичнэ үү')
-      if (!/^\d{6}$/.test(body.code ?? '')) return bad('6 оронтой код оруулна уу')
       const missing = missingFields(values)
       if (missing.length) return bad(`Дутуу талбар: ${missing.map(f => f.label).join(', ')}`)
-      if (!access.email) return bad('Таны бүртгэлд и-мэйл хаяг алга', 409)
       const email = access.email
 
       const latest = await getLatestTemplate(prisma, c.warehouseId)
@@ -189,8 +164,8 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
       )
       const renderedBody = JSON.stringify(frozen)
 
-      const ok = await prisma.$transaction(async tx => {
-        if (!await consumeContractOtp(tx, c.id, email, body.code!)) return false
+      try {
+      await prisma.$transaction(async tx => {
         const res = await tx.warehouseContract.updateMany({
           where: { id: c.id, status: 'DRAFT' },
           data: {
@@ -209,11 +184,16 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
             cargoSignIp: clientIp(req.headers),
           },
         })
-        if (res.count !== 1) throw new Error('state changed')
-        await addEvent(tx, c.id, { id: actor.id, name: access.guest ? signerName : actor.name }, 'SIGNED', `${signerName} · ${email}`)
-        return true
+        if (res.count !== 1) throw new Error('STATE_CHANGED')
+        // Вэб дээр баталгаажуулсан нотолгоо: нэр, и-мэйл, IP, төхөөрөмж
+        const device = req.headers.get('user-agent')?.slice(0, 160)
+        await addEvent(tx, c.id, { id: actor.id, name: access.guest ? signerName : actor.name }, 'SIGNED',
+          [signerName, email, device].filter(Boolean).join(' · '))
       })
-      if (!ok) return bad('Код буруу эсвэл хугацаа дууссан байна')
+      } catch (err) {
+        if (err instanceof Error && err.message === 'STATE_CHANGED') return bad('Гэрээ аль хэдийн баталгаажсан байна', 409)
+        throw err
+      }
 
       await notifySuper(`Шинэ гэрээ: ${c.contractNo}`, [
         `${who} "${wh.name}" агуулахтай ${c.contractNo} дугаартай гэрээг цахимаар баталгаажууллаа.`,
@@ -307,9 +287,4 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
     default:
       return bad('Үйлдэл буруу')
   }
-}
-
-function maskEmail(email: string): string {
-  const [name, domain] = email.split('@')
-  return `${name.slice(0, 2)}${'*'.repeat(Math.max(1, name.length - 2))}@${domain}`
 }
