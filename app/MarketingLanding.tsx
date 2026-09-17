@@ -6,6 +6,7 @@ import NavLogo from './components/NavLogo'
 import { Reveal, Stagger, StaggerItem, AnimatedNumber, TiltCard } from './components/motion'
 import { Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import { warehousePath, cloudinaryThumb } from '@/lib/warehouse'
 
 // 3D hero — зөвхөн client дээр, тусдаа chunk (SSR-гүй)
 const Hero3D = dynamic(() => import('./components/Hero3D'), { ssr: false })
@@ -47,9 +48,7 @@ const STEPS = [
 
 interface PartnerCargo { id: number; name: string; logoUrl: string | null }
 interface Warehouse {
-  id: number; name: string; description: string | null
-  phone: string | null; wechat: string | null; address: string | null
-  imageUrl: string | null
+  id: number; slug: string | null; name: string; imageUrl: string | null
 }
 
 function CopyChip({ label, value }: { label: string; value: string }) {
@@ -80,7 +79,6 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [whDetail, setWhDetail] = useState<Warehouse | null>(null)
   const whScroll = useRef<HTMLDivElement>(null)
   const [shotIdx, setShotIdx] = useState<number | null>(null)
   const [demoOpen, setDemoOpen] = useState(false)
@@ -379,7 +377,8 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 Эрээний түншлэгч агуулахууд
               </h2>
               <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
-                Хамтран ажилладаг найдвартай агуулахууд — дарж дэлгэрэнгүй үзнэ үү
+                Хамтран ажилладаг найдвартай агуулахууд — зураг, үйлчилгээг нь үзээд гэрээ байгуулаарай ·{' '}
+                <Link href="/warehouses" style={{ color: 'var(--accent)', fontWeight: 600 }}>Бүгдийг үзэх →</Link>
               </p>
               <div style={{ position: 'relative' }}>
                 {warehouses.length > 2 && (
@@ -394,11 +393,11 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                   padding: '2px', WebkitOverflowScrolling: 'touch',
                 }}>
                   {warehouses.map(w => (
-                    <button key={w.id} onClick={() => setWhDetail(w)} style={{
+                    <Link key={w.id} href={warehousePath(w)} style={{
                       background: 'var(--surface)', border: '1px solid var(--border)',
                       borderRadius: 'var(--radius)', overflow: 'hidden',
                       display: 'flex', flexDirection: 'column', textAlign: 'left',
-                      cursor: 'pointer', padding: 0, fontFamily: 'inherit',
+                      cursor: 'pointer', padding: 0, fontFamily: 'inherit', textDecoration: 'none',
                       transition: 'border-color 0.12s, transform 0.12s',
                       flex: '0 0 auto', width: 168, scrollSnapAlign: 'start',
                     }}
@@ -407,7 +406,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                     >
                       {w.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={w.imageUrl} alt={w.name}
+                        <img src={cloudinaryThumb(w.imageUrl, 336)} alt={w.name}
                           style={{ width: '100%', height: 84, objectFit: 'cover', display: 'block' }} />
                       ) : (
                         <div style={{
@@ -419,7 +418,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                         <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 600, marginTop: 2 }}>Дэлгэрэнгүй →</div>
                       </div>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -671,55 +670,6 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               className="btn" style={{ display: 'block', textAlign: 'center', marginTop: '1rem', padding: '0.7rem', textDecoration: 'none', fontSize: '0.9rem' }}>
               demo.aicargo.mn нээх →
             </a>
-          </div>
-        </div>
-      )}
-
-      {whDetail && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'var(--bg)',
-          zIndex: 1000, overflowY: 'auto',
-          display: 'flex', flexDirection: 'column',
-        }}>
-          <div style={{ position: 'relative' }}>
-            {whDetail.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={whDetail.imageUrl} alt={whDetail.name}
-                style={{ width: '100%', height: '38vh', objectFit: 'cover', display: 'block' }} />
-            ) : (
-              <div style={{
-                width: '100%', height: '22vh', background: 'var(--surface2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem',
-              }}>🏭</div>
-            )}
-            <button onClick={() => setWhDetail(null)} aria-label="Хаах" style={{
-              position: 'absolute', top: 'calc(12px + env(safe-area-inset-top))', right: 14,
-              background: 'rgba(0,0,0,0.55)', border: 'none',
-              borderRadius: '50%', width: 36, height: 36, cursor: 'pointer',
-              fontSize: '1rem', lineHeight: 1, color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>✕</button>
-          </div>
-          <div style={{ padding: '1.25rem 5% 2rem', maxWidth: 640, margin: '0 auto', width: '100%', flex: 1 }}>
-            <h3 style={{ margin: '0 0 0.6rem', fontSize: '1.25rem', fontWeight: 800 }}>{whDetail.name}</h3>
-            <div>
-              {whDetail.description && (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text)', lineHeight: 1.65, margin: '0 0 0.75rem', whiteSpace: 'pre-wrap' }}>
-                  {whDetail.description}
-                </p>
-              )}
-              {whDetail.address && (
-                <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0 0 0.75rem' }}>
-                  📍 {whDetail.address}
-                </p>
-              )}
-              {(whDetail.phone || whDetail.wechat) && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
-                  {whDetail.phone && <CopyChip label="📞" value={whDetail.phone} />}
-                  {whDetail.wechat && <CopyChip label="WeChat:" value={whDetail.wechat} />}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}

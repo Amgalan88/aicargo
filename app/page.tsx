@@ -38,9 +38,11 @@ export default async function Home() {
       select: { id: true, name: true, logoUrl: true },
       orderBy: { id: 'asc' },
     }),
-    (prisma as any).partnerWarehouse.findMany({
+    // Данс зэрэг нууц талбар client руу гарахгүйн тулд зөвхөн картад хэрэгтэйг нь авна
+    prisma.partnerWarehouse.findMany({
       where: { active: true },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
+      select: { id: true, slug: true, name: true, imageUrl: true },
     }),
   ])
 

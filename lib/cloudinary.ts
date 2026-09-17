@@ -33,4 +33,17 @@ export async function uploadWarehouseImage(base64: string, publicId: string): Pr
   return result.secure_url
 }
 
+// Галерейд crop хийхгүй — агуулахын бодит харагдах байдлыг бүтнээр нь үзүүлнэ
+export async function uploadWarehouseGalleryImage(base64: string, warehouseId: number): Promise<{ url: string; publicId: string }> {
+  const result = await cloudinary.uploader.upload(base64, {
+    folder: `partner-warehouses/${warehouseId}/gallery`,
+    transformation: [{ width: 1600, height: 1600, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+  })
+  return { url: result.secure_url, publicId: result.public_id }
+}
+
+export async function deleteCloudinaryImage(publicId: string): Promise<void> {
+  await cloudinary.uploader.destroy(publicId)
+}
+
 export default cloudinary

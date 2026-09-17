@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { uploadWarehouseImage } from '@/lib/cloudinary'
+import { uploadWarehouseImage, deleteCloudinaryImage } from '@/lib/cloudinary'
 
 async function requireSuper(req: NextRequest) {
   const user = await getVerifiedUserFromRequest(req)
@@ -90,6 +90,13 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID шаардлагатай' }, { status: 400 })
 
-  await (prisma as any).partnerWarehouse.delete({ where: { id: Number(id) } })
+  const images = await prisma.warehouseImage.findMany({
+    where: { warehouseId: Number(id) },
+    select: { publicId: true },
+  })
+  await prisma.partnerWarehouse.delete({ where: { id: Number(id) } })
+  await Promise.all(images.map(img =>
+    deleteCloudinaryImage(img.publicId).catch(err => console.error('Cloudinary delete failed:', img.publicId, err))
+  ))
   return NextResponse.json({ ok: true })
 }

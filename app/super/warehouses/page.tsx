@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface Warehouse {
   id: number
@@ -29,6 +31,7 @@ export default function WarehousesPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   function load() {
     fetch('/api/super/warehouses')
@@ -91,6 +94,11 @@ export default function WarehousesPage() {
       setError(d.error || 'Алдаа гарлаа')
       return
     }
+    // Шинэ агуулахыг үүсгэмэгц хуулийн мэдээлэл, данс, галерей бөглөх хуудас руу шилжинэ
+    if (!editId) {
+      const created = await res.json().catch(() => null)
+      if (created?.id) { router.push(`/super/warehouses/${created.id}`); return }
+    }
     reset()
     load()
   }
@@ -118,7 +126,8 @@ export default function WarehousesPage() {
     <div className="page-wide" style={{ maxWidth: 760 }}>
       <h1 className="section-title">Эрээний түншлэгч агуулахууд</h1>
       <p style={{ color: 'var(--muted)', fontSize: '0.83rem', marginBottom: '1.25rem' }}>
-        Эдгээр агуулах aicargo.mn-ийн нүүр хуудсанд харагдана.
+        Эдгээр агуулах aicargo.mn-ийн нүүр хуудас болон /warehouses хуудсанд харагдана.
+        Хуулийн мэдээлэл, данс, гэрээний төлбөр, зургийн галерейг ⚙️ товчоор тохируулна.
       </p>
 
       {/* Form */}
@@ -225,6 +234,7 @@ export default function WarehousesPage() {
                 <button onClick={() => toggleActive(w)} title={w.active ? 'Нуух' : 'Идэвхжүүлэх'} style={iconBtn}>
                   {w.active ? '👁' : '🚫'}
                 </button>
+                <Link href={`/super/warehouses/${w.id}`} title="Тохиргоо, галерей" style={iconBtn}>⚙️</Link>
                 <button onClick={() => startEdit(w)} title="Засах" style={iconBtn}>✏️</button>
                 <button onClick={() => remove(w.id)} title="Устгах" style={{ ...iconBtn, color: 'var(--danger)' }}>🗑</button>
               </div>
