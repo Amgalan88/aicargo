@@ -1,9 +1,9 @@
 'use client'
 import { use, useCallback, useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  WAREHOUSE_IMAGE_CATEGORIES, MAX_GALLERY_IMAGES, cloudinaryThumb, warehousePath, formatMnt,
+  WAREHOUSE_IMAGE_CATEGORIES, MAX_GALLERY_IMAGES, cloudinaryThumb, formatMnt,
 } from '@/lib/warehouse'
 
 interface GalleryImage {
@@ -81,6 +81,7 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
   const [uploadCategory, setUploadCategory] = useState('GENERAL')
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/super/warehouses/${id}`)
@@ -111,6 +112,8 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
     setWh(w => w && { ...w, ...data })
     setForm(toForm({ ...wh!, ...data }))
     toast.success('Хадгалагдлаа')
+    // Холбоос солигдсон бол layout-ийн "Нийтийн хуудас" линк шинэчлэгдэнэ
+    router.refresh()
   }
 
   async function upload(files: FileList | null) {
@@ -195,28 +198,11 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
     load()
   }
 
-  if (loadError) {
-    return (
-      <div className="page-wide" style={{ maxWidth: 860 }}>
-        <Link href="/super/warehouses" style={backLink}>← Агуулахууд</Link>
-        <p className="msg-error">{loadError}</p>
-      </div>
-    )
-  }
+  if (loadError) return <p className="msg-error">{loadError}</p>
   if (!wh || !form) return <p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p>
 
   return (
-    <div className="page-wide" style={{ maxWidth: 860 }}>
-      <Link href="/super/warehouses" style={backLink}>← Агуулахууд</Link>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-        <h1 className="section-title" style={{ margin: 0 }}>{wh.name}</h1>
-        {wh.active && (
-          <a href={warehousePath(wh)} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: 'var(--accent)', fontWeight: 600 }}>
-            Нийтийн хуудас харах ↗
-          </a>
-        )}
-      </div>
-
+    <div>
       <div className="card" style={cardStyle}>
         <h2 style={h2}>Нийтийн хуудас</h2>
         <div className="form-group" style={{ margin: 0 }}>
@@ -378,7 +364,6 @@ const cardStyle: React.CSSProperties = { padding: '1.25rem', marginBottom: '1rem
 const h2: React.CSSProperties = { fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.9rem' }
 const subtle: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 500 }
 const hint: React.CSSProperties = { fontSize: '0.74rem', color: 'var(--muted)', margin: '0.3rem 0 0' }
-const backLink: React.CSSProperties = { fontSize: '0.82rem', color: 'var(--muted)', display: 'inline-block', marginBottom: '0.75rem' }
 const iconBtn: React.CSSProperties = {
   background: 'none', border: '1px solid var(--border)', cursor: 'pointer',
   padding: '0.25rem 0.5rem', borderRadius: 6, fontSize: '0.8rem', lineHeight: 1, color: 'var(--text)',

@@ -43,3 +43,28 @@ export function cloudinaryThumb(url: string, width: number): string {
 export function formatMnt(v: number | string): string {
   return `${Math.round(Number(v)).toLocaleString('en-US')}₮`
 }
+
+// ── Зай талбай (хэсэг) ──
+
+export const MAX_SECTIONS_PER_REQUEST = 200
+
+export function normalizeSectionCode(raw: string): string {
+  return raw.trim().replace(/\s+/g, '').toUpperCase().slice(0, 20)
+}
+
+// "A-" + 1..20 → ["A-1", …, "A-20"]; алдаа бол мессеж буцаана
+export function expandSectionRange(prefix: string, from: number, to: number): string[] | string {
+  const p = normalizeSectionCode(prefix)
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from) {
+    return 'Дугаарын муж буруу байна'
+  }
+  if (to - from + 1 > MAX_SECTIONS_PER_REQUEST) {
+    return `Нэг удаад хамгийн ихдээ ${MAX_SECTIONS_PER_REQUEST} хэсэг нэмнэ`
+  }
+  return Array.from({ length: to - from + 1 }, (_, i) => `${p}${from + i}`)
+}
+
+// A-2 нь A-10-аас өмнө орно
+export function compareSectionCode(a: string, b: string): number {
+  return a.localeCompare(b, 'en', { numeric: true })
+}

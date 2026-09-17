@@ -305,7 +305,7 @@ DRAFT ──(карго гарын үсэг + OTP)──▶ AWAITING_PAYMENT ─
 
 ## 10. Үе шат
 
-**Явц:** Фаз 1 код бичигдсэн (DB-д `scripts/add-warehouse-profile-gallery.ts`-ийг deploy-оос **өмнө** ажиллуулна). Фаз 1-д хийгээгүй: данс солиход лог (`WarehouseLog` — фаз 2).
+**Явц:** Фаз 1 ✅ (`scripts/add-warehouse-profile-gallery.ts`), Фаз 2 ✅ (`scripts/add-warehouse-sections-log.ts`) — хоёр скрипт Supabase дээр ажилласан; production deploy-оос өмнө DB-д байгаа эсэхийг шалгана. Дараагийнх: Фаз 3.
 
 | Фаз | Агуулга | Үр дүн |
 |---|---|---|

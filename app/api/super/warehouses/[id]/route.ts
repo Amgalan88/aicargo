@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { validateWarehouseSlug } from '@/lib/warehouse'
+import { diffWarehouse, logWarehouseAction } from '@/lib/warehouse-log'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -83,9 +84,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   if (body.acceptingContracts !== undefined) data.acceptingContracts = body.acceptingContracts === true
 
-  const exists = await prisma.partnerWarehouse.findUnique({ where: { id }, select: { id: true } })
-  if (!exists) return NextResponse.json({ error: 'Агуулах олдсонгүй' }, { status: 404 })
+  const before = await prisma.partnerWarehouse.findUnique({ where: { id } })
+  if (!before) return NextResponse.json({ error: 'Агуулах олдсонгүй' }, { status: 404 })
 
-  const warehouse = await prisma.partnerWarehouse.update({ where: { id }, data })
+  const warehouse = await prisma.$transaction(async tx => {
+    const updated = await tx.partnerWarehouse.update({ where: { id }, data })
+    const { bank, other } = diffWarehouse(before, updated)
+    const actor = { warehouseId: id, userId: auth.user.userId, userName: auth.user.name }
+    // Данс солигдсон нь лог-гүйгээр хадгалагдах ёсгүй — transaction дотор шууд бичнэ
+    if (bank.length) {
+      await tx.warehouseLog.create({ data: { ...actor, action: 'BANK_CHANGED', detail: bank.join('\n') } })
+    }
+    if (other.length) {
+      await logWarehouseAction(tx, { ...actor, action: 'SETTINGS_CHANGED', detail: other.join('\n') })
+    }
+    return updated
+  })
   return NextResponse.json(warehouse)
 }

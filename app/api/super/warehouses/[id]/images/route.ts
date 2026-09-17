@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { uploadWarehouseGalleryImage, deleteCloudinaryImage } from '@/lib/cloudinary'
-import { isImageCategory, MAX_GALLERY_IMAGES } from '@/lib/warehouse'
+import { isImageCategory, MAX_GALLERY_IMAGES, categoryLabel } from '@/lib/warehouse'
+import { logWarehouseAction } from '@/lib/warehouse-log'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -14,7 +15,7 @@ async function requireSuperWarehouse(req: NextRequest, params: Params['params'])
   if (!warehouseId) return { error: NextResponse.json({ error: 'ID буруу' }, { status: 400 }) }
   const wh = await prisma.partnerWarehouse.findUnique({ where: { id: warehouseId }, select: { id: true } })
   if (!wh) return { error: NextResponse.json({ error: 'Агуулах олдсонгүй' }, { status: 404 }) }
-  return { warehouseId }
+  return { warehouseId, user }
 }
 
 function listImages(warehouseId: number) {
@@ -78,6 +79,10 @@ export async function POST(req: NextRequest, { params }: Params) {
     data: { imageUrl: uploaded.url },
   })
 
+  await logWarehouseAction(prisma, {
+    warehouseId, userId: auth.user.userId, userName: auth.user.name,
+    action: 'IMAGE_ADDED', detail: categoryLabel(category),
+  })
   return NextResponse.json(image, { status: 201 })
 }
 
@@ -141,7 +146,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
 
   const img = await prisma.warehouseImage.findFirst({
     where: { id: Number(body.id), warehouseId },
-    select: { id: true, url: true, publicId: true },
+    select: { id: true, url: true, publicId: true, category: true, caption: true },
   })
   if (!img) return NextResponse.json({ error: 'Зураг олдсонгүй' }, { status: 404 })
 
@@ -157,6 +162,11 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     })
     await prisma.partnerWarehouse.update({ where: { id: warehouseId }, data: { imageUrl: next?.url ?? null } })
   }
+
+  await logWarehouseAction(prisma, {
+    warehouseId, userId: auth.user.userId, userName: auth.user.name,
+    action: 'IMAGE_DELETED', detail: [categoryLabel(img.category), img.caption].filter(Boolean).join(' · '),
+  })
 
   // Serverless функц хариу буцаамагц зогсдог тул хүлээнэ; Cloudinary алдаа DB устгалтыг буцаахгүй
   try {
