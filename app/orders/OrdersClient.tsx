@@ -869,9 +869,18 @@ export default function OrdersClient({
                             </CopyText>
                             <span className={`badge badge-${s.status}`} style={{ fontSize: '0.62rem', padding: '0.15rem 0.5rem', flexShrink: 0 }}>{STATUS_LABEL[s.status] ?? s.status}</span>
                           </div>
-                          <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600, flexShrink: 0 }}>
-                            {s.adminPrice ? `${CUR}${Number(s.adminPrice).toLocaleString()}` : '—'}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                            <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
+                              {s.adminPrice ? `${CUR}${Number(s.adminPrice).toLocaleString()}` : '—'}
+                            </span>
+                            {(s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
+                              <button onClick={() => setConfirmDelete(s.id)} disabled={deleting === s.id}
+                                title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.8rem', padding: '0.1rem 0.2rem', lineHeight: 1, opacity: deleting === s.id ? 0.4 : 1 }}>
+                                🗑
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
