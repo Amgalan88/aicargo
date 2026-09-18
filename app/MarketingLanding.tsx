@@ -44,7 +44,7 @@ const STEPS = [
   { n: '1', title: 'Бүртгүүл', desc: 'Каргоныхоо нэр, вэб хаягаа сонгоод и-мэйлээ баталгаажуул. 2 минут.' },
   { n: '2', title: 'Тохируул', desc: 'Эрээний хаяг, тариф, банкны мэдээллээ оруул.' },
   { n: '3', title: 'Хэрэглэгчдээ урь', desc: 'Линкээ хуваалц — хэрэглэгчид өөрсдөө бүртгүүлж, ачаагаа хянана.' },
-  { n: '4', title: 'Эрээнд агуулахтай бол', desc: 'Түншлэгч агуулахтай цахим гэрээ байгуулж ачаагаа тэнд хүлээн авч, баглуул. Вэбсайт +60 хоног үнэгүй.' },
+  { n: '4', title: 'Эрээнд хаяг ав', desc: 'Түншлэгч агуулахтай цахим гэрээ байгуулж Эрээнд ачаа хүлээн авах хаягтай бол — ачааг тань хүлээн авч, баглана. Вэбсайт +60 хоног үнэгүй.' },
 ]
 
 // Эрээний агуулахтай гэрээний давуу тал — нүүр хуудасны агуулахын хэсэгт
@@ -249,7 +249,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           {warehouses.length > 0 && (
             <a href="#warehouse" className="lp-wh-chip">
               <span className="lp-wh-chip-new">Шинэ</span>
-              Эрээний агуулахтай цахим гэрээ — вэбсайт +60 хоног үнэгүй
+              Эрээнд ачаа хүлээн авах хаягтай бол — вэбсайт +60 хоног үнэгүй
               <ArrowRight size={14} strokeWidth={2.4} />
             </a>
           )}
@@ -400,7 +400,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               <div className="lp-wh-grid">
                 <div>
                   <div className="lp-wh-kicker"><WarehouseIcon size={15} strokeWidth={2.2} /> Эрээний түншлэгч агуулах</div>
-                  <h2 className="lp-wh-title">Эрээнд өөрийн агуулахтай бол</h2>
+                  <h2 className="lp-wh-title">Эрээнд ачаа хүлээн авах өөрийн хаягтай бол</h2>
                   <p className="lp-wh-lead">
                     Түншлэгч агуулахтай цахим гэрээ байгуулснаар ачаа тань Эрээнд найдвартай гарт очно —
                     агуулах хүлээн авч, баглаад Гаалийн хашаа хүртэл хүргэнэ.
@@ -419,13 +419,13 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                   </div>
                   <div className="lp-wh-actions">
                     <Link href={ctaHref} className="btn" style={{ textDecoration: 'none', padding: '0.8rem 1.5rem' }}>
-                      Гэрээ байгуулах →
+                      Эрээнд хаяг авах →
                     </Link>
                     <Link href="/warehouses" className="btn-ghost" style={{ textDecoration: 'none', padding: '0.8rem 1.3rem' }}>
                       Агуулахуудыг үзэх
                     </Link>
                   </div>
-                  <p className="lp-wh-note">Каргогоо нээсэн байх шаардлагатай — эхний 30 хоног үнэгүй.</p>
+                  <p className="lp-wh-note">Цахим гэрээгээр · {formatMnt(featured.contractFee)} нэг удаа · каргогоо нээсэн байх шаардлагатай (эхний 30 хоног үнэгүй).</p>
                 </div>
                 <Link href={warehousePath(featured)} className="lp-wh-photo">
                   {featured.imageUrl ? (
@@ -457,7 +457,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                         <div className="lp-wh-card-fee">Гэрээ: <b>{formatMnt(w.contractFee)}</b></div>
                         <div className="lp-wh-card-actions">
                           {w.acceptsContracts
-                            ? <Link href={`${warehousePath(w)}/contract`} className="lp-wh-card-cta">Гэрээ байгуулах</Link>
+                            ? <Link href={`${warehousePath(w)}/contract`} className="lp-wh-card-cta">Хаяг авах</Link>
                             : <span className="lp-wh-card-soon">Удахгүй</span>}
                           <Link href={warehousePath(w)} className="lp-wh-card-more">Дэлгэрэнгүй</Link>
                         </div>
@@ -714,7 +714,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </p>
           {warehouses.length > 0 && (
             <p style={{ fontSize: '0.86rem', marginBottom: '1.4rem' }}>
-              Каргогоо нээ → <a href="#warehouse" style={{ color: 'var(--accent)', fontWeight: 700 }}>Эрээний агуулахтай гэрээ</a> → вэбсайт <b>60 хоног</b> үнэгүй
+              Каргогоо нээ → <a href="#warehouse" style={{ color: 'var(--accent)', fontWeight: 700 }}>Эрээнд хаяг ав</a> → вэбсайт <b>60 хоног</b> үнэгүй
             </p>
           )}
           <Link href="/signup-cargo" className="btn" style={{
