@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import LandingClient from './LandingClient'
 import MarketingLanding from './MarketingLanding'
+import { WAREHOUSE_CONTRACT_SELECT, warehouseReadiness } from '@/lib/contract-server'
 
 export const revalidate = 0
 
@@ -40,19 +41,27 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
       select: { id: true, name: true, logoUrl: true },
       orderBy: { id: 'asc' },
     }),
-    // Данс зэрэг нууц талбар client руу гарахгүйн тулд зөвхөн картад хэрэгтэйг нь авна
     prisma.partnerWarehouse.findMany({
       where: { active: true },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
-      select: { id: true, slug: true, name: true, imageUrl: true },
+      select: { ...WAREHOUSE_CONTRACT_SELECT, imageUrl: true, _count: { select: { templates: true } } },
     }),
   ])
+  // Данс зэрэг нууц талбар client руу гарахгүйн тулд картад хэрэгтэйг нь л дамжуулна
+  const warehouseCards = warehouses.map(w => ({
+    id: w.id,
+    slug: w.slug,
+    name: w.name,
+    imageUrl: w.imageUrl,
+    contractFee: w.contractFee.toString(),
+    acceptsContracts: w.acceptingContracts && warehouseReadiness(w, w._count.templates > 0).length === 0,
+  }))
 
   return (
     <MarketingLanding
       stats={{ cargos, users, shipments }}
       partnerCargos={JSON.parse(JSON.stringify(partnerCargos))}
-      warehouses={JSON.parse(JSON.stringify(warehouses))}
+      warehouses={warehouseCards}
       superPreview={superPreview}
     />
   )
