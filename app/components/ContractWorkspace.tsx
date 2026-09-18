@@ -3,9 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Copy, Download, FileText, CheckCircle2, Clock, AlertTriangle } from 'lucide-react'
+import { Copy, Download, FileText, CheckCircle2, Clock, AlertTriangle, MapPin } from 'lucide-react'
 import { ContractDocument, ContractTimeline, StatusBadge, ContractEventRow } from '@/app/components/ContractDocument'
-import type { CargoField, ContractBody } from '@/lib/contract'
+import type { CargoField, ContractBody, ReceiveAddress } from '@/lib/contract'
 import { formatDateTime, TERMINATION_NOTICE_DAYS, PDF_STATUSES, ContractStatus, WEBSITE_BONUS_DAYS } from '@/lib/contract'
 import { formatMnt } from '@/lib/warehouse'
 import { resizeImage } from '@/lib/image-resize'
@@ -28,6 +28,9 @@ interface Detail {
   cargoSignerName: string | null
   approvedAt: string | null
   warehouseNote: string | null
+  cargoMark: string | null
+  receiveAddress: ReceiveAddress | null
+  addressApplied: boolean
   rejectReason: string | null
   terminationRequestedBy: string | null
   terminationReason: string | null
@@ -419,6 +422,52 @@ function PdfButtons({ href }: { href: string }) {
   )
 }
 
+// Гэрээгээр авсан Эрээний хаяг — каргогийн хэрэглэгчид Taobao зэрэгт бичнэ; нэг товчоор вэбсайтад тохируулна
+function AddressPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, unknown>) => Promise<boolean>; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false)
+  const a = d.receiveAddress
+  if (!a) {
+    return (
+      <div className="card ct-panel ct-info">
+        <MapPin size={22} />
+        <div><b>Эрээнд ачаа хүлээн авах хаяг</b><p>Агуулах танд тэмдэг олгож, хаяг бэлтгэж байна. Бэлэн болмогц энд харагдана.</p></div>
+      </div>
+    )
+  }
+  async function apply() {
+    if (!confirm('Вэбсайтын тань "Эрээний хаяг"-ийг энэ хаягаар солих уу? Хуучин хаяг дарагдана.')) return
+    setBusy(true)
+    const ok = await act({ action: 'use-address' })
+    setBusy(false)
+    if (ok) { toast.success('Вэбсайтын Эрээний хаяг шинэчлэгдлээ'); reload() }
+  }
+  return (
+    <div className="card" style={{ padding: '1rem 1.2rem', marginBottom: '1.2rem', borderColor: 'var(--accent)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+        <MapPin size={18} style={{ color: 'var(--accent)' }} />
+        <b style={{ fontSize: '0.95rem' }}>Таны Эрээнд ачаа хүлээн авах хаяг</b>
+        <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--muted)' }}>Тэмдэг: <b style={{ color: 'var(--text)' }}>{d.cargoMark}</b></span>
+      </div>
+      <CopyRow label="收货人 (Нэр)" value={a.receiver} />
+      <CopyRow label="手机号 (Утас)" value={a.phone} />
+      <CopyRow label="地区 (Бүс)" value={a.region} />
+      <CopyRow label="详细地址 (Хаяг)" value={a.address} />
+      {d.canManage && !d.guest && (
+        d.addressApplied ? (
+          <p style={{ fontSize: '0.8rem', color: 'var(--green)', margin: '0.7rem 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <CheckCircle2 size={15} /> Вэбсайтад тань тохируулагдсан — хэрэглэгчид "Хаяг" хэсгээс харна.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
+            <button className="btn" style={btnSm} disabled={busy} onClick={apply}>{busy ? '...' : 'Энэ хаягийг вэбсайтдаа ашиглах'}</button>
+            <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Хэрэглэгчдэд харагдах "Эрээний хаяг" солигдоно.</span>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
 function ActivePanel({ d, act, reload, pdfHref }: { d: Detail; act: (b: Record<string, unknown>) => Promise<boolean>; reload: () => Promise<void>; pdfHref: string }) {
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
@@ -461,6 +510,8 @@ function ActivePanel({ d, act, reload, pdfHref }: { d: Detail; act: (b: Record<s
           {PDF_STATUSES.includes(d.status) && <PdfButtons href={pdfHref} />}
         </div>
       </div>
+
+      <AddressPanel d={d} act={act} reload={reload} />
 
       {!pending && d.canManage && (
         <div style={{ margin: '-0.4rem 0 1.2rem' }}>

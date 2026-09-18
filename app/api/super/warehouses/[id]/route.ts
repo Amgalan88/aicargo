@@ -32,6 +32,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 const TEXT_FIELDS = [
   'legalNameMn', 'legalNameCn', 'registerNo', 'directorName',
   'bankName', 'bankAccount', 'bankHolder', 'services',
+  'receiveRegion', 'receiveAddress', 'receivePhone',
 ] as const
 
 function parseMoney(v: unknown): number | null | 'invalid' {

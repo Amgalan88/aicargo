@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { bad, readJson } from '@/lib/contract-auth'
 import {
   CargoValues, ContractBody, parseBody, renderBody, sanitizeValues, missingFields,
-  CARGO_FIELDS, TERMINATION_NOTICE_DAYS,
+  CARGO_FIELDS, TERMINATION_NOTICE_DAYS, receiveAddressFor,
 } from '@/lib/contract'
 import {
   WAREHOUSE_CONTRACT_SELECT, ContractWarehouse, warehouseReadiness, getLatestTemplate, buildVars,
@@ -58,6 +58,15 @@ export async function getContractView(access: PartyAccess) {
   }
 
   const { warehouse: wh } = c
+  // Хүчинтэй гэрээнд агуулахын хаяг + тэмдэг; вэбсайтад аль хэдийн тохируулсан эсэх
+  const live = c.status === 'ACTIVE' || c.status === 'TERMINATION_PENDING'
+  const receiveAddress = live ? receiveAddressFor(wh, c.cargoMark) : null
+  let addressApplied = false
+  if (receiveAddress && c.cargoId) {
+    const cargo = await prisma.cargo.findUnique({ where: { id: c.cargoId }, select: { ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true } })
+    addressApplied = !!cargo && cargo.ereemReceiver === receiveAddress.receiver && cargo.ereemPhone === receiveAddress.phone
+      && cargo.ereemRegion === receiveAddress.region && cargo.ereemAddress === receiveAddress.address
+  }
   return NextResponse.json({
     id: c.id,
     contractNo: c.contractNo,
@@ -81,6 +90,9 @@ export async function getContractView(access: PartyAccess) {
     approvedAt: c.approvedAt,
     approvedByName: c.approvedByName,
     warehouseNote: c.warehouseNote,
+    cargoMark: live ? c.cargoMark : null,
+    receiveAddress,
+    addressApplied,
     rejectReason: c.rejectReason,
     terminationRequestedAt: c.terminationRequestedAt,
     terminationRequestedBy: c.terminationRequestedBy,
@@ -281,6 +293,22 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
         return r.count
       })
       if (!res) return bad('Цуцлах мэдэгдлийг буцаах боломжгүй', 409)
+      return NextResponse.json({ ok: true })
+    }
+
+    case 'use-address': {
+      // Гэрээгээр авсан хаягийг каргогийн вэбсайтын "Эрээний хаяг"-т тохируулна (хуучин хаягийг дарж бичнэ)
+      if (access.guest || !c.cargoId || !access.canManage) return bad('Эрх хүрэхгүй', 403)
+      if (c.status !== 'ACTIVE' && c.status !== 'TERMINATION_PENDING') return bad('Зөвхөн хүчинтэй гэрээний хаягийг ашиглана', 409)
+      const addr = receiveAddressFor(c.warehouse, c.cargoMark)
+      if (!addr) return bad('Агуулах танд хаяг олгоогүй байна', 409)
+      await prisma.$transaction(async tx => {
+        await tx.cargo.update({
+          where: { id: c.cargoId! },
+          data: { ereemReceiver: addr.receiver, ereemPhone: addr.phone, ereemRegion: addr.region, ereemAddress: addr.address },
+        })
+        await addEvent(tx, c.id, actor, 'ADDRESS_APPLIED', `${addr.region} ${addr.address}`)
+      })
       return NextResponse.json({ ok: true })
     }
 

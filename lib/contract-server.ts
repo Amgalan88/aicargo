@@ -14,6 +14,7 @@ export const WAREHOUSE_CONTRACT_SELECT = {
   legalNameMn: true, legalNameCn: true, registerNo: true, directorName: true,
   bankName: true, bankAccount: true, bankHolder: true, contractFee: true,
   pricePerTonCny: true, pricePerM3Cny: true, pricePerKgMnt: true,
+  receiveRegion: true, receiveAddress: true, receivePhone: true,
 } as const
 
 export type ContractWarehouse = Prisma.PartnerWarehouseGetPayload<{ select: typeof WAREHOUSE_CONTRACT_SELECT }>

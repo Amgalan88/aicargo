@@ -3,7 +3,7 @@ import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { ContractDocument, ContractTimeline, StatusBadge, ContractEventRow } from '@/app/components/ContractDocument'
-import type { CargoField, ContractBody, ContractStatus } from '@/lib/contract'
+import type { CargoField, ContractBody, ContractStatus, ReceiveAddress } from '@/lib/contract'
 import { formatDateTime, PDF_STATUSES, TERMINATION_NOTICE_DAYS } from '@/lib/contract'
 import { formatMnt } from '@/lib/warehouse'
 
@@ -40,6 +40,10 @@ interface Detail {
   cargo: { id: number; name: string; slug: string } | null
   guestEmail: string | null
   warehouse: { id: number; name: string }
+  cargoMark: string | null
+  suggestedMark: string | null
+  receiveReady: boolean
+  receiveAddress: ReceiveAddress | null
 }
 
 export default function SuperContractPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +57,7 @@ export default function SuperContractPage({ params }: { params: Promise<{ id: st
   const [reason, setReason] = useState('')
   const [mode, setMode] = useState<'' | 'reject' | 'terminate'>('')
   const [immediate, setImmediate] = useState(false)
+  const [mark, setMark] = useState('')
 
   const load = useCallback(async () => {
     const res = await fetch(api)
@@ -60,6 +65,7 @@ export default function SuperContractPage({ params }: { params: Promise<{ id: st
     if (!res.ok) { setError(data.error || 'Ачаалахад алдаа гарлаа'); return }
     setD(data)
     setNote(data.warehouseNote ?? '')
+    setMark(data.suggestedMark ?? '')
   }, [api])
   useEffect(() => { load() }, [load])
 
@@ -120,10 +126,11 @@ export default function SuperContractPage({ params }: { params: Promise<{ id: st
                     <input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} />
                     {formatMnt(d.fee)} агуулахын дансанд орсныг шалгасан
                   </label>
+                  <MarkInput mark={mark} setMark={setMark} receiveReady={d.receiveReady} warehouseId={d.warehouse.id} />
                   <textarea className="input" rows={2} placeholder="Каргод харагдах тэмдэглэл (заавал биш): зай талбайн байршил, ачаа хүлээлгэн өгөх заавар..."
                     value={note} onChange={e => setNote(e.target.value)} />
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
-                    <button className="btn" disabled={!paid || busy} onClick={() => act({ action: 'approve', paidConfirmed: true, note }, 'Гэрээ хүчин төгөлдөр боллоо')}>
+                    <button className="btn" disabled={!paid || busy} onClick={() => act({ action: 'approve', paidConfirmed: true, note, cargoMark: mark }, 'Гэрээ хүчин төгөлдөр боллоо')}>
                       Батлах — А талыг төлөөлж
                     </button>
                     <button className="btn-ghost" onClick={() => setMode('reject')}>Татгалзах</button>
@@ -159,7 +166,18 @@ export default function SuperContractPage({ params }: { params: Promise<{ id: st
               )}
 
               <div style={{ marginTop: '0.8rem' }}>
-                <label style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Каргод харагдах тэмдэглэл</label>
+                {d.receiveAddress && (
+                  <div className="sc-kv" style={{ marginBottom: '0.7rem' }}>
+                    <span>收货人</span><b>{d.receiveAddress.receiver}</b>
+                    <span>手机号</span><b>{d.receiveAddress.phone}</b>
+                    <span>地区</span><b>{d.receiveAddress.region}</b>
+                    <span>详细地址</span><b>{d.receiveAddress.address}</b>
+                  </div>
+                )}
+                <MarkInput mark={mark} setMark={setMark} receiveReady={d.receiveReady} warehouseId={d.warehouse.id} />
+                <button className="btn-ghost" style={{ fontSize: '0.8rem', marginBottom: '0.8rem' }} disabled={busy || !mark.trim() || mark.trim().toUpperCase() === (d.cargoMark ?? '')}
+                  onClick={() => act({ action: 'mark', cargoMark: mark }, 'Тэмдэг хадгалагдлаа')}>Тэмдэг хадгалах</button>
+                <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--muted)' }}>Каргод харагдах тэмдэглэл</label>
                 <textarea className="input" rows={2} value={note} onChange={e => setNote(e.target.value)} />
                 <button className="btn-ghost" style={{ marginTop: '0.4rem', fontSize: '0.8rem' }} disabled={busy || note === (d.warehouseNote ?? '')}
                   onClick={() => act({ action: 'note', note }, 'Хадгалагдлаа')}>Тэмдэглэл хадгалах</button>
@@ -264,3 +282,20 @@ const CSS = `
 .sc-link { background: none; border: none; padding: 0; color: var(--danger); cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 600; }
 @media (max-width: 900px) { .sc-grid { grid-template-columns: minmax(0, 1fr); } }
 `
+
+// Агуулах ачааг ялгах каргогийн тэмдэг — хаягт "<хаяг> B88 + нэр + утас" болж орно
+function MarkInput({ mark, setMark, receiveReady, warehouseId }: { mark: string; setMark: (v: string) => void; receiveReady: boolean; warehouseId: number }) {
+  return (
+    <div style={{ marginBottom: '0.6rem' }}>
+      <label style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Каргогийн тэмдэг (Эрээний хаягт орно)</label>
+      <input className="input" placeholder="жш: B88" maxLength={16} value={mark}
+        onChange={e => setMark(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} />
+      {!receiveReady && (
+        <p style={{ fontSize: '0.74rem', color: '#d97706', margin: '0.3rem 0 0' }}>
+          Агуулахын хүлээн авах хаяг бөглөгдөөгүй тул карго хаягаа авахгүй.{' '}
+          <Link href={`/super/warehouses/${warehouseId}`}>Тохируулах →</Link>
+        </p>
+      )}
+    </div>
+  )
+}

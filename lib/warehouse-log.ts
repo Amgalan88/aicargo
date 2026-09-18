@@ -17,6 +17,9 @@ export const WAREHOUSE_FIELD_LABELS: Record<string, string> = {
   pricePerM3Cny: '1 м³ тариф',
   pricePerKgMnt: '1 кг үнэ',
   acceptingContracts: 'Гэрээ хүлээн авах',
+  receiveRegion: 'Хүлээн авах бүс',
+  receiveAddress: 'Хүлээн авах хаяг',
+  receivePhone: 'Хүлээн авах утас',
 }
 
 // Эдгээр талбарын өөрчлөлт мөнгө хаашаа орохыг тодорхойлно — түүхэнд тусад нь тэмдэглэнэ

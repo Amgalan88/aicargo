@@ -34,6 +34,9 @@ interface Warehouse {
   pricePerM3Cny: string | null
   pricePerKgMnt: string | null
   acceptingContracts: boolean
+  receiveRegion: string | null
+  receiveAddress: string | null
+  receivePhone: string | null
   images: GalleryImage[]
 }
 
@@ -41,6 +44,7 @@ const FORM_KEYS = [
   'slug', 'legalNameMn', 'legalNameCn', 'registerNo', 'directorName',
   'bankName', 'bankAccount', 'bankHolder', 'contractFee', 'services',
   'pricePerTonCny', 'pricePerM3Cny', 'pricePerKgMnt',
+  'receiveRegion', 'receiveAddress', 'receivePhone',
 ] as const
 type FormKey = typeof FORM_KEYS[number]
 type Form = Record<FormKey, string> & { acceptingContracts: boolean }
@@ -235,6 +239,22 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
       </div>
 
       <div className="card" style={cardStyle}>
+        <h2 style={h2}>Ачаа хүлээн авах хаяг <span style={subtle}>(гэрээтэй каргод олгоно)</span></h2>
+        <p style={{ ...hint, marginTop: 0, marginBottom: '0.9rem' }}>
+          Гэрээ батлагдахад карго энэ хаягийг өөрийн тэмдэгтэйгээр (жш: B88) авч, вэбсайтдаа нэг товчоор тохируулна.
+        </p>
+        <div className="admin-form-2col">
+          <Field label="Бүс (地区)" placeholder="内蒙古自治区 · 锡林郭勒盟 · 二连浩特市"
+            value={form.receiveRegion} onChange={v => set('receiveRegion', v)} />
+          <Field label="Хүлээн авах утас (手机号)" placeholder="18647933620" inputMode="tel"
+            value={form.receivePhone} onChange={v => set('receivePhone', v)} />
+          <Field label="Дэлгэрэнгүй хаяг (详细地址)" placeholder="社区建设管理区环宇商贸城9栋24号"
+            value={form.receiveAddress} onChange={v => set('receiveAddress', v)}
+            hint={form.receiveAddress ? `Каргод: ${form.receiveAddress} B88 + нэр + утас` : undefined} />
+        </div>
+      </div>
+
+      <div className="card" style={cardStyle}>
         <h2 style={h2}>Тариф ба үйлчилгээ</h2>
         <div className="admin-form-2col">
           <Field label="1 тонн (юань)" placeholder="жш: 1200" inputMode="decimal"
@@ -333,7 +353,7 @@ function Field({ label, value, onChange, placeholder, hint: hintText, inputMode 
   onChange: (v: string) => void
   placeholder?: string
   hint?: string
-  inputMode?: 'numeric' | 'decimal'
+  inputMode?: 'numeric' | 'decimal' | 'tel'
 }) {
   return (
     <div className="form-group" style={{ margin: 0 }}>

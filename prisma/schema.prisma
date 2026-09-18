@@ -248,6 +248,10 @@ model PartnerWarehouse {
   pricePerM3Cny  Decimal? @db.Decimal(12, 2)
   pricePerKgMnt  Decimal? @db.Decimal(12, 2)
   acceptingContracts Boolean @default(true)
+  // Гэрээтэй каргод олгох ачаа хүлээн авах хаяг (хятадаар) — хаяг + каргогийн тэмдэг
+  receiveRegion  String?
+  receiveAddress String?
+  receivePhone   String?
   images      WarehouseImage[]
   logs        WarehouseLog[]
   templates   ContractTemplate[]
@@ -324,6 +328,8 @@ model WarehouseContract {
   terminatedAt    DateTime?
   // Гэрээ хүчин төгөлдөр болоход каргод олгосон 60 хоногийн үнэгүй вэбсайт — нэг гэрээнд нэг удаа
   websiteBonusAt  DateTime?
+  // Агуулах ачааг ялгах каргогийн тэмдэг (жш: B88) — хүчинтэй гэрээнүүдэд агуулах бүрт давхцахгүй
+  cargoMark       String?
   createdById     Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

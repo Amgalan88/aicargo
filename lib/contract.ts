@@ -173,6 +173,40 @@ export const EVENT_LABELS: Record<string, string> = {
   EXPIRED_UNPAID: 'Төлбөр хугацаандаа ороогүй тул хаагдсан',
   WEBSITE_BONUS: 'Вэбсайт 60 хоног үнэгүй олгосон',
   LINKED_TO_CARGO: 'Шинээр нээсэн каргод холбогдсон',
+  MARK_SET: 'Каргогийн тэмдэг олгосон',
+  ADDRESS_APPLIED: 'Эрээний хаягийг вэбсайтад тохируулсан',
+}
+
+// ── Ачаа хүлээн авах хаяг ──
+
+// Агуулах ачааг ялгах каргогийн тэмдэг: латин үсэг, тоо, зураас (жш: B88, TM, UUJIM-89)
+export const CARGO_MARK_RE = /^[A-Z0-9][A-Z0-9-]{0,15}$/
+
+export function normalizeMark(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const m = v.replace(/\s+/g, '').toUpperCase()
+  return CARGO_MARK_RE.test(m) ? m : null
+}
+
+export interface ReceiveAddress {
+  receiver: string
+  phone: string
+  region: string
+  address: string
+}
+
+// Каргын хэрэглэгчид Taobao зэрэгт бичих хаяг: агуулахын хаяг + каргогийн тэмдэг + хэрэглэгчийн нэр, утас
+export function receiveAddressFor(
+  wh: { receiveRegion: string | null; receiveAddress: string | null; receivePhone: string | null },
+  mark: string | null,
+): ReceiveAddress | null {
+  if (!mark || !wh.receiveAddress || !wh.receivePhone) return null
+  return {
+    receiver: mark,
+    phone: wh.receivePhone,
+    region: wh.receiveRegion ?? '',
+    address: `${wh.receiveAddress} ${mark} + нэр + утас`,
+  }
 }
 
 // ── Огноо, мөнгө ──
