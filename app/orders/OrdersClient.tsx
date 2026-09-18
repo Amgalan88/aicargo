@@ -165,6 +165,7 @@ export default function OrdersClient({
   const [deleteAllLoading, setDeleteAllLoading] = useState(false)
   const [deleteRegistered, setDeleteRegistered] = useState(false)
   const [deletePickedUp, setDeletePickedUp] = useState(true)
+  const [deleteEreen, setDeleteEreen] = useState(false)
   const [searchQ, setSearchQ] = useState('')
   const [expandedBatch, setExpandedBatch] = useState<number | null>(null)
   const [navPopup, setNavPopup] = useState<'faq' | 'nameless' | 'profile' | null>(null)
@@ -211,7 +212,8 @@ export default function OrdersClient({
   async function deleteAll() {
     const deletable = shipments.filter(s =>
       (deleteRegistered && s.status === 'REGISTERED') ||
-      (deletePickedUp && s.status === 'PICKED_UP')
+      (deletePickedUp && s.status === 'PICKED_UP') ||
+      (deleteEreen && s.status === 'EREEN_ARRIVED')
     )
     if (deletable.length === 0) return
     setDeleteAllLoading(true)
@@ -222,7 +224,8 @@ export default function OrdersClient({
     })
     setShipments(prev => prev.filter(s =>
       !(deleteRegistered && s.status === 'REGISTERED') &&
-      !(deletePickedUp && s.status === 'PICKED_UP')
+      !(deletePickedUp && s.status === 'PICKED_UP') &&
+      !(deleteEreen && s.status === 'EREEN_ARRIVED')
     ))
     setDeleteAllLoading(false)
     setDeleteAllModal(false)
@@ -477,6 +480,16 @@ export default function OrdersClient({
                   <span>{STATUS_LABEL.REGISTERED} <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>({shipments.filter(s => s.status === 'REGISTERED').length})</span></span>
                 </label>
               )}
+              {shipments.some(s => s.status === 'EREEN_ARRIVED') && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem' }}>
+                  <input type="checkbox" checked={deleteEreen} onChange={e => setDeleteEreen(e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--danger)' }} />
+                  <span>
+                    {STATUS_LABEL.EREEN_ARRIVED} <span style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>({shipments.filter(s => s.status === 'EREEN_ARRIVED').length})</span>
+                    <span style={{ display: 'block', color: 'var(--muted)', fontSize: '0.72rem' }}>Таны жагсаалтаас хасагдана, каргогийн бүртгэлд үлдэнэ</span>
+                  </span>
+                </label>
+              )}
               {shipments.some(s => s.status === 'PICKED_UP') && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', fontSize: '0.88rem' }}>
                   <input type="checkbox" checked={deletePickedUp} onChange={e => setDeletePickedUp(e.target.checked)}
@@ -501,7 +514,7 @@ export default function OrdersClient({
               <button
                 className="btn"
                 onClick={deleteAll}
-                disabled={deleteAllInput !== 'УСТГАХ' || deleteAllLoading || (!deleteRegistered && !deletePickedUp)}
+                disabled={deleteAllInput !== 'УСТГАХ' || deleteAllLoading || (!deleteRegistered && !deletePickedUp && !deleteEreen)}
                 style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', opacity: deleteAllInput === 'УСТГАХ' ? 1 : 0.4 }}
               >
                 {deleteAllLoading ? t.deleting : t.deleteBtn}
@@ -589,8 +602,8 @@ export default function OrdersClient({
             )}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
-              <button onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true) }} style={{
+            {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
+              <button onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }} style={{
                 fontSize: '0.8rem', padding: '0.5rem 0.85rem',
                 background: 'none', border: '1px solid var(--danger)',
                 borderRadius: 'var(--radius)', color: 'var(--danger)',

@@ -28,11 +28,24 @@ export async function DELETE(req: NextRequest) {
     })
     const toDelete = shipments.filter((s: { status: string; id: number }) => s.status === 'REGISTERED').map((s: { id: number }) => s.id)
     const toUnlink = shipments.filter((s: { status: string; id: number }) => s.status === 'PICKED_UP').map((s: { id: number }) => s.id)
+    // Эрээнд ирсэн барааг карго бүртгэсэн — устгахгүй, зөвхөн хэрэглэгчээс салгаж аудит логт бичнэ
+    const ereen = shipments.filter(s => s.status === 'EREEN_ARRIVED')
     await Promise.all([
       toDelete.length > 0 && prisma.shipment.deleteMany({ where: { id: { in: toDelete } } }),
       toUnlink.length > 0 && prisma.$executeRaw`UPDATE "Shipment" SET "userId" = NULL WHERE "id" = ANY(${toUnlink}::int[])`,
+      ereen.length > 0 && prisma.shipment.updateMany({
+        where: { id: { in: ereen.map(s => s.id) }, userId: user.userId, status: 'EREEN_ARRIVED' },
+        data: { userId: null },
+      }),
     ])
-    return NextResponse.json({ ok: true, count: toDelete.length + toUnlink.length })
+    if (ereen.length > 0) {
+      await logAdminAction(prisma, {
+        cargoId: user.cargoId!, userId: user.userId, userName: user.name,
+        action: 'shipment:user-removed',
+        detail: ereen.map(s => `${s.trackCode}${s.phone ? ' · ' + s.phone : ''}`).join(', ').slice(0, 1000),
+      })
+    }
+    return NextResponse.json({ ok: true, count: toDelete.length + toUnlink.length + ereen.length })
   }
 
   // Single delete
