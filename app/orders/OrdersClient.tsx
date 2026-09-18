@@ -159,6 +159,7 @@ export default function OrdersClient({
   const [page, setPage] = useState(1)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
+  const confirmStatus = confirmDelete !== null ? shipments.find((x: { id: number; status: string }) => x.id === confirmDelete)?.status : undefined
   const [deleteAllModal, setDeleteAllModal] = useState(false)
   const [deleteAllInput, setDeleteAllInput] = useState('')
   const [deleteAllLoading, setDeleteAllLoading] = useState(false)
@@ -237,8 +238,9 @@ export default function OrdersClient({
         body: JSON.stringify({ id }),
       })
       if (!res.ok) throw new Error()
+      const wasEreen = shipments.find((x: { id: number; status: string }) => x.id === id)?.status === 'EREEN_ARRIVED'
       setShipments(prev => prev.filter(s => s.id !== id))
-      toast.success('Устгагдлаа')
+      toast.success(wasEreen ? 'Жагсаалтаас хасагдлаа' : 'Устгагдлаа')
     } catch {
       toast.error('Устгахад алдаа гарлаа. Дахин оролдоно уу.')
     } finally {
@@ -787,7 +789,7 @@ export default function OrdersClient({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>{fmtDT(s.updatedAt)}</span>
                       <span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status] ?? s.status}</span>
-                      {(s.status === 'REGISTERED' || s.status === 'PICKED_UP') && (
+                      {(s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
                         <button onClick={() => { setNavPopup(null); setConfirmDelete(s.id) }} disabled={deleting === s.id} title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip} style={{
                           background: 'none', border: 'none', cursor: 'pointer',
                           color: 'var(--muted)', fontSize: '0.85rem', padding: '0.1rem 0.25rem',
@@ -888,9 +890,11 @@ export default function OrdersClient({
       </div>
       <ConfirmDialog
         open={confirmDelete !== null}
-        title="Бараа устгах уу?"
-        message="Энэ бараа жагсаалтаас бүрмөсөн устна. Буцаах боломжгүй."
-        confirmLabel="Устгах"
+        title={confirmStatus === 'EREEN_ARRIVED' ? 'Жагсаалтаас хасах уу?' : 'Бараа устгах уу?'}
+        message={confirmStatus === 'EREEN_ARRIVED'
+          ? 'Энэ бараа таны жагсаалтаас хасагдана. Каргогийн бүртгэлд үлдэх бөгөөд карго тань хассаныг харна. Андуурсан бол карготойгоо холбогдоно уу.'
+          : 'Энэ бараа жагсаалтаас бүрмөсөн устна. Буцаах боломжгүй.'}
+        confirmLabel={confirmStatus === 'EREEN_ARRIVED' ? 'Хасах' : 'Устгах'}
         cancelLabel="Болих"
         danger
         loading={deleting !== null}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized } from '@/lib/auth'
+import { logAdminAction } from '@/lib/audit'
 
 export async function GET(req: NextRequest) {
   const user = await getVerifiedUserFromRequest(req)
@@ -46,8 +47,21 @@ export async function DELETE(req: NextRequest) {
     await prisma.$executeRaw`UPDATE "Shipment" SET "userId" = NULL WHERE "id" = ${Number(id)}`
     return NextResponse.json({ ok: true })
   }
+  // Эрээнд ирсэн барааг карго бүртгэсэн тул бүрмөсөн устгахгүй — зөвхөн хэрэглэгчийн жагсаалтаас хасаж,
+  // каргогийн бүртгэл хэвээр үлдэнэ; админ аудит логоос харна
+  if (shipment.status === 'EREEN_ARRIVED') {
+    await prisma.shipment.updateMany({
+      where: { id: shipment.id, userId: user.userId, status: 'EREEN_ARRIVED' },
+      data: { userId: null },
+    })
+    await logAdminAction(prisma, {
+      cargoId: shipment.cargoId, userId: user.userId, userName: user.name,
+      action: 'shipment:user-removed', detail: `${shipment.trackCode}${shipment.phone ? ' · ' + shipment.phone : ''}`,
+    })
+    return NextResponse.json({ ok: true })
+  }
   if (shipment.status !== 'REGISTERED') {
-    return NextResponse.json({ error: 'Зөвхөн бүртгүүлсэн эсвэл авсан барааг устгах боломжтой' }, { status: 400 })
+    return NextResponse.json({ error: 'Ирсэн барааг устгах боломжгүй. Карготойгоо холбогдоно уу' }, { status: 400 })
   }
   await prisma.shipment.delete({ where: { id: Number(id) } })
   return NextResponse.json({ ok: true })

@@ -23,6 +23,7 @@ const ACTION_LABELS: Record<string, string> = {
   'shipment:revert-arrived': 'Ирсэн бараа буцаасан',
   'shipment:handover': 'Бараа олгосон',
   'shipment:revert-pickup': 'Олгосон бараа буцаасан',
+  'shipment:user-removed': 'Хэрэглэгч Эрээнд ирсэн барааг жагсаалтаасаа хассан',
 }
 
 function fmtDT(iso: string) {
