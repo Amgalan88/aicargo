@@ -4,7 +4,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import NavLogo from './components/NavLogo'
 import { Reveal, Stagger, StaggerItem, AnimatedNumber, TiltCard } from './components/motion'
-import { Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search, Check, Gift, Warehouse as WarehouseIcon, ArrowRight } from 'lucide-react'
+import { Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search, Check, Gift, Warehouse as WarehouseIcon, ArrowRight, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 import { warehousePath, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
 
@@ -94,6 +94,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [demoOpen, setDemoOpen] = useState(false)
   const shotScroll = useRef<HTMLDivElement>(null)
   const touchX = useRef<number | null>(null)
+  const featuredWh = warehouses.find(w => w.acceptsContracts && w.imageUrl) ?? warehouses.find(w => w.acceptsContracts) ?? warehouses[0]
 
   function scrollShots(dir: -1 | 1) {
     shotScroll.current?.scrollBy({ left: dir * 320, behavior: 'smooth' })
@@ -224,8 +225,13 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </Reveal>
           <Reveal y={22} delay={0.16}>
           <p style={{ color: 'var(--muted)', fontSize: '1.02rem', lineHeight: 1.75, maxWidth: 540, margin: '0 auto 1.6rem' }}>
-            Өөрийн вэб хаягтай ачаа хяналтын систем — бүртгэлээс олголт хүртэл.
-            Хэрэглэгч тань ачаагаа өөрөө хянаж, AI туслах асуултад нь хариулна.
+            {featuredWh ? (
+              <>Өөрийн вэбсайттай ачаа хяналтын систем, Эрээнд ачаа хүлээн авах хаяг —
+              карго бизнест хэрэгтэй хоёр гол зүйлийг нэг дороос.</>
+            ) : (
+              <>Өөрийн вэб хаягтай ачаа хяналтын систем — бүртгэлээс олголт хүртэл.
+              Хэрэглэгч тань ачаагаа өөрөө хянаж, AI туслах асуултад нь хариулна.</>
+            )}
           </p>
           </Reveal>
           <Reveal y={22} delay={0.24}>
@@ -247,9 +253,9 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             Эхний 30 хоног үнэгүй · цаашид сарын ₮50,000
           </p>
           {warehouses.length > 0 && (
-            <a href="#warehouse" className="lp-wh-chip">
-              <span className="lp-wh-chip-new">Шинэ</span>
-              Эрээнд ачаа хүлээн авах хаягтай бол — вэбсайт +60 хоног үнэгүй
+            <a href="#offers" className="lp-wh-chip">
+              <span className="lp-wh-chip-new">2 боломж</span>
+              Үнэгүй вэбсайт + Эрээнд ачаа хүлээн авах хаяг
               <ArrowRight size={14} strokeWidth={2.4} />
             </a>
           )}
@@ -274,6 +280,49 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </Reveal>
           </div>
         </section>
+
+        {/* ── 2 БОЛОМЖ: вэбсайт + Эрээний хаяг ── */}
+        {featuredWh && (
+          <section id="offers" className="lp-offers">
+            <div className="lp-offers-inner">
+              <h2 className="lp-offers-title">Бид танд 2 боломж санал болгоно</h2>
+              <p className="lp-offers-sub">Эхлээд каргогийн вэбсайтаа үнэгүй нээнэ. Дараа нь хүсвэл Эрээнд ачаа хүлээн авах хаягтай болно.</p>
+              <div className="lp-offers-grid">
+                <div className="lp-offer">
+                  <div className="lp-offer-head">
+                    <span className="lp-offer-no">1</span>
+                    <span className="lp-offer-icon"><Globe size={20} strokeWidth={2} /></span>
+                  </div>
+                  <h3>Каргогийн вэбсайтаа үнэгүй нээ</h3>
+                  <p>Өөрийн вэб хаягтай ачаа хяналтын систем. Хэрэглэгч тань ачаагаа өөрөө хянана.</p>
+                  <ul>
+                    <li><Check size={14} strokeWidth={3} /> танайкарго.aicargo.mn вэб хаяг</li>
+                    <li><Check size={14} strokeWidth={3} /> Ачаа бүртгэл, олголт, мэдэгдэл</li>
+                    <li><Check size={14} strokeWidth={3} /> AI туслах хэрэглэгчдэд хариулна</li>
+                  </ul>
+                  <div className="lp-offer-price"><b>30 хоног үнэгүй</b><span>цаашид сарын ₮50,000</span></div>
+                  <Link href="/signup-cargo" className="btn lp-offer-cta">Каргогоо үнэгүй нээх →</Link>
+                </div>
+
+                <div className="lp-offer lp-offer-alt">
+                  <div className="lp-offer-head">
+                    <span className="lp-offer-no">2</span>
+                    <span className="lp-offer-icon"><MapPin size={20} strokeWidth={2} /></span>
+                  </div>
+                  <h3>Эрээнд ачаа хүлээн авах хаягтай бол</h3>
+                  <p>Түншлэгч агуулахтай цахим гэрээ байгуулж, өөрийн тэмдэгтэй хаяг авна. Агуулах ачааг тань хүлээн авч, баглана.</p>
+                  <ul>
+                    <li><Check size={14} strokeWidth={3} /> Өөрийн тэмдэгтэй хаяг (жш: B88)</li>
+                    <li><Check size={14} strokeWidth={3} /> Хүлээн авах, ангилах, баглах</li>
+                    <li><Check size={14} strokeWidth={3} /> Хаяг вэбсайтад нэг товчоор тохирно</li>
+                  </ul>
+                  <div className="lp-offer-price"><b>{formatMnt(featuredWh.contractFee)}</b><span>нэг удаа · вэбсайт +60 хоног үнэгүй</span></div>
+                  <a href="#warehouse" className="btn-ghost lp-offer-cta">Эрээнд хаяг авах →</a>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ── БОДИТ ДЭЛГЭЦҮҮД (screenshot gallery) ── */}
         <section style={{ padding: '0 0 2.5rem' }}>
@@ -391,15 +440,15 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         )}
 
         {/* ── ЭРЭЭНИЙ АГУУЛАХТАЙ ГЭРЭЭ ── */}
-        {warehouses.length > 0 && (() => {
-          const featured = warehouses.find(w => w.acceptsContracts && w.imageUrl) ?? warehouses.find(w => w.acceptsContracts) ?? warehouses[0]
+        {featuredWh && (() => {
+          const featured = featuredWh
           const ctaHref = featured.acceptsContracts ? `${warehousePath(featured)}/contract` : '/warehouses'
           return (
           <section id="warehouse" className="lp-wh">
             <div className="lp-wh-inner">
               <div className="lp-wh-grid">
                 <div>
-                  <div className="lp-wh-kicker"><WarehouseIcon size={15} strokeWidth={2.2} /> Эрээний түншлэгч агуулах</div>
+                  <div className="lp-wh-kicker"><WarehouseIcon size={15} strokeWidth={2.2} /> Боломж 2 · Эрээний түншлэгч агуулах</div>
                   <h2 className="lp-wh-title">Эрээнд ачаа хүлээн авах өөрийн хаягтай бол</h2>
                   <p className="lp-wh-lead">
                     Түншлэгч агуулахтай цахим гэрээ байгуулснаар ачаа тань Эрээнд найдвартай гарт очно —
@@ -472,8 +521,9 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         })()}
 
         {/* ── FEATURES ── */}
-        <section style={{ padding: '2.5rem 5%', background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        <section id="features" style={{ padding: '2.5rem 5%', background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
           <div style={{ maxWidth: 860, margin: '0 auto' }}>
+            {featuredWh && <div className="lp-wh-kicker" style={{ justifyContent: 'center', width: '100%', marginBottom: '0.35rem' }}><Globe size={15} strokeWidth={2.2} /> Боломж 1 · Каргогийн вэбсайт</div>}
             <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.45rem', letterSpacing: '-0.4px' }}>
               Каргод чинь хэрэгтэй бүхэн
             </h2>
@@ -481,6 +531,26 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               Excel, дэвтэр, мессежийн орооцолдооноос гарцгаая
             </p>
             <style>{`
+              .lp-offers { padding: 1rem 5% 3rem; }
+              .lp-offers-inner { max-width: 940px; margin: 0 auto; }
+              .lp-offers-title { font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 800; text-align: center; letter-spacing: -0.5px; margin: 0 0 0.4rem; }
+              .lp-offers-sub { text-align: center; color: var(--muted); font-size: 0.92rem; margin: 0 auto 1.6rem; max-width: 560px; line-height: 1.6; }
+              .lp-offers-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+              .lp-offer { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 1.4rem 1.4rem 1.3rem; box-shadow: 0 8px 28px rgba(0,0,0,0.05); }
+              .lp-offer-alt { background: linear-gradient(160deg, var(--accent-light), var(--surface) 55%); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+              .lp-offer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
+              .lp-offer-no { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+              .lp-offer-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-light); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
+              .lp-offer h3 { font-size: 1.15rem; font-weight: 800; margin: 0 0 0.35rem; letter-spacing: -0.3px; }
+              .lp-offer p { font-size: 0.86rem; color: var(--muted); line-height: 1.6; margin: 0 0 0.8rem; }
+              .lp-offer ul { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+              .lp-offer li { display: flex; align-items: center; gap: 0.45rem; font-size: 0.84rem; }
+              .lp-offer li svg { color: var(--accent); flex-shrink: 0; }
+              .lp-offer-price { margin-top: auto; display: flex; flex-direction: column; padding-top: 0.8rem; border-top: 1px dashed var(--border); margin-bottom: 0.9rem; }
+              .lp-offer-price b { font-size: 1.25rem; font-weight: 800; }
+              .lp-offer-price span { font-size: 0.75rem; color: var(--muted); }
+              .lp-offer-cta { text-decoration: none; text-align: center; padding: 0.75rem 1rem; }
+              @media (max-width: 760px) { .lp-offers-grid { grid-template-columns: 1fr; } }
               .lp-wh-chip { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; font-weight: 600; color: var(--text);
                 background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 0.35rem 0.8rem 0.35rem 0.4rem;
                 margin-bottom: 2.2rem; text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: border-color .15s; }
@@ -676,8 +746,8 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               },
               ...(warehouses.length ? [
                 {
-                  q: 'Эрээний агуулахтай гэрээ юу өгөх вэ?',
-                  a: 'Агуулах танай каргод тусгай зай талбай гаргаж, ачааг хүлээн авч, ангилж, баглаж шуудайлаад Гаалийн хашаа хүртэл үнэгүй зөөвөрлөнө. Гэрээ монгол, хятад хэлээр цахимаар байгуулагдаж, PDF хувийг татаж авна. Гэрээ хүчин төгөлдөр болоход aicargo вэбсайт тань 60 хоногоор үнэгүй сунгагдана.',
+                  q: 'Эрээнд ачаа хүлээн авах хаяг гэж юу вэ?',
+                  a: 'Түншлэгч агуулахтай цахим гэрээ байгуулахад танай каргод өөрийн тэмдэгтэй (жш: B88) хятад хаяг олгоно. Хэрэглэгчид тань Taobao, Pinduoduo зэрэгт энэ хаягийг бичиж захиалахад агуулах ачааг хүлээн авч, ангилж, баглаад Гаалийн хашаа хүртэл үнэгүй зөөвөрлөнө. Хаягийг вэбсайтдаа нэг товчоор тохируулна. Гэрээ монгол, хятад хэлээр байгуулагдаж PDF хувийг татна, вэбсайт тань 60 хоногоор үнэгүй сунгагдана.',
                 },
                 {
                   q: 'Агуулахын гэрээний төлбөр буцаагдах уу?',
@@ -712,17 +782,24 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           <p style={{ color: 'var(--muted)', fontSize: '0.92rem', marginBottom: warehouses.length ? '0.5rem' : '1.4rem' }}>
             Эхний 30 хоног бүрэн үнэгүй · цаашид сарын ₮50,000 · 2 минутад бэлэн
           </p>
-          {warehouses.length > 0 && (
-            <p style={{ fontSize: '0.86rem', marginBottom: '1.4rem' }}>
-              Каргогоо нээ → <a href="#warehouse" style={{ color: 'var(--accent)', fontWeight: 700 }}>Эрээнд хаяг ав</a> → вэбсайт <b>60 хоног</b> үнэгүй
+          {featuredWh && (
+            <p style={{ fontSize: '0.86rem', marginBottom: '1.4rem', lineHeight: 1.7 }}>
+              <b>1.</b> Каргогийн вэбсайтаа үнэгүй нээ · <b>2.</b> Эрээнд ачаа хүлээн авах хаягтай бол — вэбсайт <b>+60 хоног</b> үнэгүй
             </p>
           )}
-          <Link href="/signup-cargo" className="btn" style={{
-            padding: '0.9rem 2.2rem', fontSize: '1rem', textDecoration: 'none',
-            boxShadow: '0 4px 16px rgba(201,100,66,0.35)',
-          }}>
-            Каргогоо үнэгүй нээх →
-          </Link>
+          <div style={{ display: 'flex', gap: '0.7rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/signup-cargo" className="btn" style={{
+              padding: '0.9rem 2.2rem', fontSize: '1rem', textDecoration: 'none',
+              boxShadow: '0 4px 16px rgba(201,100,66,0.35)',
+            }}>
+              Каргогоо үнэгүй нээх →
+            </Link>
+            {featuredWh && (
+              <a href="#warehouse" className="btn-ghost" style={{ padding: '0.9rem 1.8rem', fontSize: '1rem', textDecoration: 'none' }}>
+                Эрээнд хаяг авах
+              </a>
+            )}
+          </div>
         </section>
       </div>
 
