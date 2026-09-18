@@ -38,10 +38,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }
   }
 
-  // Эрээний агуулахын цэс зөвхөн агуулахтай гэрээ эхлүүлсэн/байгуулсан каргод харагдана
-  const hasWarehouseContract = user.cargoId
-    ? (await prisma.warehouseContract.count({ where: { cargoId: user.cargoId } })) > 0
-    : false
-
-  return <AdminShell hasWarehouseContract={hasWarehouseContract} cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin}>{children}</AdminShell>
+  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin}>{children}</AdminShell>
 }

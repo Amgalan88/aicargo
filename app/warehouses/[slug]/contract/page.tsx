@@ -5,18 +5,19 @@ import { getAuthUser } from '@/lib/auth'
 import NavLogo from '@/app/components/NavLogo'
 import { formatMnt, warehousePath, cloudinaryThumb } from '@/lib/warehouse'
 import { WAREHOUSE_CONTRACT_SELECT, warehouseReadiness } from '@/lib/contract-server'
-import GuestStart from './GuestStart'
+import { WEBSITE_BONUS_DAYS } from '@/lib/contract'
 
 export const revalidate = 0
 export const metadata = { title: 'Цахим гэрээ байгуулах — Aicargo' }
 
 const STEPS = [
-  ['И-мэйлээ оруулна', 'Холбоо барих хаяг — бүртгэл, нууц үг шаардлагагүй.'],
-  ['Мэдээллээ бөглөнө', 'Байгууллагын мэдээлэл бөглөхөд гэрээ шууд бэлэн болно.'],
-  ['Вэб дээр баталгаажуулна', 'Нөхцөлийг зөвшөөрч нэрээ бичээд цахимаар баталгаажуулна.'],
-  ['Төлбөр төлнө', 'Агуулахын дансанд шилжүүлж мэдэгдэнэ. Шалгагдсаны дараа PDF гэрээ татна.'],
+  ['Каргогоо нээнэ', 'aicargo-д өөрийн каргогийн вэбсайтыг нээнэ — эхний 30 хоног үнэгүй.'],
+  ['Агуулах цэснээс гэрээ эхлүүлнэ', 'Каргогийн админ хэсгийн "Агуулах" цэсэнд гэрээ, төлбөрийн явц харагдана.'],
+  ['Баталгаажуулж, төлбөр төлнө', 'Мэдээллээ бөглөж вэб дээр баталгаажуулаад агуулахын дансанд шилжүүлнэ.'],
+  ['Гэрээ хүчин төгөлдөр', `Батлагдмагц PDF гэрээ татна, вэбсайт тань ${WEBSITE_BONUS_DAYS} хоногоор сунгагдана.`],
 ]
 
+// Агуулахтай гэрээг зөвхөн нээсэн карго байгуулна — энэ хуудас карго нээх / нэвтрэх рүү чиглүүлнэ
 export default async function StartContractPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const byId = /^\d+$/.test(slug)
@@ -27,9 +28,9 @@ export default async function StartContractPage({ params }: { params: Promise<{ 
   if (!wh) notFound()
   if (wh.slug && slug !== wh.slug) redirect(`${warehousePath(wh)}/contract`)
 
-  // Нэвтэрсэн каргогийн эзэмшигч өөрийн хэсгээрээ байгуулна — гэрээ каргод нь холбогдоно
+  const adminPath = `/admin/warehouse?new=${wh.id}`
   const user = await getAuthUser()
-  if (user?.role === 'ADMIN') redirect(`/admin/warehouse?new=${wh.id}`)
+  if (user?.role === 'ADMIN') redirect(adminPath)
 
   const ready = wh.acceptingContracts && warehouseReadiness(wh, wh._count.templates > 0).length === 0
 
@@ -58,7 +59,22 @@ export default async function StartContractPage({ params }: { params: Promise<{ 
           </div>
         ) : (
           <>
-            <ol style={{ listStyle: 'none', padding: 0, margin: '0 0 1.4rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
+            <div className="card" style={{ padding: '1.3rem', borderColor: 'var(--accent)', marginBottom: '1.2rem' }}>
+              <h2 style={{ fontSize: '1.05rem', margin: '0 0 0.35rem' }}>Эхлээд каргогоо нээнэ үү</h2>
+              <p style={{ fontSize: '0.86rem', color: 'var(--muted)', margin: '0 0 1rem', lineHeight: 1.6 }}>
+                Агуулахтай гэрээг aicargo-д бүртгэлтэй карго байгуулна. Гэрээ, төлбөрийн явц тань каргогийн
+                админ хэсгийн <b style={{ color: 'var(--text)' }}>"Агуулах"</b> цэсэнд хадгалагдана.
+              </p>
+              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <Link href={`/signup-cargo?warehouse=${wh.id}`} className="btn" style={{ textDecoration: 'none' }}>
+                  Карго нээх — 30 хоног үнэгүй →
+                </Link>
+                <Link href={`/login?next=${encodeURIComponent(adminPath)}`} className="btn-ghost" style={{ textDecoration: 'none' }}>
+                  Карготой бол нэвтрэх
+                </Link>
+              </div>
+            </div>
+            <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.6rem' }}>
               {STEPS.map(([t, d], i) => (
                 <li key={t} className="card" style={{ padding: '0.8rem 0.9rem' }}>
                   <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent)' }}>АЛХАМ {i + 1}</div>
@@ -67,14 +83,8 @@ export default async function StartContractPage({ params }: { params: Promise<{ 
                 </li>
               ))}
             </ol>
-            <GuestStart warehouseId={wh.id} />
           </>
         )}
-
-        <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginTop: '1.5rem', lineHeight: 1.6 }}>
-          aicargo-д бүртгэлтэй карго бол <Link href="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>нэвтэрч</Link> гэрээгээ
-          өөрийн хэсгээс байгуулбал гэрээ каргод тань шууд холбогдоно.
-        </p>
       </div>
     </>
   )

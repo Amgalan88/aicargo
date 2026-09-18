@@ -17,6 +17,10 @@ interface ContractRow {
   approvedAt: string | null
   terminationEffectiveAt: string | null
   terminatedAt: string | null
+  paymentClaimedAt: string | null
+  paidAt: string | null
+  websiteBonusAt: string | null
+  rejectReason: string | null
   warehouse: { id: number; name: string; imageUrl: string | null }
 }
 
@@ -81,10 +85,11 @@ function WarehouseContracts() {
 
   return (
     <div className="page-wide" style={{ maxWidth: 900 }}>
-      <h1 className="section-title">Эрээний агуулахтай гэрээ</h1>
+      <h1 className="section-title">Агуулах</h1>
       <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>
         Эрээний агуулахтай цахим гэрээ байгуулснаар агуулах танай каргод тусгай зай талбай гаргаж,
         ачааг хүлээн авч, ангилж, баглаж савлана. Гэрээний төлбөр нэг удаагийн бөгөөд буцаагдахгүй.
+        Гэрээ хүчин төгөлдөр болоход вэбсайт тань 60 хоногоор үнэгүй сунгагдана.
       </p>
 
       {data.contracts.length > 0 && (
@@ -102,6 +107,7 @@ function WarehouseContracts() {
                   <div style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>
                     {c.contractNo} · {subline(c)}
                   </div>
+                  <Progress c={c} />
                 </div>
                 <StatusBadge status={c.status} />
                 <span style={{ color: 'var(--muted)' }}>›</span>
@@ -160,9 +166,38 @@ function WarehouseContracts() {
         .wc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.9rem; }
         .wc-wh { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
         .wc-wh-img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+        .wc-steps { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
+        .wc-steps span { font-size: 0.68rem; padding: 0.1rem 0.45rem; border-radius: 100px; background: var(--surface2); color: var(--muted); }
+        .wc-steps span.done { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+        .wc-steps span.on { background: var(--accent); color: #fff; font-weight: 600; }
+        .wc-pay { font-size: 0.74rem; margin-top: 4px; font-weight: 600; }
         .wc-hl { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
       `}</style>
     </div>
+  )
+}
+
+const STEPS = ['Бөглөх', 'Баталгаажуулах', 'Төлбөр', 'Хүчинтэй']
+
+// Гэрээний явц: аль алхамд байгаа, төлбөрийн байдал
+function Progress({ c }: { c: ContractRow }) {
+  if (c.status === 'REJECTED' || c.status === 'TERMINATED') {
+    return <div className="wc-pay" style={{ color: 'var(--muted)' }}>{c.status === 'REJECTED' ? `Татгалзсан${c.rejectReason ? ': ' + c.rejectReason : ''}` : 'Гэрээ цуцлагдсан'}</div>
+  }
+  const step = c.status === 'DRAFT' ? 0 : c.status === 'AWAITING_PAYMENT' || c.status === 'PAYMENT_REVIEW' ? 2 : 4
+  const pay = c.status === 'DRAFT' ? { t: 'Мэдээллээ бөглөж баталгаажуулна уу', color: 'var(--muted)' }
+    : c.status === 'AWAITING_PAYMENT' ? { t: `Төлбөр хүлээгдэж байна — ${formatMnt(c.fee)} шилжүүлж "Төлбөр төлсөн" дарна уу`, color: '#d97706' }
+    : c.status === 'PAYMENT_REVIEW' ? { t: `Төлбөр шалгагдаж байна (мэдэгдсэн ${c.paymentClaimedAt ? formatDateTime(c.paymentClaimedAt).slice(0, 10) : ''})`, color: '#2563eb' }
+    : { t: `Төлбөр баталгаажсан ${c.paidAt ? formatDateTime(c.paidAt).slice(0, 10) : ''}${c.websiteBonusAt ? ' · вэбсайт +60 хоног' : ''}`, color: 'var(--green)' }
+  return (
+    <>
+      <div className="wc-steps">
+        {STEPS.map((s, i) => (
+          <span key={s} className={i < step ? 'done' : i === step ? 'on' : ''}>{i < step ? '✓ ' : ''}{s}</span>
+        ))}
+      </div>
+      <div className="wc-pay" style={{ color: pay.color }}>{pay.t}</div>
+    </>
   )
 }
 

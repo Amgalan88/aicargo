@@ -1,13 +1,18 @@
 import SignupCargoClient, { ContractOffer } from './SignupCargoClient'
 import { findSignupContract, safeValues } from '@/lib/contract-server'
 import { WEBSITE_BONUS_DAYS } from '@/lib/contract'
+import { prisma } from '@/lib/prisma'
 
 export const revalidate = 0
 export const metadata = { title: 'Шинэ карго нээх — Aicargo', robots: { index: true } }
 
 // ?contract=<token> — Эрээний агуулахтай гэрээ байгуулсан хүнд 60 хоногийн үнэгүй санал
-export default async function SignupCargoPage({ searchParams }: { searchParams: Promise<{ contract?: string }> }) {
-  const token = (await searchParams).contract
+export default async function SignupCargoPage({ searchParams }: { searchParams: Promise<{ contract?: string; warehouse?: string }> }) {
+  const sp = await searchParams
+  const token = sp.contract
+  // Агуулахын хуудаснаас ирсэн бол карго нээсний дараа шууд гэрээ эхлүүлэх товч гаргана
+  const whId = Number(sp.warehouse) || 0
+  const wh = whId ? await prisma.partnerWarehouse.findFirst({ where: { id: whId, active: true }, select: { id: true, name: true } }) : null
   let offer: ContractOffer | null = null
   let offerInvalid = false
   if (token) {
@@ -28,5 +33,5 @@ export default async function SignupCargoPage({ searchParams }: { searchParams: 
       offerInvalid = true
     }
   }
-  return <SignupCargoClient offer={offer} offerInvalid={offerInvalid} />
+  return <SignupCargoClient offer={offer} offerInvalid={offerInvalid} warehouse={wh} />
 }

@@ -41,7 +41,7 @@ export interface ContractOffer {
   days: number
 }
 
-export default function SignupCargoClient({ offer = null, offerInvalid = false }: { offer?: ContractOffer | null; offerInvalid?: boolean }) {
+export default function SignupCargoClient({ offer = null, offerInvalid = false, warehouse = null }: { offer?: ContractOffer | null; offerInvalid?: boolean; warehouse?: { id: number; name: string } | null }) {
   const [step, setStep] = useState<'form' | 'otp' | 'done'>('form')
   const [trialDays, setTrialDays] = useState(offer?.days ?? 30)
   const [form, setForm] = useState<Form>({
@@ -162,6 +162,14 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false }
               <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
                 Эхний 30 хоног үнэгүй, цаашид сарын ₮50,000. Хэдхэн минутад өөрийн карго хянах системтэй болно.
               </p>
+            )}
+            {warehouse && !offer && (
+              <div style={{
+                background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)',
+                padding: '0.75rem 1rem', margin: '0 0 1.25rem', fontSize: '0.83rem', lineHeight: 1.55,
+              }}>
+                Карго нээсний дараа <b>"{warehouse.name}"</b> агуулахтай цахим гэрээгээ шууд байгуулна.
+              </div>
             )}
             {offerInvalid && (
               <p className="msg-error" style={{ marginBottom: '1rem' }}>
@@ -333,9 +341,21 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false }
               {trialDays} хоногийн үнэгүй хугацаа эхэллээ.<br />
               Тохиргоо хэсгээс Эрээний хаяг, тариф, банкны мэдээллээ бөглөөрэй.
             </p>
-            <a href={`https://${doneSlug}.aicargo.mn/admin/settings`} className="btn" style={{ textDecoration: 'none' }}>
-              Тохиргоо хийх →
-            </a>
+            {warehouse && !offer ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', alignItems: 'center' }}>
+                {/* Нэвтрэлтийн cookie энэ домэйн дээр тавигдсан тул харьцангуй холбоосоор үргэлжлүүлнэ */}
+                <a href={`/admin/warehouse?new=${warehouse.id}`} className="btn" style={{ textDecoration: 'none' }}>
+                  "{warehouse.name}" агуулахтай гэрээ байгуулах →
+                </a>
+                <a href={`https://${doneSlug}.aicargo.mn/admin/settings`} style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                  Эсвэл тохиргоо хийх
+                </a>
+              </div>
+            ) : (
+              <a href={`https://${doneSlug}.aicargo.mn/admin/settings`} className="btn" style={{ textDecoration: 'none' }}>
+                Тохиргоо хийх →
+              </a>
+            )}
           </div>
         )}
       </div>

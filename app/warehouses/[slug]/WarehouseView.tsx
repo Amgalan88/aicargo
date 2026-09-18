@@ -152,7 +152,7 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
               ) : (
                 <button className="whv-cta" disabled>Шинэ гэрээ түр хаалттай</button>
               )}
-              <p className="whv-note">Бүртгэл шаардлагагүй — и-мэйлээр баталгаажуулна.</p>
+              <p className="whv-note">aicargo-д каргогоо нээсэн байх шаардлагатай — эхний 30 хоног үнэгүй.</p>
               <p className="whv-note">Төлбөр гэрээ цуцлагдсан ч буцаагдахгүй.</p>
             </div>
 

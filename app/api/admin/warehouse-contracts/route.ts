@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true, contractNo: true, status: true, fee: true, createdAt: true, cargoSignedAt: true,
         approvedAt: true, terminationEffectiveAt: true, terminatedAt: true, rejectReason: true,
+        paymentClaimedAt: true, paidAt: true, websiteBonusAt: true,
         warehouse: { select: { id: true, name: true, imageUrl: true } },
       },
     }),

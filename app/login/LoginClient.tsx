@@ -4,7 +4,7 @@ import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
 import { useRouter } from 'next/navigation'
 
-export default function LoginClient({ cargoName, logoUrl }: { cargoName?: string; logoUrl?: string }) {
+export default function LoginClient({ cargoName, logoUrl, adminNext }: { cargoName?: string; logoUrl?: string; adminNext?: string }) {
   const router = useRouter()
   const [form, setForm] = useState({ phone: '', password: '' })
   const [error, setError] = useState('')
@@ -24,7 +24,7 @@ export default function LoginClient({ cargoName, logoUrl }: { cargoName?: string
     if (!res.ok) { setError(data.error); return }
     router.push(
       data.role === 'SUPER_ADMIN' ? '/super'
-      : data.role === 'ADMIN' ? (data.batchMode ? '/admin/batches' : '/admin/import')
+      : data.role === 'ADMIN' ? (adminNext ?? (data.batchMode ? '/admin/batches' : '/admin/import'))
       : data.role === 'EREEN' ? '/batch'
       : '/orders'
     )
