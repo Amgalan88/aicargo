@@ -15,6 +15,8 @@ interface StaleItem {
 // Эрээнд ирсэн төлөвт хамгийн удаан байгаа ачааг олж, сонгож устгах хэсэг
 export default function StaleEreen({ label, onDeleted }: { label: string; onDeleted: () => void }) {
   const [limit, setLimit] = useState('20')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const [items, setItems] = useState<StaleItem[] | null>(null)
   const [total, setTotal] = useState(0)
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -26,7 +28,10 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
     e?.preventDefault()
     setLoading(true)
     setMsg('')
-    const res = await fetch(`/api/admin/ereen/stale?limit=${encodeURIComponent(limit || '20')}`)
+    const qs = new URLSearchParams({ limit: limit || '20' })
+    if (from) qs.set('from', from)
+    if (to) qs.set('to', to)
+    const res = await fetch(`/api/admin/ereen/stale?${qs}`)
     const data = await res.json().catch(() => ({}))
     setLoading(false)
     if (!res.ok) { setMsg(data.error || 'Алдаа гарлаа'); return }
@@ -92,17 +97,31 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
           {loading ? '...' : 'Харах'}
         </button>
       </form>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '-0.4rem 0 1rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+        <span>Эрээнд ирсэн огноо:</span>
+        <input type="date" className="input" value={from} max={to || undefined} onChange={e => setFrom(e.target.value)}
+          aria-label="Эхлэх огноо" style={{ width: 'auto', minWidth: 0, padding: '0.35rem 0.5rem', fontSize: '0.8rem' }} />
+        <span>—</span>
+        <input type="date" className="input" value={to} min={from || undefined} onChange={e => setTo(e.target.value)}
+          aria-label="Дуусах огноо" style={{ width: 'auto', minWidth: 0, padding: '0.35rem 0.5rem', fontSize: '0.8rem' }} />
+        {(from || to) && (
+          <button type="button" onClick={() => { setFrom(''); setTo('') }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'inherit', padding: 0 }}>
+            Цэвэрлэх
+          </button>
+        )}
+      </div>
 
       {msg && <p style={{ fontSize: '0.82rem', color: msg.startsWith('✓') ? 'var(--green)' : 'var(--danger)', marginBottom: '0.75rem' }}>{msg}</p>}
 
       {items !== null && (
         items.length === 0
-          ? <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>"{label}" төлөвтэй ачаа алга.</p>
+          ? <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>{from || to ? 'Энэ хугацаанд' : ''} "{label}" төлөвтэй ачаа алга.</p>
           : <>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.82rem', cursor: 'pointer' }}>
                   <input type="checkbox" checked={allChecked} onChange={toggleAll} />
-                  Бүгдийг сонгох <span style={{ color: 'var(--muted)' }}>({items.length} / нийт {total})</span>
+                  Бүгдийг сонгох <span style={{ color: 'var(--muted)' }}>({items.length} / {from || to ? 'шүүлтэд' : 'нийт'} {total})</span>
                 </label>
                 <button onClick={remove} disabled={!selected.size || deleting} style={{
                   background: selected.size ? 'var(--danger)' : 'var(--surface2)', color: selected.size ? '#fff' : 'var(--muted)',

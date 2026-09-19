@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 
 const MAX = 500
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+// YYYY-MM-DD-г Улаанбаатарын цагаар (UTC+8) тухайн өдрийн эхлэл болгоно
+function ubDayStart(v: string | null): Date | null {
+  if (!v || !DATE_RE.test(v)) return null
+  const d = new Date(`${v}T00:00:00+08:00`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
 
 // Эрээнд ирсэн төлөвт хамгийн удаан байгаа N ачаа — хуучин (огноогүй) бичлэг эхэнд.
 // ereenArrivedAt 2026-06 сараас өмнө хадгалагддаггүй байсан тул тэдгээрт updatedAt-ыг ойролцоо огноо болгоно.
@@ -11,16 +20,27 @@ export async function GET(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const limit = Math.min(MAX, Math.max(1, Math.floor(Number(req.nextUrl.searchParams.get('limit')) || 20)))
+  const sp = req.nextUrl.searchParams
+  const limit = Math.min(MAX, Math.max(1, Math.floor(Number(sp.get('limit')) || 20)))
   const where = { cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' as const }
 
+  // Огнооны шүүлт (заавал биш): from өдрөөс, to өдрийг дуустал — Эрээнд ирсэн (эсвэл ойролцоо) огноогоор
+  const from = ubDayStart(sp.get('from'))
+  const toStart = ubDayStart(sp.get('to'))
+  const toEnd = toStart ? new Date(toStart.getTime() + 86_400_000) : null
+  if ((sp.get('from') && !from) || (sp.get('to') && !toStart)) return NextResponse.json({ error: 'Огноо буруу байна' }, { status: 400 })
+  if (from && toEnd && from >= toEnd) return NextResponse.json({ error: 'Эхлэх огноо дуусах огнооноос хойш байна' }, { status: 400 })
+
   // Эрэмбэ ба харуулах хоног нэг огноогоор: ereenArrivedAt, байхгүй бол updatedAt ((cargoId, status) индексээр ~1000 мөр эрэмбэлнэ)
-  const [total, ordered] = await Promise.all([
-    prisma.shipment.count({ where }),
+  const effective = Prisma.sql`COALESCE("ereenArrivedAt", "updatedAt")`
+  const cond = Prisma.sql`"cargoId" = ${admin.cargoId!} AND status = 'EREEN_ARRIVED'
+    ${from ? Prisma.sql`AND ${effective} >= ${from}` : Prisma.empty}
+    ${toEnd ? Prisma.sql`AND ${effective} < ${toEnd}` : Prisma.empty}`
+  const [[{ count: total }], ordered] = await Promise.all([
+    prisma.$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int AS count FROM "Shipment" WHERE ${cond}`,
     prisma.$queryRaw<{ id: number }[]>`
-      SELECT id FROM "Shipment"
-      WHERE "cargoId" = ${admin.cargoId!} AND status = 'EREEN_ARRIVED'
-      ORDER BY COALESCE("ereenArrivedAt", "updatedAt") ASC, id ASC
+      SELECT id FROM "Shipment" WHERE ${cond}
+      ORDER BY ${effective} ASC, id ASC
       LIMIT ${limit}
     `,
   ])
