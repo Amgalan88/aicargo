@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 
-const MAX = 500
+const MAX = 2000
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 // YYYY-MM-DD-г Улаанбаатарын цагаар (UTC+8) тухайн өдрийн эхлэл болгоно
