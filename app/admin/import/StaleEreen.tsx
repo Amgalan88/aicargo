@@ -44,9 +44,9 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
   }, [])
   useEffect(() => { load() }, [load])
 
-  // Ачааг Эрээнд ирсэн өдрөөр нь бүлэглэнэ (жагсаалт хуучнаас шинэ рүү эрэмбэлэгдсэн)
+  // Ачааг Эрээнд ирсэн өдрөөр нь бүлэглэнэ. API хуучнаас шинэ рүү буцаадаг тул эргүүлж шинэ өдрийг эхэнд гаргана
   const groups: { day: string; items: StaleItem[] }[] = []
-  for (const it of items ?? []) {
+  for (const it of [...(items ?? [])].reverse()) {
     const day = ubDay(it.since)
     const last = groups[groups.length - 1]
     if (last?.day === day) last.items.push(it)
@@ -55,12 +55,12 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
 
   const isDayFull = (g: { items: StaleItem[] }) => g.items.every(i => selected.has(i.id))
 
-  // Өдөр сонгох: тэр өдөр ба өмнөх бүх өдөр. Болих: тэр өдөр ба хойших бүх өдөр
+  // Өдөр сонгох: тэр өдөр ба өмнөх (доор байгаа) бүх өдөр. Болих: тэр өдөр ба хойших (дээр байгаа) бүх өдөр
   function pickDay(index: number) {
     const on = !isDayFull(groups[index])
     setSelected(prev => {
       const next = new Set(prev)
-      const range = on ? groups.slice(0, index + 1) : groups.slice(index)
+      const range = on ? groups.slice(index) : groups.slice(0, index + 1)
       for (const g of range) {
         for (const it of g.items) {
           if (on) next.add(it.id)
@@ -89,8 +89,8 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
     })
   }
 
-  // Сонголт хамрах хамгийн сүүлийн өдөр — устгах товчны тайлбарт
-  const lastPickedDay = [...groups].reverse().find(g => g.items.some(i => selected.has(i.id)))?.day
+  // Сонголт хамрах хамгийн сүүлийн (шинэ) өдөр — устгах товчны тайлбарт
+  const lastPickedDay = groups.find(g => g.items.some(i => selected.has(i.id)))?.day
 
   async function remove() {
     if (!selected.size) return
@@ -124,7 +124,7 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
         }}>{loading ? '...' : '↻ Шинэчлэх'}</button>
       </div>
       <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 0.9rem', lineHeight: 1.5 }}>
-        Өдрийг чеклэхэд тэр өдөр болон түүнээс өмнөх бүх өдөр сонгогдоно. Өдрийг дарж доторх ачааг харна.
+        Шинэ өдөр дээрээ. Өдрийг чеклэхэд тэр өдөр болон түүнээс өмнөх (доорх) бүх өдөр сонгогдоно. Өдрийг дарж доторх ачааг харна.
       </p>
 
       {msg && <p style={{ fontSize: '0.82rem', color: msg.startsWith('✓') ? 'var(--green)' : 'var(--danger)', marginBottom: '0.75rem' }}>{msg}</p>}
@@ -158,7 +158,7 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
               const picked = g.items.filter(i => selected.has(i.id)).length
               const full = picked === g.items.length
               const open = expanded.has(g.day)
-              const oldest = g.items[0]
+              const oldest = g.items[g.items.length - 1]
               return (
                 <div key={g.day} className="card" style={{ overflow: 'hidden', borderColor: picked ? 'var(--danger)' : undefined }}>
                   <div style={{
