@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { logAdminAction } from '@/lib/audit'
 
 export async function GET(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -57,5 +58,9 @@ export async function DELETE(req: NextRequest) {
   }
 
   await prisma.shipment.delete({ where: { id: Number(id) } })
+  await logAdminAction(prisma, {
+    cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+    action: 'shipment:ereen-deleted', detail: shipment.trackCode,
+  })
   return NextResponse.json({ ok: true })
 }

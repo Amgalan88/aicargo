@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { logAdminAction } from '@/lib/audit'
 
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -48,6 +49,12 @@ export async function DELETE(req: NextRequest) {
   const { count } = await prisma.shipment.deleteMany({
     where: { cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' },
   })
+  if (count) {
+    await logAdminAction(prisma, {
+      cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+      action: 'shipment:ereen-all-deleted', detail: `${count} ачаа`,
+    })
+  }
 
   return NextResponse.json({ count })
 }

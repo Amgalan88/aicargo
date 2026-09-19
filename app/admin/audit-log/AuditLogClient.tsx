@@ -24,6 +24,9 @@ const ACTION_LABELS: Record<string, string> = {
   'shipment:handover': 'Бараа олгосон',
   'shipment:revert-pickup': 'Олгосон бараа буцаасан',
   'shipment:user-removed': 'Хэрэглэгч Эрээнд ирсэн барааг жагсаалтаасаа хассан',
+  'shipment:ereen-deleted': 'Эрээнд ирсэн бараа устгасан',
+  'shipment:ereen-stale-deleted': 'Удаан хүлээгдсэн Эрээний бараа устгасан',
+  'shipment:ereen-all-deleted': 'Эрээнд ирсэн бүх бараа устгасан',
 }
 
 function fmtDT(iso: string) {

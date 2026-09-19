@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
+import StaleEreen from './StaleEreen'
 
 interface Row { trackCode: string; phone?: string }
 interface SearchResult {
@@ -557,6 +558,8 @@ export default function ImportPage() {
           )}
         </>
       )}
+
+      <StaleEreen label={ereemLabel || 'Эрээнд ирсэн'} onDeleted={() => { if (searchResults !== null) loadList(searchQ, searchPage) }} />
 
       {/* Search existing */}
       <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
