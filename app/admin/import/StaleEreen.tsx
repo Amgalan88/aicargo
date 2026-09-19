@@ -12,6 +12,8 @@ interface StaleItem {
   days: number
 }
 
+const MAX_ROWS = 500
+
 // Эрээнд ирсэн төлөвт хамгийн удаан байгаа ачааг олж, сонгож устгах хэсэг
 export default function StaleEreen({ label, onDeleted }: { label: string; onDeleted: () => void }) {
   const [limit, setLimit] = useState('20')
@@ -28,7 +30,8 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
     e?.preventDefault()
     setLoading(true)
     setMsg('')
-    const qs = new URLSearchParams({ limit: limit || '20' })
+    // Огноогоор шүүхэд тэр хугацааны бүх ачааг (нэг удаад 500 хүртэл) харуулна; тоо зөвхөн шүүлтгүй үед
+    const qs = new URLSearchParams({ limit: from || to ? String(MAX_ROWS) : limit || '20' })
     if (from) qs.set('from', from)
     if (to) qs.set('to', to)
     const res = await fetch(`/api/admin/ereen/stale?${qs}`)
@@ -89,10 +92,16 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
         "{label}" төлөвт хамгийн удаан байгаа ачааг харж, шаардлагагүйг нь сонгож устгана.
       </p>
       <form onSubmit={load} style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBottom: '1rem' }}>
-        <span style={{ fontSize: '0.82rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Хамгийн удсан</span>
-        <input className="input" inputMode="numeric" value={limit} style={{ width: 80, minWidth: 0 }}
-          onChange={e => setLimit(e.target.value.replace(/\D/g, '').slice(0, 3))} aria-label="Хэдэн ачаа" />
-        <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>ачаа</span>
+        {from || to ? (
+          <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Сонгосон хугацааны бүх ачаа</span>
+        ) : (
+          <>
+            <span style={{ fontSize: '0.82rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>Хамгийн удсан</span>
+            <input className="input" inputMode="numeric" value={limit} style={{ width: 80, minWidth: 0 }}
+              onChange={e => setLimit(e.target.value.replace(/\D/g, '').slice(0, 3))} aria-label="Хэдэн ачаа" />
+            <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>ачаа</span>
+          </>
+        )}
         <button className="btn" type="submit" disabled={loading} style={{ flexShrink: 0, marginLeft: 'auto' }}>
           {loading ? '...' : 'Харах'}
         </button>
@@ -154,6 +163,11 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
                   </label>
                 ))}
               </div>
+              {total > items.length && (from || to) && (
+                <p style={{ fontSize: '0.75rem', color: '#d97706', marginTop: '0.5rem' }}>
+                  Энэ хугацаанд {total} ачаа байна — эхний {items.length}-г харууллаа. Устгасны дараа дахин "Харах" дарна уу.
+                </p>
+              )}
               {items.some(i => i.sinceApprox) && (
                 <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
                   ~ — 2026 оны 6-р сараас өмнөх ачаанд Эрээнд ирсэн огноо хадгалагдаагүй тул сүүлд өөрчлөгдсөн огноогоор тооцов.
