@@ -51,6 +51,7 @@ model Cargo {
   banners       Banner[]
   batches       Batch[]
   auditLogs     AdminAuditLog[]
+  shipmentDeletions ShipmentDeletion[]
   warehouseContracts WarehouseContract[]
 }
 
@@ -146,6 +147,29 @@ model AdminAuditLog {
   createdAt DateTime @default(now())
 
   @@index([cargoId, createdAt])
+}
+
+// Устгасан ачааны түүх — трак кодоор хайхад "хэзээ, хэн, яаж устгасан" гэдгийг харуулна
+model ShipmentDeletion {
+  id                Int      @id @default(autoincrement())
+  cargoId           Int
+  cargo             Cargo    @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  trackCode         String
+  phone             String?
+  customerName      String?
+  description       String?
+  status            Status
+  ereenArrivedAt    DateTime?
+  shipmentCreatedAt DateTime?
+  // ereen-single | ereen-by-day | ereen-all
+  source            String
+  note              String?
+  deletedById       Int
+  deletedByName     String
+  deletedAt         DateTime @default(now())
+
+  @@index([cargoId, trackCode])
+  @@index([cargoId, phone])
 }
 
 enum Currency {

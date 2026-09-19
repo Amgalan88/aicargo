@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { logAdminAction } from '@/lib/audit'
+import { recordDeletions, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
 
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -46,15 +46,17 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Баталгаажуулалт буруу' }, { status: 400 })
   }
 
-  const { count } = await prisma.shipment.deleteMany({
-    where: { cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' },
-  })
-  if (count) {
-    await logAdminAction(prisma, {
-      cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
-      action: 'shipment:ereen-all-deleted', detail: `${count} ачаа`,
+  // Устгал, түүх, аудит нэг transaction-д (Эрээний ачаа каргод ~1000 хүртэл)
+  const count = await prisma.$transaction(async tx => {
+    const targets = await tx.shipment.findMany({ where: { cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' }, select: DELETION_SNAPSHOT_SELECT })
+    if (!targets.length) return 0
+    await recordDeletions(tx, admin.cargoId!, targets, { id: admin.userId, name: admin.name }, 'ereen-all')
+    const { count } = await tx.shipment.deleteMany({ where: { id: { in: targets.map(t => t.id) }, status: 'EREEN_ARRIVED' } })
+    await tx.adminAuditLog.create({
+      data: { cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name, action: 'shipment:ereen-all-deleted', detail: `${count} ачаа` },
     })
-  }
+    return count
+  }, { timeout: 30_000 })
 
   return NextResponse.json({ count })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { recordDeletions, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
 
 const MAX = 2000
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -77,7 +78,9 @@ export async function DELETE(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const body = await req.json().catch(() => null) as { ids?: unknown } | null
+  const body = await req.json().catch(() => null) as { ids?: unknown; confirm?: unknown; note?: unknown } | null
+  if (body?.confirm !== 'УСТГАХ') return NextResponse.json({ error: 'Баталгаажуулалт буруу' }, { status: 400 })
+  const note = typeof body.note === 'string' ? body.note.trim().slice(0, 200) || null : null
   const ids = Array.isArray(body?.ids)
     ? [...new Set(body.ids.map(Number).filter(n => Number.isInteger(n) && n > 0))]
     : []
@@ -85,20 +88,21 @@ export async function DELETE(req: NextRequest) {
   if (ids.length > MAX) return NextResponse.json({ error: `Нэг удаад ${MAX} хүртэл ачаа устгана` }, { status: 400 })
 
   const where = { id: { in: ids }, cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' as const }
-  // Устгал ба аудит нэг transaction-д — холболт тасарвал аль аль нь хэрэгжихгүй
+  // Устгал, устгалын түүх, аудит нэг transaction-д — холболт тасарвал аль нь ч хэрэгжихгүй
   const count = await prisma.$transaction(async tx => {
-    const targets = await tx.shipment.findMany({ where, select: { id: true, trackCode: true } })
+    const targets = await tx.shipment.findMany({ where, select: DELETION_SNAPSHOT_SELECT })
     if (!targets.length) return 0
+    await recordDeletions(tx, admin.cargoId!, targets, { id: admin.userId, name: admin.name }, 'ereen-by-day', note)
     const { count } = await tx.shipment.deleteMany({ where: { ...where, id: { in: targets.map(t => t.id) } } })
     const codes = targets.map(t => t.trackCode)
     await tx.adminAuditLog.create({
       data: {
         cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
         action: 'shipment:ereen-stale-deleted',
-        detail: `${count} ачаа: ${codes.slice(0, 50).join(', ')}${codes.length > 50 ? ` … +${codes.length - 50}` : ''}`,
+        detail: `${note ? `${note} · ` : ''}${count} ачаа: ${codes.slice(0, 50).join(', ')}${codes.length > 50 ? ` … +${codes.length - 50}` : ''}`,
       },
     })
     return count
-  })
+  }, { timeout: 30_000 })
   return NextResponse.json({ count, skipped: ids.length - count })
 }

@@ -30,6 +30,8 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [msg, setMsg] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -92,15 +94,26 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
   // Сонголт хамрах хамгийн сүүлийн (шинэ) өдөр — устгах товчны тайлбарт
   const lastPickedDay = groups.find(g => g.items.some(i => selected.has(i.id)))?.day
 
-  async function remove() {
+  // Сонголтын хураангуй: хэдэн өдөр, хамгийн хуучин ба шинэ өдөр
+  const pickedGroups = groups.filter(g => g.items.some(i => selected.has(i.id)))
+  const firstPickedDay = pickedGroups[pickedGroups.length - 1]?.day
+  const summary = pickedGroups.length > 1 ? `${firstPickedDay} – ${lastPickedDay}, ${pickedGroups.length} өдөр` : `${lastPickedDay}`
+
+  function openConfirm() {
     if (!selected.size) return
-    if (!confirm(`${lastPickedDay} хүртэлх сонгосон ${selected.size} ачааг бүрмөсөн устгах уу? Энэ үйлдлийг буцааж болохгүй.`)) return
+    setConfirmText('')
+    setConfirmOpen(true)
+  }
+
+  async function remove() {
+    if (!selected.size || confirmText !== 'УСТГАХ') return
     setDeleting(true)
     const res = await fetch('/api/admin/ereen/stale', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: [...selected] }),
+      body: JSON.stringify({ ids: [...selected], confirm: confirmText, note: summary }),
     })
+    setConfirmOpen(false)
     const data = await res.json().catch(() => ({}))
     setDeleting(false)
     await load()
@@ -144,7 +157,7 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
                 }}>сонголт цуцлах</button></>
               )}
             </span>
-            <button onClick={remove} disabled={!selected.size || deleting} style={{
+            <button onClick={openConfirm} disabled={!selected.size || deleting} style={{
               background: selected.size ? 'var(--danger)' : 'var(--surface2)', color: selected.size ? '#fff' : 'var(--muted)',
               border: 'none', borderRadius: 'var(--radius)', padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: 600,
               cursor: selected.size && !deleting ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
@@ -215,6 +228,32 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
             </p>
           )}
         </>
+      )}
+      {confirmOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}>
+          <div className="card" role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 420, padding: '1.5rem' }}>
+            <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 700, color: 'var(--danger)' }}>⚠ {selected.size} ачаа устгагдана</h3>
+            <div style={{ fontSize: '0.84rem', lineHeight: 1.6, marginBottom: '0.9rem' }}>
+              <div>Хугацаа: <b>{summary}</b></div>
+              <div style={{ color: 'var(--muted)' }}>
+                "{label}" төлөвтэй эдгээр ачаа бүрмөсөн устгагдана. Устгасан ачаа бүр түүхэнд хадгалагдах тул трак кодоор хайхад
+                хэзээ, хэн устгасан нь харагдана.
+              </div>
+            </div>
+            <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem' }}>Үргэлжлүүлэхийн тулд <strong>УСТГАХ</strong> гэж бичнэ үү:</p>
+            <input className="input" placeholder="УСТГАХ" value={confirmText} onChange={e => setConfirmText(e.target.value)} autoFocus
+              style={{ marginBottom: '1rem', borderColor: confirmText === 'УСТГАХ' ? 'var(--danger)' : undefined }} />
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button className="btn" onClick={remove} disabled={confirmText !== 'УСТГАХ' || deleting}
+                style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', opacity: confirmText === 'УСТГАХ' ? 1 : 0.4 }}>
+                {deleting ? 'Устгаж байна...' : 'Устгах'}
+              </button>
+              <button onClick={() => setConfirmOpen(false)} disabled={deleting} style={{ flex: 1, padding: '0.6rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                Болих
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

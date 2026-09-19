@@ -3,11 +3,23 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import StaleEreen from './StaleEreen'
+import { DELETION_SOURCE_LABELS } from '@/lib/shipment-deletion'
 
 interface Row { trackCode: string; phone?: string }
 interface SearchResult {
   id: number; trackCode: string; status: string; phone: string | null
   createdAt: string; user?: { name: string; phone: string } | null
+}
+interface DeletedResult {
+  id: number; trackCode: string; phone: string | null; customerName: string | null; description: string | null
+  status: string; ereenArrivedAt: string | null; source: string; note: string | null; deletedByName: string; deletedAt: string
+}
+
+// Улаанбаатарын цагаар YYYY.MM.DD HH:mm
+const UB_DT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+function fmtUb(iso: string): string {
+  const p = Object.fromEntries(UB_DT.formatToParts(new Date(iso)).map(x => [x.type, x.value]))
+  return `${p.year}.${p.month}.${p.day} ${p.hour === '24' ? '00' : p.hour}:${p.minute}`
 }
 
 const PAGE_SIZE = 20
@@ -54,6 +66,10 @@ export default function ImportPage() {
   const [searchTotal, setSearchTotal] = useState(0)
   const [searchPage, setSearchPage] = useState(1)
   const [searching, setSearching] = useState(false)
+  // Хайлт хийсэн үг (хоосон бол Эрээний жагсаалтын горим) ба жагсаалтыг дэлгэх эсэх
+  const [activeQ, setActiveQ] = useState('')
+  const [listOpen, setListOpen] = useState(false)
+  const [deletedResults, setDeletedResults] = useState<DeletedResult[]>([])
   const [arrivedLabel, setArrivedLabel] = useState<string | null>(null)
   const [ereemLabel, setEreemLabel] = useState<string | null>(null)
   const STATUS_LABEL = getStatusLabel(arrivedLabel, ereemLabel)
@@ -77,12 +93,21 @@ export default function ImportPage() {
       setSearchResults(data.items)
       setSearchTotal(data.total)
       setSearchPage(data.page)
+      setDeletedResults(data.deleted ?? [])
     }
   }
 
   async function search(e: React.FormEvent) {
     e.preventDefault()
-    loadList(searchQ, 1)
+    const q = searchQ.trim()
+    setActiveQ(q)
+    loadList(q, 1)
+  }
+
+  function clearSearch() {
+    setSearchQ('')
+    setActiveQ('')
+    loadList('', 1)
   }
 
   function handleExcel(e: React.ChangeEvent<HTMLInputElement>) {
@@ -274,6 +299,81 @@ export default function ImportPage() {
     } else {
       setDeleteMsg('Алдаа гарлаа')
     }
+  }
+
+  // Хайлтын / жагсаалтын үр дүн (хоёр горимд хоёуланд)
+  function renderResults() {
+    return (
+      <>
+          {searchResults !== null && (
+            searchResults.length === 0
+              ? <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Олдсонгүй.</p>
+              : <>
+                  <div className="card" style={{ overflow: 'hidden', marginBottom: '0.75rem' }}>
+                    {searchResults.map((s, i) => (
+                      <div key={s.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '0.55rem 1rem', gap: '0.5rem',
+                        borderBottom: i < searchResults.length - 1 ? '1px solid var(--border)' : 'none',
+                        fontSize: '0.83rem',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{s.trackCode}</span>
+                          <span style={{ color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {s.user ? s.user.phone : (s.phone || '—')}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
+                            {(() => { const d = new Date(s.createdAt); return `${d.getMonth()+1}.${String(d.getDate()).padStart(2,'0')}` })()}
+                          </span>
+                          <span style={{
+                            fontSize: '0.7rem', padding: '0.1rem 0.5rem', borderRadius: '100px',
+                            background: s.status === 'EREEN_ARRIVED' ? 'var(--surface2)' : s.status === 'ARRIVED' ? '#fff3e6' : 'var(--surface2)',
+                            color: s.status === 'ARRIVED' ? 'var(--accent)' : 'var(--muted)',
+                            border: '1px solid var(--border)',
+                          }}>{STATUS_LABEL[s.status] ?? s.status}</span>
+                          {s.status === 'EREEN_ARRIVED' && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`"${s.trackCode}" устгах уу?`)) return
+                                const res = await fetch('/api/admin/ereen/recent', {
+                                  method: 'DELETE',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ id: s.id }),
+                                })
+                                if (res.ok) loadList(activeQ, searchPage)
+                                else alert((await res.json().catch(() => ({}))).error || 'Устгаж чадсангүй')
+                              }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem', padding: '0.1rem 0.25rem', lineHeight: 1 }}
+                              onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+                              onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
+                              title="Устгах"
+                            >✕</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {searchTotal > 20 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
+                      <button onClick={() => loadList(activeQ, searchPage - 1)} disabled={searchPage <= 1} style={{
+                        height: 30, padding: '0 0.65rem', borderRadius: '8px', border: '1px solid var(--border)',
+                        background: 'var(--surface)', cursor: searchPage <= 1 ? 'not-allowed' : 'pointer',
+                        opacity: searchPage <= 1 ? 0.4 : 1, fontSize: '0.82rem', color: 'var(--text)', fontFamily: 'inherit',
+                      }}>‹</button>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{searchPage} / {Math.ceil(searchTotal / 20)}</span>
+                      <button onClick={() => loadList(activeQ, searchPage + 1)} disabled={searchPage >= Math.ceil(searchTotal / 20)} style={{
+                        height: 30, padding: '0 0.65rem', borderRadius: '8px', border: '1px solid var(--border)',
+                        background: 'var(--surface)', cursor: searchPage >= Math.ceil(searchTotal / 20) ? 'not-allowed' : 'pointer',
+                        opacity: searchPage >= Math.ceil(searchTotal / 20) ? 0.4 : 1, fontSize: '0.82rem', color: 'var(--text)', fontFamily: 'inherit',
+                      }}>›</button>
+                    </div>
+                  )}
+                </>
+          )}
+      </>
+    )
   }
 
   return (
@@ -559,14 +659,14 @@ export default function ImportPage() {
         </>
       )}
 
-      <StaleEreen label={ereemLabel || 'Эрээнд ирсэн'} onDeleted={() => { if (searchResults !== null) loadList(searchQ, searchPage) }} />
-
       {/* Search existing */}
       <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
           <h2 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Бүртгэгдсэн бараа хайх</h2>
-          {searchResults !== null && (
-            <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Нийт {searchTotal}</span>
+          {activeQ && (
+            <button type="button" onClick={clearSearch} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'inherit', padding: 0 }}>
+              ✕ Хайлт цэвэрлэх
+            </button>
           )}
         </div>
         <form onSubmit={search} style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
@@ -578,73 +678,49 @@ export default function ImportPage() {
           </button>
         </form>
 
-        {searchResults !== null && (
-          searchResults.length === 0
-            ? <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Олдсонгүй.</p>
-            : <>
-                <div className="card" style={{ overflow: 'hidden', marginBottom: '0.75rem' }}>
-                  {searchResults.map((s, i) => (
-                    <div key={s.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '0.55rem 1rem', gap: '0.5rem',
-                      borderBottom: i < searchResults.length - 1 ? '1px solid var(--border)' : 'none',
-                      fontSize: '0.83rem',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                        <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{s.trackCode}</span>
-                        <span style={{ color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {s.user ? s.user.phone : (s.phone || '—')}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
-                          {(() => { const d = new Date(s.createdAt); return `${d.getMonth()+1}.${String(d.getDate()).padStart(2,'0')}` })()}
-                        </span>
-                        <span style={{
-                          fontSize: '0.7rem', padding: '0.1rem 0.5rem', borderRadius: '100px',
-                          background: s.status === 'EREEN_ARRIVED' ? 'var(--surface2)' : s.status === 'ARRIVED' ? '#fff3e6' : 'var(--surface2)',
-                          color: s.status === 'ARRIVED' ? 'var(--accent)' : 'var(--muted)',
-                          border: '1px solid var(--border)',
-                        }}>{STATUS_LABEL[s.status] ?? s.status}</span>
-                        {s.status === 'EREEN_ARRIVED' && (
-                          <button
-                            onClick={async () => {
-                              if (!confirm(`"${s.trackCode}" устгах уу?`)) return
-                              const res = await fetch('/api/admin/ereen/recent', {
-                                method: 'DELETE',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: s.id }),
-                              })
-                              if (res.ok) loadList(searchQ, searchPage)
-                            }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem', padding: '0.1rem 0.25rem', lineHeight: 1 }}
-                            onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
-                            title="Устгах"
-                          >✕</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {searchTotal > 20 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
-                    <button onClick={() => loadList(searchQ, searchPage - 1)} disabled={searchPage <= 1} style={{
-                      height: 30, padding: '0 0.65rem', borderRadius: '8px', border: '1px solid var(--border)',
-                      background: 'var(--surface)', cursor: searchPage <= 1 ? 'not-allowed' : 'pointer',
-                      opacity: searchPage <= 1 ? 0.4 : 1, fontSize: '0.82rem', color: 'var(--text)', fontFamily: 'inherit',
-                    }}>‹</button>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{searchPage} / {Math.ceil(searchTotal / 20)}</span>
-                    <button onClick={() => loadList(searchQ, searchPage + 1)} disabled={searchPage >= Math.ceil(searchTotal / 20)} style={{
-                      height: 30, padding: '0 0.65rem', borderRadius: '8px', border: '1px solid var(--border)',
-                      background: 'var(--surface)', cursor: searchPage >= Math.ceil(searchTotal / 20) ? 'not-allowed' : 'pointer',
-                      opacity: searchPage >= Math.ceil(searchTotal / 20) ? 0.4 : 1, fontSize: '0.82rem', color: 'var(--text)', fontFamily: 'inherit',
-                    }}>›</button>
+        {activeQ ? (
+          <>
+            <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 0.5rem' }}>"{activeQ}" — {searchTotal} бараа олдлоо</p>
+            {searchResults?.length === 0 && deletedResults.length > 0 ? null : renderResults()}
+        {activeQ && deletedResults.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, margin: '0 0 0.5rem', color: 'var(--danger)' }}>Устгагдсан бараа ({deletedResults.length})</h3>
+            <div className="card" style={{ overflow: 'hidden', borderColor: 'color-mix(in srgb, var(--danger) 40%, var(--border))' }}>
+              {deletedResults.map((d, i) => (
+                <div key={d.id} style={{ padding: '0.6rem 1rem', borderBottom: i < deletedResults.length - 1 ? '1px solid var(--border)' : 'none', fontSize: '0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.84rem' }}>{d.trackCode}</span>
+                    <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.5rem', borderRadius: 100, background: 'color-mix(in srgb, var(--danger) 12%, transparent)', color: 'var(--danger)', fontWeight: 700 }}>Устгагдсан</span>
+                    <span style={{ color: 'var(--muted)' }}>{[d.phone, d.customerName, d.description].filter(Boolean).join(' · ')}</span>
                   </div>
-                )}
-              </>
+                  <div style={{ color: 'var(--muted)', marginTop: '0.25rem', lineHeight: 1.55 }}>
+                    <b style={{ color: 'var(--text)' }}>{fmtUb(d.deletedAt)}</b>-нд <b style={{ color: 'var(--text)' }}>{d.deletedByName}</b> устгасан · {DELETION_SOURCE_LABELS[d.source] ?? d.source}
+                    {d.note && <> ({d.note})</>}
+                    <br />
+                    Устгах үеийн төлөв: {STATUS_LABEL[d.status] ?? d.status}{d.ereenArrivedAt && <> · Эрээнд ирсэн: {fmtUb(d.ereenArrivedAt)}</>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={() => setListOpen(o => !o)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem',
+              padding: '0.65rem 1rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface)',
+              cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', color: 'var(--text)', marginBottom: listOpen ? '0.6rem' : 0,
+            }}>
+              <span>Жагсаалтаар харах <span style={{ color: 'var(--muted)' }}>— нийт {searchTotal}</span></span>
+              <span style={{ color: 'var(--muted)', transform: listOpen ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }}>▾</span>
+            </button>
+            {listOpen && renderResults()}
+          </>
         )}
       </div>
+
+      <StaleEreen label={ereemLabel || 'Эрээнд ирсэн'} onDeleted={() => loadList(activeQ, activeQ ? searchPage : 1)} />
     </div>
 
     {deleteModal && (
