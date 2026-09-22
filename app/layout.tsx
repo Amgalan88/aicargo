@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma'
 import './globals.css'
 import PwaRegister from './components/PwaRegister'
 import AppToaster from './components/AppToaster'
+import DemoBanner from './components/DemoBanner'
+import { DEMO_SLUG } from '@/lib/demo'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -20,6 +22,8 @@ export async function generateMetadata(): Promise<Metadata> {
   let icon = '/favicon.svg'
   let apple = '/apple-icon.png'
   let baseUrl = 'https://www.aicargo.mn'
+  // Демог хайлтын индексээс гаргана — жинхэнэ үйлчлүүлэгч андуурч ороход хүргэдэг
+  let noIndex = false
   // Үндсэн домэйнд л хайлтын түлхүүр үгс өгнө (каргогийн subdomain-д хэрэггүй)
   let keywords: string[] | undefined = [
     'карго систем', 'карго программ', 'ачаа бүртгэл', 'ачаа хяналт',
@@ -31,6 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const host = h.get('host')
     if (host) baseUrl = `https://${host.split(':')[0]}`
     const slug = h.get('x-cargo-slug')
+    if (slug === DEMO_SLUG) noIndex = true
     if (slug) {
       const cargo = await prisma.cargo.findUnique({
         where: { slug },
@@ -57,6 +62,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     keywords,
     icons: { icon, apple },
+    ...(noIndex ? { robots: { index: false, follow: false } } : {}),
     manifest: '/api/manifest.webmanifest',
     openGraph: {
       title: ogTitle,
@@ -76,7 +82,9 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const isDemo = (await headers()).get('x-cargo-slug') === DEMO_SLUG
+
   return (
     <html lang="mn" suppressHydrationWarning>
       <body>
@@ -88,6 +96,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <PwaRegister />
+        {isDemo && <DemoBanner />}
         {children}
         <AppToaster />
         <Analytics />

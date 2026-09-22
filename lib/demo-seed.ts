@@ -5,7 +5,8 @@ import { prisma } from './prisma'
 // seedDemoCargo() нь өгөгдлийг бүрэн цэвэрлэж дахин үүсгэдэг тул
 // зочид юу ч эвдсэн өдөр бүр анхны байдалдаа орно.
 
-export const DEMO_SLUG = 'demo'
+export { DEMO_SLUG } from './demo'
+import { DEMO_SLUG } from './demo'
 export const DEMO_ADMIN_PHONE = '99999901'
 export const DEMO_USER_PHONE = '99999902'
 export const DEMO_PASSWORD = 'demo123'
