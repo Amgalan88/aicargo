@@ -1409,15 +1409,8 @@ textarea.input { resize: vertical; }
 .sc-menu button { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.65rem; border: none; background: none; border-radius: 7px; font: inherit; font-size: var(--fs-sm); color: var(--danger); cursor: pointer; text-align: left; }
 .sc-menu button:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); }
 
-/* Хэрэглэгчийн хуудас — утсанд бичиг багтаах (загвар хэвээр) */
+/* Хэрэглэгчийн хуудас — утсанд хайлт, картын бичгийг багтаах (табууд хэвээр) */
 @media (max-width: 480px) {
-  .otab-row {
-    display: flex !important; overflow-x: auto; scrollbar-width: none;
-    padding: 7px 4% 2px 0; margin: -7px -4% 0.9rem 0 !important;
-    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent);
-  }
-  .otab-row::-webkit-scrollbar { display: none; }
-  .otab-row > button { flex-shrink: 0; white-space: nowrap; padding: 0.5rem 0.85rem !important; }
   .oview-seg button { padding: 0.38rem 0.6rem !important; font-size: 0.74rem !important; }
   .orders-page input.input { padding-left: 0.8rem; padding-right: 0.6rem; min-width: 0 !important; }
   .sc-status b { font-size: 0.87rem; }

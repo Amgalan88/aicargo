@@ -807,7 +807,7 @@ export default function OrdersClient({
         </div>
 
         {/* Tabs */}
-        <div className="otab-row" style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
           {TABS.map(tab => {
             const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
             const active = activeTab === tab.key
