@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, PackageCheck, Landmark, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
@@ -21,6 +21,13 @@ import { toast } from 'sonner'
 import { dict, fmt, statusLabels, LANG_CONFIRM, UserLang, type UserDict } from '@/lib/user-i18n'
 
 
+const BASE_TABS = [
+  { key: 'ALL', label: 'Бүгд' },
+  { key: 'REGISTERED', label: 'Бүртгүүлсэн' },
+  { key: 'EREEN_ARRIVED', label: 'Эрээнд' },
+  { key: 'ARRIVED', label: 'Ирсэн' },
+  { key: 'PICKED_UP', label: 'Авсан' },
+]
 
 const PAGE_SIZE = 10
 
@@ -135,7 +142,7 @@ function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
     sub = fmt(t.stRegistered, { r: relTime(s.createdAt, t) })
   } else if (s.status === 'EREEN_ARRIVED') {
     headline = labels.EREEN_ARRIVED
-    sub = relTime(s.ereenArrivedAt ?? s.updatedAt, t)
+    sub = `${t.stOnWay} · ${relTime(s.ereenArrivedAt ?? s.updatedAt, t)}`
   } else if (s.status === 'ARRIVED') {
     headline = <>{labels.ARRIVED}!</>
     sub = price ? fmt(t.stPay, { p: price }) : t.stReady
@@ -199,133 +206,6 @@ function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
 
       {s.adminNote && <p className="sc-note">{t.adminNote}: {s.adminNote}</p>}
     </article>
-  )
-}
-
-// Нүүрний гол карт: "одоо авч болох ачаа байна уу, хэд төлөх, хаана?" — зөвхөн ирсэн ачаа байвал
-function PickupHero({ items, t, cur, arrivedLabel, bankName, bankAccountNumber, bankAccountHolder, contactInfo }: {
-  items: Shipment[]
-  t: UserDict
-  cur: string
-  arrivedLabel: string
-  bankName?: string | null
-  bankAccountNumber?: string | null
-  bankAccountHolder?: string | null
-  contactInfo?: string | null
-}) {
-  const total = items.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
-  function copyAccount() {
-    if (!bankAccountNumber) return
-    navigator.clipboard.writeText(bankAccountNumber).then(() => toast.success(t.copied)).catch(() => {})
-  }
-  return (
-    <section className="pk" aria-label={fmt(t.readyTitle, { n: items.length })}>
-      <div className="pk-head">
-        <span className="pk-icon"><PackageCheck size={22} strokeWidth={2.2} /></span>
-        <div>
-          <h2>{fmt(t.readyTitle, { n: items.length })}</h2>
-          <p>{arrivedLabel}</p>
-        </div>
-        {total > 0 && (
-          <div className="pk-total">
-            <span>{t.payTotal}</span>
-            <b>{cur}{total.toLocaleString()}</b>
-          </div>
-        )}
-      </div>
-      {(bankAccountNumber || contactInfo) && (
-        <div className="pk-info">
-          {bankAccountNumber && (
-            <button className="pk-bank" onClick={copyAccount} title={t.copyAccount}>
-              <Landmark size={15} />
-              <span>
-                <b>{bankAccountNumber}</b>
-                <small>{[bankName, bankAccountHolder].filter(Boolean).join(' · ')}</small>
-              </span>
-              <em><Copy size={13} />{t.copyAccount}</em>
-            </button>
-          )}
-          {contactInfo && <p className="pk-contact"><MapPin size={15} /><span>{contactInfo}</span></p>}
-        </div>
-      )}
-    </section>
-  )
-}
-
-// Нягт мөр — замд/бүртгүүлсэн/авсан ачаанд. Дарахад бүтэн карт болж дэлгэгдэнэ.
-function ShipmentRow({ s, t, cardProps }: {
-  s: Shipment
-  t: UserDict
-  cardProps: Omit<React.ComponentProps<typeof ShipmentCard>, 's' | 't'>
-}) {
-  const [open, setOpen] = useState(false)
-  if (open) {
-    return (
-      <div className="sr-open">
-        <ShipmentCard s={s} t={t} {...cardProps} />
-        <button className="sr-close" onClick={() => setOpen(false)} aria-label={t.showLess}><ChevronUp size={16} /></button>
-      </div>
-    )
-  }
-  const title = s.description?.trim()
-  const when = s.status === 'REGISTERED' ? s.createdAt
-    : s.status === 'EREEN_ARRIVED' ? (s.ereenArrivedAt ?? s.updatedAt)
-    : s.updatedAt
-  return (
-    <button className={`sr sr-${s.status}`} onClick={() => setOpen(true)} aria-expanded={false}>
-      <span className="sr-dot" aria-hidden />
-      <span className="sr-main">
-        <b>{title || s.trackCode}</b>
-        {title && <small>{s.trackCode}</small>}
-      </span>
-      <span className="sr-side">
-        {s.status === 'PICKED_UP' && s.adminPrice ? <small>{cardProps.cur}{Number(s.adminPrice).toLocaleString()}</small> : null}
-        <time dateTime={when}>{shortDate(when)}</time>
-      </span>
-      <ChevronDown size={16} className="sr-chev" />
-    </button>
-  )
-}
-
-// Төлвөөр бүлэглэсэн хэсэг — эхний хэдийг харуулж, үлдсэнийг "+N илүү"
-function ShipmentSection({ id, title, items, t, mode, initial, collapsed, cardProps }: {
-  id: string
-  title: string
-  items: Shipment[]
-  t: UserDict
-  mode: 'card' | 'row'
-  initial: number
-  collapsed?: boolean
-  cardProps: Omit<React.ComponentProps<typeof ShipmentCard>, 's' | 't'> & { onDeleteId: (id: number) => void; deletingId: number | null }
-}) {
-  const [open, setOpen] = useState(!collapsed)
-  const [all, setAll] = useState(false)
-  if (items.length === 0) return null
-  const shown = all ? items : items.slice(0, initial)
-  const { onDeleteId, deletingId, ...base } = cardProps
-  return (
-    <section className={`ss ss-${id}`}>
-      <button className="ss-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <h2>{title}</h2>
-        <span className="ss-count">{items.length}</span>
-        <ChevronDown size={16} className="ss-chev" style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
-      </button>
-      {open && (
-        <div className={mode === 'card' ? 'ss-cards' : 'ss-rows'}>
-          {shown.map(s => {
-            const p = { ...base, deleting: deletingId === s.id, onDelete: () => onDeleteId(s.id) }
-            return mode === 'card'
-              ? <ShipmentCard key={s.id} s={s} t={t} {...p} />
-              : <ShipmentRow key={s.id} s={s} t={t} cardProps={p} />
-          })}
-          {items.length > initial && (
-            <button className="ss-more" onClick={() => setAll(a => !a)}>
-              {all ? t.showLess : fmt(t.showMore, { n: items.length - initial })}
-            </button>
-          )}
-        </div>
-      )}
-    </section>
   )
 }
 
@@ -416,12 +296,13 @@ export default function OrdersClient({
   const t = dict(lang)
   // Батч горимд: Эрээний шат нуугдаж, ARRIVED нь "УБ руу ачигдсан" нэртэй болно.
   // Каргогийн өөрийн тохируулсан нэр (arrivedLabel/ereemLabel) бүх хэлэнд хэвээр.
-  const { map: STATUS_LABEL } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
+  const { map: STATUS_LABEL, all: allLabel } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
+  const TABS = BASE_TABS
+    .filter(tab => !(batchMode && tab.key === 'EREEN_ARRIVED'))
+    .map(tab => tab.key === 'ALL' ? { ...tab, label: allLabel } : { ...tab, label: STATUS_LABEL[tab.key] ?? tab.label })
   const [shipments, setShipments] = useState(initialShipments)
-  // Табыг хасч, төлвөөр бүлэглэсэн хэсгүүд болгосон — шүүлт үргэлж 'бүгд'
-  const activeTab: string = 'ALL'
+  const [activeTab, setActiveTab] = useState('ALL')
   const [viewMode, setViewMode] = useState<'list' | 'byDate'>('list')
-  const [headMenu, setHeadMenu] = useState(false)
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [deleting, setDeleting] = useState<number | null>(null)
@@ -527,10 +408,7 @@ export default function OrdersClient({
   const soloShipments = shipments.filter(s => !s.batchId)
 
   const afterSearch = soloShipments
-    .filter(s => {
-      const q = searchQ.trim().toLowerCase()
-      return !q || s.trackCode.toLowerCase().includes(q) || (s.phone || '').includes(q) || (s.description || '').toLowerCase().includes(q)
-    })
+    .filter(s => !searchQ.trim() || s.trackCode.toLowerCase().includes(searchQ.trim().toLowerCase()) || (s.phone || '').includes(searchQ.trim()))
 
   const filtered = activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab)
 
@@ -560,13 +438,12 @@ export default function OrdersClient({
   const pagedDateGroups = groupedByDate.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const q = searchQ.trim().toUpperCase()
-  const grouped = viewMode === 'list' && !q
-  const byStatus = (st: string) => soloShipments.filter(s => s.status === st)
   const filteredBatches = batches.filter(b =>
     (activeTab === 'ALL' || b.status === activeTab) &&
     (!q || b.shipments.some(s => s.trackCode.toUpperCase().includes(q)) || b.phone.includes(q))
   )
 
+  function switchTab(key: string) { setActiveTab(key); setPage(1); setExpandedDate(null); setNavPopup(null) }
   function switchView(mode: 'list' | 'byDate') { setViewMode(mode); setPage(1); setExpandedDate(null); setNavPopup(null) }
 
   function renderPagination() {
@@ -873,40 +750,39 @@ export default function OrdersClient({
             )}
           </div>
           <div className="orders-head-actions">
+            {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
+              <button className="orders-del" title={t.deleteAll} aria-label={t.deleteAll} onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }} style={{
+                fontSize: '0.8rem', padding: '0.5rem 0.85rem',
+                background: 'none', border: '1px solid var(--danger)',
+                borderRadius: 'var(--radius)', color: 'var(--danger)',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <Trash2 size={15} strokeWidth={2} />
+                <span className="orders-del-txt">{t.deleteAll}</span>
+              </button>
+            )}
             <button className="btn" onClick={() => { setNavPopup(null); setAddOpen(true) }} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
               {t.addBtn}
             </button>
-            {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
-              <div className="sc-menu-wrap" style={{ margin: 0 }}>
-                <button className="sc-more" style={{ width: 38, height: 38 }} onClick={() => setHeadMenu(m => !m)} aria-label={t.moreActions} aria-expanded={headMenu}>
-                  <MoreHorizontal size={18} />
-                </button>
-                {headMenu && (
-                  <>
-                    <div className="sc-menu-bg" onClick={() => setHeadMenu(false)} />
-                    <div className="sc-menu" role="menu" style={{ minWidth: 180 }}>
-                      <button role="menuitem" onClick={() => { setHeadMenu(false); setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }}>
-                        <Trash2 size={15} />{t.deleteAll}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         </div>
-        {byStatus('ARRIVED').length > 0 && (
-          <PickupHero
-            items={byStatus('ARRIVED')}
-            t={t}
-            cur={CUR}
-            arrivedLabel={STATUS_LABEL.ARRIVED}
-            bankName={bankName}
-            bankAccountNumber={bankAccountNumber}
-            bankAccountHolder={bankAccountHolder}
-            contactInfo={contactInfo}
-          />
-        )}
+        {(() => {
+          const arrived = shipments.filter(s => s.status === 'ARRIVED')
+          const total = arrived.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
+          if (arrived.length === 0) return null
+          return (
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+              <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
+                {STATUS_LABEL.ARRIVED} <strong style={{ color: 'var(--text)' }}>{arrived.length} {t.items}</strong>
+              </span>
+              {total > 0 && (
+                <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
+                  {t.total} <strong style={{ color: 'var(--accent)' }}>{CUR}{total.toLocaleString()}</strong>
+                </span>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Search */}
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
@@ -928,6 +804,39 @@ export default function OrdersClient({
               }}>{label}</button>
             ))}
           </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
+          {TABS.map(tab => {
+            const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
+            const active = activeTab === tab.key
+            return (
+              <button key={tab.key} onClick={() => switchTab(tab.key)} style={{
+                position: 'relative',
+                padding: '0.5rem 0.25rem', borderRadius: '8px', border: '1px solid',
+                borderColor: active ? 'var(--accent)' : 'var(--border)',
+                background: active ? 'var(--accent)' : 'var(--surface)',
+                color: active ? 'var(--on-accent)' : 'var(--muted)',
+                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                textAlign: 'center', lineHeight: 1.3,
+                transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+              }}>
+                {tab.label}
+                {count > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '-6px', right: '-4px',
+                    background: active ? 'var(--on-accent)' : 'var(--accent)',
+                    color: active ? 'var(--accent)' : 'var(--on-accent)',
+                    fontSize: '0.6rem', fontWeight: 700,
+                    minWidth: 16, height: 16, borderRadius: '100px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 3px', lineHeight: 1,
+                  }}>{count}</span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {shipments.length === 0 && batches.length === 0 ? (
@@ -1021,22 +930,7 @@ export default function OrdersClient({
                 </motion.div>
               ))}
 
-              {grouped ? (() => {
-                const cardProps = {
-                  labels: STATUS_LABEL, cur: CUR, userPhone,
-                  deletingId: deleting,
-                  onDeleteId: (id: number) => { setNavPopup(null); setConfirmDelete(id) },
-                  deleting: false, onDelete: () => {},
-                }
-                return (
-                  <>
-                    <ShipmentSection id="ready" title={t.secReady} items={byStatus('ARRIVED')} t={t} mode="card" initial={20} cardProps={cardProps} />
-                    <ShipmentSection id="onway" title={STATUS_LABEL.EREEN_ARRIVED || t.secOnWay} items={byStatus('EREEN_ARRIVED')} t={t} mode="row" initial={8} cardProps={cardProps} />
-                    <ShipmentSection id="reg" title={t.secRegistered} items={byStatus('REGISTERED')} t={t} mode="row" initial={8} cardProps={cardProps} />
-                    <ShipmentSection id="picked" title={t.secPicked} items={byStatus('PICKED_UP')} t={t} mode="row" initial={8} collapsed cardProps={cardProps} />
-                  </>
-                )
-              })() : viewMode === 'list' ? paged.map((s, si) => (
+              {viewMode === 'list' ? paged.map((s, si) => (
                 <motion.div
                   key={s.id}
                   initial={{ opacity: 0, y: 16 }}
@@ -1111,7 +1005,7 @@ export default function OrdersClient({
                 </div>
               ))}
             </div>
-            {!grouped && renderPagination()}
+            {renderPagination()}
             <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
               {fmt(t.totalItems, { n: filtered.length })}
             </p>
