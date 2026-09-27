@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, PackageCheck, ChevronRight } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
@@ -751,14 +751,8 @@ export default function OrdersClient({
           </div>
           <div className="orders-head-actions">
             {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
-              <button className="orders-del" title={t.deleteAll} aria-label={t.deleteAll} onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }} style={{
-                fontSize: '0.8rem', padding: '0.5rem 0.85rem',
-                background: 'none', border: '1px solid var(--danger)',
-                borderRadius: 'var(--radius)', color: 'var(--danger)',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-                <Trash2 size={15} strokeWidth={2} />
-                <span className="orders-del-txt">{t.deleteAll}</span>
+              <button className="orders-del" title={t.deleteAll} aria-label={t.deleteAll} onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }}>
+                <Trash2 size={16} strokeWidth={2} />
               </button>
             )}
             <button className="btn" onClick={() => { setNavPopup(null); setAddOpen(true) }} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
@@ -770,28 +764,25 @@ export default function OrdersClient({
           const arrived = shipments.filter(s => s.status === 'ARRIVED')
           const total = arrived.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
           if (arrived.length === 0) return null
+          // Ирсэн ачааны товч мөр — дарахад "Ирсэн" таб руу шилжинэ
           return (
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
-              <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
-                {STATUS_LABEL.ARRIVED} <strong style={{ color: 'var(--text)' }}>{arrived.length} {t.items}</strong>
-              </span>
-              {total > 0 && (
-                <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
-                  {t.total} <strong style={{ color: 'var(--accent)' }}>{CUR}{total.toLocaleString()}</strong>
-                </span>
-              )}
-            </div>
+            <button className="oh-sum" onClick={() => switchTab('ARRIVED')}>
+              <PackageCheck size={18} strokeWidth={2.2} />
+              <span className="oh-sum-txt">{STATUS_LABEL.ARRIVED} · <b>{arrived.length} {t.items}</b></span>
+              {total > 0 && <b className="oh-sum-price">{CUR}{total.toLocaleString()}</b>}
+              <ChevronRight size={16} />
+            </button>
           )
         })()}
 
         {/* Search */}
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem' }}>
           <input
             className="input"
             placeholder={t.searchPh}
             value={searchQ}
             onChange={e => { setSearchQ(e.target.value); setPage(1); setNavPopup(null) }}
-            style={{ maxWidth: 320, flex: 1, minWidth: 160 }}
+            style={{ flex: 1, minWidth: 0 }}
           />
           <div style={{ display: 'flex', gap: '0.2rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: 3, flexShrink: 0 }}>
             {([['list', t.viewList], ['byDate', t.viewByDate]] as const).map(([mode, label]) => (
@@ -807,33 +798,15 @@ export default function OrdersClient({
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
+        {/* Нэг мөр pill таб — тоо нь дотроо; багтахгүй бол хажуу тийш гүйлгэнэ */}
+        <div className="otabs" role="tablist">
           {TABS.map(tab => {
             const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
             const active = activeTab === tab.key
             return (
-              <button key={tab.key} onClick={() => switchTab(tab.key)} style={{
-                position: 'relative',
-                padding: '0.5rem 0.25rem', borderRadius: '8px', border: '1px solid',
-                borderColor: active ? 'var(--accent)' : 'var(--border)',
-                background: active ? 'var(--accent)' : 'var(--surface)',
-                color: active ? 'var(--on-accent)' : 'var(--muted)',
-                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                textAlign: 'center', lineHeight: 1.3,
-                transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-              }}>
+              <button key={tab.key} role="tab" aria-selected={active} className={active ? 'on' : ''} onClick={() => switchTab(tab.key)}>
                 {tab.label}
-                {count > 0 && (
-                  <span style={{
-                    position: 'absolute', top: '-6px', right: '-4px',
-                    background: active ? 'var(--on-accent)' : 'var(--accent)',
-                    color: active ? 'var(--accent)' : 'var(--on-accent)',
-                    fontSize: '0.6rem', fontWeight: 700,
-                    minWidth: 16, height: 16, borderRadius: '100px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 3px', lineHeight: 1,
-                  }}>{count}</span>
-                )}
+                {count > 0 && <span>{count}</span>}
               </button>
             )
           })}

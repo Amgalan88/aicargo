@@ -17,7 +17,7 @@ export default function NavLogo({ name, logoUrl }: { name?: string; logoUrl?: st
           <Image src="/logo.svg" alt="logo" width={22} height={22} priority style={{ display: 'block' }} />
         )}
       </span>
-      <span style={{
+      <span className="navlogo-name" style={{
         fontSize: name ? '0.92rem' : '1.05rem',
         fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2,
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
