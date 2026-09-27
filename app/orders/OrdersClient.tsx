@@ -773,11 +773,10 @@ export default function OrdersClient({
               <span className="onotice-live" aria-hidden><PackageCheck size={17} strokeWidth={2.3} /></span>
               <span className="onotice-text">
                 <b>{fmt(t.arrivedNotice, { n: arrived.length })}</b>
-                <small>{STATUS_LABEL.ARRIVED} · {t.readyToPick}</small>
               </span>
               {total > 0 && (
                 <span className="onotice-sum">
-                  <small>{t.toPay}</small>
+                  <small>{t.totalPayment}</small>
                   <b>{CUR}{total.toLocaleString()}</b>
                 </span>
               )}
