@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
@@ -751,14 +751,8 @@ export default function OrdersClient({
           </div>
           <div className="orders-head-actions">
             {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
-              <button className="orders-del" title={t.deleteAll} aria-label={t.deleteAll} onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }} style={{
-                fontSize: '0.8rem', padding: '0.5rem 0.85rem',
-                background: 'none', border: '1px solid var(--danger)',
-                borderRadius: 'var(--radius)', color: 'var(--danger)',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-                <Trash2 size={15} strokeWidth={2} />
-                <span className="orders-del-txt">{t.deleteAll}</span>
+              <button className="orders-del" title={t.deleteAll} aria-label={t.deleteAll} onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }}>
+                <Trash2 size={17} strokeWidth={2} />
               </button>
             )}
             <button className="btn" onClick={() => { setNavPopup(null); setAddOpen(true) }} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
@@ -777,7 +771,7 @@ export default function OrdersClient({
               </span>
               {total > 0 && (
                 <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
-                  {t.total} <strong style={{ color: 'var(--accent)' }}>{CUR}{total.toLocaleString()}</strong>
+                  {t.toPay} <strong style={{ color: 'var(--accent)' }}>{CUR}{total.toLocaleString()}</strong>
                 </span>
               )}
             </div>
@@ -785,17 +779,21 @@ export default function OrdersClient({
         })()}
 
         {/* Search */}
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
-          <input
-            className="input"
-            placeholder={t.searchPh}
-            value={searchQ}
-            onChange={e => { setSearchQ(e.target.value); setPage(1); setNavPopup(null) }}
-            style={{ maxWidth: 320, flex: 1, minWidth: 160 }}
-          />
+        <div className="osearch-row">
+          <div className="osearch">
+            <Search size={17} aria-hidden />
+            <input
+              className="input"
+              placeholder={t.searchPh}
+              aria-label={t.searchPh}
+              value={searchQ}
+              onChange={e => { setSearchQ(e.target.value); setPage(1); setNavPopup(null) }}
+            />
+          </div>
           <div className="oview-seg" style={{ display: 'flex', gap: '0.2rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 100, padding: 3, flexShrink: 0 }}>
             {([['list', t.viewList], ['byDate', t.viewByDate]] as const).map(([mode, label]) => (
               <button key={mode} onClick={() => switchView(mode)} style={{
+                display: 'inline-flex', alignItems: 'center',
                 padding: '0.4rem 0.8rem', borderRadius: 100, border: 'none',
                 cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600,
                 background: viewMode === mode ? 'var(--accent)' : 'transparent',

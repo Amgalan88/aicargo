@@ -1329,7 +1329,21 @@ textarea.input { resize: vertical; }
 .orders-head-title h1 { white-space: nowrap; }
 .orders-head-title span { white-space: nowrap; }
 .orders-head-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-.orders-del { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+/* Бүгдийг устгах — чимээгүй icon, hover үед л улаан ("+ Бүртгэх"-тэй өрсөлдөхгүй) */
+.orders-head-actions { align-items: stretch; }
+.orders-del {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 40px; aspect-ratio: 1;
+  border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface);
+  color: var(--muted); cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.orders-del:hover { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+
+/* Хайлт + "Жагсаалт/Өдрөөр" — нэг өндөр, тэгш мөр */
+.osearch-row { display: flex; gap: 0.5rem; align-items: stretch; margin-bottom: 0.9rem; }
+.osearch { position: relative; flex: 1; min-width: 0; max-width: 360px; }
+.osearch svg { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--placeholder); pointer-events: none; }
+.osearch .input { padding-left: 2.4rem; height: 100%; }
+.oview-seg { align-items: center; }
 .nav-item-lbl { white-space: nowrap; }
 @media (max-width: 480px) {
   /* Толгой: icon-ын шошгыг нууж каргогийн нэрийг бүтэн (2 мөр хүртэл) харуулна */
@@ -1338,8 +1352,6 @@ textarea.input { resize: vertical; }
     white-space: normal !important; line-height: 1.15 !important;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
-  .orders-del-txt { display: none; }
-  .orders-del { padding: 0.5rem 0.6rem !important; }
   .orders-head-title span { display: none; }
 }
 
@@ -1412,7 +1424,9 @@ textarea.input { resize: vertical; }
 /* Хэрэглэгчийн хуудас — утсанд хайлт, картын бичгийг багтаах (табууд хэвээр) */
 @media (max-width: 480px) {
   .oview-seg button { padding: 0.38rem 0.6rem !important; font-size: 0.74rem !important; }
-  .orders-page input.input { padding-left: 0.8rem; padding-right: 0.6rem; min-width: 0 !important; }
+  .osearch { max-width: none; }
+  .osearch svg { left: 0.75rem; }
+  .osearch .input { padding-left: 2.2rem; padding-right: 0.6rem; }
   .sc-status b { font-size: 0.87rem; }
   .sc-status span { font-size: 0.77rem; }
 }
