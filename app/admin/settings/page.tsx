@@ -77,6 +77,8 @@ export default function SettingsPage() {
       if (updated?.logoUrl) setCargo(c => c ? { ...c, logoUrl: updated.logoUrl } : c)
       setLogoBase64(null)
       setBaseline(snapshotOf(form, tiers, null))
+      // Цэсний "Эрээнд ирсэн"/"Ирсэн" шошгыг хуудас солихгүйгээр шууд шинэчилнэ
+      window.dispatchEvent(new Event('admin-settings-saved'))
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch {

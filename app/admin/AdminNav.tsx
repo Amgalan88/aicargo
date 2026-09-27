@@ -72,12 +72,19 @@ export default function AdminNav({
     setPaidOpen(false)
   }, [pathname])
 
+  // Каргогийн өөрийн шошго — хуудас солигдох бүрт болон Тохиргоо хадгалагдмагц дахин татна.
+  // Хоосолсон бол (null) анхдагч нэр рүү буцна.
   useEffect(() => {
-    fetch('/api/admin/settings')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.arrivedLabel) setArrivedLabel(d.arrivedLabel); if (d?.ereemLabel) setEreemLabel(d.ereemLabel) })
-      .catch(() => {})
-  }, [])
+    function loadLabels() {
+      fetch('/api/admin/settings')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) { setArrivedLabel(d.arrivedLabel || null); setEreemLabel(d.ereemLabel || null) } })
+        .catch(() => {})
+    }
+    loadLabels()
+    window.addEventListener('admin-settings-saved', loadLabels)
+    return () => window.removeEventListener('admin-settings-saved', loadLabels)
+  }, [pathname])
 
   // "Бусад" цэсийг гадна дарахад хаана
   useEffect(() => {
