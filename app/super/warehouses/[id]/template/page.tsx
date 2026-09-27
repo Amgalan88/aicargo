@@ -1,4 +1,5 @@
 'use client'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { ContractDocument } from '@/app/components/ContractDocument'
@@ -72,8 +73,8 @@ export default function TemplatePage({ params }: { params: Promise<{ id: string 
     setRows(rs => { const n = [...rs]; n.splice(i + 1, 0, { key: ++seq, kind, no: kind === 'clause' ? '' : undefined, mn: '', cn: '' }); return n })
     setDirty(true)
   }
-  function remove(i: number) {
-    if (!confirm('Энэ мөрийг устгах уу?')) return
+  async function remove(i: number) {
+    if (!await confirmAsync('Энэ мөрийг устгах уу?')) return
     setRows(rs => rs.filter((_, idx) => idx !== i))
     setDirty(true)
   }
@@ -111,8 +112,8 @@ export default function TemplatePage({ params }: { params: Promise<{ id: string 
         <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
           {meta.saved
             ? <>Хувилбар <b style={{ color: 'var(--text)' }}>{meta.version}</b> · {meta.savedBy} · {meta.savedAt && formatDateTime(meta.savedAt)}</>
-            : <b style={{ color: '#d97706' }}>Хадгалаагүй — анхдагч загвар ачааллаа. Хянаж үзээд хадгална уу.</b>}
-          {dirty && <span style={{ color: '#d97706', marginLeft: 8 }}>· Хадгалаагүй өөрчлөлттэй</span>}
+            : <b style={{ color: 'var(--yellow)' }}>Хадгалаагүй — анхдагч загвар ачааллаа. Хянаж үзээд хадгална уу.</b>}
+          {dirty && <span style={{ color: 'var(--yellow)', marginLeft: 8 }}>· Хадгалаагүй өөрчлөлттэй</span>}
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn-ghost" onClick={() => setPreview(p => !p)}>{preview ? 'Засах' : 'Урьдчилан харах'}</button>
@@ -194,7 +195,7 @@ export default function TemplatePage({ params }: { params: Promise<{ id: string 
 }
 
 const CSS = `
-.tp-alert { padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.83rem; border-color: #d97706; display: flex; flex-direction: column; gap: 0.2rem; }
+.tp-alert { padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.83rem; border-color: var(--yellow); display: flex; flex-direction: column; gap: 0.2rem; }
 .tp-ok { border-color: var(--green); color: var(--green); font-weight: 600; }
 .tp-layout { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 1rem; align-items: start; }
 .tp-row { padding: 0.7rem 0.8rem; margin-bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; }

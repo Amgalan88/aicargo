@@ -1,4 +1,5 @@
 'use client'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -104,7 +105,7 @@ export default function SuperContractPage({ params }: { params: Promise<{ id: st
       <div className="sc-grid">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
           {reviewable && (
-            <div className="card sc-box" style={{ borderColor: d.status === 'PAYMENT_REVIEW' ? '#2563eb' : '#d97706' }}>
+            <div className="card sc-box" style={{ borderColor: d.status === 'PAYMENT_REVIEW' ? 'var(--blue)' : 'var(--yellow)' }}>
               <h3 style={h3}>{d.status === 'PAYMENT_REVIEW' ? 'Карго төлбөр төлсөн гэж мэдэгдсэн' : 'Төлбөр хүлээгдэж байна'}</h3>
               <div className="sc-kv">
                 <span>Дүн</span><b>{formatMnt(d.fee)}</b>
@@ -145,15 +146,15 @@ export default function SuperContractPage({ params }: { params: Promise<{ id: st
           )}
 
           {live && (
-            <div className="card sc-box" style={{ borderColor: d.status === 'ACTIVE' ? 'var(--green)' : '#ea580c' }}>
+            <div className="card sc-box" style={{ borderColor: d.status === 'ACTIVE' ? 'var(--green)' : 'var(--orange)' }}>
               {d.status === 'TERMINATION_PENDING' ? (
                 <>
                   <h3 style={h3}>{d.terminationEffectiveAt ? formatDateTime(d.terminationEffectiveAt).slice(0, 10) : ''}-нд цуцлагдана</h3>
                   <p style={p}>{d.terminationRequestedBy === 'CARGO' ? 'Карго' : 'Агуулах (super admin)'} мэдэгдэл өгсөн. Шалтгаан: {d.terminationReason}</p>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <button className="btn-ghost" disabled={busy} onClick={() => confirm('Цуцлалтыг буцаах уу?') && act({ action: 'cancel-termination' }, 'Гэрээ хүчинтэй хэвээр')}>Цуцлалтыг буцаах</button>
+                    <button className="btn-ghost" disabled={busy} onClick={async () => (await confirmAsync('Цуцлалтыг буцаах уу?')) && act({ action: 'cancel-termination' }, 'Гэрээ хүчинтэй хэвээр')}>Цуцлалтыг буцаах</button>
                     <button className="btn-ghost" style={{ color: 'var(--danger)' }} disabled={busy}
-                      onClick={() => confirm('Хугацаа хүлээлгүй одоо цуцлах уу?') && act({ action: 'terminate', immediate: true, reason: d.terminationReason ?? 'Хугацаанаас өмнө цуцалсан' }, 'Цуцлагдлаа')}>
+                      onClick={async () => (await confirmAsync('Хугацаа хүлээлгүй одоо цуцлах уу?')) && act({ action: 'terminate', immediate: true, reason: d.terminationReason ?? 'Хугацаанаас өмнө цуцалсан' }, 'Цуцлагдлаа')}>
                       Одоо цуцлах
                     </button>
                   </div>
@@ -291,7 +292,7 @@ function MarkInput({ mark, setMark, receiveReady, warehouseId }: { mark: string;
       <input className="input" placeholder="жш: B88" maxLength={16} value={mark}
         onChange={e => setMark(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} />
       {!receiveReady && (
-        <p style={{ fontSize: '0.74rem', color: '#d97706', margin: '0.3rem 0 0' }}>
+        <p style={{ fontSize: '0.74rem', color: 'var(--yellow)', margin: '0.3rem 0 0' }}>
           Агуулахын хүлээн авах хаяг бөглөгдөөгүй тул карго хаягаа авахгүй.{' '}
           <Link href={`/super/warehouses/${warehouseId}`}>Тохируулах →</Link>
         </p>

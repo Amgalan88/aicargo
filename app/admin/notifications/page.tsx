@@ -1,4 +1,5 @@
 'use client'
+import { Archive, TriangleAlert, Package } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface Notif {
@@ -77,7 +78,7 @@ export default function NotificationsPage() {
             padding: '0.35rem 0.9rem', fontSize: '0.8rem', cursor: 'pointer',
             color: showArchived ? 'var(--accent)' : 'var(--muted)', fontFamily: 'inherit',
           }}>
-            {showArchived ? '← Буцах' : '📁 Архив'}
+            {showArchived ? '← Буцах' : <><Archive size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Архив</>}
           </button>
         </div>
       </div>
@@ -94,7 +95,7 @@ export default function NotificationsPage() {
           {paged.map(n => (
             <div key={n.id} className="card" style={{
               padding: '1rem 1.2rem',
-              borderLeft: `3px solid ${n.type === 'CROSS_CARGO' ? '#f97316' : 'var(--accent)'}`,
+              borderLeft: `3px solid ${n.type === 'CROSS_CARGO' ? 'var(--orange)' : 'var(--accent)'}`,
               opacity: n.read ? 0.7 : 1,
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
@@ -104,9 +105,9 @@ export default function NotificationsPage() {
                       fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.5rem',
                       borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em',
                       background: n.type === 'CROSS_CARGO' ? 'rgba(249,115,22,0.12)' : 'var(--accent-light)',
-                      color: n.type === 'CROSS_CARGO' ? '#f97316' : 'var(--accent)',
+                      color: n.type === 'CROSS_CARGO' ? 'var(--orange)' : 'var(--accent)',
                     }}>
-                      {n.type === 'CROSS_CARGO' ? '⚠ Cargo зөрүү' : '📦 Шинэ ачаа'}
+                      {n.type === 'CROSS_CARGO' ? <><TriangleAlert size={12} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Cargo зөрүү</> : <><Package size={12} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Шинэ ачаа</>}
                     </span>
                     {!n.read && (
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
@@ -169,7 +170,7 @@ function pgBtn(disabled: boolean, active = false): React.CSSProperties {
     border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
     borderRadius: 'var(--radius)', cursor: disabled ? 'default' : 'pointer',
     background: active ? 'var(--accent)' : 'none',
-    color: active ? '#fff' : disabled ? 'var(--border)' : 'var(--text)',
+    color: active ? 'var(--on-accent)' : disabled ? 'var(--border)' : 'var(--text)',
     fontSize: '0.82rem', fontFamily: 'inherit', fontWeight: active ? 700 : 400,
   }
 }

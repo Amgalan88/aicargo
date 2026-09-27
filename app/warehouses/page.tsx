@@ -1,3 +1,4 @@
+import { Factory, Camera, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import NavLogo from '@/app/components/NavLogo'
@@ -58,18 +59,18 @@ export default async function WarehousesPage() {
                       <div style={{
                         width: '100%', aspectRatio: '3 / 2', background: 'var(--surface2)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem',
-                      }}>🏭</div>
+                      }}><Factory size={36} strokeWidth={1.5} /></div>
                     )}
                     {w._count.images > 0 && (
                       <span style={{
                         position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.6)', color: '#fff',
                         fontSize: '0.7rem', fontWeight: 600, borderRadius: 100, padding: '0.15rem 0.55rem',
-                      }}>📷 {w._count.images}</span>
+                      }}><Camera size={12} strokeWidth={2.2} style={{ verticalAlign: '-1px', marginRight: 4 }} />{w._count.images}</span>
                     )}
                   </div>
                   <div style={{ padding: '0.85rem 1rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: '0.98rem' }}>{w.name}</div>
-                    {w.address && <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>📍 {w.address}</div>}
+                    {w.address && <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}><MapPin size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{w.address}</div>}
                     {w.description && (
                       <div style={{
                         fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.5,

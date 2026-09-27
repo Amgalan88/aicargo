@@ -1,4 +1,5 @@
 'use client'
+import { Phone, User, Package } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 function getStatusLabel(arrivedLabel?: string | null, ereemLabel?: string | null): Record<string, string> {
@@ -105,9 +106,9 @@ export default function GroupSearchPage() {
                 <span className={`badge badge-${r.status}`}>{STATUS_LABEL[r.status] ?? r.status}</span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.78rem', color: 'var(--muted)' }}>
-                {r.phone && <span>📱 {r.phone}</span>}
-                {r.user && <span>👤 {r.user.name}</span>}
-                {r.description && <span>📦 {r.description}</span>}
+                {r.phone && <span><Phone size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{r.phone}</span>}
+                {r.user && <span><User size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{r.user.name}</span>}
+                {r.description && <span><Package size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{r.description}</span>}
                 {r.adminPrice && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>₮{Number(r.adminPrice).toLocaleString()}</span>}
                 <span>{(() => { const d = new Date(r.updatedAt); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}` })()}</span>
               </div>

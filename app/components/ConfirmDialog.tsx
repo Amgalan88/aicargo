@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface ConfirmDialogProps {
@@ -69,7 +69,7 @@ export default function ConfirmDialog({
             onClick={e => e.stopPropagation()}
             style={{
               background: 'var(--surface)', borderRadius: 14,
-              maxWidth: 380, width: '100%', padding: '1.4rem 1.4rem 1.2rem',
+              maxWidth: 420, width: '100%', padding: '1.4rem 1.4rem 1.2rem',
               border: '1px solid var(--border)',
               boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
             }}
@@ -78,7 +78,7 @@ export default function ConfirmDialog({
               {title}
             </h3>
             {message && (
-              <p style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '1.2rem' }}>
+              <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '1.2rem', whiteSpace: 'pre-line', maxHeight: '50vh', overflowY: 'auto' }}>
                 {message}
               </p>
             )}
@@ -108,5 +108,60 @@ export default function ConfirmDialog({
         </motion.div>
       )}
     </AnimatePresence>
+  )
+}
+
+// ── Императив API: `if (!(await confirmAsync('Устгах уу?'))) return` ──
+// Native confirm()-ийн оронд — брэндийн өнгөтэй, шөнийн горимд зохицсон, Esc/focus-той.
+// <ConfirmHost /> root layout-д нэг удаа суусан байна.
+
+type ConfirmOptions = {
+  title?: string
+  message?: string
+  confirmLabel?: string
+  cancelLabel?: string
+  danger?: boolean
+}
+type Pending = ConfirmOptions & { resolve: (ok: boolean) => void }
+
+let showConfirm: ((p: Pending) => void) | null = null
+
+const DANGER_WORDS = /устга|цуцла|гарах|remove|delete/i
+
+export function confirmAsync(input: string | ConfirmOptions): Promise<boolean> {
+  const opts: ConfirmOptions = typeof input === 'string'
+    // Богино текст бол гарчиг, урт бол тайлбар болгоно
+    ? (input.length <= 70 && !input.includes('\n') ? { title: input } : { title: 'Баталгаажуулах', message: input })
+    : input
+  if (opts.danger === undefined) opts.danger = DANGER_WORDS.test(`${opts.title ?? ''} ${opts.message ?? ''}`)
+  // Host суугаагүй (жш тест) үед native руу унана
+  if (!showConfirm) return Promise.resolve(window.confirm([opts.title, opts.message].filter(Boolean).join('\n\n')))
+  return new Promise(resolve => showConfirm!({ ...opts, resolve }))
+}
+
+export function ConfirmHost() {
+  const [pending, setPending] = useState<Pending | null>(null)
+
+  useEffect(() => {
+    showConfirm = p => setPending(prev => { prev?.resolve(false); return p })
+    return () => { showConfirm = null }
+  }, [])
+
+  const close = useCallback((ok: boolean) => {
+    setPending(prev => { prev?.resolve(ok); return null })
+  }, [])
+  const onCancel = useCallback(() => close(false), [close])
+
+  return (
+    <ConfirmDialog
+      open={!!pending}
+      title={pending?.title ?? ''}
+      message={pending?.message}
+      confirmLabel={pending?.confirmLabel}
+      cancelLabel={pending?.cancelLabel}
+      danger={pending?.danger}
+      onConfirm={() => close(true)}
+      onCancel={onCancel}
+    />
   )
 }

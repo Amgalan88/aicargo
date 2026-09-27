@@ -1,4 +1,5 @@
 'use client'
+import { Paperclip, Eye, TriangleAlert } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 
 interface SuperBanner { id: number; content: string; imageUrl: string | null; expiresAt: string | null; audience?: string; createdAt: string }
@@ -13,7 +14,7 @@ function PreviewModal({ data, onClose }: { data: { content: string; imageUrl: st
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 9500, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(2px)' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, padding: '1.75rem 1.5rem 1.5rem', maxWidth: 420, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.28)', border: '1px solid var(--accent)', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: '-1px', left: '1.5rem', background: 'var(--accent)', color: '#fff', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.06em', padding: '0.15rem 0.7rem', borderRadius: '0 0 6px 6px', textTransform: 'uppercase' }}>Системийн мэдэгдэл</div>
+        <div style={{ position: 'absolute', top: '-1px', left: '1.5rem', background: 'var(--accent)', color: 'var(--on-accent)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.06em', padding: '0.15rem 0.7rem', borderRadius: '0 0 6px 6px', textTransform: 'uppercase' }}>Системийн мэдэгдэл</div>
         <div style={{ position: 'absolute', top: '-2rem', right: 0, background: 'rgba(0,0,0,0.7)', borderRadius: 100, padding: '0.2rem 0.8rem', fontSize: '0.72rem', color: '#fff', whiteSpace: 'nowrap' }}>👁 Admin-ийн харагдах байдал</div>
         <button onClick={onClose} style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: 'var(--surface2)', border: 'none', cursor: 'pointer', color: 'var(--muted)', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>✕</button>
         {data.imageUrl && <img src={data.imageUrl} alt="" style={{ width: '100%', borderRadius: 10, marginBottom: '1rem', maxHeight: 240, objectFit: 'cover' }} />}
@@ -142,7 +143,7 @@ export default function SuperAnnouncePage() {
                 fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 borderColor: audience === a ? 'var(--accent)' : 'var(--border)',
                 background: audience === a ? 'var(--accent)' : 'var(--surface)',
-                color: audience === a ? '#fff' : 'var(--muted)',
+                color: audience === a ? 'var(--on-accent)' : 'var(--muted)',
               }}>
                 {AUDIENCE_LABEL[a]}
               </button>
@@ -159,7 +160,7 @@ export default function SuperAnnouncePage() {
           <label>Зураг <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(заавал биш)</span></label>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingImg} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.5rem 0.9rem', cursor: 'pointer', color: 'var(--text)', fontFamily: 'inherit', fontSize: '0.85rem' }}>
-              {uploadingImg ? 'Байршуулж байна...' : '📎 Зураг сонгох'}
+              {uploadingImg ? 'Байршуулж байна...' : <><Paperclip size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Зураг сонгох</>}
             </button>
             {imageUrl && (<><img src={imageUrl} alt="" style={{ height: 48, borderRadius: 6, objectFit: 'cover' }} /><button onClick={() => setImageUrl('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: '0.85rem' }}>✕ Хасах</button></>)}
           </div>
@@ -176,7 +177,7 @@ export default function SuperAnnouncePage() {
 
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
           <button onClick={() => { if (content.trim()) setPreviewing(true); else setError('Эхлээд текст бичнэ үү') }} disabled={uploadingImg} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.7rem 1.2rem', cursor: 'pointer', color: 'var(--text)', fontFamily: 'inherit', fontSize: '0.875rem', fontWeight: 600 }}>
-            👁 Урьдчилан харах
+            <Eye size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Урьдчилан харах
           </button>
           <button className="btn" onClick={handleSubmit} disabled={saving || uploadingImg || !content.trim()}>
             {saving ? 'Хадгалж байна...' : banner ? 'Шинэ мэдэгдэл тохируулах' : 'Илгээх'}
@@ -187,7 +188,7 @@ export default function SuperAnnouncePage() {
       {confirmNew && pendingForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
           <div className="card" style={{ width: '100%', maxWidth: 360, padding: '1.5rem', textAlign: 'center' }}>
-            <p style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>⚠️ Анхааруулга</p>
+            <p style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}><TriangleAlert size={17} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Анхааруулга</p>
             <p style={{ fontSize: '0.88rem', color: 'var(--muted)', marginBottom: '1.25rem', lineHeight: 1.6 }}>Одоо байгаа мэдэгдэл <strong style={{ color: 'var(--danger)' }}>устгагдаж</strong> шинэ мэдэгдэл үүснэ.</p>
             <div style={{ display: 'flex', gap: '0.6rem' }}>
               <button className="btn" onClick={() => { setConfirmNew(false); doSave(pendingForm.content, pendingForm.imageUrl, pendingForm.expiresAt); setPendingForm(null) }} style={{ flex: 1 }}>Тийм</button>

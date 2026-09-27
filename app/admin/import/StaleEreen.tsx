@@ -126,7 +126,7 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
     setMsg(`✓ ${data.count} ачаа устгагдлаа${data.skipped ? ` (${data.skipped} нь төлөв өөрчлөгдсөн тул алгаслаа)` : ''}`)
   }
 
-  const daysColor = (days: number) => days >= 60 ? 'var(--danger)' : days >= 30 ? '#d97706' : 'var(--text)'
+  const daysColor = (days: number) => days >= 60 ? 'var(--danger)' : days >= 30 ? 'var(--yellow)' : 'var(--text)'
 
   return (
     <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--border)', paddingTop: '1.5rem' }}>
@@ -158,7 +158,7 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
               )}
             </span>
             <button onClick={openConfirm} disabled={!selected.size || deleting} style={{
-              background: selected.size ? 'var(--danger)' : 'var(--surface2)', color: selected.size ? '#fff' : 'var(--muted)',
+              background: selected.size ? 'var(--danger)' : 'var(--surface2)', color: selected.size ? 'var(--on-accent)' : 'var(--muted)',
               border: 'none', borderRadius: 'var(--radius)', padding: '0.45rem 0.9rem', fontSize: '0.8rem', fontWeight: 600,
               cursor: selected.size && !deleting ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
             }}>
@@ -218,7 +218,7 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
           </div>
 
           {total > items.length && (
-            <p style={{ fontSize: '0.75rem', color: '#d97706', marginTop: '0.5rem' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--yellow)', marginTop: '0.5rem' }}>
               Нийт {total} ачаанаас хамгийн хуучин {items.length}-г харууллаа. Устгасны дараа үлдсэн нь гарна.
             </p>
           )}

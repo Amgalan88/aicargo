@@ -1,4 +1,5 @@
 'use client'
+import { Eye, Paperclip, TriangleAlert } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 
 interface Banner {
@@ -37,7 +38,7 @@ function BannerPreviewModal({ banner, onClose }: { banner: Banner; onClose: () =
           background: 'rgba(0,0,0,0.7)', borderRadius: 100,
           padding: '0.2rem 0.8rem', fontSize: '0.72rem', color: '#fff', whiteSpace: 'nowrap',
         }}>
-          👁 User-ийн харагдах байдал
+          <Eye size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />User-ийн харагдах байдал
         </div>
         <button
           onClick={onClose}
@@ -186,7 +187,7 @@ function BannerSection() {
       {banner && (
         <div style={{
           background: 'var(--accent-light)', borderRadius: 10, padding: '1rem',
-          border: '1px solid #f0c9b5', marginBottom: '1.25rem',
+          border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)', marginBottom: '1.25rem',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
             <div style={{ flex: 1 }}>
@@ -214,7 +215,7 @@ function BannerSection() {
                   fontSize: '0.78rem', fontFamily: 'inherit', whiteSpace: 'nowrap',
                 }}
               >
-                👁 Харах
+                <Eye size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Харах
               </button>
               <button
                 onClick={deleteBanner}
@@ -257,7 +258,7 @@ function BannerSection() {
               color: 'var(--text)', fontFamily: 'inherit', fontSize: '0.85rem',
             }}
           >
-            {uploadingImg ? 'Байршуулж байна...' : '📎 Зураг сонгох'}
+            {uploadingImg ? 'Байршуулж байна...' : <><Paperclip size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Зураг сонгох</>}
           </button>
           {imageUrl && (
             <>
@@ -301,7 +302,7 @@ function BannerSection() {
             color: 'var(--text)', fontFamily: 'inherit', fontSize: '0.875rem', fontWeight: 600,
           }}
         >
-          👁 Урьдчилан харах
+          <Eye size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Урьдчилан харах
         </button>
         <button className="btn" onClick={handleSubmit} disabled={saving || uploadingImg || !content.trim()}>
           {saving ? 'Хадгалж байна...' : banner ? 'Шинэ мэдэгдэл тохируулах' : 'Мэдэгдэл үүсгэх'}
@@ -315,7 +316,7 @@ function BannerSection() {
           zIndex: 100, padding: '1rem',
         }}>
           <div className="card" style={{ width: '100%', maxWidth: 360, padding: '1.5rem', textAlign: 'center' }}>
-            <p style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>⚠️ Анхааруулга</p>
+            <p style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}><TriangleAlert size={17} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Анхааруулга</p>
             <p style={{ fontSize: '0.88rem', color: 'var(--muted)', marginBottom: '1.25rem', lineHeight: 1.6 }}>
               Одоо байгаа мэдэгдэл <strong style={{ color: 'var(--danger)' }}>устгагдаж</strong> шинэ мэдэгдэл үүснэ. Үргэлжлүүлэх үү?
             </p>

@@ -1,4 +1,5 @@
 'use client'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -38,7 +39,7 @@ export default function SuperNav() {
   }, [router])
 
   async function logout() {
-    if (!confirm('Гарахдаа итгэлтэй байна уу?')) return
+    if (!await confirmAsync('Гарахдаа итгэлтэй байна уу?')) return
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/')
   }
@@ -65,7 +66,7 @@ export default function SuperNav() {
           <Link key={l.href} href={l.href} className={`admin-nav-link${pathname === l.href || ((l.href === '/super/warehouses' || l.href === '/super/contracts') && pathname.startsWith(l.href + '/')) ? ' active' : ''}`}>
             {l.label}
             {l.href === '/super/contracts' && pendingContracts > 0 && (
-              <span style={{ marginLeft: 5, background: 'var(--accent)', color: '#fff', borderRadius: 100, fontSize: '0.65rem', fontWeight: 700, padding: '0.05rem 0.4rem' }}>{pendingContracts}</span>
+              <span style={{ marginLeft: 5, background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 100, fontSize: '0.65rem', fontWeight: 700, padding: '0.05rem 0.4rem' }}>{pendingContracts}</span>
             )}
           </Link>
         ))}

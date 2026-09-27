@@ -1,4 +1,6 @@
 'use client'
+import { Sparkles, User, Wrench, GraduationCap, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useEffect, useState } from 'react'
 
 export default function SuperAIConfigPage() {
@@ -48,13 +50,13 @@ export default function SuperAIConfigPage() {
     <div style={{ maxWidth: 820, margin: '0 auto', padding: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
-          <h1 className="section-title" style={{ margin: 0 }}>✨ AI Prompt Тохиргоо</h1>
+          <h1 className="section-title" style={{ margin: 0 }}><Sparkles size={20} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />AI Prompt Тохиргоо</h1>
           <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.35rem 0 0', lineHeight: 1.5 }}>
             Бүх карго компанид хамаарах AI туслахын нэмэлт зааврыг тохируулна. Default дүрмүүдийн дээр нэмэгдэнэ.
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-          {msg && <span style={{ fontSize: '0.8rem', color: msg.startsWith('✓') ? '#22c55e' : 'var(--danger)' }}>{msg}</span>}
+          {msg && <span style={{ fontSize: '0.8rem', color: msg.startsWith('✓') ? 'var(--green)' : 'var(--danger)' }}>{msg}</span>}
           <button
             className="btn"
             onClick={save}
@@ -73,7 +75,7 @@ export default function SuperAIConfigPage() {
           {/* User AI */}
           <div className="card" style={{ padding: '1.25rem' }}>
             <div style={{ marginBottom: '0.6rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.2rem' }}>👤 Хэрэглэгч AI</div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.2rem' }}><User size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Хэрэглэгч AI</div>
               <div style={{ fontSize: '0.72rem', color: 'var(--muted)', lineHeight: 1.5 }}>
                 /orders хуудсан дахь chat widget-д ашиглагдана. Карго компанийн ажиллах цаг, хаяг, онцлог мэдээлэл нэмж болно.
               </div>
@@ -95,7 +97,7 @@ export default function SuperAIConfigPage() {
           {/* Admin AI */}
           <div className="card" style={{ padding: '1.25rem' }}>
             <div style={{ marginBottom: '0.6rem' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.2rem' }}>🛠 Админ AI</div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.2rem' }}><Wrench size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Админ AI</div>
               <div style={{ fontSize: '0.72rem', color: 'var(--muted)', lineHeight: 1.5 }}>
                 /admin/ai хуудсан дахь chat-д ашиглагдана. Ажилтны нэр, тариф, тусгай дүрэм зэрэг нэмэлт контекст нэмж болно.
               </div>
@@ -195,7 +197,7 @@ function TrainingSection() {
   }
 
   async function remove(id: number) {
-    if (!confirm('Энэ асуулт-хариултыг устгах уу?')) return
+    if (!await confirmAsync('Энэ асуулт-хариултыг устгах уу?')) return
     await fetch('/api/super/ai-training', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -207,7 +209,7 @@ function TrainingSection() {
   return (
     <div style={{ marginTop: '1.5rem' }}>
       <div style={{ marginBottom: '0.75rem' }}>
-        <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>🎓 AI Сургалт — асуулт хариулт</h2>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}><GraduationCap size={17} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />AI Сургалт — асуулт хариулт</h2>
         <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0.3rem 0 0', lineHeight: 1.6 }}>
           Хэрэглэгч эдгээртэй төстэй асуулт асуухад AI <strong style={{ color: 'var(--text)' }}>LLM дуудалгүй, үнэгүй, агшин зуур</strong> таны
           бэлдсэн хариултыг өгнө. Эхний 3 идэвхтэй асуулт хэрэглэгчийн чатанд санал болгож харагдана.
@@ -231,10 +233,10 @@ function TrainingSection() {
                 </div>
                 <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
                   <button onClick={() => toggle(t)} title={t.active ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'} style={trainBtn}>
-                    {t.active ? '👁' : '🚫'}
+                    {t.active ? <Eye size={15} strokeWidth={2} /> : <EyeOff size={15} strokeWidth={2} />}
                   </button>
-                  <button onClick={() => startEdit(t)} title="Засах" style={trainBtn}>✏️</button>
-                  <button onClick={() => remove(t.id)} title="Устгах" style={{ ...trainBtn, color: 'var(--danger)' }}>🗑</button>
+                  <button onClick={() => startEdit(t)} title="Засах" style={trainBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
+                  <button onClick={() => remove(t.id)} title="Устгах" style={{ ...trainBtn, color: 'var(--danger)' }} aria-label="Устгах"><Trash2 size={15} strokeWidth={2} /></button>
                 </div>
               </div>
             </div>

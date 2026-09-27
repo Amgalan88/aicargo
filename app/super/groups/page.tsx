@@ -1,4 +1,6 @@
 'use client'
+import { Bell, BellOff } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 
 interface Cargo { id: number; name: string; slug: string; logoUrl: string | null; notificationsEnabled: boolean }
@@ -61,7 +63,7 @@ export default function GroupsPage() {
   }
 
   async function deleteGroup(id: number) {
-    if (!confirm('Группийг устгах уу? Карго-нууд групп-аас гарна.')) return
+    if (!await confirmAsync('Группийг устгах уу? Карго-нууд групп-аас гарна.')) return
     await fetch(`/api/super/groups/${id}`, { method: 'DELETE' })
     load()
   }
@@ -171,13 +173,13 @@ export default function GroupsPage() {
                           }}
                           style={{
                             background: allOn ? 'rgba(34,197,94,0.12)' : 'none',
-                            border: `1px solid ${allOn ? '#22c55e' : 'var(--border)'}`,
-                            color: allOn ? '#22c55e' : 'var(--muted)',
+                            border: `1px solid ${allOn ? 'var(--green)' : 'var(--border)'}`,
+                            color: allOn ? 'var(--green)' : 'var(--muted)',
                             borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem',
                             cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
                           }}
                         >
-                          {allOn ? '🔔 Мэдэгдэл: Тийм' : '🔕 Мэдэгдэл: Үгүй'}
+                          {allOn ? <><Bell size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Мэдэгдэл: Тийм</> : <><BellOff size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Мэдэгдэл: Үгүй</>}
                         </button>
                       )
                     })()}

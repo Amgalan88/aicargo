@@ -72,7 +72,7 @@ export default function CrossCargoPage() {
                   <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: '0.15rem' }}>30 хоног</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: r.unread > 0 ? '#e05070' : 'var(--muted)', lineHeight: 1 }}>{r.unread}</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: r.unread > 0 ? 'var(--danger)' : 'var(--muted)', lineHeight: 1 }}>{r.unread}</div>
                   <div style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: '0.15rem' }}>уншаагүй</div>
                 </div>
               </div>
@@ -95,7 +95,7 @@ export default function CrossCargoPage() {
                 padding: '0.65rem 1rem',
                 background: 'var(--surface)',
                 border: '1px solid var(--border)',
-                borderLeft: n.read ? '3px solid var(--border)' : '3px solid #e05070',
+                borderLeft: n.read ? '3px solid var(--border)' : '3px solid var(--danger)',
                 borderRadius: 'var(--radius)',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>

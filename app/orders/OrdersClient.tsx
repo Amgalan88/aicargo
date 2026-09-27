@@ -1,4 +1,6 @@
 'use client'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -16,7 +18,7 @@ import { useUserLang } from '../components/useUserLang'
 import { StaggerItem } from '../components/motion'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { dict, fmt, statusLabels, LANG_CONFIRM, UserLang } from '@/lib/user-i18n'
+import { dict, fmt, statusLabels, LANG_CONFIRM, UserLang, type UserDict } from '@/lib/user-i18n'
 
 
 const BASE_TABS = [
@@ -39,6 +41,8 @@ interface Shipment {
   adminNote: string | null
   createdAt: string
   updatedAt: string
+  ereenArrivedAt?: string | null
+  arrivedAt?: string | null
   batchId?: number | null
 }
 
@@ -56,6 +60,153 @@ interface UserBatch {
 function fmtDT(iso: string) {
   const d = new Date(iso)
   return `${d.getFullYear().toString().slice(2)}.${d.getMonth()+1}.${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+const STEP_ORDER = ['REGISTERED', 'EREEN_ARRIVED', 'ARRIVED', 'PICKED_UP'] as const
+const STEP_COLOR: Record<string, string> = {
+  REGISTERED: 'var(--muted)', EREEN_ARRIVED: 'var(--blue)', ARRIVED: 'var(--yellow)', PICKED_UP: 'var(--green)',
+}
+
+// Ачаа аль шатанд явж байгааг 4 алхамтай зурвасаар харуулна — badge-аас илүү ойлгомжтой
+function ShipSteps({ status, labels }: { status: string; labels: Record<string, string> }) {
+  const idx = STEP_ORDER.indexOf(status as typeof STEP_ORDER[number])
+  if (idx < 0) return null
+  const style = { ['--step-color' as string]: STEP_COLOR[status] } as React.CSSProperties
+  return (
+    <div style={style} role="img" aria-label={`${idx + 1}/4: ${labels[status] ?? status}`}>
+      <div className="ship-steps">
+        {STEP_ORDER.map((k, i) => <span key={k} className={`ship-step${i <= idx ? ' done' : ''}`} />)}
+      </div>
+      <div className="ship-steps-labels" aria-hidden>
+        {STEP_ORDER.map((k, i) => <span key={k} className={i === idx ? 'cur' : ''}>{labels[k] ?? k}</span>)}
+      </div>
+    </div>
+  )
+}
+
+// "6 хоногийн өмнө" маягийн харьцангуй хугацаа (яг огноо нь явцын зурвас дээр)
+function relTime(iso: string, t: UserDict): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 2) return t.relNow
+  if (min < 60) return fmt(t.relMin, { n: min })
+  const h = Math.floor(min / 60)
+  if (h < 24) return fmt(t.relHour, { n: h })
+  const d = Math.floor(h / 24)
+  if (d === 1) return t.relYesterday
+  if (d < 14) return fmt(t.relDays, { n: d })
+  if (d < 60) return fmt(t.relWeeks, { n: Math.floor(d / 7) })
+  return fmt(t.relMonths, { n: Math.floor(d / 30) })
+}
+
+function fullDate(iso: string) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function shortDate(iso: string) {
+  const d = new Date(iso)
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return sameYear ? `${d.getMonth() + 1}/${d.getDate()}` : `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`
+}
+
+// Хэрэглэгчийн ачааны карт: гарчиг = юу болох нь (тайлбар), доор нь нэг өгүүлбэрээр хаана явааг хэлнэ.
+// Төлөв нэг л удаа — цэгэн явц + хүний хэлээрх мөр. "Ирсэн" нь цорын ганц үйлдэл шаардах төлөв тул тодорно.
+function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
+  s: Shipment
+  t: UserDict
+  labels: Record<string, string>
+  cur: string
+  userPhone: string
+  deleting: boolean
+  onDelete: () => void
+}) {
+  const [menu, setMenu] = useState(false)
+  const idx = STEP_ORDER.indexOf(s.status as typeof STEP_ORDER[number])
+  const price = s.adminPrice ? `${cur}${Number(s.adminPrice).toLocaleString()}` : null
+  const title = s.description?.trim() || s.trackCode
+  const hasTitle = !!s.description?.trim()
+  const canDelete = s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED'
+  // Шат бүрт хүрсэн огноо (2026/6-аас өмнөх ачаанд Эрээний огноо байхгүй байж болно)
+  const stepDates: (string | null | undefined)[] = [
+    s.createdAt,
+    s.ereenArrivedAt,
+    s.arrivedAt,
+    s.status === 'PICKED_UP' ? s.updatedAt : null,
+  ]
+
+  let headline: React.ReactNode
+  let sub: string | null = null
+  if (s.status === 'REGISTERED') {
+    headline = t.stWaitEreen
+    sub = fmt(t.stRegistered, { r: relTime(s.createdAt, t) })
+  } else if (s.status === 'EREEN_ARRIVED') {
+    headline = labels.EREEN_ARRIVED
+    sub = `${t.stOnWay} · ${relTime(s.ereenArrivedAt ?? s.updatedAt, t)}`
+  } else if (s.status === 'ARRIVED') {
+    headline = <>{labels.ARRIVED}!</>
+    sub = price ? fmt(t.stPay, { p: price }) : t.stReady
+  } else if (s.status === 'PICKED_UP') {
+    headline = fmt(t.stPicked, { d: shortDate(s.updatedAt) })
+    sub = price
+  } else {
+    headline = labels[s.status] ?? s.status
+  }
+
+  return (
+    <article className={`sc sc-${s.status}`}>
+      <div className="sc-top">
+        <h3 className="sc-title">
+          {hasTitle ? title : <CopyText text={s.trackCode}>{s.trackCode}</CopyText>}
+        </h3>
+        {canDelete && (
+          <div className="sc-menu-wrap">
+            <button className="sc-more" onClick={() => setMenu(m => !m)} aria-label={t.moreActions} aria-expanded={menu} disabled={deleting}>
+              <MoreHorizontal size={18} />
+            </button>
+            {menu && (
+              <>
+                <div className="sc-menu-bg" onClick={() => setMenu(false)} />
+                <div className="sc-menu" role="menu">
+                  <button role="menuitem" onClick={() => { setMenu(false); onDelete() }}>
+                    <Trash2 size={15} />{s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {hasTitle && (
+        <div className="sc-code">
+          <CopyText text={s.trackCode}>{s.trackCode}<Copy size={12} /></CopyText>
+          {s.phone && s.phone !== userPhone && <span className="sc-phone">· {s.phone}</span>}
+        </div>
+      )}
+
+      {s.status !== 'PICKED_UP' && idx >= 0 && (
+        <ol className="sc-track" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
+          {STEP_ORDER.map((k, i) => {
+            const d = i <= idx ? stepDates[i] : null
+            return (
+              <li key={k} className={`sc-step${i < idx ? ' done' : ''}${i === idx ? ' cur' : ''}`} title={d ? `${labels[k]} · ${fullDate(d)}` : labels[k]}>
+                <span className="sc-bar" />
+                <time dateTime={d ?? undefined}>{d ? shortDate(d) : ' '}</time>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+
+      <p className="sc-status">
+        <b>{headline}</b>
+        {sub && <span>{sub}</span>}
+      </p>
+
+      {s.adminNote && <p className="sc-note">{t.adminNote}: {s.adminNote}</p>}
+    </article>
+  )
 }
 
 function CopyText({ text, children, style }: { text: string; children: React.ReactNode; style?: React.CSSProperties }) {
@@ -76,12 +227,9 @@ function CopyText({ text, children, style }: { text: string; children: React.Rea
 // шилждэг — өргөн дэлгэц дээр ч, нарийн утсан дээр ч мөр давахгүй.
 function NavItem({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem', width: 44, flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem', minWidth: 44, padding: '0 2px', flexShrink: 0 }}>
       {children}
-      <span style={{
-        fontSize: '0.58rem', color: 'var(--muted)', lineHeight: 1.15, textAlign: 'center',
-        width: '100%', overflowWrap: 'break-word', wordBreak: 'break-word',
-      }}>{label}</span>
+      <span className="nav-item-lbl" style={{ fontSize: '0.6rem', color: 'var(--muted)', lineHeight: 1.15, textAlign: 'center' }}>{label}</span>
     </div>
   )
 }
@@ -204,7 +352,7 @@ export default function OrdersClient({
 
 
   async function logout() {
-    if (!confirm('Гарахдаа итгэлтэй байна уу?')) return
+    if (!await confirmAsync('Гарахдаа итгэлтэй байна уу?')) return
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/')
   }
@@ -323,7 +471,7 @@ export default function OrdersClient({
             width: 32, height: 32, borderRadius: '8px', border: '1px solid',
             borderColor: p === page ? 'var(--accent)' : 'var(--border)',
             background: p === page ? 'var(--accent)' : 'var(--surface)',
-            color: p === page ? '#fff' : 'var(--text)',
+            color: p === page ? 'var(--on-accent)' : 'var(--text)',
             cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
           }}>{p}</button>
         )}
@@ -414,13 +562,13 @@ export default function OrdersClient({
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.language}</span>
                     <div style={{ display: 'flex', gap: 4, marginTop: '0.35rem' }}>
                       {(['mn', 'en', 'cn'] as UserLang[]).map(l => (
-                        <button key={l} onClick={() => { if (l !== lang && confirm(LANG_CONFIRM[l])) setLang(l) }} style={{
+                        <button key={l} onClick={async () => { if (l !== lang && await confirmAsync(LANG_CONFIRM[l])) setLang(l) }} style={{
                           flex: 1, padding: '0.3rem 0.5rem', borderRadius: 8,
                           border: '1px solid', cursor: 'pointer', fontFamily: 'inherit',
                           fontSize: '0.75rem', fontWeight: 700,
                           borderColor: lang === l ? 'var(--accent)' : 'var(--border)',
                           background: lang === l ? 'var(--accent)' : 'var(--surface)',
-                          color: lang === l ? '#fff' : 'var(--muted)',
+                          color: lang === l ? 'var(--on-accent)' : 'var(--muted)',
                         }}>
                           {l === 'mn' ? 'MN' : l === 'en' ? 'EN' : '中文'}
                         </button>
@@ -591,9 +739,9 @@ export default function OrdersClient({
         </div>
       )}
 
-      <div className="page">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+      <div className="page orders-page">
+        <div className="orders-head">
+          <div className="orders-head-title">
             <h1 className="section-title" style={{ marginBottom: 0 }}>{t.myOrders}</h1>
             {filtered.length > 0 && (
               <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
@@ -601,15 +749,16 @@ export default function OrdersClient({
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="orders-head-actions">
             {shipments.some(s => s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
-              <button onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }} style={{
+              <button className="orders-del" title={t.deleteAll} aria-label={t.deleteAll} onClick={() => { setNavPopup(null); setDeleteAllModal(true); setDeleteAllInput(''); setDeleteRegistered(false); setDeletePickedUp(true); setDeleteEreen(false) }} style={{
                 fontSize: '0.8rem', padding: '0.5rem 0.85rem',
                 background: 'none', border: '1px solid var(--danger)',
                 borderRadius: 'var(--radius)', color: 'var(--danger)',
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
-                {t.deleteAll}
+                <Trash2 size={15} strokeWidth={2} />
+                <span className="orders-del-txt">{t.deleteAll}</span>
               </button>
             )}
             <button className="btn" onClick={() => { setNavPopup(null); setAddOpen(true) }} style={{ fontSize: '0.85rem', padding: '0.55rem 1rem' }}>
@@ -650,7 +799,7 @@ export default function OrdersClient({
                 padding: '0.4rem 0.8rem', borderRadius: 100, border: 'none',
                 cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.78rem', fontWeight: 600,
                 background: viewMode === mode ? 'var(--accent)' : 'transparent',
-                color: viewMode === mode ? '#fff' : 'var(--muted)',
+                color: viewMode === mode ? 'var(--on-accent)' : 'var(--muted)',
                 transition: 'background 0.15s, color 0.15s',
               }}>{label}</button>
             ))}
@@ -668,7 +817,7 @@ export default function OrdersClient({
                 padding: '0.5rem 0.25rem', borderRadius: '8px', border: '1px solid',
                 borderColor: active ? 'var(--accent)' : 'var(--border)',
                 background: active ? 'var(--accent)' : 'var(--surface)',
-                color: active ? '#fff' : 'var(--muted)',
+                color: active ? 'var(--on-accent)' : 'var(--muted)',
                 fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 textAlign: 'center', lineHeight: 1.3,
                 transition: 'background 0.15s, color 0.15s, border-color 0.15s',
@@ -677,8 +826,8 @@ export default function OrdersClient({
                 {count > 0 && (
                   <span style={{
                     position: 'absolute', top: '-6px', right: '-4px',
-                    background: active ? '#fff' : 'var(--accent)',
-                    color: active ? 'var(--accent)' : '#fff',
+                    background: active ? 'var(--on-accent)' : 'var(--accent)',
+                    color: active ? 'var(--accent)' : 'var(--on-accent)',
                     fontSize: '0.6rem', fontWeight: 700,
                     minWidth: 16, height: 16, borderRadius: '100px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -691,12 +840,10 @@ export default function OrdersClient({
         </div>
 
         {shipments.length === 0 && batches.length === 0 ? (
-          <div className="empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.9rem' }}>
-            <div style={{ fontSize: '2rem' }}>📦</div>
-            <p style={{ margin: 0 }}>{t.emptyNone}</p>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--muted)' }}>
-              {t.emptyGuide}
-            </p>
+          <div className="empty-state">
+            <div className="empty-state-icon"><Package size={26} strokeWidth={2} /></div>
+            <h3>{t.emptyNone}</h3>
+            <p>{t.emptyGuide}</p>
             <Link href="/orders/new" className="btn" style={{ textDecoration: 'none' }}>
               {t.emptyCta}
             </Link>
@@ -723,7 +870,7 @@ export default function OrdersClient({
                     style={{ cursor: 'pointer' }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>📦 {t.batch} B-{b.id}</span>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 700 }}><Boxes size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{t.batch} B-{b.id}</span>
                       <span style={{
                         fontSize: '0.7rem', color: 'var(--muted)',
                         background: 'var(--surface2)', border: '1px solid var(--border)',
@@ -741,6 +888,7 @@ export default function OrdersClient({
                       }}>▶</span>
                     </div>
                   </div>
+                  <ShipSteps status={b.status} labels={STATUS_LABEL} />
                   <div className="order-card-meta">
                     <div className="order-card-row">
                       <span>{t.totalPayment}</span>
@@ -789,59 +937,15 @@ export default function OrdersClient({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: Math.min(si * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
                 >
-                <div className={`order-card order-card-${s.status}`}>
-                  <div className="order-card-head">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 700, flexShrink: 0 }}>
-                        #{(page - 1) * PAGE_SIZE + si + 1}
-                      </span>
-                      <CopyText text={s.phone || userPhone} style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text)' }}>
-                        {s.phone || userPhone}
-                      </CopyText>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>{fmtDT(s.updatedAt)}</span>
-                      <span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status] ?? s.status}</span>
-                      {(s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
-                        <button onClick={() => { setNavPopup(null); setConfirmDelete(s.id) }} disabled={deleting === s.id} title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip} style={{
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          color: 'var(--muted)', fontSize: '0.85rem', padding: '0.1rem 0.25rem',
-                          borderRadius: '4px', lineHeight: 1, opacity: deleting === s.id ? 0.4 : 1,
-                        }}
-                          onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-                          onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
-                        >🗑</button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="order-card-meta">
-                    <div className="order-card-row">
-                      <span>{t.trackCode}</span>
-                      <CopyText text={s.trackCode} style={{ fontFamily: 'monospace', fontWeight: 700 }}>
-                        {s.trackCode}
-                      </CopyText>
-                    </div>
-                    <div className="order-card-row">
-                      <span>{t.cargoPayment}</span>
-                      <span>{s.adminPrice
-                        ? <strong style={{ color: 'var(--accent)' }}>{CUR}{Number(s.adminPrice).toLocaleString()}</strong>
-                        : '—'}
-                      </span>
-                    </div>
-                    {s.description && (
-                      <div className="order-card-row">
-                        <span>{t.description}</span>
-                        <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>{s.description}</span>
-                      </div>
-                    )}
-                    {s.adminNote && (
-                      <div className="order-card-row">
-                        <span>{t.adminNote}</span>
-                        <CopyText text={s.adminNote}>{s.adminNote}</CopyText>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ShipmentCard
+                  s={s}
+                  t={t}
+                  labels={STATUS_LABEL}
+                  cur={CUR}
+                  userPhone={userPhone}
+                  deleting={deleting === s.id}
+                  onDelete={() => { setNavPopup(null); setConfirmDelete(s.id) }}
+                />
                 </motion.div>
               )) : pagedDateGroups.map(g => (
                 <div key={g.date} className="card" style={{ overflow: 'hidden' }}>
@@ -890,7 +994,7 @@ export default function OrdersClient({
                               <button onClick={() => setConfirmDelete(s.id)} disabled={deleting === s.id}
                                 title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.8rem', padding: '0.1rem 0.2rem', lineHeight: 1, opacity: deleting === s.id ? 0.4 : 1 }}>
-                                🗑
+                                <Trash2 size={14} strokeWidth={2} />
                               </button>
                             )}
                           </div>

@@ -1,4 +1,6 @@
 'use client'
+import { CircleHelp, MessageSquare } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
@@ -42,7 +44,7 @@ export default function AdminBatchesPage() {
   useEffect(() => { load() }, [])
 
   async function setStatus(id: number, status: string, confirmText: string) {
-    if (!confirm(confirmText)) return
+    if (!await confirmAsync(confirmText)) return
     setBusy(id)
     await fetch('/api/batch/status', {
       method: 'POST',
@@ -65,7 +67,7 @@ export default function AdminBatchesPage() {
   }
 
   async function removeBatch(id: number) {
-    if (!confirm(`B-${id} багцыг устгах уу? Доторх ачаанууд багцаас салж хэвээр үлдэнэ.`)) return
+    if (!await confirmAsync(`B-${id} багцыг устгах уу? Доторх ачаанууд багцаас салж хэвээр үлдэнэ.`)) return
     await fetch('/api/batch', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -92,7 +94,7 @@ export default function AdminBatchesPage() {
         borderRadius: 'var(--radius)', marginBottom: '1rem', overflow: 'hidden',
       }}>
         <summary style={{ padding: '0.7rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: 'var(--accent)', listStyle: 'none' }}>
-          ❓ Багцын урсгал хэрхэн ажилладаг вэ
+          <CircleHelp size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Багцын урсгал хэрхэн ажилладаг вэ
         </summary>
         <ol style={{ margin: 0, padding: '0 1rem 0.9rem 2.2rem', fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
           <li>Эрээний ажилтан (эсвэл та &quot;+ Багц бүртгэх&quot;-ээр) ачаа УБ руу ачигдахад олон трак код + 1 утас + нийт ¥ үнээр багц бүртгэнэ. Багц шууд &quot;УБ руу ачигдсан&quot; төлөвтэй болж хэрэглэгчид харагдана.</li>
@@ -111,7 +113,7 @@ export default function AdminBatchesPage() {
             fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
             borderColor: tab === k ? 'var(--accent)' : 'var(--border)',
             background: tab === k ? 'var(--accent)' : 'var(--surface)',
-            color: tab === k ? '#fff' : 'var(--muted)',
+            color: tab === k ? 'var(--on-accent)' : 'var(--muted)',
           }}>
             {label} ({k === 'ALL' ? batches.length : counts[k] ?? 0})
           </button>
@@ -144,7 +146,7 @@ export default function AdminBatchesPage() {
                   <span className={`badge badge-${b.status}`} style={{ fontSize: '0.65rem' }}>{STATUS_LABEL[b.status]}</span>
                 </div>
                 {b.note && (
-                  <div style={{ width: '100%', fontSize: '0.76rem', color: 'var(--muted)' }}>💬 {b.note}</div>
+                  <div style={{ width: '100%', fontSize: '0.76rem', color: 'var(--muted)' }}><MessageSquare size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{b.note}</div>
                 )}
               </div>
 

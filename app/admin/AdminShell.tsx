@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import AdminNav from './AdminNav'
 import OnboardingCard, { OnboardingState } from './OnboardingCard'
 import SuperAnnouncementModal from '@/app/components/SuperAnnouncementModal'
+import { Lock, TriangleAlert, Copy, Check, X } from 'lucide-react'
 
 const BANK_ACCOUNT = '5119007473'
 const BANK_NAME = 'Хаан банк'
@@ -36,7 +37,7 @@ function BlockingOverlay({ cargoName, overdueDays }: { cargoName: string; overdu
         maxWidth: 440, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
         border: '1px solid var(--border)',
       }}>
-        <div style={{ fontSize: '2rem', marginBottom: '0.5rem', textAlign: 'center' }}>🔒</div>
+        <div className="empty-state-icon" style={{ margin: '0 auto 0.75rem', background: 'color-mix(in srgb, var(--danger) 12%, transparent)', color: 'var(--danger)' }}><Lock size={26} strokeWidth={2} /></div>
         <h2 style={{ textAlign: 'center', fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.4rem' }}>
           Үйлчилгээний хугацаа дууссан
         </h2>
@@ -64,19 +65,19 @@ function WarningBanner({ cargoName, onClose }: { cargoName: string; onClose: () 
       <div style={{
         background: 'var(--bg)', borderRadius: 16, padding: '2rem',
         maxWidth: 440, width: '100%', boxShadow: '0 8px 40px rgba(0,0,0,0.3)',
-        border: '1px solid #f59e0b44', position: 'relative',
+        border: '1px solid color-mix(in srgb, var(--yellow) 30%, transparent)', position: 'relative',
       }}>
         <button onClick={onClose} style={{
           position: 'absolute', top: '1rem', right: '1rem',
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--muted)', fontSize: '1.1rem', lineHeight: 1, padding: '0.2rem',
-        }}>✕</button>
-        <div style={{ fontSize: '2rem', marginBottom: '0.5rem', textAlign: 'center' }}>⚠️</div>
+          color: 'var(--muted)', lineHeight: 1, padding: '0.2rem', display: 'inline-flex',
+        }} aria-label="Хаах"><X size={18} /></button>
+        <div className="empty-state-icon" style={{ margin: '0 auto 0.75rem', background: 'color-mix(in srgb, var(--yellow) 14%, transparent)', color: 'var(--yellow)' }}><TriangleAlert size={26} strokeWidth={2} /></div>
         <h2 style={{ textAlign: 'center', fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.4rem' }}>
           Үйлчилгээний хугацаа дууссан
         </h2>
         <p style={{ textAlign: 'center', fontSize: '0.83rem', color: 'var(--muted)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-          Та төлбөрөө <strong style={{ color: '#f59e0b' }}>10 хоногийн дотор</strong> байршуулна уу.
+          Та төлбөрөө <strong style={{ color: 'var(--yellow)' }}>10 хоногийн дотор</strong> байршуулна уу.
           Хугацаа хэтэрвэл систем хаагдах болно.
         </p>
         <BankInfo cargoName={cargoName} />
@@ -89,8 +90,9 @@ function WarningBanner({ cargoName, onClose }: { cargoName: string; onClose: () 
 }
 
 function Row({ label, value, mono, copyable, highlight }: { label: string; value: string; mono?: boolean; copyable?: boolean; highlight?: boolean }) {
+  const [copied, setCopied] = useState(false)
   function copy() {
-    navigator.clipboard.writeText(value).catch(() => {})
+    navigator.clipboard.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }).catch(() => {})
   }
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0', borderBottom: '1px solid var(--border)' }}>
@@ -103,13 +105,8 @@ function Row({ label, value, mono, copyable, highlight }: { label: string; value
           letterSpacing: mono ? '0.03em' : undefined,
         }}>{value}</span>
         {copyable && (
-          <button onClick={copy} title="Хуулах" style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--muted)', padding: '0.1rem', lineHeight: 1,
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
+          <button onClick={copy} title="Хуулах" aria-label="Хуулах" style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied ? 'var(--green)' : 'var(--muted)', padding: '0.2rem', lineHeight: 1, display: 'inline-flex' }}>
+            {copied ? <Check size={14} strokeWidth={2.4} /> : <Copy size={14} strokeWidth={2} />}
           </button>
         )}
       </div>
@@ -143,7 +140,7 @@ export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, ha
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <AdminNav cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} isStaffAdmin={isStaffAdmin} />
       {onboarding && <OnboardingCard state={onboarding} cargoSlug={cargoSlug} batchEnabled={batchEnabled} />}
-      <div style={{ minHeight: 'calc(100vh - 96px)' }}>
+      <div className="admin-content" style={{ minHeight: 'calc(100vh - 96px)' }}>
         {children}
       </div>
       {isBlocked && <BlockingOverlay cargoName={cargoName ?? ''} overdueDays={overdueDays} />}

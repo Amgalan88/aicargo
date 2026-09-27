@@ -1,4 +1,5 @@
 'use client'
+import { Lightbulb } from 'lucide-react'
 import { useState } from 'react'
 import { fmt } from '@/lib/user-i18n'
 import type { UserDict } from '@/lib/user-i18n'
@@ -115,7 +116,7 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
                     cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700,
                     borderColor: unit === u ? 'var(--accent)' : 'var(--border)',
                     background: unit === u ? 'var(--accent)' : 'var(--surface)',
-                    color: unit === u ? '#fff' : 'var(--muted)',
+                    color: unit === u ? 'var(--on-accent)' : 'var(--muted)',
                   }}>{u}</button>
                 ))}
               </div>
@@ -140,7 +141,7 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
                     cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0,
                     borderColor: wUnit === u ? 'var(--accent)' : 'var(--border)',
                     background: wUnit === u ? 'var(--accent)' : 'var(--surface)',
-                    color: wUnit === u ? '#fff' : 'var(--muted)',
+                    color: wUnit === u ? 'var(--on-accent)' : 'var(--muted)',
                   }}>{u === 'kg' ? 'кг' : 'тонн'}</button>
                 ))}
               </div>
@@ -194,7 +195,7 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
                   </div>
                   {fillBothHint && (
                     <p style={{ fontSize: '0.74rem', color: 'var(--accent)', marginTop: '0.5rem', fontWeight: 600 }}>
-                      💡 {t.calcFillBoth}
+                      <Lightbulb size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{t.calcFillBoth}
                     </p>
                   )}
                   <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.5rem' }}>{t.calcDisclaimer}</p>

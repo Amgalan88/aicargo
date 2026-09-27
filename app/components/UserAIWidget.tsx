@@ -1,4 +1,5 @@
 'use client'
+import { Sparkles } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { AIAvatar } from './AIAvatar'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
@@ -282,7 +283,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
               alignItems: 'center', justifyContent: 'center',
               gap: 10, padding: '2rem 1.5rem', textAlign: 'center',
             }}>
-              <div style={{ fontSize: '2.2rem' }}>✨</div>
+              <div className="empty-state-icon" style={{ margin: '0 auto' }}><Sparkles size={26} strokeWidth={2} /></div>
               <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>Тун удахгүй</div>
               <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.5 }}>
                 AI туслах одоогоор сайжруулалт хийгдэж байна. Удахгүй эргэн ажиллах болно.
@@ -385,7 +386,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
                       ? '14px 14px 4px 14px'
                       : '14px 14px 14px 4px',
                     background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface)',
-                    color: msg.role === 'user' ? '#fff' : 'var(--text)',
+                    color: msg.role === 'user' ? 'var(--on-accent)' : 'var(--text)',
                     border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
                     fontSize: '0.83rem', lineHeight: 1.55,
                     whiteSpace: 'pre-wrap', wordBreak: 'break-word',

@@ -1,4 +1,7 @@
 'use client'
+import { CircleHelp } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
+import { toast } from 'sonner'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
@@ -137,7 +140,7 @@ export default function ImportPage() {
         const badPhoneRows = rawParsedAll.filter(r => r.phoneRaw && !r.phone)
         if (badPhoneRows.length > 0) {
           const examples = badPhoneRows.slice(0, 5).map(r => `${r.trackCode} → "${r.phoneRaw}"`).join('\n')
-          const proceed = confirm(
+          const proceed = await confirmAsync(
             `⚠ ${badPhoneRows.length} мөрөнд утасны багана (B) 8 оронтой тоо биш байна — багана дараалал буруу байж магадгүй:\n\n${examples}${badPhoneRows.length > 5 ? '\n...' : ''}\n\nЭдгээр мөрүүд утасгүйгээр (зөвхөн трак кодоор) орно. Үргэлжлүүлэх үү?`
           )
           if (!proceed) return
@@ -329,21 +332,21 @@ export default function ImportPage() {
                           </span>
                           <span style={{
                             fontSize: '0.7rem', padding: '0.1rem 0.5rem', borderRadius: '100px',
-                            background: s.status === 'EREEN_ARRIVED' ? 'var(--surface2)' : s.status === 'ARRIVED' ? '#fff3e6' : 'var(--surface2)',
+                            background: s.status === 'EREEN_ARRIVED' ? 'var(--surface2)' : s.status === 'ARRIVED' ? 'color-mix(in srgb, var(--yellow) 12%, transparent)' : 'var(--surface2)',
                             color: s.status === 'ARRIVED' ? 'var(--accent)' : 'var(--muted)',
                             border: '1px solid var(--border)',
                           }}>{STATUS_LABEL[s.status] ?? s.status}</span>
                           {s.status === 'EREEN_ARRIVED' && (
                             <button
                               onClick={async () => {
-                                if (!confirm(`"${s.trackCode}" устгах уу?`)) return
+                                if (!await confirmAsync(`"${s.trackCode}" устгах уу?`)) return
                                 const res = await fetch('/api/admin/ereen/recent', {
                                   method: 'DELETE',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ id: s.id }),
                                 })
                                 if (res.ok) loadList(activeQ, searchPage)
-                                else alert((await res.json().catch(() => ({}))).error || 'Устгаж чадсангүй')
+                                else toast.error((await res.json().catch(() => ({}))).error || 'Устгаж чадсангүй')
                               }}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem', padding: '0.1rem 0.25rem', lineHeight: 1 }}
                               onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
@@ -379,11 +382,12 @@ export default function ImportPage() {
   return (
     <>
     <div className="page-wide" style={{ maxWidth: 560 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.5rem' }}>
         <h1 className="section-title" style={{ margin: 0 }}>Эрээнд ирсэн — бараа оруулах</h1>
         <button onClick={() => { setDeleteModal(true); setDeleteInput(''); setDeleteMsg('') }} style={{
           background: 'none', border: '1px solid var(--danger)', borderRadius: 'var(--radius)',
           color: 'var(--danger)', cursor: 'pointer', fontSize: '0.78rem', padding: '0.3rem 0.75rem', fontFamily: 'inherit',
+          whiteSpace: 'nowrap', flexShrink: 0,
         }}>
           Бүгдийг устгах
         </button>
@@ -396,7 +400,7 @@ export default function ImportPage() {
         borderRadius: 'var(--radius)', marginBottom: '0.75rem', overflow: 'hidden',
       }}>
         <summary style={{ padding: '0.6rem 0.9rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', color: 'var(--accent)', listStyle: 'none' }}>
-          ❓ Excel формат — жишээ
+          <CircleHelp size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Excel формат — жишээ
         </summary>
         <div style={{ padding: '0 0.9rem 0.9rem' }}>
           <table style={{ borderCollapse: 'collapse', fontSize: '0.78rem' }}>
@@ -640,7 +644,7 @@ export default function ImportPage() {
                         border: '1px solid',
                         borderColor: p === page ? 'var(--accent)' : 'var(--border)',
                         background: p === page ? 'var(--accent)' : 'var(--surface)',
-                        color: p === page ? '#fff' : 'var(--text)',
+                        color: p === page ? 'var(--on-accent)' : 'var(--text)',
                         cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, fontFamily: 'inherit',
                       }}>{p}</button>
                     )

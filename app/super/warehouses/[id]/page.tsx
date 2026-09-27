@@ -1,4 +1,6 @@
 'use client'
+import { Trash2 } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { use, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -174,7 +176,7 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
   }
 
   async function removeImage(imgId: number) {
-    if (!confirm('Энэ зургийг устгах уу?')) return
+    if (!await confirmAsync('Энэ зургийг устгах уу?')) return
     const res = await fetch(`/api/super/warehouses/${id}/images`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -314,7 +316,7 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
                     </a>
                     {isCover && (
                       <span style={{
-                        position: 'absolute', top: 6, left: 6, background: 'var(--accent)', color: '#fff',
+                        position: 'absolute', top: 6, left: 6, background: 'var(--accent)', color: 'var(--on-accent)',
                         fontSize: '0.65rem', fontWeight: 700, borderRadius: 100, padding: '0.1rem 0.5rem',
                       }}>Нүүр</span>
                     )}
@@ -334,7 +336,7 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
                       <button style={iconBtn} onClick={() => move(i, 1)} disabled={i === images.length - 1} title="Хойно">→</button>
                       {!isCover && <button style={iconBtn} onClick={() => setCover(img.id)} title="Нүүр зураг болгох">★</button>}
                       <button style={{ ...iconBtn, marginLeft: 'auto', color: 'var(--danger)' }}
-                        onClick={() => removeImage(img.id)} title="Устгах">🗑</button>
+                        onClick={() => removeImage(img.id)} title="Устгах" aria-label="Устгах"><Trash2 size={15} strokeWidth={2} /></button>
                     </div>
                   </div>
                 </div>

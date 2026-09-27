@@ -96,7 +96,7 @@ function ReportPageInner() {
               cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
               borderColor: preset === p ? 'var(--accent)' : 'var(--border)',
               background: preset === p ? 'var(--accent)' : 'var(--surface)',
-              color: preset === p ? '#fff' : 'var(--muted)',
+              color: preset === p ? 'var(--on-accent)' : 'var(--muted)',
             }}>{label}</button>
           ))}
           <button onClick={() => setPreset('custom')} style={{
@@ -104,7 +104,7 @@ function ReportPageInner() {
             cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
             borderColor: preset === 'custom' ? 'var(--accent)' : 'var(--border)',
             background: preset === 'custom' ? 'var(--accent)' : 'var(--surface)',
-            color: preset === 'custom' ? '#fff' : 'var(--muted)',
+            color: preset === 'custom' ? 'var(--on-accent)' : 'var(--muted)',
           }}>Өөрөө сонгох</button>
         </div>
 

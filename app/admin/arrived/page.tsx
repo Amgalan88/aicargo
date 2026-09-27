@@ -1,4 +1,6 @@
 'use client'
+import { Pencil, CircleHelp } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
@@ -149,14 +151,14 @@ export default function ArrivedPage() {
         const badPhoneRows = parsedAll.filter(r => r.phoneRaw && !r.phone)
         if (badPhoneRows.length > 0) {
           const examples = badPhoneRows.slice(0, 5).map(r => `${r.trackCode} → "${r.phoneRaw}"`).join('\n')
-          const proceed = confirm(
+          const proceed = await confirmAsync(
             `⚠ ${badPhoneRows.length} мөрөнд утасны багана (B) 8 оронтой тоо биш байна — багана дараалал буруу байж магадгүй:\n\n${examples}${badPhoneRows.length > 5 ? '\n...' : ''}\n\nЭдгээр мөрүүд утасгүйгээр (зөвхөн трак кодоор) орно. Үргэлжлүүлэх үү?`
           )
           if (!proceed) return
         }
 
         const rows = parsedAll.map(({ trackCode, phone, price }) => ({ trackCode, phone, price }))
-        if (!confirm(`${rows.length} бараа Ирсэн статустай болгох уу?`)) return
+        if (!await confirmAsync(`${rows.length} бараа Ирсэн статустай болгох уу?`)) return
         setXlsxLoading(true)
         const res = await fetch('/api/admin/arrived', {
           method: 'PUT',
@@ -203,7 +205,7 @@ export default function ArrivedPage() {
   }
 
   async function revert(id: number) {
-    if (!confirm('Энэ барааг Эрээнд ирсэн төлөвт буцаах уу?')) return
+    if (!await confirmAsync('Энэ барааг Эрээнд ирсэн төлөвт буцаах уу?')) return
     const res = await fetch('/api/admin/arrived', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -336,7 +338,7 @@ export default function ArrivedPage() {
         borderRadius: 'var(--radius)', marginBottom: '0.75rem', overflow: 'hidden',
       }}>
         <summary style={{ padding: '0.6rem 0.9rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', color: 'var(--accent)', listStyle: 'none' }}>
-          ❓ Excel формат — жишээ
+          <CircleHelp size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Excel формат — жишээ
         </summary>
         <div style={{ padding: '0 0.9rem 0.9rem' }}>
           <table style={{ borderCollapse: 'collapse', fontSize: '0.78rem' }}>
@@ -438,7 +440,7 @@ export default function ArrivedPage() {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <span style={{ fontFamily: 'monospace', fontWeight: 700, flex: 1 }}>{s.trackCode}</span>
                                     {s.adminPrice && <span style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>₮{Number(s.adminPrice).toLocaleString()}</span>}
-                                    <button onClick={() => openEdit(s)} title="Засах" style={iconBtn}>✏️</button>
+                                    <button onClick={() => openEdit(s)} title="Засах" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
                                     <button onClick={() => revert(s.id)} title="Эрээнд буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
                                   </div>
                                   {s.adminNote && <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.1rem' }}>{s.adminNote}</div>}
@@ -460,7 +462,7 @@ export default function ArrivedPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontFamily: 'monospace', fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.trackCode}</span>
                         {s.adminPrice && <span style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>₮{Number(s.adminPrice).toLocaleString()}</span>}
-                        <button onClick={() => openEdit(s)} title="Засах" style={iconBtn}>✏️</button>
+                        <button onClick={() => openEdit(s)} title="Засах" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
                         <button onClick={() => revert(s.id)} title="Эрээнд буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.1rem', color: 'var(--muted)', fontSize: '0.78rem' }}>

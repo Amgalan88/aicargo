@@ -1,9 +1,10 @@
 'use client'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Copy, Download, FileText, CheckCircle2, Clock, AlertTriangle, MapPin } from 'lucide-react'
+import { Copy, Download, FileText, CheckCircle2, Clock, AlertTriangle, MapPin, Gift } from 'lucide-react'
 import { ContractDocument, ContractTimeline, StatusBadge, ContractEventRow } from '@/app/components/ContractDocument'
 import type { CargoField, ContractBody, ReceiveAddress } from '@/lib/contract'
 import { formatDateTime, TERMINATION_NOTICE_DAYS, PDF_STATUSES, ContractStatus, WEBSITE_BONUS_DAYS } from '@/lib/contract'
@@ -120,7 +121,7 @@ export default function ContractWorkspace(links: Links) {
       </div>
       <p style={{ color: 'var(--muted)', fontSize: '0.82rem', margin: '0 0 1.1rem' }}>
         Гэрээ № {d.contractNo}
-        {d.guest && d.me.email && <> · {d.me.email} · <span style={{ color: '#d97706' }}>энэ хуудасны холбоосыг хадгалж авна уу, бусадтай хуваалцахгүй</span></>}
+        {d.guest && d.me.email && <> · {d.me.email} · <span style={{ color: 'var(--yellow)' }}>энэ хуудасны холбоосыг хадгалж авна уу, бусадтай хуваалцахгүй</span></>}
       </p>
 
       {!closed && (
@@ -139,7 +140,7 @@ export default function ContractWorkspace(links: Links) {
       {(d.status === 'ACTIVE' || d.status === 'TERMINATION_PENDING') && <ActivePanel d={d} act={act} reload={load} pdfHref={links.pdfHref} />}
       {d.guest && d.status === 'ACTIVE' && links.signupHref && (
         <div className="card ct-panel" style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
-          <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>🎁</span>
+          <Gift size={22} strokeWidth={2} style={{ color: 'var(--accent)', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
             <b>Каргогоо нээж {WEBSITE_BONUS_DAYS} хоног үнэгүй ашиглаарай</b>
             <p>
@@ -236,7 +237,7 @@ function DraftPanel({ d, api, reload, act, onDeleted }: {
   }
 
   async function remove() {
-    if (!confirm('Энэ ноорог гэрээг устгах уу?')) return
+    if (!await confirmAsync('Энэ ноорог гэрээг устгах уу?')) return
     const res = await fetch(api, { method: 'DELETE' })
     if (res.ok) onDeleted()
     else toast.error('Устгаж чадсангүй')
@@ -435,7 +436,7 @@ function AddressPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, u
     )
   }
   async function apply() {
-    if (!confirm('Вэбсайтын тань "Эрээний хаяг"-ийг энэ хаягаар солих уу? Хуучин хаяг дарагдана.')) return
+    if (!await confirmAsync('Вэбсайтын тань "Эрээний хаяг"-ийг энэ хаягаар солих уу? Хуучин хаяг дарагдана.')) return
     setBusy(true)
     const ok = await act({ action: 'use-address' })
     setBusy(false)
@@ -481,7 +482,7 @@ function ActivePanel({ d, act, reload, pdfHref }: { d: Detail; act: (b: Record<s
     if (ok) { setOpen(false); toast.success('Цуцлах мэдэгдэл илгээлээ'); reload() }
   }
   async function cancel() {
-    if (!confirm('Цуцлах мэдэгдлээ буцаах уу?')) return
+    if (!await confirmAsync('Цуцлах мэдэгдлээ буцаах уу?')) return
     if (await act({ action: 'cancel-termination' })) { toast.success('Гэрээ хүчинтэй хэвээр'); reload() }
   }
 
@@ -550,8 +551,8 @@ const CSS = `
 .ct-steps li span { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
   background: var(--surface2); font-weight: 700; font-size: 0.7rem; }
 .ct-steps li.on { color: var(--text); border-color: var(--accent); font-weight: 600; }
-.ct-steps li.on span { background: var(--accent); color: #fff; }
-.ct-steps li.done span { background: var(--green); color: #fff; }
+.ct-steps li.on span { background: var(--accent); color: var(--on-accent); }
+.ct-steps li.done span { background: var(--green); color: var(--on-accent); }
 .ct-draft { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 1.25rem; align-items: start; }
 .ct-preview { position: sticky; top: 0.75rem; }
 .ct-fee { display: flex; flex-direction: column; background: var(--surface2); border-radius: 10px; padding: 0.7rem 0.85rem; margin-bottom: 0.8rem; }
@@ -565,9 +566,9 @@ const CSS = `
 .ct-panel p { font-size: 0.84rem; margin: 0.25rem 0 0.2rem; line-height: 1.55; }
 .ct-panel > svg { flex-shrink: 0; margin-top: 2px; }
 .ct-ok { border-color: color-mix(in srgb, var(--green) 45%, var(--border)); } .ct-ok > svg { color: var(--green); }
-.ct-warn { border-color: #ea580c; } .ct-warn > svg { color: #ea580c; }
+.ct-warn { border-color: var(--orange); } .ct-warn > svg { color: var(--orange); }
 .ct-bad { border-color: var(--danger); } .ct-bad > svg { color: var(--danger); }
-.ct-info { border-color: #2563eb; } .ct-info > svg { color: #2563eb; }
+.ct-info { border-color: var(--blue); } .ct-info > svg { color: var(--blue); }
 .ct-note { background: var(--surface2); border-radius: 8px; padding: 0.5rem 0.7rem; }
 .ct-pay { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.2rem; align-items: start; }
 .ct-copy { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }

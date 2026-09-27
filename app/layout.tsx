@@ -1,12 +1,17 @@
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 import { Analytics } from '@vercel/analytics/next'
+import { Inter } from 'next/font/google'
 import { prisma } from '@/lib/prisma'
 import './globals.css'
 import PwaRegister from './components/PwaRegister'
 import AppToaster from './components/AppToaster'
+import { ConfirmHost } from './components/ConfirmDialog'
 import DemoBanner from './components/DemoBanner'
 import { DEMO_SLUG } from '@/lib/demo'
+
+// Кирилл үсэгтэй нэг фонт — Windows/Android/iOS дээр ижил харагдана
+const inter = Inter({ subsets: ['latin', 'cyrillic'], variable: '--font-sans', display: 'swap' })
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -86,7 +91,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const isDemo = (await headers()).get('x-cargo-slug') === DEMO_SLUG
 
   return (
-    <html lang="mn" suppressHydrationWarning>
+    <html lang="mn" className={inter.variable} suppressHydrationWarning>
       <body>
         {/* Landing (/) нь нэвтрээгүй зочдод зориулсан танилцуулга тул хэрэглэгчийн
             өмнө хадгалсан горим (шөнийн/нүдэнд ээлтэй) энд нөлөөлөхгүй — үргэлж нэг өнгөтэй */}
@@ -99,6 +104,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {isDemo && <DemoBanner />}
         {children}
         <AppToaster />
+        <ConfirmHost />
         <Analytics />
       </body>
     </html>

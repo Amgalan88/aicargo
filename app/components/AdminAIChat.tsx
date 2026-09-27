@@ -181,7 +181,7 @@ export default function AdminAIChat() {
                 padding: '10px 14px',
                 borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                 background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface)',
-                color: msg.role === 'user' ? '#fff' : 'var(--text)',
+                color: msg.role === 'user' ? 'var(--on-accent)' : 'var(--text)',
                 border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
                 fontSize: '0.87rem', lineHeight: 1.6,
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
@@ -219,7 +219,7 @@ export default function AdminAIChat() {
                   href={msg.link.href}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 7,
-                    background: 'var(--accent)', color: '#fff',
+                    background: 'var(--accent)', color: 'var(--on-accent)',
                     borderRadius: 10, padding: '8px 14px',
                     fontSize: '0.83rem', fontWeight: 600, textDecoration: 'none',
                     boxShadow: '0 1px 6px rgba(201,100,66,0.22)',

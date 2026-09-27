@@ -1,4 +1,6 @@
 'use client'
+import { Trash2 } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 
 interface Faq { id: number; question: string; answer: string; order: number }
@@ -35,7 +37,7 @@ export default function FaqPage() {
   }
 
   async function del(id: number) {
-    if (!confirm('Устгах уу?')) return
+    if (!await confirmAsync('Устгах уу?')) return
     setDeleting(id)
     await fetch('/api/admin/faq', {
       method: 'DELETE',
@@ -83,7 +85,7 @@ export default function FaqPage() {
               }}
                 onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
-              >🗑</button>
+               aria-label="Устгах"><Trash2 size={15} strokeWidth={2} /></button>
             </div>
           ))}
         </div>

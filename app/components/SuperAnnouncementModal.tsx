@@ -59,7 +59,7 @@ export default function SuperAnnouncementModal({ endpoint = 'admin' }: { endpoin
       >
         <div style={{
           position: 'absolute', top: '-1px', left: '1.5rem',
-          background: 'var(--accent)', color: '#fff',
+          background: 'var(--accent)', color: 'var(--on-accent)',
           fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.06em',
           padding: '0.15rem 0.7rem', borderRadius: '0 0 6px 6px',
           textTransform: 'uppercase',

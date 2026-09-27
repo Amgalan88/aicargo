@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { Search, Users } from 'lucide-react'
+import { PageHeader, Pagination, SortTh, useSort, CopyCell } from '@/app/components/ui'
 
 interface User {
   id: number
@@ -9,6 +11,8 @@ interface User {
   createdAt: string
   _count: { shipments: number }
 }
+
+type SortKey = 'name' | 'phone' | 'count' | 'date'
 
 function fmtDate(iso: string) {
   const d = new Date(iso)
@@ -45,75 +49,54 @@ export default function UsersPage() {
   function goPage(p: number) { setPage(p); load(search, p) }
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  const { sorted, sort, toggle } = useSort<User, SortKey>(users, (u, k) =>
+    k === 'name' ? u.name : k === 'phone' ? u.phone : k === 'count' ? u._count.shipments : u.createdAt)
+
   return (
-    <div className="page-wide" style={{ maxWidth: 680 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-        <h1 className="section-title" style={{ margin: 0 }}>Хэрэглэгчид</h1>
-        <span style={{ fontSize: '0.78rem', color: 'var(--muted)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem' }}>
-          Нийт <strong style={{ color: 'var(--text)' }}>{total}</strong>
-        </span>
-      </div>
+    <div className="page-wide" style={{ maxWidth: 820 }}>
+      <PageHeader title="Хэрэглэгчид" count={total} countLabel="хэрэглэгч" />
 
       <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem', maxWidth: 420 }}>
         <input className="input" placeholder="Нэр эсвэл утасны дугаар"
           value={q} onChange={e => setQ(e.target.value)}
           style={{ minWidth: 0 }} />
         <button className="btn" type="submit" disabled={loading} style={{ flexShrink: 0 }}>
-          {loading ? '...' : 'Хайх'}
+          <Search size={16} />{loading ? '...' : 'Хайх'}
         </button>
       </form>
 
       {users.length === 0 && !loading ? (
-        <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Олдсонгүй.</p>
+        <div className="empty-state">
+          <div className="empty-state-icon"><Users size={26} /></div>
+          <h3>{search ? `"${search}" олдсонгүй` : 'Хэрэглэгч алга'}</h3>
+          <p>{search ? 'Өөр нэр эсвэл утсаар хайж үзнэ үү.' : 'Урилгын линкээ хуваалцаж хэрэглэгчдээ бүртгүүлээрэй.'}</p>
+        </div>
       ) : (
-        <div className="card" style={{ overflow: 'hidden' }}>
-          {users.map((u, i) => (
-            <div key={u.id} style={{
-              display: 'flex', alignItems: 'center', gap: '0.75rem',
-              padding: '0.55rem 1rem',
-              borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none',
-              fontSize: '0.83rem',
-            }}>
-              <span style={{ fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
-              <span style={{ fontFamily: 'monospace', color: 'var(--muted)', flexShrink: 0 }}>{u.phone}</span>
-              {u._count.shipments > 0 && (
-                <span style={{ fontSize: '0.72rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.1rem 0.5rem', color: 'var(--muted)', flexShrink: 0 }}>
-                  {u._count.shipments} бараа
-                </span>
-              )}
-              <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace', flexShrink: 0 }}>{fmtDate(u.createdAt)}</span>
-            </div>
-          ))}
+        <div className="table-wrap">
+          <table className="data-table stack">
+            <thead>
+              <tr>
+                <SortTh label="Нэр" k="name" sort={sort} onSort={toggle} />
+                <SortTh label="Утас" k="phone" sort={sort} onSort={toggle} />
+                <SortTh label="Ачаа" k="count" sort={sort} onSort={toggle} align="right" />
+                <SortTh label="Бүртгүүлсэн" k="date" sort={sort} onSort={toggle} align="right" />
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(u => (
+                <tr key={u.id}>
+                  <td className="st-title" style={{ fontWeight: 600, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</td>
+                  <td data-label="Утас" style={{ whiteSpace: 'nowrap' }}><CopyCell value={u.phone} /></td>
+                  <td data-label="Ачаа" className="num">{u._count.shipments > 0 ? u._count.shipments : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                  <td data-label="Бүртгүүлсэн" className="num" style={{ color: 'var(--muted)' }}>{fmtDate(u.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center', alignItems: 'center', marginTop: '1rem' }}>
-          <button onClick={() => goPage(Math.max(1, page-1))} disabled={page===1} style={pgBtn}>‹</button>
-          {(() => {
-            const pages: (number|'...')[] = []
-            if (totalPages <= 7) { for (let i=1; i<=totalPages; i++) pages.push(i) }
-            else {
-              pages.push(1)
-              if (page > 3) pages.push('...')
-              for (let i=Math.max(2,page-1); i<=Math.min(totalPages-1,page+1); i++) pages.push(i)
-              if (page < totalPages-2) pages.push('...')
-              pages.push(totalPages)
-            }
-            return pages.map((p,i) => p==='...'
-              ? <span key={`e${i}`} style={{ fontSize:'0.78rem', color:'var(--muted)', padding:'0 0.2rem' }}>…</span>
-              : <button key={p} onClick={() => goPage(p)} style={{ ...pgBtn, fontWeight: page===p?700:400, background: page===p?'var(--accent)':'var(--surface)', color: page===p?'#fff':'var(--text)', borderColor: page===p?'var(--accent)':'var(--border)' }}>{p}</button>
-            )
-          })()}
-          <button onClick={() => goPage(Math.min(totalPages, page+1))} disabled={page===totalPages} style={pgBtn}>›</button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onChange={goPage} />
     </div>
   )
-}
-
-const pgBtn: React.CSSProperties = {
-  padding: '0.3rem 0.65rem', borderRadius: '6px', border: '1px solid var(--border)',
-  background: 'var(--surface)', color: 'var(--text)', cursor: 'pointer',
-  fontSize: '0.82rem', fontFamily: 'inherit',
 }

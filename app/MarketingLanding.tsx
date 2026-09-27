@@ -1,15 +1,17 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
 import NavLogo from './components/NavLogo'
-import { Reveal, Stagger, StaggerItem, AnimatedNumber, TiltCard } from './components/motion'
-import { Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search, Check, Gift, Warehouse as WarehouseIcon, ArrowRight, MapPin } from 'lucide-react'
+import { Reveal, Stagger, StaggerItem, AnimatedNumber } from './components/motion'
+import {
+  Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search, Check, Gift,
+  Warehouse as WarehouseIcon, ArrowRight, Factory, Wrench, User, X, Smartphone, HandCoins,
+  MessageCircleQuestion, Clock, ShieldCheck, CreditCard, Phone,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { warehousePath, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
-
-// 3D hero — зөвхөн client дээр, тусдаа chunk (SSR-гүй)
-const Hero3D = dynamic(() => import('./components/Hero3D'), { ssr: false })
+import HeroMockup from './components/HeroMockup'
+import PartnerMarquee from './components/PartnerMarquee'
 
 const STATUS_LABEL: Record<string, string> = {
   REGISTERED: 'Бүртгүүлсэн',
@@ -18,36 +20,45 @@ const STATUS_LABEL: Record<string, string> = {
   PICKED_UP: 'Авсан',
 }
 
-// Facebook хуудасны URL (хоосон үед footer-т гарахгүй)
 const FB_URL = 'https://www.facebook.com/share/1BSw6dQ22F/'
+const PHONE = '85205258'
+const PRICE = '₮50,000'
 
-// Бодит дэлгэцийн зургууд — public/shots/ хавтсанд ижил нэрээр байрлана
-const SHOTS = [
-  { src: '/shots/desk-ereen.png', label: 'Эрээний бүртгэл — Excel болон нэг нэгээр (компьютер)' },
-  { src: '/shots/mobile-arrived.png', label: 'Ирсэн ачаа бүртгэх — утас, компьютер хоёуланд' },
-  { src: '/shots/mobile-handover.png', label: 'Ачаа олгох — утсаар хайж, нэг товчоор' },
-  { src: '/shots/mobile-settings.png', label: 'Тохиргоо — лого, Эрээний хаягаа өөрөө удирдана' },
-  { src: '/shots/user-orders.png', label: 'Хэрэглэгч ачаагаа бодит цагт хянана' },
-  { src: '/shots/app-icons.jpg', label: 'Утсанд апп шиг суулгагдана' },
+// Асуудал → шийдэл: карго эзний өдөр тутмын өвдөлт ба AiCargo-гийн хариу
+const PAINS: { icon: ReactNode; before: string; after: string }[] = [
+  { icon: <FileSpreadsheet size={18} />, before: 'Трак кодыг Excel, дэвтэрт гараар шивнэ', after: 'Олон зуун трак кодыг Excel-ээс нэг товчоор оруулна' },
+  { icon: <Sparkles size={18} />, before: '"Ачаа маань ирсэн үү?" гэсэн дуудлага өдөрт хэдэн арваар', after: 'Хэрэглэгч ачаагаа өөрөө хянаж, AI асуултад нь хариулна' },
+  { icon: <BarChart3 size={18} />, before: 'Хэн төлсөн, хэн аваагүй нь бүрхэг', after: 'Олголт, төлбөр, орлогын тайлан нэг дэлгэцэнд' },
+  { icon: <Bell size={18} />, before: 'Зарлалаа чат болгонд давтан илгээнэ', after: 'Бүх хэрэглэгчдэд мэдэгдэл нэг дор очно' },
 ]
 
-const FEATURES = [
-  { icon: <Globe size={19} strokeWidth={2} />, title: 'Өөрийн вэб хаяг', desc: 'tanaikargo.aicargo.mn — таны нэр, лого, өнгөтэй. Хэрэглэгч тань утсандаа апп шиг суулгана.' },
-  { icon: <Package size={19} strokeWidth={2} />, title: 'Ачааны бүрэн хяналт', desc: 'Бүртгүүлсэн → Эрээнд → Ирсэн → Олгосон. Хэрэглэгч бүр өөрийн ачааг бодит цагт хардаг.' },
-  { icon: <FileSpreadsheet size={19} strokeWidth={2} />, title: 'Excel bulk оруулалт', desc: 'Олон зуун трак кодыг Excel файлаас нэг дор. Гараар шивэх цаг дууслаа.' },
-  { icon: <Sparkles size={19} strokeWidth={2} />, title: 'AI туслах', desc: 'Хэрэглэгчийн "ачаа хаана?", "хэд төлөх?" асуултад AI хариулна — таны утас чимээгүй болно.' },
-  { icon: <Bell size={19} strokeWidth={2} />, title: 'Автомат мэдэгдэл', desc: 'Шинэ ачаа бүртгэгдэхэд танд, ачаа ирэхэд хэрэглэгчид мэдэгдэнэ.' },
-  { icon: <BarChart3 size={19} strokeWidth={2} />, title: 'Тайлан ба орлого', desc: 'Өдрийн олголт, орлогын дүн, хэрэглэгч бүрийн түүх — нэг дэлгэцээс.' },
+const FOR_ADMIN = [
+  { icon: <FileSpreadsheet size={18} />, title: 'Excel-ээр бөөнөөр', desc: 'Эрээнд ирсэн, УБ-д ирсэн ачааг файлаас нэг дор оруулна.' },
+  { icon: <HandCoins size={18} />, title: 'Утсаар хайж олгоно', desc: 'Хэрэглэгчийн утсыг бичээд бүх ачааг нь нэг товчоор олгоно.' },
+  { icon: <BarChart3 size={18} />, title: 'Тайлан, орлого', desc: 'Өдөр, сарын олголт, орлого, хэрэглэгч бүрийн түүх.' },
+  { icon: <Bell size={18} />, title: 'Мэдэгдэл', desc: 'Шинэ ачаа бүртгэгдэхэд танд, ачаа ирэхэд хэрэглэгчид.' },
+]
+const FOR_USER = [
+  { icon: <Globe size={18} />, title: 'Таны нэртэй вэб', desc: 'tanaikargo.aicargo.mn — таны лого, нэртэй, утсанд апп шиг суулгана.' },
+  { icon: <Package size={18} />, title: 'Ачаагаа өөрөө хянана', desc: 'Бүртгүүлсэн → Эрээнд → Ирсэн → Авсан. Төлбөрөө ч харна.' },
+  { icon: <Sparkles size={18} />, title: 'AI туслах', desc: '"Ачаа хаана?", "Хэд төлөх?" — 24/7 шууд хариулна.' },
+  { icon: <Smartphone size={18} />, title: 'Утсаар шалгах', desc: 'Бүртгэлгүйгээр утасны дугаараараа ирсэн ачаагаа шалгана.' },
 ]
 
 const STEPS = [
-  { n: '1', title: 'Бүртгүүл', desc: 'Каргоныхоо нэр, вэб хаягаа сонгоод и-мэйлээ баталгаажуул. 2 минут.' },
-  { n: '2', title: 'Тохируул', desc: 'Эрээний хаяг, тариф, банкны мэдээллээ оруул.' },
-  { n: '3', title: 'Хэрэглэгчдээ урь', desc: 'Линкээ хуваалц — хэрэглэгчид өөрсдөө бүртгүүлж, ачаагаа хянана.' },
-  { n: '4', title: 'Эрээнд хаяг ав', desc: 'Түншлэгч агуулахтай цахим гэрээ байгуулж Эрээнд ачаа хүлээн авах хаягтай бол — ачааг тань хүлээн авч, баглана. Вэбсайт +60 хоног үнэгүй.' },
+  { title: 'Бүртгүүл', desc: 'Каргоныхоо нэр, вэб хаягаа сонгоод и-мэйлээ баталгаажуул.', time: '2 минут' },
+  { title: 'Тохируул', desc: 'Лого, Эрээний хаяг, тариф, банкны мэдээллээ оруул.', time: '3 минут' },
+  { title: 'Хэрэглэгчдээ урь', desc: 'Линкээ хуваалц — хэрэглэгчид өөрсдөө бүртгүүлж, ачаагаа хянана.', time: 'Бэлэн' },
 ]
 
-// Эрээний агуулахтай гэрээний давуу тал — нүүр хуудасны агуулахын хэсэгт
+const PLAN_FEATURES = [
+  'Өөрийн нэртэй вэб хаяг, лого',
+  'Хязгааргүй ачаа, хэрэглэгч',
+  'Excel оруулалт, утсаар олголт',
+  'Мэдэгдэл, тайлан, аудит лог',
+  'Ажилтны нэмэлт нэвтрэлт',
+]
+
 const WAREHOUSE_BENEFITS = [
   'Агуулахад танай каргод зориулсан тусгай зай талбай',
   'Ачааг хүлээн авч, ангилж, баглаж шуудайлна',
@@ -61,21 +72,20 @@ interface Warehouse {
   contractFee: string; acceptsContracts: boolean
 }
 
-function CopyChip({ label, value }: { label: string; value: string }) {
-  function copy() {
-    navigator.clipboard.writeText(value)
-    toast.success('Хуулагдлаа')
-  }
+function SectionHead({ eyebrow, title, sub }: { eyebrow?: string; title: ReactNode; sub?: ReactNode }) {
   return (
-    <button onClick={copy} style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      background: 'var(--surface2)', border: '1px solid var(--border)',
-      borderRadius: 6, padding: '0.2rem 0.55rem', cursor: 'pointer',
-      fontSize: '0.74rem', color: 'var(--text)',
-      fontFamily: 'inherit',
-    }}>
-      <span style={{ color: 'var(--muted)' }}>{label}</span>
-      {value}
+    <Reveal y={18} className="lp-head">
+      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+      <h2>{title}</h2>
+      {sub && <p className="lp-head-sub">{sub}</p>}
+    </Reveal>
+  )
+}
+
+function CopyChip({ label, value }: { label: string; value: string }) {
+  return (
+    <button className="lp-copychip" onClick={() => { navigator.clipboard.writeText(value); toast.success('Хуулагдлаа') }}>
+      <span>{label}</span>{value}
     </button>
   )
 }
@@ -90,27 +100,26 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [shotIdx, setShotIdx] = useState<number | null>(null)
   const [demoOpen, setDemoOpen] = useState(false)
-  const shotScroll = useRef<HTMLDivElement>(null)
-  const touchX = useRef<number | null>(null)
+  const [showSticky, setShowSticky] = useState(false)
+  const heroCta = useRef<HTMLDivElement>(null)
   const featuredWh = warehouses.find(w => w.acceptsContracts && w.imageUrl) ?? warehouses.find(w => w.acceptsContracts) ?? warehouses[0]
 
-  function scrollShots(dir: -1 | 1) {
-    shotScroll.current?.scrollBy({ left: dir * 320, behavior: 'smooth' })
-  }
-
-  function shotNav(dir: -1 | 1) {
-    setShotIdx(i => i === null ? i : (i + dir + SHOTS.length) % SHOTS.length)
-  }
-
-  // Fullscreen үзэгч нээлттэй үед ар талын хуудасны scroll-ийг түгжинэ
+  // Утсанд: hero-гийн CTA дэлгэцээс гарахад доод талд CTA зурвас гарна
   useEffect(() => {
-    if (shotIdx === null) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [shotIdx])
+    const el = heroCta.current
+    if (!el || !('IntersectionObserver' in window)) return
+    const io = new IntersectionObserver(([e]) => setShowSticky(!e.isIntersecting && e.boundingClientRect.top < 0))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!demoOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDemoOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [demoOpen])
 
   async function search() {
     const val = query.trim().toUpperCase().replace(/\s+/g, '')
@@ -133,13 +142,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
-      {
-        '@type': 'Organization',
-        name: 'AiCargo',
-        url: 'https://www.aicargo.mn',
-        logo: 'https://www.aicargo.mn/icon-512.png',
-        sameAs: [FB_URL],
-      },
+      { '@type': 'Organization', name: 'AiCargo', url: 'https://www.aicargo.mn', logo: 'https://www.aicargo.mn/icon-512.png', sameAs: [FB_URL] },
       {
         '@type': 'SoftwareApplication',
         name: 'AiCargo',
@@ -148,803 +151,435 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         url: 'https://www.aicargo.mn',
         description: 'Карго компанид зориулсан ачаа бүртгэл, хяналтын систем — Эрээн агуулахаас олголт хүртэл, AI туслахтай.',
         inLanguage: 'mn',
-        offers: {
-          '@type': 'Offer',
-          price: '50000',
-          priceCurrency: 'MNT',
-          description: 'Эхний 30 хоног үнэгүй · цаашид сарын ₮50,000',
-        },
+        offers: { '@type': 'Offer', price: '50000', priceCurrency: 'MNT', description: 'Эхний 30 хоног үнэгүй · цаашид сарын ₮50,000' },
       },
     ],
   }
 
+  const statItems = [
+    { v: stats.cargos, label: 'карго компани' },
+    { v: stats.users, label: 'хэрэглэгч' },
+    { v: stats.shipments, label: 'бүртгэгдсэн ачаа' },
+  ].filter(s => s.v >= 10)
+
+  const statsRow = statItems.length > 0 && (
+    <div className="lp-stats">
+      {statItems.map(s => (
+        <div key={s.label}>
+          <b><AnimatedNumber value={s.v} suffix="+" /></b>
+          <span>{s.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+
+  const faqs = [
+    { q: 'Үнэхээр 30 хоног үнэгүй юу? Карт шаардлагатай юу?', a: `Тийм. Эхний 30 хоног бүх боломж нь бүрэн нээлттэй, картын мэдээлэл шаардахгүй. Үргэлжлүүлэн ашиглах бол сарын ${PRICE}-ыг дансаар шилжүүлнэ.` },
+    { q: 'Одоо ашиглаж байгаа Excel өгөгдлөө оруулж болох уу?', a: 'Болно. Олон зуун трак кодыг Excel файлаас нэг дор оруулах тул одоогийн бүртгэлээ хэдхэн минутад шилжүүлнэ.' },
+    { q: 'Хэрэглэгчид минь хэрхэн ашиглах вэ?', a: 'Та өөрийн вэб хаягаа (tanaikargo.aicargo.mn) хэрэглэгчиддээ өгнө. Тэд бүртгүүлээд трак кодоо оруулж ачаагаа хянана, утсандаа апп шиг суулгаж болно. Заавар сургалт шаардлагагүй.' },
+    { q: 'Өгөгдөл минь хаана хадгалагдах вэ, аюулгүй юу?', a: 'Бүх өгөгдөл үүлэн серверт шифрлэгдэн хадгалагдаж, тогтмол нөөцлөгддөг. Карго тус бүрийн өгөгдөл бүрэн тусгаарлагдсан — танай өгөгдөлд зөвхөн та болон таны хэрэглэгчид хандана.' },
+    { q: 'Болиулбал өгөгдлөө буцааж авч чадах уу?', a: 'Тийм. Таны ачаа, хэрэглэгчийн бүртгэл таны өмч — хүссэн үедээ Excel хэлбэрээр татаж авах боломжийг бид олгоно.' },
+    ...(warehouses.length ? [
+      { q: 'Эрээнд ачаа хүлээн авах хаяг гэж юу вэ?', a: 'Түншлэгч агуулахтай цахим гэрээ байгуулахад танай каргод өөрийн тэмдэгтэй (жш: B88) хятад хаяг олгоно. Хэрэглэгчид тань Taobao, Pinduoduo зэрэгт энэ хаягийг бичиж захиалахад агуулах ачааг хүлээн авч, ангилж, баглаад Гаалийн хашаа хүртэл үнэгүй зөөвөрлөнө. Хаягийг вэбсайтдаа нэг товчоор тохируулна.' },
+      { q: 'Агуулахын гэрээний төлбөр буцаагдах уу?', a: 'Үгүй. Гэрээний төлбөр нэг удаагийн бөгөөд жил бүр төлөхгүй, гэрээ хугацаагүй. Гэрээ аль ч талын санаачилгаар цуцлагдсан тохиолдолд төлбөр буцаагдахгүй (цуцлахдаа 30 хоногийн өмнө мэдэгдэнэ).' },
+      { q: 'Карго нээгээгүй бол агуулахтай гэрээ байгуулж болох уу?', a: 'Эхлээд aicargo-д каргогоо нээнэ — 2 минут, эхний 30 хоног үнэгүй. Дараа нь админ хэсгийн "Агуулах" цэснээс гэрээгээ байгуулж, төлбөрийн явцаа тэндээс хянана.' },
+    ] : []),
+  ]
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="lp">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      {/* ── NAV ── */}
       <nav className="nav">
         <NavLogo />
-        <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginLeft: 'auto', flexShrink: 0 }}>
+        <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '1.1rem', marginLeft: 'auto', flexShrink: 0 }}>
           {superPreview ? (
-            <Link href="/super" className="btn" style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-              ← Super admin
-            </Link>
+            <Link href="/super" className="btn btn-sm">← Super admin</Link>
           ) : (
             <>
-              <Link href="/login" style={{ whiteSpace: 'nowrap' }}>Нэвтрэх</Link>
-              <Link href="/register" style={{ whiteSpace: 'nowrap' }}>Бүртгүүлэх</Link>
-              <Link href="/signup-cargo" className="btn" style={{ padding: '0.45rem 0.8rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-                Карго нээх
-              </Link>
+              <a href="#features" className="lp-nav-hide-sm">Боломжууд</a>
+              <a href="#pricing" className="lp-nav-hide-sm">Үнэ</a>
+              <a href="#track" className="lp-nav-hide-sm">Ачаа шалгах</a>
+              <Link href="/login">Нэвтрэх</Link>
+              <Link href="/signup-cargo" className="btn btn-sm" style={{ whiteSpace: 'nowrap' }}>Карго нээх</Link>
             </>
           )}
         </div>
       </nav>
 
-      <div style={{ flex: 1 }}>
-
+      <main>
         {/* ── HERO ── */}
-        <section style={{
-          position: 'relative', padding: '4rem 5% 3rem', textAlign: 'center', maxWidth: 900, margin: '0 auto',
-          minHeight: 'min(78vh, 680px)', display: 'flex', flexDirection: 'column', justifyContent: 'center',
-        }}>
-          {/* Акцент өнгөний зөөлөн градиент ар тал */}
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
-            background: 'radial-gradient(ellipse 70% 55% at 50% 38%, rgba(201,100,66,0.13), transparent 65%)',
-          }} />
-          {/* 3D ар тал — контентын доор */}
-          <Hero3D />
-          <div style={{ position: 'relative', zIndex: 1, maxWidth: 720, margin: '0 auto' }}>
+        <section className="lp-hero">
+          <div className="lp-hero-glow" aria-hidden />
           <Reveal y={14}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-            fontSize: '0.72rem', fontWeight: 700,
-            color: 'var(--accent)', background: 'var(--accent-light)',
-            border: '1px solid var(--accent)', borderRadius: 100,
-            padding: '0.3rem 0.9rem', marginBottom: '1.1rem',
-            textTransform: 'uppercase', letterSpacing: '0.06em',
-            boxShadow: '0 2px 8px rgba(201,100,66,0.12)',
-          }}>
-            <Sparkles size={13} strokeWidth={2.5} style={{ flexShrink: 0 }} />
-            Монголын анхны AI-суурьтай карго платформ
-          </div>
+            <span className="lp-pill"><Sparkles size={13} strokeWidth={2.5} />Монголын анхны AI-суурьтай карго платформ</span>
           </Reveal>
           <Reveal y={22} delay={0.08}>
-          <h1 style={{
-            fontSize: 'clamp(2rem, 5.5vw, 3.1rem)', fontWeight: 800, letterSpacing: '-1.2px',
-            lineHeight: 1.1, marginBottom: '1rem',
-          }}>
-            Карго бизнесээ<br />
-            <span style={{
-              color: 'var(--accent)',
-              background: 'linear-gradient(135deg, var(--accent), #e0885f)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}>5 минутад онлайн</span> болго
-          </h1>
+            <h1 className="lp-h1">
+              Карго бизнесээ<br />
+              <span>5 минутад онлайн</span> болго
+            </h1>
           </Reveal>
           <Reveal y={22} delay={0.16}>
-          <p style={{ color: 'var(--muted)', fontSize: '1.02rem', lineHeight: 1.75, maxWidth: 540, margin: '0 auto 1.6rem' }}>
-            {featuredWh ? (
-              <>Өөрийн вэбсайттай ачаа хяналтын систем, Эрээнд ачаа хүлээн авах хаяг —
-              карго бизнест хэрэгтэй хоёр гол зүйлийг нэг дороос.</>
-            ) : (
-              <>Өөрийн вэб хаягтай ачаа хяналтын систем — бүртгэлээс олголт хүртэл.
-              Хэрэглэгч тань ачаагаа өөрөө хянаж, AI туслах асуултад нь хариулна.</>
-            )}
-          </p>
+            <p className="lp-lead">
+              Өөрийн нэртэй вэбсайт, ачаа бүртгэл, олголт, төлбөр — бүгд нэг дор.
+              Хэрэглэгч тань ачаагаа өөрөө хянаж, та утасны дуудлагаас чөлөөлөгдөнө.
+            </p>
           </Reveal>
           <Reveal y={22} delay={0.24}>
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '0.7rem' }}>
-            <Link href="/signup-cargo" className="btn" style={{
-              padding: '0.85rem 2rem', fontSize: '0.98rem', textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(201,100,66,0.35)',
-            }}>
-              Каргогоо үнэгүй нээх →
-            </Link>
-            <button onClick={() => setDemoOpen(true)} className="btn-ghost" style={{ padding: '0.85rem 1.6rem', fontSize: '0.98rem', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
-              <Monitor size={16} strokeWidth={2} /> Демо үзэх
-            </button>
-            <a href="#track" className="btn-ghost" style={{ padding: '0.85rem 1.6rem', fontSize: '0.98rem', textDecoration: 'none' }}>
-              Ачаагаа шалгах
-            </a>
-          </div>
-          <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: warehouses.length ? '0.9rem' : '2.2rem' }}>
-            Эхний 30 хоног үнэгүй · цаашид сарын ₮50,000
-          </p>
-          {warehouses.length > 0 && (
-            <a href="#offers" className="lp-wh-chip">
-              <span className="lp-wh-chip-new">2 боломж</span>
-              Үнэгүй вэбсайт + Эрээнд ачаа хүлээн авах хаяг
-              <ArrowRight size={14} strokeWidth={2.4} />
-            </a>
-          )}
+            <div className="lp-cta-row" ref={heroCta}>
+              <Link href="/signup-cargo" className="btn btn-lg lp-cta-main">Каргогоо үнэгүй нээх <ArrowRight size={18} /></Link>
+              <button onClick={() => setDemoOpen(true)} className="btn-ghost btn-lg"><Monitor size={17} />Демо үзэх</button>
+            </div>
+            <ul className="lp-assure">
+              <li><Check size={14} strokeWidth={3} />30 хоног үнэгүй</li>
+              <li><Check size={14} strokeWidth={3} />Карт шаардлагагүй</li>
+              <li><Check size={14} strokeWidth={3} />Суулгах шаардлагагүй</li>
+            </ul>
           </Reveal>
-
-          {/* Бодит тоо — итгэл төрүүлэх hook */}
-          <Reveal y={18} delay={0.32}>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'clamp(1.5rem, 6vw, 3.5rem)', flexWrap: 'wrap' }}>
-            {[
-              { v: stats.cargos, label: 'Карго компани' },
-              { v: stats.users, label: 'Хэрэглэгч' },
-              { v: stats.shipments, label: 'Бүртгэгдсэн ачаа' },
-            ].map(s => (
-              <div key={s.label}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1.1 }}>
-                  <AnimatedNumber value={s.v} suffix="+" />
-                </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: 2 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-          </Reveal>
-          </div>
         </section>
 
-        {/* ── 2 БОЛОМЖ: вэбсайт + Эрээний хаяг ── */}
-        {featuredWh && (
-          <section id="offers" className="lp-offers">
-            <div className="lp-offers-inner">
-              <h2 className="lp-offers-title">Бид танд 2 боломж санал болгоно</h2>
-              <p className="lp-offers-sub">Эхлээд каргогийн вэбсайтаа үнэгүй нээнэ. Дараа нь хүсвэл Эрээнд ачаа хүлээн авах хаягтай болно.</p>
-              <div className="lp-offers-grid">
-                <div className="lp-offer">
-                  <div className="lp-offer-head">
-                    <span className="lp-offer-no">1</span>
-                    <span className="lp-offer-icon"><Globe size={20} strokeWidth={2} /></span>
-                  </div>
-                  <h3>Каргогийн вэбсайтаа үнэгүй нээ</h3>
-                  <p>Өөрийн вэб хаягтай ачаа хяналтын систем. Хэрэглэгч тань ачаагаа өөрөө хянана.</p>
-                  <ul>
-                    <li><Check size={14} strokeWidth={3} /> танайкарго.aicargo.mn вэб хаяг</li>
-                    <li><Check size={14} strokeWidth={3} /> Ачаа бүртгэл, олголт, мэдэгдэл</li>
-                    <li><Check size={14} strokeWidth={3} /> AI туслах хэрэглэгчдэд хариулна</li>
-                  </ul>
-                  <div className="lp-offer-price"><b>30 хоног үнэгүй</b><span>цаашид сарын ₮50,000</span></div>
-                  <Link href="/signup-cargo" className="btn lp-offer-cta">Каргогоо үнэгүй нээх →</Link>
-                </div>
-
-                <div className="lp-offer lp-offer-alt">
-                  <div className="lp-offer-head">
-                    <span className="lp-offer-no">2</span>
-                    <span className="lp-offer-icon"><MapPin size={20} strokeWidth={2} /></span>
-                  </div>
-                  <h3>Эрээнд ачаа хүлээн авах хаягтай бол</h3>
-                  <p>Түншлэгч агуулахтай цахим гэрээ байгуулж, өөрийн тэмдэгтэй хаяг авна. Агуулах ачааг тань хүлээн авч, баглана.</p>
-                  <ul>
-                    <li><Check size={14} strokeWidth={3} /> Өөрийн тэмдэгтэй хаяг (жш: B88)</li>
-                    <li><Check size={14} strokeWidth={3} /> Хүлээн авах, ангилах, баглах</li>
-                    <li><Check size={14} strokeWidth={3} /> Хаяг вэбсайтад нэг товчоор тохирно</li>
-                  </ul>
-                  <div className="lp-offer-price"><b>{formatMnt(featuredWh.contractFee)}</b><span>нэг удаа · вэбсайт +60 хоног үнэгүй</span></div>
-                  <a href="#warehouse" className="btn-ghost lp-offer-cta">Эрээнд хаяг авах →</a>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ── БОДИТ ДЭЛГЭЦҮҮД (screenshot gallery) ── */}
-        <section style={{ padding: '0 0 2.5rem' }}>
-          <p style={{ textAlign: 'center', fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem' }}>
-            Систем дотроос — бодит дэлгэцүүд
-          </p>
-          <div style={{ position: 'relative', maxWidth: 900, margin: '0 auto', padding: '0 5%' }}>
-            <button onClick={() => scrollShots(-1)} aria-label="Өмнөх" style={whArrowStyle('left')}>‹</button>
-            <button onClick={() => scrollShots(1)} aria-label="Дараах" style={whArrowStyle('right')}>›</button>
-            <div ref={shotScroll} style={{
-              display: 'flex', gap: '0.8rem', overflowX: 'auto', alignItems: 'flex-end',
-              scrollSnapType: 'x mandatory', scrollbarWidth: 'none',
-              padding: '4px 2px', WebkitOverflowScrolling: 'touch',
-            }}>
-              {SHOTS.map((s, i) => (
-                <figure key={s.src} style={{ margin: 0, flex: '0 0 auto', scrollSnapAlign: 'start', textAlign: 'center' }}>
-                  <button onClick={() => setShotIdx(i)} style={{
-                    padding: 0, border: '1px solid var(--border)', borderRadius: 12,
-                    overflow: 'hidden', cursor: 'zoom-in', background: 'var(--surface)',
-                    boxShadow: '0 6px 24px rgba(0,0,0,0.10)', display: 'block',
-                  }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={s.src} alt={s.label} loading="lazy" style={{ height: 300, width: 'auto', maxWidth: '80vw', display: 'block', objectFit: 'contain' }} />
-                  </button>
-                  <figcaption style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.4rem', maxWidth: 220, marginLeft: 'auto', marginRight: 'auto' }}>{s.label}</figcaption>
-                </figure>
-              ))}
-            </div>
-          </div>
+        <section className="lp-mock">
+          <Reveal y={28} delay={0.2}><HeroMockup /></Reveal>
         </section>
 
-        {/* ── ТҮНШЛЭГЧ КАРГОНУУД — Logo Wall ── */}
-        {partnerCargos.length > 0 && (
-          <section style={{ padding: '2rem 5% 2.5rem', borderTop: '1px solid var(--border)' }}>
-            <div style={{ maxWidth: 900, margin: '0 auto' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.4rem' }}>
-                Түншлэгч каргонууд
-              </h2>
-              <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.82rem', marginBottom: '1.75rem' }}>
-                Таны мэддэг, итгэдэг каргонууд аль хэдийн энд бүртгэлтэй
-              </p>
-              <style>{`
-                .lp-logo-wall {
-                  display: grid;
-                  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-                  gap: 0.9rem;
-                }
-                .lp-logo-item {
-                  display: flex; flex-direction: column; align-items: center; gap: 0.55rem;
-                  padding: 1rem 0.75rem; background: var(--surface);
-                  border: 1px solid var(--border); border-radius: 14px;
-                  text-decoration: none; color: inherit;
-                  transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
-                  perspective: 500px;
-                }
-                .lp-logo-item:hover {
-                  border-color: var(--accent);
-                  transform: translateY(-3px);
-                  box-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(201,100,66,0.08);
-                }
-                .lp-logo-img, .lp-logo-fallback {
-                  transition: transform 0.35s ease, box-shadow 0.35s ease;
-                  transform-style: preserve-3d;
-                }
-                .lp-logo-item:hover .lp-logo-img,
-                .lp-logo-item:hover .lp-logo-fallback {
-                  transform: rotateY(18deg) rotateX(6deg) scale(1.1);
-                  box-shadow: -6px 6px 14px rgba(0,0,0,0.16);
-                }
-                .lp-logo-img {
-                  width: 44px; height: 44px; border-radius: 11px;
-                  object-fit: cover; flex-shrink: 0;
-                  border: 1px solid var(--border);
-                }
-                .lp-logo-fallback {
-                  width: 44px; height: 44px; border-radius: 11px;
-                  background: var(--surface2); border: 1px solid var(--border);
-                  display: flex; align-items: center; justify-content: center;
-                  font-size: 1.1rem; font-weight: 800; color: var(--accent);
-                }
-                .lp-logo-name {
-                  font-size: 0.78rem; font-weight: 600; text-align: center;
-                  color: var(--text); line-height: 1.3;
-                  overflow: hidden; text-overflow: ellipsis;
-                  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-                }
-                @media (max-width: 500px) {
-                  .lp-logo-wall { grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
-                  .lp-logo-item { padding: 0.75rem 0.5rem; }
-                  .lp-logo-img, .lp-logo-fallback { width: 38px; height: 38px; }
-                  .lp-logo-name { font-size: 0.7rem; }
-                }
-                @media (hover: none) {
-                  .lp-logo-item:hover .lp-logo-img,
-                  .lp-logo-item:hover .lp-logo-fallback { transform: none; box-shadow: none; }
-                }
-              `}</style>
-              <div className="lp-logo-wall">
-                {partnerCargos.map(c => (
-                  <div key={c.id} className="lp-logo-item">
-                    {c.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={c.logoUrl} alt={c.name} className="lp-logo-img" loading="lazy" />
-                    ) : (
-                      <div className="lp-logo-fallback">
-                        {c.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className="lp-logo-name">{c.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+        {/* ── ИТГЭЛ: түншүүд + тоо ── */}
+        {partnerCargos.length > 0
+          ? <PartnerMarquee cargos={partnerCargos} total={stats.cargos}>{statsRow}</PartnerMarquee>
+          : statsRow && <section className="lp-sec lp-sec-line">{statsRow}</section>}
 
-        {/* ── ЭРЭЭНИЙ АГУУЛАХТАЙ ГЭРЭЭ ── */}
-        {featuredWh && (() => {
-          const featured = featuredWh
-          const ctaHref = featured.acceptsContracts ? `${warehousePath(featured)}/contract` : '/warehouses'
-          return (
-          <section id="warehouse" className="lp-wh">
-            <div className="lp-wh-inner">
-              <div className="lp-wh-grid">
-                <div>
-                  <div className="lp-wh-kicker"><WarehouseIcon size={15} strokeWidth={2.2} /> Боломж 2 · Эрээний түншлэгч агуулах</div>
-                  <h2 className="lp-wh-title">Эрээнд ачаа хүлээн авах өөрийн хаягтай бол</h2>
-                  <p className="lp-wh-lead">
-                    Түншлэгч агуулахтай цахим гэрээ байгуулснаар ачаа тань Эрээнд найдвартай гарт очно —
-                    агуулах хүлээн авч, баглаад Гаалийн хашаа хүртэл хүргэнэ.
-                  </p>
-                  <ul className="lp-wh-list">
-                    {WAREHOUSE_BENEFITS.map(b => (
-                      <li key={b}><span><Check size={13} strokeWidth={3} /></span>{b}</li>
-                    ))}
-                  </ul>
-                  <div className="lp-wh-offer">
-                    <div>
-                      <div className="lp-wh-price">{formatMnt(featured.contractFee)}</div>
-                      <div className="lp-wh-price-sub">нэг удаа төлнө · байнгын гэрээ</div>
-                    </div>
-                    <div className="lp-wh-gift"><Gift size={16} strokeWidth={2.2} /> Бэлэг: вэбсайт <b>60 хоног</b> үнэгүй</div>
-                  </div>
-                  <div className="lp-wh-actions">
-                    <Link href={ctaHref} className="btn" style={{ textDecoration: 'none', padding: '0.8rem 1.5rem' }}>
-                      Эрээнд хаяг авах →
-                    </Link>
-                    <Link href="/warehouses" className="btn-ghost" style={{ textDecoration: 'none', padding: '0.8rem 1.3rem' }}>
-                      Агуулахуудыг үзэх
-                    </Link>
-                  </div>
-                  <p className="lp-wh-note">Цахим гэрээгээр · {formatMnt(featured.contractFee)} нэг удаа · каргогоо нээсэн байх шаардлагатай (эхний 30 хоног үнэгүй).</p>
-                </div>
-                <Link href={warehousePath(featured)} className="lp-wh-photo">
-                  {featured.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cloudinaryThumb(featured.imageUrl, 900)} alt={featured.name} loading="lazy" />
-                  ) : <span className="lp-wh-photo-empty">🏭</span>}
-                  <span className="lp-wh-photo-cap">{featured.name} · зураг, үйлчилгээ →</span>
-                </Link>
-              </div>
-
-              <ol className="lp-wh-flow">
-                {['Каргогоо нээ', 'Агуулахтай гэрээ байгуул', 'Ачаагаа Эрээнд баглуул'].map((t, i) => (
-                  <li key={t}><b>{i + 1}</b>{t}</li>
-                ))}
-              </ol>
-
-              {warehouses.length > 1 && (
-                <div className="lp-wh-cards">
-                  {warehouses.map(w => (
-                    <div key={w.id} className="lp-wh-card">
-                      <Link href={warehousePath(w)} className="lp-wh-card-img">
-                        {w.imageUrl
-                          // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={cloudinaryThumb(w.imageUrl, 400)} alt={w.name} loading="lazy" />
-                          : <span>🏭</span>}
-                      </Link>
-                      <div className="lp-wh-card-body">
-                        <div className="lp-wh-card-name">{w.name}</div>
-                        <div className="lp-wh-card-fee">Гэрээ: <b>{formatMnt(w.contractFee)}</b></div>
-                        <div className="lp-wh-card-actions">
-                          {w.acceptsContracts
-                            ? <Link href={`${warehousePath(w)}/contract`} className="lp-wh-card-cta">Хаяг авах</Link>
-                            : <span className="lp-wh-card-soon">Удахгүй</span>}
-                          <Link href={warehousePath(w)} className="lp-wh-card-more">Дэлгэрэнгүй</Link>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-          )
-        })()}
-
-        {/* ── FEATURES ── */}
-        <section id="features" style={{ padding: '2.5rem 5%', background: 'var(--surface)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ maxWidth: 860, margin: '0 auto' }}>
-            {featuredWh && <div className="lp-wh-kicker" style={{ justifyContent: 'center', width: '100%', marginBottom: '0.35rem' }}><Globe size={15} strokeWidth={2.2} /> Боломж 1 · Каргогийн вэбсайт</div>}
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.45rem', letterSpacing: '-0.4px' }}>
-              Каргод чинь хэрэгтэй бүхэн
-            </h2>
-            <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>
-              Excel, дэвтэр, мессежийн орооцолдооноос гарцгаая
-            </p>
-            <style>{`
-              .lp-offers { padding: 1rem 5% 3rem; }
-              .lp-offers-inner { max-width: 940px; margin: 0 auto; }
-              .lp-offers-title { font-size: clamp(1.4rem, 3.2vw, 1.9rem); font-weight: 800; text-align: center; letter-spacing: -0.5px; margin: 0 0 0.4rem; }
-              .lp-offers-sub { text-align: center; color: var(--muted); font-size: 0.92rem; margin: 0 auto 1.6rem; max-width: 560px; line-height: 1.6; }
-              .lp-offers-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-              .lp-offer { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 1.4rem 1.4rem 1.3rem; box-shadow: 0 8px 28px rgba(0,0,0,0.05); }
-              .lp-offer-alt { background: linear-gradient(160deg, var(--accent-light), var(--surface) 55%); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
-              .lp-offer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
-              .lp-offer-no { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
-              .lp-offer-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-light); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
-              .lp-offer h3 { font-size: 1.15rem; font-weight: 800; margin: 0 0 0.35rem; letter-spacing: -0.3px; }
-              .lp-offer p { font-size: 0.86rem; color: var(--muted); line-height: 1.6; margin: 0 0 0.8rem; }
-              .lp-offer ul { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
-              .lp-offer li { display: flex; align-items: center; gap: 0.45rem; font-size: 0.84rem; }
-              .lp-offer li svg { color: var(--accent); flex-shrink: 0; }
-              .lp-offer-price { margin-top: auto; display: flex; flex-direction: column; padding-top: 0.8rem; border-top: 1px dashed var(--border); margin-bottom: 0.9rem; }
-              .lp-offer-price b { font-size: 1.25rem; font-weight: 800; }
-              .lp-offer-price span { font-size: 0.75rem; color: var(--muted); }
-              .lp-offer-cta { text-decoration: none; text-align: center; padding: 0.75rem 1rem; }
-              @media (max-width: 760px) { .lp-offers-grid { grid-template-columns: 1fr; } }
-              .lp-wh-chip { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; font-weight: 600; color: var(--text);
-                background: var(--surface); border: 1px solid var(--border); border-radius: 100px; padding: 0.35rem 0.8rem 0.35rem 0.4rem;
-                margin-bottom: 2.2rem; text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: border-color .15s; }
-              .lp-wh-chip:hover { border-color: var(--accent); }
-              .lp-wh-chip-new { background: var(--accent); color: #fff; border-radius: 100px; padding: 0.1rem 0.5rem; font-size: 0.68rem; text-transform: uppercase; letter-spacing: .04em; }
-              .lp-wh { padding: 3rem 5%; background: linear-gradient(180deg, var(--bg), color-mix(in srgb, var(--accent) 6%, var(--bg))); border-top: 1px solid var(--border); }
-              .lp-wh-inner { max-width: 1000px; margin: 0 auto; }
-              .lp-wh-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 2.2rem; align-items: center; }
-              .lp-wh-kicker { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; }
-              .lp-wh-title { font-size: clamp(1.5rem, 3.4vw, 2.1rem); font-weight: 800; letter-spacing: -0.6px; margin: 0.35rem 0 0.6rem; line-height: 1.15; }
-              .lp-wh-lead { color: var(--muted); font-size: 0.95rem; line-height: 1.7; margin: 0 0 1rem; }
-              .lp-wh-list { list-style: none; padding: 0; margin: 0 0 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; }
-              .lp-wh-list li { display: flex; gap: 0.55rem; align-items: flex-start; font-size: 0.9rem; }
-              .lp-wh-list li span { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--accent-light); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
-              .lp-wh-offer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 0.85rem 1rem; margin-bottom: 1.1rem; }
-              .lp-wh-price { font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; }
-              .lp-wh-price-sub { font-size: 0.74rem; color: var(--muted); }
-              .lp-wh-gift { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--accent); background: var(--accent-light); border-radius: 100px; padding: 0.35rem 0.75rem; }
-              .lp-wh-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
-              .lp-wh-note { font-size: 0.75rem; color: var(--muted); margin: 0.6rem 0 0; }
-              .lp-wh-photo { position: relative; display: block; border-radius: 18px; overflow: hidden; aspect-ratio: 4 / 3; background: var(--surface2); box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
-              .lp-wh-photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
-              .lp-wh-photo:hover img { transform: scale(1.03); }
-              .lp-wh-photo-empty { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 3rem; }
-              .lp-wh-photo-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 1.6rem 1rem 0.8rem; color: #fff; font-size: 0.85rem; font-weight: 600; background: linear-gradient(transparent, rgba(0,0,0,0.65)); }
-              .lp-wh-flow { list-style: none; padding: 0; margin: 2rem 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
-              .lp-wh-flow li { display: flex; align-items: center; gap: 0.6rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.7rem 0.9rem; font-size: 0.86rem; font-weight: 600; }
-              .lp-wh-flow b { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; }
-              .lp-wh-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 0.8rem; margin-top: 1.4rem; }
-              .lp-wh-card { display: flex; gap: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.6rem; align-items: center; }
-              .lp-wh-card-img { flex-shrink: 0; width: 76px; height: 58px; border-radius: 8px; overflow: hidden; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
-              .lp-wh-card-img img { width: 100%; height: 100%; object-fit: cover; }
-              .lp-wh-card-body { min-width: 0; flex: 1; }
-              .lp-wh-card-name { font-weight: 700; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-              .lp-wh-card-fee { font-size: 0.74rem; color: var(--muted); }
-              .lp-wh-card-actions { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; margin-top: 0.3rem; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
-              .lp-wh-card-cta { color: var(--accent); }
-              .lp-wh-card-more, .lp-wh-card-soon { color: var(--muted); }
-              @media (max-width: 760px) {
-                .lp-wh-grid { grid-template-columns: 1fr; gap: 1.4rem; }
-                .lp-wh-photo { order: -1; aspect-ratio: 16 / 10; }
-                .lp-wh-flow { grid-template-columns: 1fr; }
-              }
-              .lp-feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-              .lp-feat-card {
-                padding: 1.3rem 1.3rem; background: var(--bg);
-                border: 1px solid var(--border); border-radius: 14px;
-                transition: border-color 0.18s, box-shadow 0.18s;
-              }
-              .lp-feat-card:hover {
-                border-color: rgba(201,100,66,0.4);
-                box-shadow: 0 8px 24px rgba(0,0,0,0.07), 0 2px 8px rgba(201,100,66,0.08);
-              }
-              .lp-feat-icon {
-                width: 40px; height: 40px; border-radius: 10px;
-                background: var(--accent-light); border: 1px solid rgba(201,100,66,0.25);
-                display: flex; align-items: center; justify-content: center;
-                color: var(--accent); margin-bottom: 0.6rem;
-              }
-              .lp-feat-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.3rem; }
-              .lp-feat-desc { font-size: 0.83rem; color: var(--muted); line-height: 1.6; }
-              @media (max-width: 600px) {
-                .lp-feat-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-                .lp-feat-card { padding: 0.85rem 0.85rem; }
-                .lp-feat-icon { width: 34px; height: 34px; font-size: 1rem; margin-bottom: 0.35rem; }
-                .lp-feat-title { font-size: 0.8rem; margin-bottom: 0.18rem; }
-                .lp-feat-desc { font-size: 0.7rem; line-height: 1.5; }
-              }
-            `}</style>
-            <Stagger className="lp-feat-grid" gap={0.08}>
-              {FEATURES.map(f => (
-                <StaggerItem key={f.title}>
-                  <TiltCard max={5} className="lp-feat-card" style={{ height: '100%' }}>
-                    <div className="lp-feat-icon">{f.icon}</div>
-                    <div className="lp-feat-title">{f.title}</div>
-                    <div className="lp-feat-desc">{f.desc}</div>
-                  </TiltCard>
+        {/* ── АСУУДАЛ → ШИЙДЭЛ ── */}
+        <section className="lp-sec lp-sec-alt">
+          <div className="lp-wrap">
+            <SectionHead
+              eyebrow="Яагаад AiCargo"
+              title={<>Дуудлага, Excel, чатын<br className="lp-br" /> орооцолдоонд цэг тавь</>}
+              sub="Карго эрхлэгчдийн өдөр бүр тулгардаг асуудлыг нэг системээр шийднэ"
+            />
+            <Stagger className="lp-pains" gap={0.08}>
+              {PAINS.map(p => (
+                <StaggerItem key={p.before} className="lp-pain">
+                  <div className="lp-pain-before"><span className="lp-pain-x"><X size={13} strokeWidth={3} /></span>{p.before}</div>
+                  <div className="lp-pain-arrow" aria-hidden><ArrowRight size={16} /></div>
+                  <div className="lp-pain-after"><span className="lp-pain-icon">{p.icon}</span>{p.after}</div>
                 </StaggerItem>
               ))}
             </Stagger>
           </div>
         </section>
 
-        {/* ── HOW IT WORKS ── */}
-        <section style={{ padding: '2.5rem 5%', maxWidth: 720, margin: '0 auto' }}>
-          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '2rem', letterSpacing: '-0.4px' }}>
-            Хэрхэн эхлэх вэ?
-          </h2>
-          <Stagger style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }} gap={0.12}>
-            {STEPS.map(s => (
-              <StaggerItem key={s.n} style={{ textAlign: 'center' }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: '50%',
-                  background: 'var(--accent)', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 800, fontSize: '1rem', margin: '0 auto 0.6rem',
-                }}>{s.n}</div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.25rem' }}>{s.title}</div>
-                <div style={{ fontSize: '0.79rem', color: 'var(--muted)', lineHeight: 1.55 }}>{s.desc}</div>
-              </StaggerItem>
-            ))}
-          </Stagger>
+        {/* ── БОЛОМЖУУД: хоёр талд ── */}
+        <section id="features" className="lp-sec">
+          <div className="lp-wrap">
+            <SectionHead
+              eyebrow="Боломжууд"
+              title="Карго болон хэрэглэгч — хоёуланд нь"
+              sub="Админ тал ажлаа хурдасгаж, хэрэглэгч тал асуултгүй болно"
+            />
+            <div className="lp-roles">
+              {[
+                { key: 'admin', icon: <Wrench size={18} />, title: 'Каргогийн админд', note: 'Компьютер, утас хоёуланд', items: FOR_ADMIN },
+                { key: 'user', icon: <User size={18} />, title: 'Таны хэрэглэгчдэд', note: 'Апп татах шаардлагагүй', items: FOR_USER },
+              ].map(r => (
+                <Reveal key={r.key} y={20} className={`lp-role lp-role-${r.key}`}>
+                  <div className="lp-role-head">
+                    <span className="lp-role-icon">{r.icon}</span>
+                    <div><h3>{r.title}</h3><small>{r.note}</small></div>
+                  </div>
+                  <ul>
+                    {r.items.map(it => (
+                      <li key={it.title}>
+                        <span className="lp-feat-ic">{it.icon}</span>
+                        <div><b>{it.title}</b><p>{it.desc}</p></div>
+                      </li>
+                    ))}
+                  </ul>
+                </Reveal>
+              ))}
+            </div>
+          </div>
         </section>
 
-        {/* ── TRACK SEARCH (хэрэглэгчдэд) ── */}
-        <section id="track" style={{ padding: '2.5rem 5%', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
-          <div style={{ maxWidth: 480, margin: '0 auto' }}>
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '0.45rem', letterSpacing: '-0.4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <Search size={22} strokeWidth={2.2} style={{ color: 'var(--accent)' }} /> Ачаагаа шалгах
-            </h2>
-            <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-              Аль ч каргогийн хэрэглэгч трак кодоороо шалгаж болно
-            </p>
-            <div style={{ display: 'flex', gap: '0.6rem' }}>
-              <input
-                className="input"
-                placeholder="JT5364974054841"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && search()}
-                style={{ minWidth: 0 }}
-              />
-              <button className="btn" onClick={search} disabled={loading} style={{ flexShrink: 0 }}>
-                {loading ? '...' : 'Хайх'}
-              </button>
+        {/* ── ХЭРХЭН ЭХЛЭХ ── */}
+        <section className="lp-sec lp-sec-alt">
+          <div className="lp-wrap">
+            <SectionHead eyebrow="Эхлэхэд" title="3 алхам, 5 минут" sub="Техникийн мэдлэг, суулгалт хэрэггүй" />
+            <Stagger className="lp-steps" gap={0.12}>
+              {STEPS.map((s, i) => (
+                <StaggerItem key={s.title} className="lp-step">
+                  <span className="lp-step-n">{i + 1}</span>
+                  <h3>{s.title}</h3>
+                  <p>{s.desc}</p>
+                  <span className="lp-step-time"><Clock size={12} />{s.time}</span>
+                </StaggerItem>
+              ))}
+            </Stagger>
+          </div>
+        </section>
+
+        {/* ── ҮНЭ ── */}
+        <section id="pricing" className="lp-sec">
+          <div className="lp-wrap">
+            <SectionHead eyebrow="Үнэ" title="Энгийн, ил тод үнэ" sub="Нуусан төлбөргүй. Хүссэн үедээ зогсооно." />
+            <div className={`lp-plans${featuredWh ? '' : ' lp-plans-one'}`}>
+              <Reveal y={20} className="lp-plan lp-plan-main">
+                <span className="lp-plan-tag">Үндсэн</span>
+                <h3>Каргогийн систем</h3>
+                <p className="lp-plan-desc">Вэбсайт, ачаа бүртгэл, олголт — бүх боломж</p>
+                <div className="lp-plan-price"><b>{PRICE}</b><span>/ сар</span></div>
+                <div className="lp-plan-free"><Gift size={14} />Эхний 30 хоног үнэгүй</div>
+                <ul>{PLAN_FEATURES.map(f => <li key={f}><Check size={15} strokeWidth={3} />{f}</li>)}</ul>
+                <Link href="/signup-cargo" className="btn btn-lg">Каргогоо үнэгүй нээх <ArrowRight size={17} /></Link>
+              </Reveal>
+
+              {featuredWh && (
+                <Reveal y={20} delay={0.08} className="lp-plan">
+                  <span className="lp-plan-tag lp-plan-tag-alt">Нэмэлт</span>
+                  <h3>Эрээнд ачаа хүлээн авах хаяг</h3>
+                  <p className="lp-plan-desc">Түншлэгч агуулахтай цахим гэрээ</p>
+                  <div className="lp-plan-price"><b>{formatMnt(featuredWh.contractFee)}</b><span>нэг удаа</span></div>
+                  <div className="lp-plan-free"><Gift size={14} />Бэлэг: вэбсайт +60 хоног үнэгүй</div>
+                  <ul>
+                    <li><Check size={15} strokeWidth={3} />Өөрийн тэмдэгтэй хаяг (жш: B88)</li>
+                    <li><Check size={15} strokeWidth={3} />Хүлээн авах, ангилах, баглах</li>
+                    <li><Check size={15} strokeWidth={3} />Гаалийн хашаа хүртэл үнэгүй</li>
+                    <li><Check size={15} strokeWidth={3} />Хаяг вэбсайтад нэг товчоор</li>
+                  </ul>
+                  <a href="#warehouse" className="btn-ghost btn-lg">Дэлгэрэнгүй <ArrowRight size={17} /></a>
+                </Reveal>
+              )}
             </div>
-            {error && <p className="msg-error" style={{ marginTop: '0.75rem' }}>{error}</p>}
-            {result && (
-              <div className="card" style={{ marginTop: '1rem' }}>
-                {result.cargo?.name && (
-                  <div className="card-row">
-                    <span className="label">Карго</span>
-                    <strong style={{ color: 'var(--accent)' }}>{result.cargo.name}</strong>
-                  </div>
-                )}
-                <div className="card-row">
-                  <span className="label">Трак код</span>
-                  <strong style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{result.trackCode}</strong>
+            <p className="lp-plans-note"><ShieldCheck size={14} />Өгөгдөл тань таны өмч — хүссэн үедээ Excel-ээр татаж авна</p>
+          </div>
+        </section>
+
+        {/* ── ЭРЭЭНИЙ АГУУЛАХ ── */}
+        {featuredWh && (() => {
+          const featured = featuredWh
+          const ctaHref = featured.acceptsContracts ? `${warehousePath(featured)}/contract` : '/warehouses'
+          return (
+            <section id="warehouse" className="lp-wh">
+              <div className="lp-wh-inner">
+                <div className="lp-wh-grid">
+                  <Reveal y={20}>
+                    <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><WarehouseIcon size={15} strokeWidth={2.2} /> Нэмэлт үйлчилгээ · Эрээн</div>
+                    <h2 className="lp-wh-title">Эрээнд ачаа хүлээн авах өөрийн хаягтай бол</h2>
+                    <p className="lp-wh-lead">
+                      Түншлэгч агуулахтай цахим гэрээ байгуулснаар ачаа тань Эрээнд найдвартай гарт очно —
+                      агуулах хүлээн авч, баглаад Гаалийн хашаа хүртэл хүргэнэ.
+                    </p>
+                    <ul className="lp-wh-list">
+                      {WAREHOUSE_BENEFITS.map(b => <li key={b}><span><Check size={13} strokeWidth={3} /></span>{b}</li>)}
+                    </ul>
+                    <div className="lp-wh-actions">
+                      <Link href={ctaHref} className="btn">Эрээнд хаяг авах <ArrowRight size={16} /></Link>
+                      <Link href="/warehouses" className="btn-ghost">Агуулахуудыг үзэх</Link>
+                    </div>
+                    <p className="lp-wh-note">Каргогоо нээсэн байх шаардлагатай (эхний 30 хоног үнэгүй).</p>
+                  </Reveal>
+                  <Link href={warehousePath(featured)} className="lp-wh-photo">
+                    {featured.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={cloudinaryThumb(featured.imageUrl, 900)} alt={featured.name} loading="lazy" />
+                    ) : <span className="lp-wh-photo-empty"><Factory size={40} strokeWidth={1.5} /></span>}
+                    <span className="lp-wh-photo-cap">{featured.name} · зураг, үйлчилгээ →</span>
+                  </Link>
                 </div>
-                <div className="card-row">
-                  <span className="label">Статус</span>
-                  <span className={`badge badge-${result.status}`}>{STATUS_LABEL[result.status] ?? result.status}</span>
-                </div>
-                {result.adminPrice && (
-                  <div className="card-row">
-                    <span className="label">Төлбөр</span>
-                    <strong style={{ color: 'var(--accent)' }}>₮{Number(result.adminPrice).toLocaleString()}</strong>
-                  </div>
-                )}
-                {result.updatedAt && (
-                  <div className="card-row">
-                    <span className="label">Огноо</span>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
-                      {new Date(result.updatedAt).toLocaleDateString('mn-MN', { year: 'numeric', month: '2-digit', day: '2-digit' })}
-                    </span>
+
+                <ol className="lp-wh-flow">
+                  {['Каргогоо нээ', 'Агуулахтай гэрээ байгуул', 'Ачаагаа Эрээнд баглуул'].map((t, i) => (
+                    <li key={t}><b>{i + 1}</b>{t}</li>
+                  ))}
+                </ol>
+
+                {warehouses.length > 1 && (
+                  <div className="lp-wh-cards">
+                    {warehouses.map(w => (
+                      <div key={w.id} className="lp-wh-card">
+                        <Link href={warehousePath(w)} className="lp-wh-card-img">
+                          {w.imageUrl
+                            // eslint-disable-next-line @next/next/no-img-element
+                            ? <img src={cloudinaryThumb(w.imageUrl, 400)} alt={w.name} loading="lazy" />
+                            : <span><Factory size={28} strokeWidth={1.6} /></span>}
+                        </Link>
+                        <div className="lp-wh-card-body">
+                          <div className="lp-wh-card-name">{w.name}</div>
+                          <div className="lp-wh-card-fee">Гэрээ: <b>{formatMnt(w.contractFee)}</b></div>
+                          <div className="lp-wh-card-actions">
+                            {w.acceptsContracts
+                              ? <Link href={`${warehousePath(w)}/contract`} className="lp-wh-card-cta">Хаяг авах</Link>
+                              : <span className="lp-wh-card-soon">Удахгүй</span>}
+                            <Link href={warehousePath(w)} className="lp-wh-card-more">Дэлгэрэнгүй</Link>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </section>
+            </section>
+          )
+        })()}
 
         {/* ── FAQ ── */}
-        <section style={{ padding: '2.5rem 5%', borderTop: '1px solid var(--border)' }}>
-          <div style={{ maxWidth: 640, margin: '0 auto' }}>
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, textAlign: 'center', marginBottom: '1.6rem', letterSpacing: '-0.4px' }}>
-              Түгээмэл асуултууд
-            </h2>
-            <style>{`
-              .lp-faq { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.6rem; overflow: hidden; }
-              .lp-faq summary { padding: 0.85rem 1rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; color: var(--text); }
-              .lp-faq summary::-webkit-details-marker { display: none; }
-              .lp-faq summary::after { content: '+'; font-size: 1.1rem; color: var(--muted); flex-shrink: 0; transition: transform 0.15s; }
-              .lp-faq[open] summary::after { transform: rotate(45deg); color: var(--accent); }
-              .lp-faq-body { padding: 0 1rem 0.9rem; font-size: 0.83rem; color: var(--muted); line-height: 1.65; }
-            `}</style>
-            {[
-              {
-                q: 'Өгөгдөл минь хаана хадгалагдах вэ, аюулгүй юу?',
-                a: 'Бүх өгөгдөл олон улсын үүлэн серверт шифрлэгдэн хадгалагдаж, тогтмол нөөцлөгддөг. Танай каргогийн өгөгдөлд зөвхөн та болон таны хэрэглэгчид хандана — карго тус бүрийн өгөгдөл бүрэн тусгаарлагдсан.',
-              },
-              {
-                q: 'Одоо ашиглаж байгаа Excel өгөгдлөө оруулж болох уу?',
-                a: 'Болно. Олон зуун трак кодыг Excel файлаас нэг дор оруулах боломжтой тул одоогийн бүртгэлээ хэдхэн минутад шилжүүлнэ.',
-              },
-              {
-                q: 'Төлбөрөө хэрхэн төлөх вэ?',
-                a: 'Эхний 30 хоног бүрэн үнэгүй — картын мэдээлэл шаардлагагүй. Үргэлжлүүлэн ашиглах бол сарын ₮50,000-ыг дансаар шилжүүлнэ.',
-              },
-              {
-                q: 'Болиулбал өгөгдлөө буцааж авч чадах уу?',
-                a: 'Тийм. Таны ачаа, хэрэглэгчийн бүртгэл таны өмч — хүссэн үедээ Excel хэлбэрээр татаж авах боломжийг бид олгоно.',
-              },
-              ...(warehouses.length ? [
-                {
-                  q: 'Эрээнд ачаа хүлээн авах хаяг гэж юу вэ?',
-                  a: 'Түншлэгч агуулахтай цахим гэрээ байгуулахад танай каргод өөрийн тэмдэгтэй (жш: B88) хятад хаяг олгоно. Хэрэглэгчид тань Taobao, Pinduoduo зэрэгт энэ хаягийг бичиж захиалахад агуулах ачааг хүлээн авч, ангилж, баглаад Гаалийн хашаа хүртэл үнэгүй зөөвөрлөнө. Хаягийг вэбсайтдаа нэг товчоор тохируулна. Гэрээ монгол, хятад хэлээр байгуулагдаж PDF хувийг татна, вэбсайт тань 60 хоногоор үнэгүй сунгагдана.',
-                },
-                {
-                  q: 'Агуулахын гэрээний төлбөр буцаагдах уу?',
-                  a: 'Үгүй. Гэрээний төлбөр нэг удаагийн бөгөөд жил бүр төлөхгүй, гэрээ хугацаагүй. Гэрээ аль ч талын санаачилгаар цуцлагдсан тохиолдолд төлбөр буцаагдахгүй (цуцлахдаа 30 хоногийн өмнө мэдэгдэнэ).',
-                },
-                {
-                  q: 'Карго нээгээгүй бол агуулахтай гэрээ байгуулж болох уу?',
-                  a: 'Эхлээд aicargo-д каргогоо нээнэ — эхний 30 хоног үнэгүй, 2 минут болно. Дараа нь каргогийн админ хэсгийн "Агуулах" цэснээс гэрээгээ байгуулж, төлбөрийн явцаа тэндээс хянана.',
-                },
-              ] : []),
-              {
-                q: 'Хэрэглэгчид минь хэрхэн ашиглах вэ?',
-                a: 'Та өөрийн вэб хаягаа (tanaikargo.aicargo.mn) хэрэглэгчиддээ өгнө. Тэд бүртгүүлээд трак кодоо оруулж ачаагаа хянана, утсандаа апп шиг суулгаж болно. Заавар сургалт шаардлагагүй энгийн.',
-              },
-            ].map(f => (
-              <details key={f.q} className="lp-faq">
-                <summary>{f.q}</summary>
-                <div className="lp-faq-body">{f.a}</div>
-              </details>
-            ))}
+        <section className="lp-sec">
+          <div className="lp-wrap lp-faq-wrap">
+            <SectionHead eyebrow="Асуулт хариулт" title="Түгээмэл асуултууд" />
+            <div>
+              {faqs.map(f => (
+                <details key={f.q} className="lp-faq">
+                  <summary>{f.q}</summary>
+                  <div className="lp-faq-body">{f.a}</div>
+                </details>
+              ))}
+              <p className="lp-faq-more">
+                <MessageCircleQuestion size={15} />Өөр асуулт байна уу? <a href={`tel:${PHONE}`}>{PHONE}</a> дугаарт залгаарай
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* ── FINAL CTA ── */}
-        <section style={{
-          padding: '3.5rem 5%', textAlign: 'center', borderTop: '1px solid var(--border)',
-          background: 'radial-gradient(ellipse 60% 60% at 50% 50%, rgba(201,100,66,0.07), transparent 70%)',
-        }}>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.6rem', letterSpacing: '-0.5px' }}>
-            Өнөөдөр эхэлье
-          </h2>
-          <p style={{ color: 'var(--muted)', fontSize: '0.92rem', marginBottom: warehouses.length ? '0.5rem' : '1.4rem' }}>
-            Эхний 30 хоног бүрэн үнэгүй · цаашид сарын ₮50,000 · 2 минутад бэлэн
-          </p>
-          {featuredWh && (
-            <p style={{ fontSize: '0.86rem', marginBottom: '1.4rem', lineHeight: 1.7 }}>
-              <b>1.</b> Каргогийн вэбсайтаа үнэгүй нээ · <b>2.</b> Эрээнд ачаа хүлээн авах хаягтай бол — вэбсайт <b>+60 хоног</b> үнэгүй
-            </p>
-          )}
-          <div style={{ display: 'flex', gap: '0.7rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/signup-cargo" className="btn" style={{
-              padding: '0.9rem 2.2rem', fontSize: '1rem', textDecoration: 'none',
-              boxShadow: '0 4px 16px rgba(201,100,66,0.35)',
-            }}>
-              Каргогоо үнэгүй нээх →
-            </Link>
-            {featuredWh && (
-              <a href="#warehouse" className="btn-ghost" style={{ padding: '0.9rem 1.8rem', fontSize: '1rem', textDecoration: 'none' }}>
-                Эрээнд хаяг авах
+        {/* ── ЭЦСИЙН CTA ── */}
+        <section className="lp-final-wrap">
+          <Reveal y={20} className="lp-final">
+            <h2>Каргогоо өнөөдөр онлайн болго</h2>
+            <p>30 хоног үнэгүй · Карт шаардлагагүй · 5 минутад бэлэн</p>
+            <div className="lp-cta-row">
+              <Link href="/signup-cargo" className="btn btn-lg lp-final-btn">Каргогоо үнэгүй нээх <ArrowRight size={18} /></Link>
+              <button onClick={() => setDemoOpen(true)} className="btn-ghost btn-lg lp-final-ghost"><Monitor size={17} />Демо үзэх</button>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* ── АЧАА ШАЛГАХ (эцсийн хэрэглэгчдэд) ── */}
+        <section id="track" className="lp-track">
+          <div className="lp-track-inner">
+            <div className="lp-track-text">
+              <h2><Search size={20} strokeWidth={2.4} />Хэрэглэгч үү? Ачаагаа шалгаарай</h2>
+              <p>
+                Аль ч каргогийн ачааг трак кодоор шалгана ·{' '}
+                <Link href="/register">Хэрэглэгчээр бүртгүүлэх</Link>
+              </p>
+            </div>
+            <div className="lp-track-form">
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  className="input"
+                  placeholder="Трак код, жш: JT5364974054841"
+                  aria-label="Трак код"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && search()}
+                  style={{ minWidth: 0 }}
+                />
+                <button className="btn" onClick={search} disabled={loading} style={{ flexShrink: 0 }}>
+                  {loading ? '...' : 'Шалгах'}
+                </button>
+              </div>
+              {error && <p className="msg-error">{error}</p>}
+              {result && (
+                <div className="card" style={{ marginTop: '0.75rem' }}>
+                  {result.cargo?.name && (
+                    <div className="card-row"><span className="label">Карго</span><strong style={{ color: 'var(--accent)' }}>{result.cargo.name}</strong></div>
+                  )}
+                  <div className="card-row"><span className="label">Трак код</span><strong style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{result.trackCode}</strong></div>
+                  <div className="card-row"><span className="label">Статус</span><span className={`badge badge-${result.status}`}>{STATUS_LABEL[result.status] ?? result.status}</span></div>
+                  {result.adminPrice && (
+                    <div className="card-row"><span className="label">Төлбөр</span><strong style={{ color: 'var(--accent)' }}>₮{Number(result.adminPrice).toLocaleString()}</strong></div>
+                  )}
+                  {result.updatedAt && (
+                    <div className="card-row">
+                      <span className="label">Огноо</span>
+                      <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                        {new Date(result.updatedAt).toLocaleDateString('mn-MN', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* ── FOOTER ── */}
+      <footer className="lp-footer">
+        <div className="lp-footer-grid">
+          <div className="lp-footer-brand">
+            <NavLogo />
+            <p>Карго компанид зориулсан ачаа бүртгэл, хяналтын систем — Эрээнээс олголт хүртэл.</p>
+          </div>
+          <div>
+            <h4>Бүтээгдэхүүн</h4>
+            <a href="#features">Боломжууд</a>
+            <a href="#pricing">Үнэ</a>
+            {featuredWh && <Link href="/warehouses">Эрээний агуулахууд</Link>}
+            <button onClick={() => setDemoOpen(true)}>Демо</button>
+          </div>
+          <div>
+            <h4>Хэрэглэгчдэд</h4>
+            <a href="#track">Ачаа шалгах</a>
+            <Link href="/login">Нэвтрэх</Link>
+            <Link href="/register">Бүртгүүлэх</Link>
+          </div>
+          <div>
+            <h4>Холбоо барих</h4>
+            <a href={`tel:${PHONE}`}><Phone size={13} />{PHONE}</a>
+            {FB_URL && (
+              <a href={FB_URL} target="_blank" rel="noopener noreferrer">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.5h-2.8V24C19.62 23.1 24 18.1 24 12.07z"/></svg>
+                Facebook
               </a>
             )}
           </div>
-        </section>
-      </div>
+        </div>
+        <div className="lp-footer-bottom">
+          <span>© 2026 &quot;Бизнес интеллижэнс&quot; ХХК · Бүх эрх хуулиар хамгаалагдсан</span>
+          <span>
+            <Link href="/terms">Үйлчилгээний нөхцөл</Link>
+            <Link href="/privacy">Нууцлалын бодлого</Link>
+          </span>
+        </div>
+      </footer>
 
-      {/* Агуулахын дэлгэрэнгүй — full screen */}
+      {/* ── Утасны доод CTA ── */}
+      {!superPreview && (
+        <div className={`lp-sticky${showSticky ? ' on' : ''}`} aria-hidden={!showSticky}>
+          <Link href="/signup-cargo" className="btn" tabIndex={showSticky ? 0 : -1}>Каргогоо үнэгүй нээх <ArrowRight size={16} /></Link>
+          <button className="btn-ghost" onClick={() => setDemoOpen(true)} tabIndex={showSticky ? 0 : -1} aria-label="Демо үзэх"><Monitor size={17} /></button>
+        </div>
+      )}
+
       {/* ── Демо орчны модал ── */}
       {demoOpen && (
-        <div
-          onClick={() => setDemoOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000,
-            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
-          }}
-        >
-          <div onClick={e => e.stopPropagation()} style={{
-            background: 'var(--surface)', borderRadius: 16, maxWidth: 400, width: '100%',
-            padding: '1.5rem', border: '1px solid var(--border)',
-            boxShadow: '0 8px 40px rgba(0,0,0,0.28)', position: 'relative',
-          }}>
-            <button onClick={() => setDemoOpen(false)} aria-label="Хаах" style={{
-              position: 'absolute', top: '0.75rem', right: '0.75rem',
-              background: 'var(--surface2)', border: 'none', cursor: 'pointer',
-              color: 'var(--muted)', borderRadius: '50%', width: 28, height: 28,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem',
-            }}>✕</button>
-
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, marginBottom: '0.4rem' }}>🖥 Демо орчин</h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.6, marginBottom: '1rem' }}>
+        <div className="lp-modal-bg" onClick={() => setDemoOpen(false)}>
+          <div className="lp-modal" role="dialog" aria-modal="true" aria-label="Демо орчин" onClick={e => e.stopPropagation()}>
+            <button className="icon-btn lp-modal-x" onClick={() => setDemoOpen(false)} aria-label="Хаах"><X size={17} /></button>
+            <h3><Monitor size={18} strokeWidth={2.2} />Демо орчин</h3>
+            <p>
               Бодит систем — админ болон хэрэглэгчийн аль алины нүдээр туршаарай.
               Өгөгдөл өдөр бүр шөнө анхны байдалдаа ордог тул чөлөөтэй өөрчилж болно.
             </p>
-
             {[
-              { icon: '🛠', title: 'Каргогийн админаар', phone: '99999901' },
-              { icon: '👤', title: 'Хэрэглэгчээр', phone: '99999902' },
+              { icon: <Wrench size={14} strokeWidth={2.2} />, title: 'Каргогийн админаар', phone: '99999901' },
+              { icon: <User size={14} strokeWidth={2.2} />, title: 'Хэрэглэгчээр', phone: '99999902' },
             ].map(acc => (
-              <div key={acc.phone} style={{
-                background: 'var(--surface2)', borderRadius: 10, padding: '0.7rem 0.85rem',
-                marginBottom: '0.6rem', border: '1px solid var(--border)',
-              }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.4rem' }}>
-                  {acc.icon} {acc.title}
-                </div>
+              <div key={acc.phone} className="lp-demo-acc">
+                <div className="lp-demo-acc-title">{acc.icon}{acc.title}</div>
                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                   <CopyChip label="Утас:" value={acc.phone} />
                   <CopyChip label="Нууц үг:" value="demo123" />
                 </div>
               </div>
             ))}
-
-            <a href="https://demo.aicargo.mn/login" target="_blank" rel="noopener noreferrer"
-              className="btn" style={{ display: 'block', textAlign: 'center', marginTop: '1rem', padding: '0.7rem', textDecoration: 'none', fontSize: '0.9rem' }}>
-              demo.aicargo.mn нээх →
+            <a href="https://demo.aicargo.mn/login" target="_blank" rel="noopener noreferrer" className="btn" style={{ width: '100%', marginTop: '0.6rem' }}>
+              demo.aicargo.mn нээх <ArrowRight size={16} />
             </a>
+            <p className="lp-modal-foot"><CreditCard size={13} />Бүртгүүлэхэд карт шаардлагагүй</p>
           </div>
         </div>
       )}
-
-      {/* Дэлгэцийн зураг — fullscreen үзэгч (swipe + сум навигацитай) */}
-      {shotIdx !== null && (
-        <div
-          onClick={() => setShotIdx(null)}
-          onTouchStart={e => { touchX.current = e.touches[0].clientX }}
-          onTouchEnd={e => {
-            if (touchX.current === null) return
-            const dx = e.changedTouches[0].clientX - touchX.current
-            touchX.current = null
-            if (dx < -40) shotNav(1)
-            else if (dx > 40) shotNav(-1)
-          }}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '1rem', cursor: 'zoom-out', touchAction: 'none',
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={SHOTS[shotIdx].src} alt={SHOTS[shotIdx].label}
-            onClick={e => e.stopPropagation()}
-            style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: 10 }} />
-          <p style={{ color: '#fff', fontSize: '0.85rem', marginTop: '0.75rem', textAlign: 'center' }}>
-            {SHOTS[shotIdx].label}
-            <span style={{ opacity: 0.55, marginLeft: 8, fontSize: '0.75rem' }}>{shotIdx + 1}/{SHOTS.length}</span>
-          </p>
-          <button onClick={e => { e.stopPropagation(); shotNav(-1) }} aria-label="Өмнөх" style={{
-            position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-            background: 'rgba(255,255,255,0.15)', border: 'none',
-            borderRadius: '50%', width: 40, height: 40, cursor: 'pointer',
-            fontSize: '1.3rem', lineHeight: 1, color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>‹</button>
-          <button onClick={e => { e.stopPropagation(); shotNav(1) }} aria-label="Дараах" style={{
-            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-            background: 'rgba(255,255,255,0.15)', border: 'none',
-            borderRadius: '50%', width: 40, height: 40, cursor: 'pointer',
-            fontSize: '1.3rem', lineHeight: 1, color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>›</button>
-          <button onClick={() => setShotIdx(null)} aria-label="Хаах" style={{
-            position: 'absolute', top: 'calc(12px + env(safe-area-inset-top))', right: 14,
-            background: 'rgba(255,255,255,0.15)', border: 'none',
-            borderRadius: '50%', width: 36, height: 36, cursor: 'pointer',
-            fontSize: '1rem', lineHeight: 1, color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>✕</button>
-        </div>
-      )}
-
-      <footer style={{
-        borderTop: '1px solid var(--border)',
-        padding: '0.9rem 5%',
-        fontSize: '0.7rem',
-        color: 'var(--muted)',
-        lineHeight: 1.7,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: '1rem', flexWrap: 'wrap',
-      }}>
-        <div>
-          <div style={{ fontWeight: 600 }}>&quot;Бизнес интеллижэнс&quot; ХХК хөгжүүлж байна</div>
-          <div>Бүх эрх хуулиар хамгаалагдсан болно · 85205258 · 2026</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
-          <Link href="/terms" style={{ color: 'var(--muted)' }}>Үйлчилгээний нөхцөл</Link>
-          <Link href="/privacy" style={{ color: 'var(--muted)' }}>Нууцлалын бодлого</Link>
-          {FB_URL && (
-            <a href={FB_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.04V9.41c0-3.02 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.5 0-1.96.93-1.96 1.89v2.26h3.32l-.53 3.5h-2.8V24C19.62 23.1 24 18.1 24 12.07z"/></svg>
-              Facebook
-            </a>
-          )}
-        </div>
-      </footer>
     </div>
   )
-}
-
-function whArrowStyle(side: 'left' | 'right'): React.CSSProperties {
-  return {
-    position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-    [side]: -6,
-    zIndex: 2, width: 32, height: 32, borderRadius: '50%',
-    background: 'var(--surface)', border: '1px solid var(--border)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-    cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1,
-    color: 'var(--text)', fontFamily: 'inherit',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  }
 }

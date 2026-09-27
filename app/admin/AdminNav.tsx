@@ -1,19 +1,32 @@
 'use client'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import {
+  ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Truck,
+  Users, Megaphone, CircleHelp, Warehouse, Settings, Sparkles, ScrollText, SearchCheck,
+  Bell, LogOut, Link2, Check, CalendarClock, Ellipsis, ChevronDown, X,
+  type LucideIcon,
+} from 'lucide-react'
 import NavLogo from '@/app/components/NavLogo'
 import ThemeToggle from '@/app/components/ThemeToggle'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 
-function getPaidBadge(paidUntil?: string | null): { label: string; color: string } | null {
+type NavLink = { href: string; label: string; short?: string; icon: LucideIcon; count?: number }
+
+type Counts = { registered: number; ereen: number; arrived: number; batchesShipped: number; batchesArrived: number }
+
+// Төлбөрийн хугацааны өнгө — token-оор (шөнийн горимд зохицно)
+function paidInfo(paidUntil?: string | null) {
   if (!paidUntil) return null
-  const days = Math.floor((new Date(paidUntil).getTime() - Date.now()) / 86400000)
   const d = new Date(paidUntil)
-  const label = `${d.getMonth() + 1}/${d.getDate()}`
-  if (days < 0) return { label: `Төлбөр дууссан`, color: '#ef4444' }
-  if (days < 7) return { label: `Төлбөр: ${label} (${days}хоног)`, color: '#f97316' }
-  if (days < 30) return { label: `Төлбөр: ${label} хүртэл`, color: '#eab308' }
-  return { label: `Төлбөр: ${label} хүртэл`, color: '#22c55e' }
+  const days = Math.floor((d.getTime() - Date.now()) / 86400000)
+  const color = days < 0 ? 'var(--danger)' : days < 7 ? 'var(--orange)' : days < 30 ? 'var(--yellow)' : 'var(--green)'
+  return { days, color, date: `${d.getMonth() + 1} сарын ${d.getDate()}`, short: `${d.getMonth() + 1}/${d.getDate()}` }
+}
+
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(href + '/')
 }
 
 export default function AdminNav({
@@ -37,52 +50,82 @@ export default function AdminNav({
   const router = useRouter()
   const [copied, setCopied] = useState(false)
   const [unread, setUnread] = useState(0)
+  const [counts, setCounts] = useState<Counts | null>(null)
   const [arrivedLabel, setArrivedLabel] = useState<string | null>(null)
   const [ereemLabel, setEreemLabel] = useState<string | null>(null)
   const [paidOpen, setPaidOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/admin/notifications?count=1')
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.count) setUnread(d.count) })
+      .then(d => { if (d?.count !== undefined) setUnread(d.count) })
       .catch(() => {})
+    fetch('/api/admin/counts')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setCounts(d) })
+      .catch(() => {})
+    setMoreOpen(false)
+    setSheetOpen(false)
+    setPaidOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
     fetch('/api/admin/settings')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.arrivedLabel) setArrivedLabel(d.arrivedLabel); if (d?.ereemLabel) setEreemLabel(d.ereemLabel) })
       .catch(() => {})
-  }, [pathname])
+  }, [])
 
+  // "Бусад" цэсийг гадна дарахад хаана
+  useEffect(() => {
+    if (!moreOpen) return
+    function onDown(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setMoreOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [moreOpen])
+
+  // Үндсэн ажлын урсгал — ачааны амьдралын мөчлөгийн дарааллаар
   // Батч горимт карго: Эрээн/Ирсэн шатгүй — Бүртгүүлсэн → УБ руу ачигдсан → Олгох → Олгосон
-  const links = batchEnabled
+  const flow: NavLink[] = batchEnabled
     ? [
-        { href: '/admin/registered', label: 'Бүртгүүлсэн' },
-        { href: '/admin/batches', label: arrivedLabel || 'УБ руу ачигдсан' },
-        { href: '/admin/batch-handover', label: 'Ачаа олгох' },
-        { href: '/admin/history', label: 'Олгосон' },
-        ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт' }] : []),
-        { href: '/admin/notify', label: 'Мэдэгдэл' },
-        { href: '/admin/faq', label: 'FAQ' },
-        { href: '/admin/users', label: 'Хэрэглэгчид' },
-        { href: '/admin/warehouse', label: 'Агуулах' },
-        { href: '/admin/settings', label: 'Тохиргоо' },
-        { href: '/admin/ai', label: 'AI Туслах' },
-        ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог' }] : []),
+        { href: '/admin/registered', label: 'Бүртгүүлсэн', short: 'Бүртгэл', icon: ClipboardList, count: counts?.registered },
+        { href: '/admin/batches', label: arrivedLabel || 'УБ руу ачигдсан', short: 'Ачигдсан', icon: Truck, count: counts?.batchesShipped },
+        { href: '/admin/batch-handover', label: 'Ачаа олгох', short: 'Олгох', icon: HandCoins, count: counts?.batchesArrived },
+        { href: '/admin/history', label: 'Олгосон', short: 'Олгосон', icon: History },
       ]
     : [
-        { href: '/admin/registered', label: 'Бүртгүүлсэн' },
-        { href: '/admin/import', label: ereemLabel || 'Эрээнд ирсэн' },
-        { href: '/admin/arrived', label: arrivedLabel || 'Ирсэн' },
-        { href: '/admin/handover', label: 'Ачаа олгох' },
-        { href: '/admin/history', label: 'Олгосон' },
-        ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт' }] : []),
-        { href: '/admin/notify', label: 'Мэдэгдэл' },
-        { href: '/admin/faq', label: 'FAQ' },
-        { href: '/admin/users', label: 'Хэрэглэгчид' },
-        { href: '/admin/warehouse', label: 'Агуулах' },
-        { href: '/admin/settings', label: 'Тохиргоо' },
-        { href: '/admin/ai', label: 'AI Туслах' },
-        ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог' }] : []),
+        { href: '/admin/registered', label: 'Бүртгүүлсэн', short: 'Бүртгэл', icon: ClipboardList, count: counts?.registered },
+        { href: '/admin/import', label: ereemLabel || 'Эрээнд ирсэн', short: 'Эрээн', icon: PackageOpen, count: counts?.ereen },
+        { href: '/admin/arrived', label: arrivedLabel || 'Ирсэн', short: 'Ирсэн', icon: PackageCheck },
+        { href: '/admin/handover', label: 'Ачаа олгох', short: 'Олгох', icon: HandCoins, count: counts?.arrived },
+        { href: '/admin/history', label: 'Олгосон', short: 'Олгосон', icon: History },
       ]
+
+  // Хоёрдогч — өдөр тутам бага хэрэглэгдэх хэсгүүд
+  const primaryExtra: NavLink[] = [
+    { href: '/admin/users', label: 'Хэрэглэгчид', icon: Users },
+    { href: '/admin/notify', label: 'Мэдэгдэл', icon: Megaphone },
+  ]
+  const more: NavLink[] = [
+    ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт', icon: SearchCheck }] : []),
+    { href: '/admin/warehouse', label: 'Агуулах', icon: Warehouse },
+    { href: '/admin/ai', label: 'AI туслах', icon: Sparkles },
+    { href: '/admin/faq', label: 'FAQ', icon: CircleHelp },
+    { href: '/admin/settings', label: 'Тохиргоо', icon: Settings },
+    ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог', icon: ScrollText }] : []),
+  ]
+  const activeMore = more.find(l => isActive(pathname, l.href))
+  const activeExtra = primaryExtra.some(l => isActive(pathname, l.href))
+
+  // Утасны доод таб: урсгалын сүүлийн 4 (өдөр тутмын үйлдэл) + "Цэс"
+  const mobileTabs = batchEnabled ? flow : flow.slice(1)
 
   function copyInvite() {
     if (!cargoSlug) return
@@ -92,82 +135,180 @@ export default function AdminNav({
   }
 
   async function logout() {
-    if (!confirm('Гарахдаа итгэлтэй байна уу?')) return
+    if (!await confirmAsync({ title: 'Гарахдаа итгэлтэй байна уу?', confirmLabel: 'Гарах', danger: false })) return
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/')
   }
 
+  const paid = paidInfo(paidUntil)
+
   return (
-    <header>
-      <div className="header-accent" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.7rem 5%', minHeight: 56, boxSizing: 'border-box', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Link href={batchEnabled ? '/admin/batches' : '/admin/import'}><NavLogo name={cargoName} logoUrl={logoUrl} /></Link>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {(() => {
-            const b = getPaidBadge(paidUntil)
-            if (!b) return null
-            const days = Math.floor((new Date(paidUntil!).getTime() - Date.now()) / 86400000)
-            const d = new Date(paidUntil!)
-            const dateStr = `${d.getMonth() + 1} сарын ${d.getDate()}`
-            return (
-              <div style={{ position: 'relative' }}>
-                <button onClick={() => setPaidOpen(o => !o)} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: b.color, background: 'none', border: 'none', cursor: 'pointer', padding: 0, gap: '0.1rem' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                  </svg>
-                  <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.02em', lineHeight: 1 }}>төлбөр</span>
-                </button>
-                {paidOpen && (
-                  <>
-                    <div onClick={() => setPaidOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />
-                    <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 999, background: 'var(--surface)', border: `1px solid ${b.color}66`, borderRadius: 10, padding: '0.85rem 1rem', minWidth: 220, boxShadow: '0 4px 16px rgba(0,0,0,0.18)' }}>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 0.4rem', lineHeight: 1.5 }}>
-                        Таны вэбсайтын төлбөр<br />
-                        <strong style={{ color: 'var(--text)', fontSize: '0.88rem' }}>{dateStr} хүртэл</strong> төлөгдсөн
-                      </p>
-                      <p style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: b.color }}>
-                        {days >= 0 ? `+${days} өдөр` : `${days} өдөр`}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            )
-          })()}
+    <header className="an">
+      <div className="an-top header-accent">
+        <Link href={batchEnabled ? '/admin/batches' : '/admin/import'} className="an-logo">
+          <NavLogo name={cargoName} logoUrl={logoUrl} />
+        </Link>
+        <div className="an-actions">
+          {paid && (
+            <div style={{ position: 'relative' }}>
+              <button
+                className="an-paid"
+                onClick={() => setPaidOpen(o => !o)}
+                aria-expanded={paidOpen}
+                style={{ ['--c' as string]: paid.color }}
+                title="Вэбсайтын төлбөрийн хугацаа"
+              >
+                <CalendarClock size={15} strokeWidth={2.2} />
+                <span className="an-paid-text">{paid.days < 0 ? 'Төлбөр дууссан' : `${paid.short} хүртэл`}</span>
+              </button>
+              {paidOpen && (
+                <>
+                  <div onClick={() => setPaidOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />
+                  <div className="popover" style={{ padding: '0.85rem 1rem', minWidth: 230 }}>
+                    <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', lineHeight: 1.5 }}>
+                      Таны вэбсайтын төлбөр<br />
+                      <strong style={{ color: 'var(--text)', fontSize: 'var(--fs-base)' }}>{paid.date} хүртэл</strong> төлөгдсөн
+                    </p>
+                    <p style={{ marginTop: '0.35rem', fontSize: 'var(--fs-md)', fontWeight: 700, color: paid.color }}>
+                      {paid.days >= 0 ? `${paid.days} өдөр үлдсэн` : `${-paid.days} өдөр хэтэрсэн`}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {cargoSlug && (
+            <button className="icon-btn an-hide-sm" onClick={copyInvite} title="Хэрэглэгчдэд илгээх урилгын линк хуулах" aria-label="Урилгын линк хуулах">
+              {copied ? <Check size={18} strokeWidth={2.2} style={{ color: 'var(--green)' }} /> : <Link2 size={18} strokeWidth={2} />}
+            </button>
+          )}
           <ThemeToggle />
-          <Link href="/admin/notifications" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', color: 'var(--muted)', textDecoration: 'none', fontSize: '1.1rem' }}>
-            🔔
-            {unread > 0 && (
-              <span style={{
-                position: 'absolute', top: -4, right: -6,
-                background: 'var(--accent)', color: '#fff',
-                borderRadius: '100px', fontSize: '0.6rem', fontWeight: 700,
-                padding: '0.05rem 0.32rem', lineHeight: 1.4, minWidth: '1rem', textAlign: 'center',
-              }}>{unread > 99 ? '99+' : unread}</span>
-            )}
+          <Link href="/admin/notifications" className="icon-btn" aria-label={`Мэдэгдэл${unread ? ` (${unread} уншаагүй)` : ''}`} title="Мэдэгдэл">
+            <Bell size={18} strokeWidth={2} />
+            {unread > 0 && <span className="icon-btn-badge">{unread > 99 ? '99+' : unread}</span>}
           </Link>
-          <button onClick={logout} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'inherit' }}>
-            Гарах
+          <button className="icon-btn" onClick={logout} title="Гарах" aria-label="Гарах">
+            <LogOut size={18} strokeWidth={2} />
           </button>
         </div>
       </div>
-      <nav className="admin-nav">
-        {links.map(l => (
-          <Link key={l.href} href={l.href} className={`admin-nav-link${pathname === l.href || (l.href === '/admin/warehouse' && pathname.startsWith('/admin/warehouse/')) ? ' active' : ''}`}>
-            {l.label}
-          </Link>
-        ))}
-        {cargoSlug && (
-          <button onClick={copyInvite} className="admin-nav-link" style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: copied ? 'var(--accent)' : 'var(--muted)',
-            fontFamily: 'inherit', whiteSpace: 'nowrap',
-          }}>
-            {copied ? '✓ Хуулагдлаа' : 'Урилга'}
+
+      {/* ── Desktop / tablet цэс ── */}
+      <nav className="an-nav" aria-label="Админ цэс">
+        <div className="an-flow">
+          {flow.map(l => {
+            const on = isActive(pathname, l.href)
+            const Icon = l.icon
+            return (
+              <Link key={l.href} href={l.href} className={`an-link${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}>
+                <Icon size={15} strokeWidth={2.2} />
+                <span className="an-lbl-full">{l.label}</span>
+                <span className="an-lbl-short">{l.short ?? l.label}</span>
+                {!!l.count && <span className="an-count">{l.count > 999 ? '999+' : l.count}</span>}
+              </Link>
+            )
+          })}
+        </div>
+        <span className="an-sep" aria-hidden />
+        {primaryExtra.map(l => {
+          const on = isActive(pathname, l.href)
+          const Icon = l.icon
+          return (
+            <Link key={l.href} href={l.href} className={`an-link an-extra${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}>
+              <Icon size={15} strokeWidth={2.2} />{l.label}
+            </Link>
+          )
+        })}
+        <div ref={moreRef} style={{ position: 'relative' }}>
+          <button className={`an-link${activeMore ? ' on' : ''}${activeExtra ? ' on-tablet' : ''}`} onClick={() => setMoreOpen(o => !o)} aria-expanded={moreOpen} aria-haspopup="menu">
+            {activeMore ? <><activeMore.icon size={15} strokeWidth={2.2} />{activeMore.label}</> : <><Ellipsis size={15} strokeWidth={2.2} />Бусад</>}
+            <ChevronDown size={14} strokeWidth={2.2} style={{ transition: 'transform .15s', transform: moreOpen ? 'rotate(180deg)' : 'none' }} />
           </button>
-        )}
+          {moreOpen && (
+            <div className="popover" role="menu" style={{ left: 'auto', right: 0 }}>
+              {/* Таблетад "Хэрэглэгчид/Мэдэгдэл" энд орно (CSS-ээр) */}
+              {primaryExtra.map(l => {
+                const Icon = l.icon
+                return (
+                  <Link key={l.href} href={l.href} role="menuitem" className={`popover-item an-more-extra${isActive(pathname, l.href) ? ' active' : ''}`}>
+                    <Icon size={16} strokeWidth={2} />{l.label}
+                  </Link>
+                )
+              })}
+              <div className="popover-sep an-more-extra" />
+              {more.map(l => {
+                const Icon = l.icon
+                return (
+                  <Link key={l.href} href={l.href} role="menuitem" className={`popover-item${isActive(pathname, l.href) ? ' active' : ''}`}>
+                    <Icon size={16} strokeWidth={2} />{l.label}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </nav>
+
+      {/* ── Утасны доод таб ── */}
+      <nav className="an-tabbar" aria-label="Админ цэс (утас)">
+        {mobileTabs.map(l => {
+          const on = isActive(pathname, l.href)
+          const Icon = l.icon
+          return (
+            <Link key={l.href} href={l.href} className={`an-tab${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}>
+              <span className="an-tab-icon">
+                <Icon size={20} strokeWidth={on ? 2.4 : 2} />
+                {!!l.count && <span className="an-tab-count">{l.count > 99 ? '99+' : l.count}</span>}
+              </span>
+              {l.short ?? l.label}
+            </Link>
+          )
+        })}
+        <button className={`an-tab${sheetOpen ? ' on' : ''}`} onClick={() => setSheetOpen(true)}>
+          <span className="an-tab-icon"><Ellipsis size={20} strokeWidth={2} /></span>
+          Цэс
+        </button>
+      </nav>
+
+      {sheetOpen && (
+        <div className="an-sheet-bg" onClick={() => setSheetOpen(false)}>
+          <div className="an-sheet" onClick={e => e.stopPropagation()} role="dialog" aria-label="Цэс">
+            <div className="an-sheet-head">
+              <strong>Цэс</strong>
+              <button className="icon-btn" onClick={() => setSheetOpen(false)} aria-label="Хаах"><X size={18} /></button>
+            </div>
+            <div className="an-sheet-label">Ачааны урсгал</div>
+            <div className="an-sheet-grid">
+              {flow.map(l => {
+                const Icon = l.icon
+                return (
+                  <Link key={l.href} href={l.href} className={`an-sheet-item${isActive(pathname, l.href) ? ' on' : ''}`}>
+                    <Icon size={18} strokeWidth={2} /><span>{l.label}</span>
+                    {!!l.count && <span className="an-count">{l.count}</span>}
+                  </Link>
+                )
+              })}
+            </div>
+            <div className="an-sheet-label">Удирдлага</div>
+            <div className="an-sheet-grid">
+              {[...primaryExtra, ...more].map(l => {
+                const Icon = l.icon
+                return (
+                  <Link key={l.href} href={l.href} className={`an-sheet-item${isActive(pathname, l.href) ? ' on' : ''}`}>
+                    <Icon size={18} strokeWidth={2} /><span>{l.label}</span>
+                  </Link>
+                )
+              })}
+              {cargoSlug && (
+                <button className="an-sheet-item" onClick={copyInvite}>
+                  {copied ? <Check size={18} style={{ color: 'var(--green)' }} /> : <Link2 size={18} strokeWidth={2} />}
+                  <span>{copied ? 'Хуулагдлаа' : 'Урилгын линк'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

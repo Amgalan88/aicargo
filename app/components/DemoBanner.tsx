@@ -7,7 +7,7 @@ export default function DemoBanner() {
       role="status"
       style={{
         background: 'var(--yellow)',
-        color: '#fff',
+        color: 'var(--on-accent)',
         padding: '0.6rem 1rem',
         fontSize: '0.85rem',
         lineHeight: 1.45,

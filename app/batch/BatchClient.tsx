@@ -1,4 +1,6 @@
 'use client'
+import { MessageSquare, CircleHelp } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -167,7 +169,7 @@ export default function BatchClient() {
 
   async function removeCode(batchId: number, shipmentId: number) {
     if (editBusy) return
-    if (!confirm(T.confirmRemove)) return
+    if (!await confirmAsync(T.confirmRemove)) return
     setEditBusy(true)
     setEditError('')
     try {
@@ -215,7 +217,7 @@ export default function BatchClient() {
           borderRadius: 'var(--radius)', marginBottom: '0.6rem', overflow: 'hidden',
         }}>
           <summary style={{ padding: '0.7rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: 'var(--accent)', listStyle: 'none' }}>
-            ❓ Хэрхэн ажиллах заавар
+            <CircleHelp size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Хэрхэн ажиллах заавар
           </summary>
           <ol style={{ margin: 0, padding: '0 1rem 0.9rem 2.2rem', fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             {HELP_MN.map((s, i) => <li key={i}>{s}</li>)}
@@ -226,7 +228,7 @@ export default function BatchClient() {
           borderRadius: 'var(--radius)', marginBottom: '1rem', overflow: 'hidden',
         }}>
           <summary style={{ padding: '0.7rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: 'var(--accent)', listStyle: 'none' }}>
-            ❓ 使用说明
+            <CircleHelp size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />使用说明
           </summary>
           <ol style={{ margin: 0, padding: '0 1rem 0.9rem 2.2rem', fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             {HELP_CN.map((s, i) => <li key={i}>{s}</li>)}
@@ -292,7 +294,7 @@ export default function BatchClient() {
                     <span className={`badge badge-${b.status}`} style={{ fontSize: '0.62rem' }}>{STATUS_LABEL[b.status] ?? b.status}</span>
                   </div>
                   {b.note && (
-                    <div style={{ width: '100%', fontSize: '0.75rem', color: 'var(--muted)' }}>💬 {b.note}</div>
+                    <div style={{ width: '100%', fontSize: '0.75rem', color: 'var(--muted)' }}><MessageSquare size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{b.note}</div>
                   )}
                 </div>
 

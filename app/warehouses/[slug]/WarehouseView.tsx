@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Check, Copy, Images, MapPin, Phone, MessageCircle, ChevronLeft, ChevronRight, X, FileSignature } from 'lucide-react'
+import { Check, Copy, Images, MapPin, Phone, MessageCircle, ChevronLeft, ChevronRight, X, FileSignature, Factory } from 'lucide-react'
 import { WAREHOUSE_IMAGE_CATEGORIES, categoryLabel, cloudinaryThumb, formatMnt, warehousePath } from '@/lib/warehouse'
 
 export interface PublicImage {
@@ -222,7 +222,7 @@ function PhotoHero({ photos, name, onOpen }: { photos: PublicImage[]; name: stri
   const track = useRef<HTMLDivElement>(null)
 
   if (photos.length === 0) {
-    return <div className="whv-hero-empty">🏭</div>
+    return <div className="whv-hero-empty"><Factory size={48} strokeWidth={1.4} /></div>
   }
 
   const tiles = photos.slice(0, 5)
@@ -436,7 +436,7 @@ const CSS = `
 .whv-points li { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.82rem; line-height: 1.4; }
 .whv-points svg { flex-shrink: 0; color: var(--green); margin-top: 1px; }
 .whv-cta { display: block; text-align: center; box-sizing: border-box; text-decoration: none; width: 100%; border: none; border-radius: 10px; padding: 0.75rem; font: inherit; font-size: 0.86rem; font-weight: 700;
-  background: var(--accent); color: #fff; cursor: pointer; }
+  background: var(--accent); color: var(--on-accent); cursor: pointer; }
 .whv-cta:disabled { background: var(--surface2); color: var(--muted); cursor: default; }
 .whv-note { font-size: 0.72rem; color: var(--muted); margin: 0.6rem 0 0; text-align: center; }
 .whv-card-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 0.6rem; }

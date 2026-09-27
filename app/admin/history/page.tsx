@@ -1,4 +1,7 @@
 'use client'
+import { MessageSquare, Undo2 } from 'lucide-react'
+import { Pagination, SortTh, useSort, CopyCell } from '@/app/components/ui'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect, useCallback } from 'react'
 import SkeletonTable from '@/app/components/SkeletonTable'
 
@@ -75,6 +78,7 @@ function BatchHistory() {
 
   const total = batches.reduce((s, b) => s + Number(b.price), 0)
 
+
   return (
     <div className="page-wide" style={{ maxWidth: 680 }}>
       <h1 className="section-title">Олгосон багцууд</h1>
@@ -127,7 +131,7 @@ function BatchHistory() {
                   {b.currency === 'CNY' ? `¥${Number(b.price).toLocaleString()}` : `₮${Number(b.price).toLocaleString()}`}
                 </strong>
                 {b.note && (
-                  <div style={{ width: '100%', fontSize: '0.76rem', color: 'var(--muted)' }}>💬 {b.note}</div>
+                  <div style={{ width: '100%', fontSize: '0.76rem', color: 'var(--muted)' }}><MessageSquare size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{b.note}</div>
                 )}
               </div>
               {expanded === b.id && (
@@ -166,7 +170,7 @@ function ClassicHistory() {
   const [listPage, setListPage] = useState(1)
 
   async function revert(id: number) {
-    if (!confirm('ARRIVED төлөвт буцаах уу?')) return
+    if (!await confirmAsync('Ирсэн төлөвт буцаах уу?')) return
     const res = await fetch('/api/admin/history', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
     if (res.ok) { setRows(prev => prev.filter(r => r.id !== id)); setTotal(t => t - 1) }
   }
@@ -225,6 +229,8 @@ function ClassicHistory() {
   const rFilteredTotal = rFiltered.reduce((s, g) => s + g.value, 0)
   const rFilteredCount = rFiltered.reduce((s, g) => s + g.count, 0)
 
+  const { sorted: sortedRows, sort, toggle: toggleSort } = useSort<Row, 'phone' | 'track' | 'date' | 'price'>(rows, (r, k) =>
+    k === 'phone' ? r.phone : k === 'track' ? r.trackCode : k === 'date' ? r.updatedAt : (r.adminPrice == null ? null : Number(r.adminPrice)))
   return (
     <div className="page-wide">
       {/* Tabs */}
@@ -234,7 +240,7 @@ function ClassicHistory() {
             padding: '0.4rem 1rem', borderRadius: '100px', fontSize: '0.82rem', fontFamily: 'inherit',
             border: `1px solid ${tab === t ? 'var(--accent)' : 'var(--border)'}`,
             background: tab === t ? 'var(--accent)' : 'var(--surface)',
-            color: tab === t ? '#fff' : 'var(--muted)',
+            color: tab === t ? 'var(--on-accent)' : 'var(--muted)',
             cursor: 'pointer', fontWeight: tab === t ? 700 : 400,
           }}>
             {t === 'list' ? 'Жагсаалт' : 'Тайлан'}
@@ -263,64 +269,41 @@ function ClassicHistory() {
             <p className="empty">Олгосон ачаа байхгүй байна.</p>
           ) : (
             <>
-              <div className="card" style={{ overflowX: 'auto', marginBottom: '1rem' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', minWidth: 560 }}>
+              <div className="table-wrap">
+                <table className="data-table stack" style={{ minWidth: 640 }}>
                   <thead>
-                    <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                      <th style={th}>#</th>
-                      <th style={th}>Утас</th>
-                      <th style={th}>Трак код</th>
-                      <th style={th}>Олгосон огноо</th>
-                      <th style={{ ...th, textAlign: 'right' }}>Үнэ</th>
-                      <th style={th}>Тайлбар</th>
-                      <th style={th}></th>
+                    <tr>
+                      <th style={{ width: 44 }}>#</th>
+                      <SortTh label="Утас" k="phone" sort={sort} onSort={toggleSort} />
+                      <SortTh label="Трак код" k="track" sort={sort} onSort={toggleSort} />
+                      <SortTh label="Олгосон огноо" k="date" sort={sort} onSort={toggleSort} />
+                      <SortTh label="Үнэ" k="price" sort={sort} onSort={toggleSort} align="right" />
+                      <th>Тайлбар</th>
+                      <th style={{ width: 44 }}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={r.id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'var(--bg)' : 'var(--surface)' }}>
-                        <td style={{ ...td, color: 'var(--muted)', width: 36 }}>{(listPage - 1) * PAGE_SIZE + i + 1}</td>
-                        <td style={{ ...td, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {r.phone
-                            ? <span onClick={() => navigator.clipboard.writeText(r.phone!)} title="Хуулах" style={{ cursor: 'pointer', fontFamily: 'monospace' }}>{r.phone}</span>
-                            : '—'}
-                        </td>
-                        <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{r.trackCode}</td>
-                        <td style={{ ...td, color: 'var(--muted)' }}>{fmtDate(r.updatedAt)}</td>
-                        <td style={{ ...td, textAlign: 'right', color: r.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
+                    {sortedRows.map((r, i) => (
+                      <tr key={r.id}>
+                        <td className="st-hide" style={{ color: 'var(--muted)' }}>{(listPage - 1) * PAGE_SIZE + i + 1}</td>
+                        <td data-label="Утас" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{r.phone ? <CopyCell value={r.phone} /> : '—'}</td>
+                        <td className="mono st-title"><CopyCell value={r.trackCode} /></td>
+                        <td data-label="Олгосон" style={{ color: 'var(--muted)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(r.updatedAt)}</td>
+                        <td data-label="Үнэ" className="num" style={{ color: r.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
                           {r.adminPrice ? `₮${Number(r.adminPrice).toLocaleString()}` : '—'}
                         </td>
-                        <td style={{ ...td, color: 'var(--muted)' }}>{r.adminNote ?? '—'}</td>
-                        <td style={{ ...td, width: 40, padding: '0.4rem 0.6rem' }}>
-                          <button onClick={() => revert(r.id)} title="ARRIVED буцаах" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: '1rem', padding: 0 }}>↩</button>
+                        <td data-label="Тайлбар" style={{ color: 'var(--muted)' }}>{r.adminNote ?? '—'}</td>
+                        <td className="st-action" style={{ padding: '0.3rem 0.5rem' }}>
+                          <button className="icon-btn" onClick={() => revert(r.id)} title="Ирсэн төлөвт буцаах" aria-label="Ирсэн төлөвт буцаах" style={{ width: 32, height: 32, color: 'var(--danger)' }}>
+                            <Undo2 size={16} />
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {listTotalPages > 1 && (
-                <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center', alignItems: 'center' }}>
-                  <button onClick={() => goListPage(Math.max(1, listPage-1))} disabled={listPage===1} style={pgBtn}>‹</button>
-                  {(() => {
-                    const pages: (number|'...')[] = []
-                    if (listTotalPages <= 7) {
-                      for (let i=1; i<=listTotalPages; i++) pages.push(i)
-                    } else {
-                      pages.push(1)
-                      if (listPage > 3) pages.push('...')
-                      for (let i=Math.max(2,listPage-1); i<=Math.min(listTotalPages-1,listPage+1); i++) pages.push(i)
-                      if (listPage < listTotalPages-2) pages.push('...')
-                      pages.push(listTotalPages)
-                    }
-                    return pages.map((p,i) => p==='...'
-                      ? <span key={`e${i}`} style={{ fontSize:'0.78rem', color:'var(--muted)', padding:'0 0.2rem' }}>…</span>
-                      : <button key={p} onClick={() => goListPage(p)} style={{ ...pgBtn, fontWeight: listPage===p?700:400, background: listPage===p?'var(--accent)':'var(--surface)', color: listPage===p?'#fff':'var(--text)', borderColor: listPage===p?'var(--accent)':'var(--border)' }}>{p}</button>
-                    )
-                  })()}
-                  <button onClick={() => goListPage(Math.min(listTotalPages, listPage+1))} disabled={listPage===listTotalPages} style={pgBtn}>›</button>
-                </div>
-              )}
+              <Pagination page={listPage} totalPages={listTotalPages} onChange={goListPage} />
             </>
           )}
         </>
@@ -340,7 +323,7 @@ function ClassicHistory() {
                   cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
                   borderColor: rPreset === p ? 'var(--accent)' : 'var(--border)',
                   background: rPreset === p ? 'var(--accent)' : 'var(--surface)',
-                  color: rPreset === p ? '#fff' : 'var(--muted)',
+                  color: rPreset === p ? 'var(--on-accent)' : 'var(--muted)',
                 }}>{label}</button>
               ))}
               <button onClick={() => setRPreset('custom')} style={{
@@ -348,7 +331,7 @@ function ClassicHistory() {
                 cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
                 borderColor: rPreset === 'custom' ? 'var(--accent)' : 'var(--border)',
                 background: rPreset === 'custom' ? 'var(--accent)' : 'var(--surface)',
-                color: rPreset === 'custom' ? '#fff' : 'var(--muted)',
+                color: rPreset === 'custom' ? 'var(--on-accent)' : 'var(--muted)',
               }}>Өөрөө сонгох</button>
             </div>
 

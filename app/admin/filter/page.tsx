@@ -90,7 +90,7 @@ export default function FilterPage() {
               fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
               borderColor: mode === m ? 'var(--accent)' : 'var(--border)',
               background: mode === m ? 'var(--accent)' : 'var(--surface)',
-              color: mode === m ? '#fff' : 'var(--muted)',
+              color: mode === m ? 'var(--on-accent)' : 'var(--muted)',
             }}>{label}</button>
           ))}
         </div>

@@ -258,7 +258,7 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
                     border: '1px solid', fontSize: '0.78rem', fontWeight: 600,
                     borderColor: i === 0 ? 'var(--accent)' : 'var(--border)',
                     background: i === 0 ? 'var(--accent)' : 'var(--surface)',
-                    color: i === 0 ? '#fff' : 'var(--muted)',
+                    color: i === 0 ? 'var(--on-accent)' : 'var(--muted)',
                     whiteSpace: 'nowrap',
                   }}>{t}</span>
                 ))}

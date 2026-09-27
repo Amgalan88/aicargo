@@ -53,7 +53,7 @@ export default async function StartContractPage({ params }: { params: Promise<{ 
         </div>
 
         {!ready ? (
-          <div className="card" style={{ padding: '1.25rem', borderColor: '#d97706' }}>
+          <div className="card" style={{ padding: '1.25rem', borderColor: 'var(--yellow)' }}>
             <b>Энэ агуулах одоогоор цахим гэрээ хүлээн авахгүй байна.</b>
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: '0.4rem 0 0' }}>Агуулахтай утсаар холбогдоно уу.</p>
           </div>

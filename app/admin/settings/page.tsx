@@ -1,4 +1,6 @@
 'use client'
+import { Tag } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 
 interface Tier { min: string; price: string }
@@ -114,7 +116,7 @@ export default function SettingsPage() {
               border: '1px dashed var(--border)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '1.3rem', color: 'var(--muted)',
-            }}>🏷</div>
+            }}><Tag size={20} strokeWidth={2} /></div>
           )}
           <div style={{ minWidth: 200, flex: 1 }}>
             <input type="file" accept="image/*" onChange={handleLogo} disabled={!allowLogo} style={{ fontSize: '0.82rem' }} />
@@ -227,7 +229,7 @@ export default function SettingsPage() {
                   cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0,
                   borderColor: form.priceWeightUnit === u ? 'var(--accent)' : 'var(--border)',
                   background: form.priceWeightUnit === u ? 'var(--accent)' : 'var(--surface)',
-                  color: form.priceWeightUnit === u ? '#fff' : 'var(--muted)',
+                  color: form.priceWeightUnit === u ? 'var(--on-accent)' : 'var(--muted)',
                 }}>
                   ₮/{u === 'kg' ? 'кг' : 'тонн'}
                 </button>
@@ -388,7 +390,7 @@ function EreenStaffSection() {
   }
 
   async function remove(id: number) {
-    if (!confirm('Энэ нэвтрэлтийг устгах уу?')) return
+    if (!await confirmAsync('Энэ нэвтрэлтийг устгах уу?')) return
     await fetch('/api/admin/ereen-staff', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -524,7 +526,7 @@ function StaffAdminSection() {
   }
 
   async function remove(id: number) {
-    if (!confirm('Энэ ажилтны admin нэвтрэлтийг устгах уу?')) return
+    if (!await confirmAsync('Энэ ажилтны admin нэвтрэлтийг устгах уу?')) return
     await fetch('/api/admin/staff-admin', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },

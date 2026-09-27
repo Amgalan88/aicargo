@@ -1,4 +1,6 @@
 'use client'
+import { Factory, Eye, EyeOff, Settings, Pencil, Trash2 } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -113,7 +115,7 @@ export default function WarehousesPage() {
   }
 
   async function remove(id: number) {
-    if (!confirm('Энэ агуулахыг устгах уу?')) return
+    if (!await confirmAsync('Энэ агуулахыг устгах уу?')) return
     await fetch('/api/super/warehouses', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -127,7 +129,7 @@ export default function WarehousesPage() {
       <h1 className="section-title">Эрээний түншлэгч агуулахууд</h1>
       <p style={{ color: 'var(--muted)', fontSize: '0.83rem', marginBottom: '1.25rem' }}>
         Эдгээр агуулах aicargo.mn-ийн нүүр хуудас болон /warehouses хуудсанд харагдана.
-        Хуулийн мэдээлэл, данс, гэрээний төлбөр, зургийн галерейг ⚙️ товчоор тохируулна.
+        Хуулийн мэдээлэл, данс, гэрээний төлбөр, зургийн галерейг тохиргооны товчоор тохируулна.
       </p>
 
       {/* Form */}
@@ -214,7 +216,7 @@ export default function WarehousesPage() {
                   border: '1px solid var(--border)', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '1.3rem',
-                }}>🏭</div>
+                }}><Factory size={22} strokeWidth={1.8} /></div>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
@@ -232,11 +234,11 @@ export default function WarehousesPage() {
               </div>
               <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
                 <button onClick={() => toggleActive(w)} title={w.active ? 'Нуух' : 'Идэвхжүүлэх'} style={iconBtn}>
-                  {w.active ? '👁' : '🚫'}
+                  {w.active ? <Eye size={15} strokeWidth={2} /> : <EyeOff size={15} strokeWidth={2} />}
                 </button>
-                <Link href={`/super/warehouses/${w.id}`} title="Тохиргоо, галерей" style={iconBtn}>⚙️</Link>
-                <button onClick={() => startEdit(w)} title="Засах" style={iconBtn}>✏️</button>
-                <button onClick={() => remove(w.id)} title="Устгах" style={{ ...iconBtn, color: 'var(--danger)' }}>🗑</button>
+                <Link href={`/super/warehouses/${w.id}`} title="Тохиргоо, галерей" style={iconBtn} aria-label="Тохиргоо"><Settings size={15} strokeWidth={2} /></Link>
+                <button onClick={() => startEdit(w)} title="Засах" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
+                <button onClick={() => remove(w.id)} title="Устгах" style={{ ...iconBtn, color: 'var(--danger)' }} aria-label="Устгах"><Trash2 size={15} strokeWidth={2} /></button>
               </div>
             </div>
           ))}

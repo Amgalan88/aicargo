@@ -1,4 +1,5 @@
 'use client'
+import { ScanLine } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 
 interface Shipment {
@@ -157,10 +158,10 @@ export default function HandoverPage() {
             padding: '0.35rem 1rem', borderRadius: '100px', fontSize: '0.82rem', fontFamily: 'inherit',
             border: `1px solid ${mode === m ? 'var(--accent)' : 'var(--border)'}`,
             background: mode === m ? 'var(--accent)' : 'var(--surface)',
-            color: mode === m ? '#fff' : 'var(--muted)',
+            color: mode === m ? 'var(--on-accent)' : 'var(--muted)',
             cursor: 'pointer', fontWeight: mode === m ? 700 : 400,
           }}>
-            {m === 'search' ? 'Утсаар хайх' : '📷 Сканнер'}
+            {m === 'search' ? 'Утсаар хайх' : <><ScanLine size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Сканнер</>}
           </button>
         ))}
       </div>
@@ -320,7 +321,7 @@ export default function HandoverPage() {
           </form>
 
           {scanMsg && (
-            <p style={{ fontSize: '0.82rem', marginBottom: '0.75rem', color: scanMsg.ok ? 'var(--green, #16a34a)' : 'var(--danger)' }}>
+            <p style={{ fontSize: '0.82rem', marginBottom: '0.75rem', color: scanMsg.ok ? 'var(--green)' : 'var(--danger)' }}>
               {scanMsg.text}
             </p>
           )}
@@ -439,7 +440,7 @@ export default function HandoverPage() {
                   padding: '0.3rem 0.65rem', borderRadius: '6px',
                   border: `1px solid ${summaryPage === p ? 'var(--accent)' : 'var(--border)'}`,
                   background: summaryPage === p ? 'var(--accent)' : 'var(--surface)',
-                  color: summaryPage === p ? '#fff' : 'var(--text)',
+                  color: summaryPage === p ? 'var(--on-accent)' : 'var(--text)',
                   fontWeight: summaryPage === p ? 700 : 400,
                   cursor: 'pointer', fontSize: '0.82rem', fontFamily: 'inherit',
                 }}>{p}</button>

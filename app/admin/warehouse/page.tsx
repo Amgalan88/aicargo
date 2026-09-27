@@ -1,4 +1,5 @@
 'use client'
+import { Factory } from 'lucide-react'
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -101,7 +102,7 @@ function WarehouseContracts() {
                 {c.warehouse.imageUrl
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={cloudinaryThumb(c.warehouse.imageUrl, 120)} alt="" className="wc-thumb" />
-                  : <span className="wc-thumb wc-thumb-empty">🏭</span>}
+                  : <span className="wc-thumb wc-thumb-empty"><Factory size={20} strokeWidth={1.8} /></span>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.warehouse.name}</div>
                   <div style={{ fontSize: '0.76rem', color: 'var(--muted)' }}>
@@ -130,7 +131,7 @@ function WarehouseContracts() {
               {w.imageUrl
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={cloudinaryThumb(w.imageUrl, 520)} alt={w.name} className="wc-wh-img" />
-                : <div className="wc-wh-img wc-thumb-empty" style={{ fontSize: '2rem' }}>🏭</div>}
+                : <div className="wc-wh-img wc-thumb-empty" ><Factory size={32} strokeWidth={1.6} /></div>}
               <div style={{ padding: '0.85rem 1rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1 }}>
                 <div style={{ fontWeight: 700 }}>{w.name}</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
@@ -169,7 +170,7 @@ function WarehouseContracts() {
         .wc-steps { display: flex; gap: 3px; margin-top: 6px; flex-wrap: wrap; }
         .wc-steps span { font-size: 0.68rem; padding: 0.1rem 0.45rem; border-radius: 100px; background: var(--surface2); color: var(--muted); }
         .wc-steps span.done { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
-        .wc-steps span.on { background: var(--accent); color: #fff; font-weight: 600; }
+        .wc-steps span.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
         .wc-pay { font-size: 0.74rem; margin-top: 4px; font-weight: 600; }
         .wc-hl { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
       `}</style>
@@ -186,8 +187,8 @@ function Progress({ c }: { c: ContractRow }) {
   }
   const step = c.status === 'DRAFT' ? 0 : c.status === 'AWAITING_PAYMENT' || c.status === 'PAYMENT_REVIEW' ? 2 : 4
   const pay = c.status === 'DRAFT' ? { t: 'Мэдээллээ бөглөж баталгаажуулна уу', color: 'var(--muted)' }
-    : c.status === 'AWAITING_PAYMENT' ? { t: `Төлбөр хүлээгдэж байна — ${formatMnt(c.fee)} шилжүүлж "Төлбөр төлсөн" дарна уу`, color: '#d97706' }
-    : c.status === 'PAYMENT_REVIEW' ? { t: `Төлбөр шалгагдаж байна (мэдэгдсэн ${c.paymentClaimedAt ? formatDateTime(c.paymentClaimedAt).slice(0, 10) : ''})`, color: '#2563eb' }
+    : c.status === 'AWAITING_PAYMENT' ? { t: `Төлбөр хүлээгдэж байна — ${formatMnt(c.fee)} шилжүүлж "Төлбөр төлсөн" дарна уу`, color: 'var(--yellow)' }
+    : c.status === 'PAYMENT_REVIEW' ? { t: `Төлбөр шалгагдаж байна (мэдэгдсэн ${c.paymentClaimedAt ? formatDateTime(c.paymentClaimedAt).slice(0, 10) : ''})`, color: 'var(--blue)' }
     : { t: `Төлбөр баталгаажсан ${c.paidAt ? formatDateTime(c.paidAt).slice(0, 10) : ''}${c.websiteBonusAt ? ' · вэбсайт +60 хоног' : ''}`, color: 'var(--green)' }
   return (
     <>

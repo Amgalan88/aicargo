@@ -1,4 +1,5 @@
 'use client'
+import { Rocket, CirclePlay } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
@@ -73,7 +74,7 @@ export default function OnboardingCard({ state, cargoSlug, batchEnabled }: {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-            <span style={{ fontSize: '1.1rem' }}>🚀</span>
+            <Rocket size={18} strokeWidth={2} style={{ color: 'var(--accent)', flexShrink: 0 }} />
             <strong style={{ fontSize: '0.92rem' }}>Каргогоо бэлэн болгоё</strong>
             <span style={{
               fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent)',
@@ -101,7 +102,7 @@ export default function OnboardingCard({ state, cargoSlug, batchEnabled }: {
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', fontSize: '0.84rem', fontWeight: 600 }}>
-            <span style={{ fontSize: '1rem' }}>🎥</span>
+            <CirclePlay size={17} strokeWidth={2} style={{ color: 'var(--accent)', flexShrink: 0 }} />
             Системийг хэрхэн ашиглахыг видео зааврыг үзээрэй
           </span>
           <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', flexShrink: 0 }}>Үзэх →</span>
@@ -127,7 +128,7 @@ export default function OnboardingCard({ state, cargoSlug, batchEnabled }: {
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '0.68rem', fontWeight: 800,
                   background: s.done ? 'var(--green)' : 'var(--surface2)',
-                  color: s.done ? '#fff' : 'var(--muted)',
+                  color: s.done ? 'var(--on-accent)' : 'var(--muted)',
                   border: s.done ? 'none' : '1px solid var(--border)',
                 }}>
                   {s.done ? '✓' : i + 1}

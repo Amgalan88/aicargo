@@ -1,4 +1,6 @@
 'use client'
+import { CircleHelp } from 'lucide-react'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 
 interface BatchShipment { id: number; trackCode: string }
@@ -61,7 +63,7 @@ export default function BatchHandoverPage() {
   }
 
   async function handover(b: Batch) {
-    if (!confirm(`B-${b.id} багцын ${b.shipments.length} ачааг ${fmtPrice(b.price, b.currency)} дүнгээр ОЛГОХ уу?`)) return
+    if (!await confirmAsync(`B-${b.id} багцын ${b.shipments.length} ачааг ${fmtPrice(b.price, b.currency)} дүнгээр ОЛГОХ уу?`)) return
     setBusy(b.id)
     const res = await fetch('/api/batch/status', {
       method: 'POST',
@@ -106,7 +108,7 @@ export default function BatchHandoverPage() {
         borderRadius: 'var(--radius)', marginBottom: '1.25rem', overflow: 'hidden',
       }}>
         <summary style={{ padding: '0.7rem 1rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', color: 'var(--accent)', listStyle: 'none' }}>
-          ❓ Хэрхэн олгох вэ
+          <CircleHelp size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Хэрхэн олгох вэ
         </summary>
         <ol style={{ margin: 0, padding: '0 1rem 0.9rem 2.2rem', fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
           <li>Доорх жагсаалтад олгохоор хүлээгдэж буй бүх хэрэглэгч ачааны тоо, нийт ¥ дүнтэйгээ харагдана.</li>

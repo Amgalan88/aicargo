@@ -1,4 +1,5 @@
 'use client'
+import { Bell, BellOff, Smartphone, Boxes, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
@@ -30,10 +31,10 @@ interface CargoStat {
 function paidUntilColor(paidUntil: string | null): string {
   if (!paidUntil) return 'var(--muted)'
   const days = Math.floor((new Date(paidUntil).getTime() - Date.now()) / 86400000)
-  if (days < 0) return '#ef4444'
-  if (days < 7) return '#f97316'
-  if (days < 30) return '#eab308'
-  return '#22c55e'
+  if (days < 0) return 'var(--danger)'
+  if (days < 7) return 'var(--orange)'
+  if (days < 30) return 'var(--yellow)'
+  return 'var(--green)'
 }
 
 function paidUntilLabel(paidUntil: string | null): string {
@@ -195,7 +196,7 @@ export default function SuperPage() {
                 fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                 borderColor: active ? 'var(--accent)' : 'var(--border)',
                 background: active ? 'var(--accent)' : 'var(--surface)',
-                color: active ? '#fff' : 'var(--muted)',
+                color: active ? 'var(--on-accent)' : 'var(--muted)',
               }}>
                 {cat.label} ({count})
               </button>
@@ -210,7 +211,7 @@ export default function SuperPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 style={{ fontSize: '0.88rem', fontWeight: 700, margin: 0, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Вэбийн төлбөр хүртэлх огноо</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              {paidMsg && <span style={{ fontSize: '0.82rem', color: '#22c55e' }}>{paidMsg}</span>}
+              {paidMsg && <span style={{ fontSize: '0.82rem', color: 'var(--green)' }}>{paidMsg}</span>}
               <button className="btn" onClick={saveAllPaid} disabled={paidSaving} style={{ fontSize: '0.82rem', padding: '0.4rem 1.2rem' }}>
                 {paidSaving ? 'Хадгалж...' : 'Хадгалах'}
               </button>
@@ -365,11 +366,11 @@ export default function SuperPage() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', minWidth: 0 }}>
                       <strong style={{ fontSize: '1rem' }}>{c.name}</strong>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace', background: 'var(--surface2,#1a1a1a)', padding: '0.1rem 0.5rem', borderRadius: 4 }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace', background: 'var(--surface2)', padding: '0.1rem 0.5rem', borderRadius: 4 }}>
                         {c.slug}
                       </span>
                       {c.admins.length === 0 && (
-                        <span style={{ fontSize: '0.72rem', color: '#f97316', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 4, padding: '0.1rem 0.5rem' }}>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--orange)', background: 'color-mix(in srgb, var(--orange) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--orange) 30%, transparent)', borderRadius: 4, padding: '0.1rem 0.5rem' }}>
                           Админгүй
                         </span>
                       )}
@@ -386,13 +387,13 @@ export default function SuperPage() {
                         }}
                         style={{
                           background: c.notificationsEnabled ? 'rgba(34,197,94,0.12)' : 'none',
-                          border: `1px solid ${c.notificationsEnabled ? '#22c55e' : 'var(--border)'}`,
-                          color: c.notificationsEnabled ? '#22c55e' : 'var(--muted)',
+                          border: `1px solid ${c.notificationsEnabled ? 'var(--green)' : 'var(--border)'}`,
+                          color: c.notificationsEnabled ? 'var(--green)' : 'var(--muted)',
                           borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem',
                           cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
                         }}
                       >
-                        {c.notificationsEnabled ? '🔔 Мэдэгдэл: Тийм' : '🔕 Мэдэгдэл: Үгүй'}
+                        {c.notificationsEnabled ? <><Bell size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Мэдэгдэл: Тийм</> : <><BellOff size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Мэдэгдэл: Үгүй</>}
                       </button>
                       <button
                         onClick={async () => {
@@ -405,13 +406,13 @@ export default function SuperPage() {
                         }}
                         style={{
                           background: c.searchByPhone ? 'rgba(99,102,241,0.12)' : 'none',
-                          border: `1px solid ${c.searchByPhone ? '#6366f1' : 'var(--border)'}`,
-                          color: c.searchByPhone ? '#6366f1' : 'var(--muted)',
+                          border: `1px solid ${c.searchByPhone ? 'var(--purple)' : 'var(--border)'}`,
+                          color: c.searchByPhone ? 'var(--purple)' : 'var(--muted)',
                           borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem',
                           cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
                         }}
                       >
-                        {c.searchByPhone ? '📱 Утас хайлт: Тийм' : '📱 Утас хайлт: Үгүй'}
+                        <><Smartphone size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.searchByPhone ? 'Утас хайлт: Тийм' : 'Утас хайлт: Үгүй'}</>
                       </button>
                       <button
                         onClick={async () => {
@@ -430,7 +431,7 @@ export default function SuperPage() {
                           cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
                         }}
                       >
-                        {c.batchEnabled ? '📦 Багц: Тийм' : '📦 Багц: Үгүй'}
+                        <><Boxes size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.batchEnabled ? 'Багц: Тийм' : 'Багц: Үгүй'}</>
                       </button>
                       <button
                         onClick={async () => {
@@ -443,13 +444,13 @@ export default function SuperPage() {
                         }}
                         style={{
                           background: c.aiEnabled ? 'rgba(139,92,246,0.12)' : 'none',
-                          border: `1px solid ${c.aiEnabled ? '#8b5cf6' : 'var(--border)'}`,
-                          color: c.aiEnabled ? '#8b5cf6' : 'var(--muted)',
+                          border: `1px solid ${c.aiEnabled ? 'var(--purple)' : 'var(--border)'}`,
+                          color: c.aiEnabled ? 'var(--purple)' : 'var(--muted)',
                           borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem',
                           cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
                         }}
                       >
-                        {c.aiEnabled ? '✨ AI: Тийм' : '✨ AI: Үгүй'}
+                        <><Sparkles size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.aiEnabled ? 'AI: Тийм' : 'AI: Үгүй'}</>
                       </button>
                       <button onClick={() => startEdit(c)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem', cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
                         Засах

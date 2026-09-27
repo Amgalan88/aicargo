@@ -1,4 +1,5 @@
 'use client'
+import { Sparkles, Smartphone, Bell, Gift, PartyPopper } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
@@ -6,19 +7,19 @@ import NavLogo from '@/app/components/NavLogo'
 const FEATURES = [
   {
     key: 'aiEnabled' as const,
-    icon: '✨',
+    icon: <Sparkles size={16} strokeWidth={2.2} />,
     title: 'AI Туслах (нэмэлт үйлчилгээ)',
     desc: 'Хэрэглэгч тань чатаар ачааныхаа байдал, төлбөр, ажлын цагаа асууж AI-аас шууд хариулт авна. Танд ирэх дуудлага эрс багасна. Сонирхвол сонгоорой — бид тантай холбогдож идэвхжүүлнэ.',
   },
   {
     key: 'searchByPhone' as const,
-    icon: '📱',
+    icon: <Smartphone size={16} strokeWidth={2.2} />,
     title: 'Утсаар ачаа шалгах',
     desc: 'Хэрэглэгч бүртгэл үүсгэлгүйгээр танай сайт дээр утасны дугаараа бичээд ирсэн ачаагаа шалгана. Бүртгэлгүй хэрэглэгчид ч үйлчилгээ авна.',
   },
   {
     key: 'notificationsEnabled' as const,
-    icon: '🔔',
+    icon: <Bell size={16} strokeWidth={2.2} />,
     title: 'Мэдэгдлийн систем',
     desc: 'Шинэ ачаа бүртгэгдэхэд танд мэдэгдэл очно. Мөн хэрэглэгчдэд ачаа ирснийг имэйлээр мэдэгдэх боломж.',
   },
@@ -153,7 +154,7 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false, 
                 background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)',
                 padding: '0.85rem 1rem', margin: '0.4rem 0 1.25rem', fontSize: '0.84rem', lineHeight: 1.55,
               }}>
-                <b>🎁 {offer.days} хоног үнэгүй</b> — "{offer.warehouseName}" агуулахтай байгуулсан {offer.contractNo} гэрээний бэлэг.
+                <b><Gift size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{offer.days} хоног үнэгүй</b> — "{offer.warehouseName}" агуулахтай байгуулсан {offer.contractNo} гэрээний бэлэг.
                 <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 2 }}>
                   Гэрээ тань шинэ каргод автоматаар холбогдоно. Гэрээний и-мэйлээр ({offer.email}) бүртгүүлнэ.
                 </div>
@@ -325,7 +326,7 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false, 
 
         {step === 'done' && (
           <div style={{ textAlign: 'center', paddingTop: '2rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🎉</div>
+            <div className="empty-state-icon" style={{ margin: '0 auto 0.9rem', width: 64, height: 64 }}><PartyPopper size={30} strokeWidth={2} /></div>
             <h1 className="section-title" style={{ marginBottom: '0.5rem' }}>Амжилттай нээгдлээ!</h1>
             <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>
               Таны карго хянах систем бэлэн боллоо:
