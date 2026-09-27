@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
@@ -764,17 +764,25 @@ export default function OrdersClient({
           const arrived = shipments.filter(s => s.status === 'ARRIVED')
           const total = arrived.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
           if (arrived.length === 0) return null
+          // Мэдэгдэл маягийн мөр — "амьд" цэгтэй, дарахад ирсэн ачааны таб нээгдэнэ
           return (
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
-              <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
-                {STATUS_LABEL.ARRIVED} <strong style={{ color: 'var(--text)' }}>{arrived.length} {t.items}</strong>
+            <button
+              className={`onotice${activeTab === 'ARRIVED' ? ' on' : ''}`}
+              onClick={() => { switchTab('ARRIVED'); document.querySelector('.orders-list-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+            >
+              <span className="onotice-live" aria-hidden><PackageCheck size={17} strokeWidth={2.3} /></span>
+              <span className="onotice-text">
+                <b>{fmt(t.arrivedNotice, { n: arrived.length })}</b>
+                <small>{STATUS_LABEL.ARRIVED} · {t.readyToPick}</small>
               </span>
               {total > 0 && (
-                <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.2rem 0.75rem', color: 'var(--muted)' }}>
-                  {t.toPay} <strong style={{ color: 'var(--accent)' }}>{CUR}{total.toLocaleString()}</strong>
+                <span className="onotice-sum">
+                  <small>{t.toPay}</small>
+                  <b>{CUR}{total.toLocaleString()}</b>
                 </span>
               )}
-            </div>
+              <ChevronRight size={18} className="onotice-chev" />
+            </button>
           )
         })()}
 
@@ -805,7 +813,7 @@ export default function OrdersClient({
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
+        <div className="orders-list-anchor" style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
           {TABS.map(tab => {
             const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
             const active = activeTab === tab.key
