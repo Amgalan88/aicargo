@@ -1329,51 +1329,18 @@ textarea.input { resize: vertical; }
 .orders-head-title h1 { white-space: nowrap; }
 .orders-head-title span { white-space: nowrap; }
 .orders-head-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-/* Бүгдийг устгах — чимээгүй icon, hover үед л улаан */
-.orders-del {
-  display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
-  border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface);
-  color: var(--muted); cursor: pointer; transition: color 0.15s, border-color 0.15s;
-}
-.orders-del:hover { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.orders-del { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
 .nav-item-lbl { white-space: nowrap; }
-
-/* Ирсэн ачааны нэг мөр хураангуй */
-.oh-sum {
-  display: flex; align-items: center; gap: 0.6rem; width: 100%; margin-bottom: 0.75rem;
-  padding: 0.7rem 0.9rem; border-radius: 12px; cursor: pointer; font: inherit; text-align: left;
-  background: var(--accent-light); color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  transition: border-color 0.15s;
-}
-.oh-sum:hover { border-color: var(--accent); }
-.oh-sum svg { flex-shrink: 0; }
-.oh-sum-txt { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.oh-sum-txt b { font-weight: 700; }
-.oh-sum-price { font-size: var(--fs-md); font-weight: 800; font-variant-numeric: tabular-nums; }
-
-/* Pill табууд — нэг мөр, тоо дотроо */
-.otabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-.otabs::-webkit-scrollbar { display: none; }
-.otabs button {
-  flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.4rem;
-  padding: 0.45rem 0.8rem; border-radius: 100px; border: 1px solid var(--border);
-  background: var(--surface); color: var(--muted); font: inherit; font-size: var(--fs-sm); font-weight: 600;
-  white-space: nowrap; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-.otabs button:hover { color: var(--text); border-color: var(--border-strong); }
-.otabs button span { font-size: 0.7rem; font-weight: 700; min-width: 18px; padding: 0 5px; line-height: 18px; text-align: center; border-radius: 100px; background: var(--surface2); color: var(--muted); }
-.otabs button.on { background: var(--text); border-color: var(--text); color: var(--bg); }
-.otabs button.on span { background: color-mix(in srgb, var(--bg) 22%, transparent); color: var(--bg); }
-
 @media (max-width: 480px) {
-  .orders-head-title span { display: none; }
   /* Толгой: icon-ын шошгыг нууж каргогийн нэрийг бүтэн (2 мөр хүртэл) харуулна */
   .nav-item-lbl { display: none; }
   .nav .navlogo-name {
     white-space: normal !important; line-height: 1.15 !important;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
+  .orders-del-txt { display: none; }
+  .orders-del { padding: 0.5rem 0.6rem !important; }
+  .orders-head-title span { display: none; }
 }
 
 /* ════════ ХЭРЭГЛЭГЧИЙН АЧААНЫ КАРТ (ShipmentCard) ════════ */
@@ -1441,8 +1408,18 @@ textarea.input { resize: vertical; }
 .sc-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 51; min-width: 150px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.14); padding: 0.3rem; }
 .sc-menu button { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.65rem; border: none; background: none; border-radius: 7px; font: inherit; font-size: var(--fs-sm); color: var(--danger); cursor: pointer; text-align: left; }
 .sc-menu button:hover { background: color-mix(in srgb, var(--danger) 8%, transparent); }
-/* Табууд: компьютер/таблетад мөр шилжинэ, утсанд гүйлгэнэ (баруун захад бүдгэрэлт) */
-@media (min-width: 641px) { .otabs { flex-wrap: wrap; overflow: visible; } }
-@media (max-width: 640px) {
-  .otabs { margin-right: -4%; padding-right: 4%; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+
+/* Хэрэглэгчийн хуудас — утсанд бичиг багтаах (загвар хэвээр) */
+@media (max-width: 480px) {
+  .otab-row {
+    display: flex !important; overflow-x: auto; scrollbar-width: none;
+    padding: 7px 4% 2px 0; margin: -7px -4% 0.9rem 0 !important;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent);
+  }
+  .otab-row::-webkit-scrollbar { display: none; }
+  .otab-row > button { flex-shrink: 0; white-space: nowrap; padding: 0.5rem 0.85rem !important; }
+  .oview-seg button { padding: 0.38rem 0.6rem !important; font-size: 0.74rem !important; }
+  .orders-page input.input { padding-left: 0.8rem; padding-right: 0.6rem; min-width: 0 !important; }
+  .sc-status b { font-size: 0.87rem; }
+  .sc-status span { font-size: 0.77rem; }
 }
