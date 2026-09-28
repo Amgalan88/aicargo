@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import LandingClient from './LandingClient'
 import MarketingLanding from './MarketingLanding'
-import { WAREHOUSE_CONTRACT_SELECT, warehouseReadiness } from '@/lib/contract-server'
+import { WAREHOUSE_CONTRACT_SELECT, LATEST_TEMPLATE_INCLUDE, warehouseReadiness } from '@/lib/contract-server'
 
 export const revalidate = 0
 
@@ -44,7 +44,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
     prisma.partnerWarehouse.findMany({
       where: { active: true },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
-      select: { ...WAREHOUSE_CONTRACT_SELECT, imageUrl: true, _count: { select: { templates: true } } },
+      select: { ...WAREHOUSE_CONTRACT_SELECT, imageUrl: true, ...LATEST_TEMPLATE_INCLUDE },
     }),
   ])
   // Данс зэрэг нууц талбар client руу гарахгүйн тулд картад хэрэгтэйг нь л дамжуулна
@@ -54,7 +54,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
     name: w.name,
     imageUrl: w.imageUrl,
     contractFee: w.contractFee.toString(),
-    acceptsContracts: w.acceptingContracts && warehouseReadiness(w, w._count.templates > 0).length === 0,
+    acceptsContracts: w.acceptingContracts && warehouseReadiness(w, w.templates[0]).length === 0,
   }))
 
   return (

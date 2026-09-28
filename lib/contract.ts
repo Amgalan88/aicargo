@@ -16,39 +16,66 @@ export interface ContractBody {
 }
 
 // ── Бөглөх талбарууд (Б тал) ──
+// Гэрээг хувь хүн (иргэн) байгуулна — гэрээнд хоосон зай үлдэхгүйн тулд бүх талбар заавал
 
 export interface CargoField {
   key: string
   label: string
   placeholder?: string
   max: number
-  // Заавал биш — хоосон бол гэрээнд анхдагч утга (completeValues) эсвэл хоосон зай орно
-  optional?: boolean
+  wide?: boolean
+  inputMode?: 'text' | 'tel' | 'numeric'
 }
 
-// Хувь хүн ч гэрээ байгуулна — заавал: овог, нэр, утас, хүргэх хот. Бусад нь нэмэлт.
 export const CARGO_FIELDS: CargoField[] = [
   { key: 'repLastName', label: 'Овог', placeholder: 'Батын', max: 60 },
   { key: 'repFirstName', label: 'Нэр', placeholder: 'Болд', max: 60 },
-  { key: 'repPhone', label: 'Утас', placeholder: '99112233', max: 30 },
-  { key: 'destination', label: 'Хүргэх хот / аймаг', placeholder: 'Улаанбаатар хот', max: 80 },
-  { key: 'cargoLegalName', label: 'Карго / байгууллагын нэр', placeholder: 'Хоосон бол таны нэр орно', max: 120, optional: true },
-  { key: 'cargoRegisterNo', label: 'Регистрийн дугаар', placeholder: 'Иргэний эсвэл байгууллагын', max: 20, optional: true },
-  { key: 'repPosition', label: 'Албан тушаал', placeholder: 'Захирал', max: 60, optional: true },
-  { key: 'cargoDistrict', label: 'Дүүрэг', placeholder: 'Баянзүрх', max: 40, optional: true },
-  { key: 'cargoKhoroo', label: 'Хороо', placeholder: '5', max: 20, optional: true },
-  { key: 'cargoAddress', label: 'Хаяг (гудамж, байр, тоот)', placeholder: '12-р байр, 34 тоот', max: 160, optional: true },
-  { key: 'ubUnloadAddress', label: 'Ачаа буух хаяг', placeholder: 'Хоосон бол талууд тохиролцоно', max: 200, optional: true },
+  { key: 'cargoRegisterNo', label: 'Регистрийн дугаар', placeholder: 'УБ99112233', max: 10 },
+  { key: 'repPhone', label: 'Утас', placeholder: '99112233', max: 20, inputMode: 'tel' },
+  { key: 'cargoAddress', label: 'Оршин суугаа хаяг', placeholder: 'Улаанбаатар, Баянзүрх дүүрэг, 5-р хороо, 12-р байр 34 тоот', max: 200, wide: true },
+  { key: 'destination', label: 'Ачаа хүргэх хот / аймаг', placeholder: 'Улаанбаатар хот', max: 80, wide: true },
 ]
 
-// Гэрээнд орохоос өмнө хоосон нэмэлт талбарт утга оноох — хувь хүн бол нэр нь "Б тал" болно
+// Бөглөсөн мэдээллээс системээр гаргах талбарууд (загварт ашиглаж болно)
+export const COMPUTED_PLACEHOLDERS: Record<string, string> = {
+  cargoLegalName: 'Б талын бүтэн нэр',
+  ubUnloadAddress: 'Ачаа буух цэг',
+}
+
+// Б талын нэр — овог нэр (хуучин гэрээнд байгууллагын нэр)
+export function partyName(values: CargoValues): string {
+  return [values.repLastName, values.repFirstName].filter(Boolean).join(' ') || values.cargoLegalName || ''
+}
+
 export function completeValues(values: CargoValues): CargoValues {
-  const fullName = [values.repLastName, values.repFirstName].filter(Boolean).join(' ')
   return {
     ...values,
-    cargoLegalName: values.cargoLegalName?.trim() || fullName,
-    ubUnloadAddress: values.ubUnloadAddress?.trim() || 'талуудын тохиролцсон цэг',
+    cargoLegalName: [values.repLastName, values.repFirstName].filter(Boolean).join(' '),
+    ubUnloadAddress: 'талуудын тохиролцсон цэг',
   }
+}
+
+// Монгол Улсын иргэний регистр: 2 кирилл үсэг + 8 оронтой тоо
+const REGISTER_RE = /^[А-ЯЁӨҮ]{2}\d{8}$/
+const PHONE_RE = /^\+?\d{8,15}$/
+
+export function normalizeField(key: string, v: string): string {
+  const s = v.replace(/\s+/g, ' ').trim()
+  if (key === 'cargoRegisterNo') return s.replace(/\s/g, '').toUpperCase()
+  if (key === 'repPhone') return s.replace(/[\s-]/g, '')
+  return s
+}
+
+// Талбар бүрийн алдаа (хоосон эсвэл хэлбэр буруу) — маягт болон сервер хоёуланд ижил
+export function fieldError(key: string, value: string | undefined): string | null {
+  const f = CARGO_FIELDS.find(x => x.key === key)
+  if (!f) return null
+  const v = normalizeField(key, value ?? '')
+  if (!v) return `${f.label} бөглөнө үү`
+  if (key === 'cargoRegisterNo' && !REGISTER_RE.test(v)) return 'Регистр 2 үсэг, 8 тоо байна (жш: УБ99112233)'
+  if (key === 'repPhone' && !PHONE_RE.test(v)) return 'Утасны дугаар буруу байна'
+  if (key === 'cargoAddress' && v.length < 10) return 'Хаягаа дэлгэрэнгүй бичнэ үү (хот/аймаг, дүүрэг/сум, хороо, байр)'
+  return null
 }
 
 export const CARGO_FIELD_KEYS = CARGO_FIELDS.map(f => f.key)
@@ -60,13 +87,13 @@ export function sanitizeValues(input: unknown): CargoValues {
   if (!input || typeof input !== 'object') return out
   for (const f of CARGO_FIELDS) {
     const v = (input as Record<string, unknown>)[f.key]
-    if (typeof v === 'string') out[f.key] = v.replace(/\s+/g, ' ').trim().slice(0, f.max)
+    if (typeof v === 'string') out[f.key] = normalizeField(f.key, v).slice(0, f.max)
   }
   return out
 }
 
-export function missingFields(values: CargoValues): CargoField[] {
-  return CARGO_FIELDS.filter(f => !f.optional && !values[f.key]?.trim())
+export function fieldErrors(values: CargoValues): string[] {
+  return CARGO_FIELDS.map(f => fieldError(f.key, values[f.key])).filter((e): e is string => !!e)
 }
 
 // ── Системээс бөглөгдөх талбарууд ──
@@ -93,6 +120,7 @@ export const SYSTEM_PLACEHOLDERS: Record<string, string> = {
 
 export const ALL_PLACEHOLDERS: Record<string, string> = {
   ...SYSTEM_PLACEHOLDERS,
+  ...COMPUTED_PLACEHOLDERS,
   ...Object.fromEntries(CARGO_FIELDS.map(f => [f.key, f.label])),
 }
 
@@ -108,12 +136,32 @@ export function renderText(text: string, vars: Record<string, string>): string {
   return text.replace(PH_RE, (_, k: string) => vars[k]?.trim() || BLANK)
 }
 
+// Урьдчилан харахад: текстийг хэсэглэж, талбар бүрийг бөглөсөн эсэхээр нь ялгана
+export interface Segment { text: string; key?: string; empty?: boolean }
+export function segmentText(text: string, vars: Record<string, string>): Segment[] {
+  const out: Segment[] = []
+  let last = 0
+  for (const m of text.matchAll(PH_RE)) {
+    if (m.index! > last) out.push({ text: text.slice(last, m.index) })
+    const key = m[1]
+    const v = vars[key]?.trim()
+    out.push(v ? { text: v, key } : { text: ALL_PLACEHOLDERS[key] ?? key, key, empty: true })
+    last = m.index! + m[0].length
+  }
+  if (last < text.length) out.push({ text: text.slice(last) })
+  return out
+}
+
 export function renderBody(body: ContractBody, vars: Record<string, string>): ContractBody {
   return {
     titleMn: renderText(body.titleMn, vars),
     titleCn: renderText(body.titleCn, vars),
     clauses: body.clauses.map(c => ({ ...c, mn: renderText(c.mn, vars), cn: renderText(c.cn, vars) })),
   }
+}
+
+export function hasBlanks(body: ContractBody): boolean {
+  return JSON.stringify(body).includes(BLANK)
 }
 
 export function parseBody(json: string): ContractBody {
@@ -314,15 +362,18 @@ export function cnMoneyWords(value: number): string {
 // (нэг удаагийн буцаагдахгүй төлбөр, хугацаагүй, барьцаагүй, цахим, хоёр хэл) тусгасан.
 // Хятад орчуулгыг агуулах талаар батлуулна.
 
+// Б тал — хувь хүн (иргэн): бүтэн нэр, регистр, оршин суугаа хаяг, утас
+export const PREAMBLE: Clause = {
+  kind: 'text',
+  mn: 'Энэхүү Түншлэлийн гэрээ (цаашид "Гэрээ" гэх)-г Иргэний хууль болон бусад хууль тогтоомжийг үндэслэн, нэг талаас БНХАУ, Шилийн гол аймаг, Эрээн хот, {{whAddress}} хаягт байрлах {{whLegalNameMn}} (РД: {{whRegisterNo}}, цаашид "А тал" гэх), түүнийг төлөөлж захирал {{whDirector}}, нөгөө талаас {{cargoAddress}} хаягт оршин суух Монгол Улсын иргэн {{repLastName}} овогтой {{repFirstName}} (регистрийн дугаар: {{cargoRegisterNo}}, утас: {{repPhone}}, цаашид "Б тал" гэх) (цаашид хамтад нь "Талууд" гэх) нар харилцан тохиролцож, цахим хэлбэрээр дараах нөхцөлтэйгөөр байгуулав.',
+  cn: '本合作协议（以下简称"本协议"）依据《民法》及其他相关法律法规，由位于中华人民共和国锡林郭勒盟二连浩特市{{whAddress}}的{{whLegalNameCn}}（统一社会信用代码：{{whRegisterNo}}，以下简称"甲方"，法定代表人：{{whDirector}}）与居住于{{cargoAddress}}的蒙古国公民{{repLastName}} {{repFirstName}}（身份证号：{{cargoRegisterNo}}，电话：{{repPhone}}，以下简称"乙方"）（以下合称"双方"）经协商一致，以电子形式按以下条款订立。',
+}
+
 export const DEFAULT_TEMPLATE: ContractBody = {
   titleMn: 'АЧАА ТЭЭВЭРЛЭЛТ ТҮНШЛЭЛИЙН ГЭРЭЭ',
   titleCn: '货物运输合作协议',
   clauses: [
-    {
-      kind: 'text',
-      mn: 'Энэхүү Түншлэлийн гэрээ (цаашид "Гэрээ" гэх)-г Иргэний хууль болон бусад хууль тогтоомжийг үндэслэн, нэг талаас БНХАУ, Шилийн гол аймаг, Эрээн хот, {{whAddress}} хаягт байрлах {{whLegalNameMn}} (РД: {{whRegisterNo}}, цаашид "А тал" гэх), түүнийг төлөөлж захирал {{whDirector}}, нөгөө талаас Улаанбаатар хот, {{cargoDistrict}} дүүрэг, {{cargoKhoroo}}-р хороо, {{cargoAddress}} хаягт орших "{{cargoLegalName}}" (регистр №: {{cargoRegisterNo}}, цаашид "Б тал" гэх), түүнийг төлөөлж {{repLastName}} овогтой {{repFirstName}} (цаашид хамтад нь "Талууд" гэх) нар харилцан тохиролцож, цахим хэлбэрээр дараах нөхцөлтэйгөөр байгуулав.',
-      cn: '本合作协议（以下简称"本协议"）依据《民法》及其他相关法律法规，由位于中华人民共和国锡林郭勒盟二连浩特市{{whAddress}}的{{whLegalNameCn}}（统一社会信用代码：{{whRegisterNo}}，以下简称"甲方"，法定代表人：{{whDirector}}）与位于乌兰巴托市{{cargoDistrict}}区第{{cargoKhoroo}}委员会{{cargoAddress}}的"{{cargoLegalName}}"（注册号：{{cargoRegisterNo}}，以下简称"乙方"，代表人：{{repLastName}} {{repFirstName}}）（以下合称"双方"）经协商一致，以电子形式按以下条款订立。',
-    },
+    PREAMBLE,
     { kind: 'heading', mn: 'Нэг. Ерөнхий зүйл', cn: '第一条 总则' },
     {
       kind: 'clause', no: '1.1',

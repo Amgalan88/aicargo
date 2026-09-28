@@ -109,7 +109,7 @@ function SuperContracts() {
                   <td style={td}>
                     <div style={{ fontWeight: 600 }}>{c.cargoLegalName || c.cargo?.name || c.guestEmail}</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
-                      {c.cargo ? `${c.cargo.slug}.aicargo.mn` : <>Бүртгэлгүй · {c.guestEmail}</>}
+                      {[c.guestEmail, c.cargo && `${c.cargo.slug}.aicargo.mn`].filter(Boolean).join(' · ')}
                     </div>
                   </td>
                   <td style={td}>{c.warehouse.name}</td>

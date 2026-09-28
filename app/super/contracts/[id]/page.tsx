@@ -97,8 +97,8 @@ export default function SuperContractPage({ params }: { params: Promise<{ id: st
         <StatusBadge status={d.status} />
       </div>
       <p style={{ color: 'var(--muted)', fontSize: '0.82rem', margin: '0.2rem 0 1.2rem' }}>
-        {d.values.cargoLegalName || d.cargo?.name || d.guestEmail}{' '}
-        ({d.cargo ? `${d.cargo.slug}.aicargo.mn` : `бүртгэлгүй · ${d.guestEmail}`}) ↔{' '}
+        {[d.values.repLastName, d.values.repFirstName].filter(Boolean).join(' ') || d.values.cargoLegalName || d.guestEmail}{' '}
+        ({[d.guestEmail, d.values.cargoRegisterNo, d.cargo && `${d.cargo.slug}.aicargo.mn`].filter(Boolean).join(' · ')}) ↔{' '}
         <Link href={`/super/warehouses/${d.warehouse.id}`}>{d.warehouse.name}</Link> · загвар v{d.templateVersion}
       </p>
 

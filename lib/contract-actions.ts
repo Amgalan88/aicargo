@@ -1,15 +1,11 @@
-// Гэрээний тал (Б тал)-ын үйлдлүүд — нэвтэрсэн каргогийн админ болон нууц холбоостой зочин хоёуланд ижил
+// Гэрээний тал (Б тал)-ын үйлдлүүд — гэрээний нууц холбоосоор (хүн бүрт ижил), каргогийн админд зөвхөн харах
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { bad, readJson } from '@/lib/contract-auth'
+import { TERMINATION_NOTICE_DAYS, receiveAddressFor } from '@/lib/contract'
 import {
-  CargoValues, ContractBody, parseBody, renderBody, sanitizeValues, missingFields,
-  CARGO_FIELDS, TERMINATION_NOTICE_DAYS, receiveAddressFor,
-} from '@/lib/contract'
-import {
-  WAREHOUSE_CONTRACT_SELECT, ContractWarehouse, warehouseReadiness, getLatestTemplate, buildVars,
-  hashBody, safeValues, addEvent, notifySuper, appUrl, clientIp, requestOrigin,
+  WAREHOUSE_CONTRACT_SELECT, contractBodyFor, safeValues, addEvent, notifySuper, appUrl, requestOrigin,
 } from '@/lib/contract-server'
 import { uploadPaymentProof } from '@/lib/cloudinary'
 
@@ -20,7 +16,8 @@ export interface PartyAccess {
   canManage: boolean
   email: string | null
   signerName: string
-  guest: boolean
+  // Гэрээний нууц холбоосоор нээсэн эсэх (эсрэгээрээ — каргогийн админ хэсгээс)
+  viaLink: boolean
 }
 
 async function loadContract(where: Prisma.WarehouseContractWhereInput) {
@@ -34,28 +31,12 @@ async function loadContract(where: Prisma.WarehouseContractWhereInput) {
   })
 }
 
-// Ноорог гэрээг хамгийн сүүлийн загвараар харуулна — гарын үсэг зурах үед мөн адил загвар хөлдөнө
-function previewDraft(contractNo: string, wh: ContractWarehouse, values: CargoValues, template: { titleMn: string; titleCn: string; body: string }): ContractBody {
-  const tpl: ContractBody = { titleMn: template.titleMn, titleCn: template.titleCn, clauses: parseBody(template.body).clauses }
-  return renderBody(tpl, buildVars({ contractNo, warehouse: wh, values, fee: wh.contractFee }))
-}
-
 export async function getContractView(access: PartyAccess) {
   const c = await loadContract(access.where)
   if (!c) return bad('Гэрээ олдсонгүй', 404)
 
   const values = safeValues(c.values)
-  let body: ContractBody
-  let previewHash: string | null = null
-  let warehouseReady = true
-  if (c.status === 'DRAFT') {
-    const latest = await getLatestTemplate(prisma, c.warehouseId)
-    warehouseReady = !!latest && c.warehouse.active && c.warehouse.acceptingContracts && warehouseReadiness(c.warehouse, true).length === 0
-    body = previewDraft(c.contractNo, c.warehouse, values, latest ?? c.template)
-    previewHash = hashBody(JSON.stringify(body))
-  } else {
-    body = parseBody(c.renderedBody!)
-  }
+  const body = contractBodyFor(c)
 
   const { warehouse: wh } = c
   // Хүчинтэй гэрээнд агуулахын хаяг + тэмдэг; вэбсайтад аль хэдийн тохируулсан эсэх
@@ -72,15 +53,11 @@ export async function getContractView(access: PartyAccess) {
     contractNo: c.contractNo,
     status: c.status,
     values,
-    fields: CARGO_FIELDS,
     body,
-    previewHash,
     bodyHash: c.bodyHash,
-    // Гарын үсэг зурсны дараа хөлдөөсөн төлбөр, дансыг; өмнө нь одоогийн тохиргоог харуулна
-    fee: c.status === 'DRAFT' ? wh.contractFee : c.fee,
-    payTo: c.status === 'DRAFT'
-      ? { bank: wh.bankName, account: wh.bankAccount, holder: wh.bankHolder }
-      : { bank: c.payToBank, account: c.payToAccount, holder: c.payToHolder },
+    // Гэрээ үүсэх үед хөлдөөсөн төлбөр, данс
+    fee: c.fee,
+    payTo: { bank: c.payToBank, account: c.payToAccount, holder: c.payToHolder },
     paymentProofUrl: c.paymentProofUrl,
     paymentNote: c.paymentNote,
     paymentClaimedAt: c.paymentClaimedAt,
@@ -106,36 +83,15 @@ export async function getContractView(access: PartyAccess) {
       // Хаяг, тэмдгийг талууд чатаар тохирно — холбоо барих мэдээллийг зөвхөн төлбөр баталгаажсаны дараа
       ...(live ? { phone: wh.phone, wechat: wh.wechat } : {}),
     },
-    warehouseReady,
     canManage: access.canManage,
-    guest: access.guest,
+    viaLink: access.viaLink,
+    cargoLinked: !!c.cargoId,
     me: { name: access.signerName, email: access.email },
   })
 }
 
-export async function patchValues(req: NextRequest, access: PartyAccess) {
-  const body = await readJson<{ values?: unknown }>(req)
-  if (!body) return bad('Invalid JSON')
-  const values = sanitizeValues(body.values)
-  const res = await prisma.warehouseContract.updateMany({
-    where: { AND: [access.where, { status: 'DRAFT' }] },
-    data: { values: JSON.stringify(values) },
-  })
-  if (res.count === 0) return bad('Зөвхөн ноорог гэрээг засах боломжтой', 409)
-  return NextResponse.json({ ok: true, values })
-}
-
-export async function deleteDraft(access: PartyAccess) {
-  const res = await prisma.warehouseContract.deleteMany({ where: { AND: [access.where, { status: 'DRAFT' }] } })
-  if (res.count === 0) return bad('Зөвхөн ноорог гэрээг устгах боломжтой', 409)
-  return NextResponse.json({ ok: true })
-}
-
 interface ActionBody {
   action?: string
-  signerName?: string
-  agree?: boolean
-  previewHash?: string
   proofBase64?: string
   note?: string
   reason?: string
@@ -149,76 +105,11 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
   const c = await loadContract(access.where)
   if (!c) return bad('Гэрээ олдсонгүй', 404)
   const values = safeValues(c.values)
-  const who = access.guest ? `${values.cargoLegalName || access.email} (бүртгэлгүй)` : `"${values.cargoLegalName}" карго`
+  const who = [values.repLastName, values.repFirstName].filter(Boolean).join(' ') || c.cargoSignerName || access.email || 'Б тал'
+  // Үйлдэл хийсэн хүн — гэрээ байгуулсан хүний нэрээр
+  const partyActor = { id: actor.id, name: c.cargoSignerName ?? actor.name }
 
   switch (body.action) {
-    case 'sign': {
-      if (c.status !== 'DRAFT') return bad('Гэрээ аль хэдийн баталгаажсан байна', 409)
-      if (body.agree !== true) return bad('Гэрээний нөхцөлийг зөвшөөрнө үү')
-      const signerName = body.signerName?.replace(/\s+/g, ' ').trim() ?? ''
-      if (signerName.length < 3) return bad('Бүтэн нэрээ бичнэ үү')
-      const missing = missingFields(values)
-      if (missing.length) return bad(`Дутуу талбар: ${missing.map(f => f.label).join(', ')}`)
-      const email = access.email
-
-      const latest = await getLatestTemplate(prisma, c.warehouseId)
-      const wh = c.warehouse
-      if (!latest || !wh.active || !wh.acceptingContracts || warehouseReadiness(wh, true).length) {
-        return bad('Энэ агуулах одоогоор цахим гэрээ хүлээн авахгүй байна', 409)
-      }
-      // Хэрэглэгчийн уншсан текст яг энэ мөчийнхтэй ижил эсэх — загвар/тариф/данс хооронд нь өөрчлөгдсөн бол дахин уншуулна
-      const preview = previewDraft(c.contractNo, wh, values, latest)
-      if (hashBody(JSON.stringify(preview)) !== body.previewHash) {
-        return bad('Гэрээний текст шинэчлэгдсэн байна. Дахин уншиж баталгаажуулна уу', 409)
-      }
-
-      const now = new Date()
-      const payTo = { bank: wh.bankName, account: wh.bankAccount, holder: wh.bankHolder }
-      const frozen = renderBody(
-        { titleMn: latest.titleMn, titleCn: latest.titleCn, clauses: parseBody(latest.body).clauses },
-        buildVars({ contractNo: c.contractNo, warehouse: wh, values, fee: wh.contractFee, signDate: now, payTo }),
-      )
-      const renderedBody = JSON.stringify(frozen)
-
-      try {
-      await prisma.$transaction(async tx => {
-        const res = await tx.warehouseContract.updateMany({
-          where: { id: c.id, status: 'DRAFT' },
-          data: {
-            status: 'AWAITING_PAYMENT',
-            templateId: latest.id,
-            renderedBody,
-            bodyHash: hashBody(renderedBody),
-            fee: wh.contractFee,
-            payToBank: payTo.bank,
-            payToAccount: payTo.account,
-            payToHolder: payTo.holder,
-            cargoSignedAt: now,
-            cargoSignerId: actor.id,
-            cargoSignerName: signerName,
-            cargoSignerEmail: email,
-            cargoSignIp: clientIp(req.headers),
-          },
-        })
-        if (res.count !== 1) throw new Error('STATE_CHANGED')
-        // Вэб дээр баталгаажуулсан нотолгоо: нэр, и-мэйл, IP, төхөөрөмж
-        const device = req.headers.get('user-agent')?.slice(0, 160)
-        await addEvent(tx, c.id, { id: actor.id, name: access.guest ? signerName : actor.name }, 'SIGNED',
-          [signerName, email, device].filter(Boolean).join(' · '))
-      })
-      } catch (err) {
-        if (err instanceof Error && err.message === 'STATE_CHANGED') return bad('Гэрээ аль хэдийн баталгаажсан байна', 409)
-        throw err
-      }
-
-      await notifySuper(`Шинэ гэрээ: ${c.contractNo}`, [
-        `${who} "${wh.name}" агуулахтай ${c.contractNo} дугаартай гэрээг цахимаар баталгаажууллаа.`,
-        'Төлбөр орсны дараа гэрээг баталгаажуулна уу.',
-        appUrl(`/super/contracts/${c.id}`, origin),
-      ])
-      return NextResponse.json({ ok: true })
-    }
-
     case 'payment': {
       if (c.status !== 'AWAITING_PAYMENT') return bad('Энэ гэрээнд төлбөр мэдэгдэх боломжгүй', 409)
       // Баримт, тайлбар заавал биш — super admin дансаа шалгана
@@ -232,7 +123,6 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
           return bad('Зураг байршуулахад алдаа гарлаа', 500)
         }
       }
-      const partyActor = { id: actor.id, name: access.guest ? c.cargoSignerName ?? actor.name : actor.name }
       const res = await prisma.$transaction(async tx => {
         const r = await tx.warehouseContract.updateMany({
           where: { id: c.id, status: 'AWAITING_PAYMENT' },
@@ -257,7 +147,6 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
       if (reason.length < 3) return bad('Цуцлах шалтгаанаа бичнэ үү')
       const now = new Date()
       const effective = new Date(now.getTime() + TERMINATION_NOTICE_DAYS * 86_400_000)
-      const partyActor = { id: actor.id, name: access.guest ? c.cargoSignerName ?? actor.name : actor.name }
       const res = await prisma.$transaction(async tx => {
         const r = await tx.warehouseContract.updateMany({
           where: { id: c.id, status: 'ACTIVE' },
@@ -282,7 +171,6 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
 
     case 'cancel-termination': {
       // Б тал зөвхөн өөрийн өгсөн мэдэгдлийг буцаана
-      const partyActor = { id: actor.id, name: access.guest ? c.cargoSignerName ?? actor.name : actor.name }
       const res = await prisma.$transaction(async tx => {
         const r = await tx.warehouseContract.updateMany({
           where: { id: c.id, status: 'TERMINATION_PENDING', terminationRequestedBy: 'CARGO' },
@@ -303,7 +191,7 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
 
     case 'use-address': {
       // Гэрээгээр авсан хаягийг каргогийн вэбсайтын "Эрээний хаяг"-т тохируулна (хуучин хаягийг дарж бичнэ)
-      if (access.guest || !c.cargoId || !access.canManage) return bad('Эрх хүрэхгүй', 403)
+      if (!c.cargoId || !access.canManage) return bad('Эрх хүрэхгүй', 403)
       if (c.status !== 'ACTIVE' && c.status !== 'TERMINATION_PENDING') return bad('Зөвхөн хүчинтэй гэрээний хаягийг ашиглана', 409)
       const addr = receiveAddressFor(c.warehouse, c.cargoMark)
       if (!addr) return bad('Агуулах танд хаяг олгоогүй байна', 409)
@@ -312,7 +200,7 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
           where: { id: c.cargoId! },
           data: { ereemReceiver: addr.receiver, ereemPhone: addr.phone, ereemRegion: addr.region, ereemAddress: addr.address },
         })
-        await addEvent(tx, c.id, actor, 'ADDRESS_APPLIED', `${addr.region} ${addr.address}`)
+        await addEvent(tx, c.id, partyActor, 'ADDRESS_APPLIED', `${addr.region} ${addr.address}`)
       })
       return NextResponse.json({ ok: true })
     }

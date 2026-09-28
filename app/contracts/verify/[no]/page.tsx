@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
 import { prisma } from '@/lib/prisma'
-import { STATUS_INFO, ContractStatus, formatDateTime } from '@/lib/contract'
+import { STATUS_INFO, ContractStatus, formatDateTime, partyName } from '@/lib/contract'
 import { safeValues } from '@/lib/contract-server'
 
 export const revalidate = 0
@@ -39,7 +39,7 @@ export default async function VerifyContractPage({ params }: { params: Promise<{
             <dl style={{ display: 'grid', gridTemplateColumns: '130px minmax(0,1fr)', gap: '0.45rem 0.8rem', fontSize: '0.86rem', margin: '1rem 0 0' }}>
               <dt style={dt}>Гэрээ № / 编号</dt><dd style={dd}>{c.contractNo}</dd>
               <dt style={dt}>А тал / 甲方</dt><dd style={dd}>{c.warehouse.legalNameMn ?? c.warehouse.name}<br /><span style={{ color: 'var(--muted)' }}>{c.warehouse.legalNameCn}</span></dd>
-              <dt style={dt}>Б тал / 乙方</dt><dd style={dd}>{safeValues(c.values).cargoLegalName}</dd>
+              <dt style={dt}>Б тал / 乙方</dt><dd style={dd}>{partyName(safeValues(c.values))}</dd>
               <dt style={dt}>Байгуулсан / 签订</dt><dd style={dd}>{c.cargoSignedAt && formatDateTime(c.cargoSignedAt)}</dd>
               <dt style={dt}>Хүчин төгөлдөр / 生效</dt><dd style={dd}>{c.approvedAt && formatDateTime(c.approvedAt)}</dd>
               {c.status === 'TERMINATION_PENDING' && c.terminationEffectiveAt && (

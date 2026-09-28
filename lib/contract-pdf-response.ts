@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { PDF_STATUSES, ContractStatus, parseBody } from '@/lib/contract'
+import { PDF_STATUSES, ContractStatus, parseBody, partyName } from '@/lib/contract'
 import { safeValues } from '@/lib/contract-server'
 import { renderContractPdf } from '@/lib/contract-pdf'
 
@@ -33,12 +33,12 @@ export async function contractPdfResponse(where: Prisma.WarehouseContractWhereIn
     terminatedAt: c.terminatedAt,
     terminationEffectiveAt: c.terminationEffectiveAt,
     status: c.status,
+    // Б тал — гэрээ байгуулсан иргэн
     cargo: {
-      legalName: v.cargoLegalName ?? '',
+      name: partyName(v),
       registerNo: v.cargoRegisterNo ?? '',
-      repName: [v.repLastName, v.repFirstName].filter(Boolean).join(' '),
-      repPosition: v.repPosition ?? '',
-      repPhone: v.repPhone ?? '',
+      address: v.cargoAddress ?? '',
+      phone: v.repPhone ?? '',
     },
     warehouse: {
       legalNameMn: c.warehouse.legalNameMn ?? c.warehouse.name,

@@ -50,7 +50,11 @@ export async function GET(req: NextRequest) {
   ])
 
   return NextResponse.json({
-    contracts: contracts.map(({ values, ...c }) => ({ ...c, cargoLegalName: safeValues(values).cargoLegalName ?? '' })),
+    // Гэрээ байгуулсан хүний нэр (хуучин гэрээнд байгууллагын нэр)
+    contracts: contracts.map(({ values, ...c }) => {
+      const v = safeValues(values)
+      return { ...c, cargoLegalName: [v.repLastName, v.repFirstName].filter(Boolean).join(' ') || v.cargoLegalName || '' }
+    }),
     counts: Object.fromEntries(grouped.map(g => [g.status, g._count._all])),
   })
 }

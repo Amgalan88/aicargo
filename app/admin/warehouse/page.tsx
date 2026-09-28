@@ -22,6 +22,7 @@ interface ContractRow {
   paidAt: string | null
   websiteBonusAt: string | null
   rejectReason: string | null
+  href: string
   warehouse: { id: number; name: string; imageUrl: string | null }
 }
 
@@ -33,7 +34,7 @@ interface WarehouseRow {
   address: string | null
   contractFee: string
   available: boolean
-  openContractId: number | null
+  openContractHref: string | null
 }
 
 export default function WarehouseContractsPage() {
@@ -48,7 +49,6 @@ function WarehouseContracts() {
   const router = useRouter()
   const search = useSearchParams()
   const [data, setData] = useState<{ canManage: boolean; contracts: ContractRow[]; warehouses: WarehouseRow[] } | null>(null)
-  const [creating, setCreating] = useState<number | null>(null)
   const handledNew = useRef(false)
 
   const load = useCallback(async () => {
@@ -58,20 +58,13 @@ function WarehouseContracts() {
   }, [])
   useEffect(() => { load() }, [load])
 
-  // Шинэ гэрээ — нэг богино маягт (мэдээлэл нь урьдчилан бөглөгдсөн, код шаардахгүй)
-  const start = useCallback(async (w: WarehouseRow) => {
-    if (w.openContractId) { router.push(`/admin/warehouse/${w.openContractId}`); return }
-    setCreating(w.id)
-    router.push(`${warehousePath(w)}/contract`)
-  }, [router])
-
   // Нийтийн агуулахын хуудсаас "Цахим гэрээ байгуулах" дарж ирсэн бол тухайн агуулахыг онцолно
   const highlightId = Number(search.get('new')) || null
   useEffect(() => {
     if (!data || !highlightId || handledNew.current) return
     handledNew.current = true
     const w = data.warehouses.find(x => x.id === highlightId)
-    if (w?.openContractId) router.replace(`/admin/warehouse/${w.openContractId}`)
+    if (w?.openContractHref) router.replace(w.openContractHref)
     else document.getElementById(`wh-${highlightId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [data, highlightId, router])
 
@@ -81,9 +74,9 @@ function WarehouseContracts() {
     <div className="page-wide" style={{ maxWidth: 900 }}>
       <h1 className="section-title">Агуулах</h1>
       <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '0 0 1.5rem', lineHeight: 1.6 }}>
-        Эрээний агуулахтай цахим гэрээ байгуулснаар агуулах танай каргод тусгай зай талбай гаргаж,
-        ачааг хүлээн авч, ангилж, баглаж савлана. Гэрээний төлбөр нэг удаагийн бөгөөд буцаагдахгүй.
-        Гэрээ хүчин төгөлдөр болоход вэбсайт тань 60 хоногоор үнэгүй сунгагдана.
+        Эрээний агуулахтай цахим гэрээ байгуулснаар агуулах ачааг тань хүлээн авч, ангилж, баглаж савлана.
+        Гэрээний төлбөр нэг удаагийн бөгөөд буцаагдахгүй. Гэрээ хүчин төгөлдөр болоход вэбсайт тань 60 хоногоор үнэгүй сунгагдана.
+        Гэрээ байгуулсан хүн гэрээгээ и-мэйлээр ирсэн холбоосоор удирдана.
       </p>
 
       {data.contracts.length > 0 && (
@@ -91,7 +84,7 @@ function WarehouseContracts() {
           <h2 style={h2}>Миний гэрээнүүд</h2>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {data.contracts.map(c => (
-              <Link key={c.id} href={`/admin/warehouse/${c.id}`} className="wc-row">
+              <Link key={c.id} href={c.href} className="wc-row">
                 {c.warehouse.imageUrl
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={cloudinaryThumb(c.warehouse.imageUrl, 120)} alt="" className="wc-thumb" />
@@ -132,14 +125,10 @@ function WarehouseContracts() {
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '0.6rem', flexWrap: 'wrap' }}>
                   <a href={warehousePath(w)} target="_blank" rel="noreferrer" className="btn-ghost" style={btnSm}>Зураг, мэдээлэл ↗</a>
-                  {w.openContractId ? (
-                    <Link href={`/admin/warehouse/${w.openContractId}`} className="btn" style={btnSm}>Гэрээ харах</Link>
+                  {w.openContractHref ? (
+                    <Link href={w.openContractHref} className="btn" style={btnSm}>Гэрээ харах</Link>
                   ) : w.available ? (
-                    data.canManage && (
-                      <button className="btn" style={btnSm} disabled={creating !== null} onClick={() => start(w)}>
-                        {creating === w.id ? 'Үүсгэж байна...' : 'Гэрээ байгуулах'}
-                      </button>
-                    )
+                    data.canManage && <Link href={`${warehousePath(w)}/contract`} className="btn" style={btnSm}>Гэрээ байгуулах</Link>
                   ) : (
                     <span style={{ fontSize: '0.76rem', color: 'var(--muted)', alignSelf: 'center' }}>Одоогоор гэрээ хүлээн авахгүй</span>
                   )}
@@ -171,16 +160,16 @@ function WarehouseContracts() {
   )
 }
 
-const STEPS = ['Бөглөх', 'Баталгаажуулах', 'Төлбөр', 'Хүчинтэй']
+// Гэрээний хуудастай ижил 3 алхам
+const STEPS = ['Хүсэлт', 'Төлбөр', 'Холбогдоно']
 
 // Гэрээний явц: аль алхамд байгаа, төлбөрийн байдал
 function Progress({ c }: { c: ContractRow }) {
   if (c.status === 'REJECTED' || c.status === 'TERMINATED') {
     return <div className="wc-pay" style={{ color: 'var(--muted)' }}>{c.status === 'REJECTED' ? `Татгалзсан${c.rejectReason ? ': ' + c.rejectReason : ''}` : 'Гэрээ цуцлагдсан'}</div>
   }
-  const step = c.status === 'DRAFT' ? 0 : c.status === 'AWAITING_PAYMENT' || c.status === 'PAYMENT_REVIEW' ? 2 : 4
-  const pay = c.status === 'DRAFT' ? { t: 'Мэдээллээ бөглөж баталгаажуулна уу', color: 'var(--muted)' }
-    : c.status === 'AWAITING_PAYMENT' ? { t: `Төлбөр хүлээгдэж байна — ${formatMnt(c.fee)} шилжүүлж "Төлбөр төлсөн" дарна уу`, color: 'var(--yellow)' }
+  const step = c.status === 'AWAITING_PAYMENT' || c.status === 'PAYMENT_REVIEW' ? 1 : 3
+  const pay = c.status === 'AWAITING_PAYMENT' ? { t: `Төлбөр хүлээгдэж байна — ${formatMnt(c.fee)} шилжүүлж "Төлбөр төлсөн" дарна уу`, color: 'var(--yellow)' }
     : c.status === 'PAYMENT_REVIEW' ? { t: `Төлбөр шалгагдаж байна (мэдэгдсэн ${c.paymentClaimedAt ? formatDateTime(c.paymentClaimedAt).slice(0, 10) : ''})`, color: 'var(--blue)' }
     : { t: `Төлбөр баталгаажсан ${c.paidAt ? formatDateTime(c.paidAt).slice(0, 10) : ''}${c.websiteBonusAt ? ' · вэбсайт +60 хоног' : ''}`, color: 'var(--green)' }
   return (
@@ -197,7 +186,6 @@ function Progress({ c }: { c: ContractRow }) {
 
 function subline(c: ContractRow): string {
   switch (c.status) {
-    case 'DRAFT': return `Үүсгэсэн ${formatDateTime(c.createdAt).slice(0, 10)}`
     case 'AWAITING_PAYMENT': return `${formatMnt(c.fee)} төлөх`
     case 'ACTIVE': return `Хүчинтэй ${c.approvedAt ? formatDateTime(c.approvedAt).slice(0, 10) : ''}-аас`
     case 'TERMINATION_PENDING': return `${c.terminationEffectiveAt ? formatDateTime(c.terminationEffectiveAt).slice(0, 10) : ''}-нд цуцлагдана`

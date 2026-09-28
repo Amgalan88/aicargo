@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (!a.success || !b.success) return bad('Хэт олон оролдлого. 15 минутын дараа дахин оролдоно уу', 429)
 
   const contracts = await prisma.warehouseContract.findMany({
-    where: { cargoId: null, guestEmail: email, status: { not: 'REJECTED' }, accessToken: { not: null } },
+    where: { guestEmail: email, status: { not: 'REJECTED' }, accessToken: { not: null } },
     orderBy: { createdAt: 'desc' },
     take: 10,
     select: { contractNo: true, status: true, accessToken: true, warehouse: { select: { name: true } } },

@@ -24,7 +24,8 @@ export default async function SignupCargoPage({ searchParams }: { searchParams: 
         contractNo: c.contractNo,
         warehouseName: c.warehouse.name,
         email: c.guestEmail,
-        cargoName: (v.cargoLegalName ?? '').replace(/\s*(ХХК|LLC)$/i, ''),
+        // Гэрээг хувь хүн байгуулдаг тул каргоны нэрийг хэрэглэгч өөрөө бичнэ (хуучин гэрээнд байгууллагын нэр)
+        cargoName: (v.cargoLegalName && !v.repFirstName ? v.cargoLegalName : '').replace(/\s*(ХХК|LLC)$/i, ''),
         adminName: [v.repLastName, v.repFirstName].filter(Boolean).join(' '),
         phone: (v.repPhone ?? '').replace(/\D/g, '').slice(-8),
         days: WEBSITE_BONUS_DAYS,

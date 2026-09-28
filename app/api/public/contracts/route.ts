@@ -6,19 +6,20 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest } from '@/lib/auth'
 import { bad, readJson } from '@/lib/contract-auth'
 import { DEMO_SLUG } from '@/lib/demo'
-import { CargoValues, ContractBody, parseBody, renderBody, sanitizeValues, missingFields } from '@/lib/contract'
+import {
+  CargoValues, ContractBody, parseBody, renderBody, sanitizeValues, fieldErrors, hasBlanks, CARGO_FIELD_KEYS,
+} from '@/lib/contract'
 import {
   WAREHOUSE_CONTRACT_SELECT, ContractWarehouse, warehouseReadiness, getLatestTemplate, buildVars, hashBody,
   addEvent, notifySuper, appUrl, clientIp, requestOrigin, contractNoFor, newAccessToken, sendGuestLinks,
-  isUniqueViolation,
 } from '@/lib/contract-server'
 import { sendContractOtpEmail } from '@/lib/mail'
 
-// Агуулахтай гэрээ байгуулах хүсэлт — нэг богино маягт:
-//   preview → бөглөсөн мэдээллээр гэрээний текст
-//   code    → (бүртгэлгүй бол) и-мэйл рүү баталгаажуулах код — хог хүсэлтээс хамгаална
-//   submit  → гэрээ шууд баталгаажиж "Төлбөр хүлээгдэж байна" төлөвт үүснэ (ноорог шатгүй)
-// Нэвтэрсэн каргогийн эзэмшигч админд код шаардахгүй, гэрээ каргодоо холбогдоно.
+// Агуулахтай гэрээ байгуулах — хүн бүрт нэг ижил урсгал:
+//   preview → гэрээний текст (Б талын талбарууд {{…}} хэвээр — маягт бөглөх явцад шууд орно)
+//   code    → и-мэйл рүү баталгаажуулах код
+//   submit  → гэрээ "Төлбөр хүлээгдэж байна" төлөвт үүсэж, нууц холбоос нь и-мэйлээр очно
+// Нэвтэрсэн каргогийн эзэмшигч бол гэрээ мөн тэр каргод холбогдоно (вэбсайтын бэлэг, хаяг тохируулах)
 
 const redis = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL!, token: process.env.UPSTASH_REDIS_REST_TOKEN! })
 const codeByIp = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '15 m'), prefix: 'contract-code-ip' })
@@ -26,7 +27,6 @@ const codeByEmail = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '
 const submitByIp = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '15 m'), prefix: 'contract-submit-ip' })
 
 const LIVE_STATUSES = ['AWAITING_PAYMENT', 'PAYMENT_REVIEW', 'ACTIVE', 'TERMINATION_PENDING'] as const
-const OPEN_STATUSES = ['DRAFT', ...LIVE_STATUSES] as const
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 interface Body {
@@ -39,18 +39,13 @@ interface Body {
   website?: string // honeypot
 }
 
-type Owner = { kind: 'cargo'; cargoId: number; userId: number; name: string; email: string | null } | { kind: 'guest' }
-
-async function ownerOf(req: NextRequest): Promise<Owner> {
+// Нэвтэрсэн каргогийн эзэмшигч (демо биш) — гэрээг каргод нь холбоно
+async function linkedCargo(req: NextRequest): Promise<{ cargoId: number; userId: number } | null> {
   const user = await getVerifiedUserFromRequest(req)
-  if (!user || user.role !== 'ADMIN' || !user.cargoId || user.isStaffAdmin) return { kind: 'guest' }
-  const [cargo, me] = await Promise.all([
-    prisma.cargo.findUnique({ where: { id: user.cargoId }, select: { slug: true } }),
-    prisma.user.findUnique({ where: { id: user.userId }, select: { email: true } }),
-  ])
-  // Демо каргогийн нууц үг нийтэд ил — бодит гэрээ байгуулахгүй, зочноор үргэлжилнэ
-  if (cargo?.slug === DEMO_SLUG) return { kind: 'guest' }
-  return { kind: 'cargo', cargoId: user.cargoId, userId: user.userId, name: user.name, email: me?.email ?? null }
+  if (!user || user.role !== 'ADMIN' || !user.cargoId || user.isStaffAdmin) return null
+  const cargo = await prisma.cargo.findUnique({ where: { id: user.cargoId }, select: { slug: true } })
+  if (!cargo || cargo.slug === DEMO_SLUG) return null
+  return { cargoId: user.cargoId, userId: user.userId }
 }
 
 function render(tpl: { titleMn: string; titleCn: string; body: string }, wh: ContractWarehouse, contractNo: string, values: CargoValues, signDate?: Date): ContractBody {
@@ -59,6 +54,13 @@ function render(tpl: { titleMn: string; titleCn: string; body: string }, wh: Con
     { titleMn: tpl.titleMn, titleCn: tpl.titleCn, clauses: parseBody(tpl.body).clauses },
     buildVars({ contractNo, warehouse: wh, values, fee: wh.contractFee, signDate, payTo }),
   )
+}
+
+// Урьдчилан харах текст: агуулахын мэдээлэл орсон, Б талын болон гэрээ үүсэх үед бөглөгдөх талбарууд {{…}} хэвээр
+function renderPreview(tpl: { titleMn: string; titleCn: string; body: string }, wh: ContractWarehouse): ContractBody {
+  const vars = buildVars({ contractNo: '', warehouse: wh, values: {}, fee: wh.contractFee, payTo: { bank: wh.bankName, account: wh.bankAccount, holder: wh.bankHolder } })
+  for (const k of [...CARGO_FIELD_KEYS, 'cargoLegalName', 'contractNo', 'signDate']) vars[k] = `{{${k}}}`
+  return renderBody({ titleMn: tpl.titleMn, titleCn: tpl.titleCn, clauses: parseBody(tpl.body).clauses }, vars)
 }
 
 export async function POST(req: NextRequest) {
@@ -70,31 +72,27 @@ export async function POST(req: NextRequest) {
   const wh = warehouseId ? await prisma.partnerWarehouse.findFirst({ where: { id: warehouseId, active: true }, select: WAREHOUSE_CONTRACT_SELECT }) : null
   if (!wh) return bad('Агуулах олдсонгүй', 404)
   const template = await getLatestTemplate(prisma, wh.id)
-  if (!template || !wh.acceptingContracts || warehouseReadiness(wh, true).length) {
+  if (!template || !wh.acceptingContracts || warehouseReadiness(wh, template).length) {
     return bad('Энэ агуулах одоогоор цахим гэрээ хүлээн авахгүй байна', 409)
   }
+
+  if (body.step === 'preview') return NextResponse.json({ body: renderPreview(template, wh) })
+
   const values = sanitizeValues(body.values)
+  const errors = fieldErrors(values)
+  if (errors.length) return bad(errors[0])
+  const email = body.email?.trim().toLowerCase() ?? ''
+  if (!EMAIL_RE.test(email)) return bad('И-мэйл хаяг буруу байна')
 
-  if (body.step === 'preview') {
-    return NextResponse.json({ body: render(template, wh, 'AC—', values) })
-  }
-
-  const missing = missingFields(values)
-  if (missing.length) return bad(`Бөглөнө үү: ${missing.map(f => f.label).join(', ')}`)
-  const owner = await ownerOf(req)
-  const email = owner.kind === 'cargo' ? owner.email : body.email?.trim().toLowerCase() ?? ''
-  if (owner.kind === 'guest' && !EMAIL_RE.test(email ?? '')) return bad('И-мэйл хаяг буруу байна')
-
-  // ── Баталгаажуулах код (зөвхөн бүртгэлгүй) ──
+  // ── Баталгаажуулах код ──
   if (body.step === 'code') {
-    if (owner.kind === 'cargo') return NextResponse.json({ ok: true, skip: true })
-    const [a, b] = await Promise.all([codeByIp.limit(clientIp(req.headers) ?? 'anonymous'), codeByEmail.limit(email!)])
+    const [a, b] = await Promise.all([codeByIp.limit(clientIp(req.headers) ?? 'anonymous'), codeByEmail.limit(email)])
     if (!a.success || !b.success) return bad('Хэт олон оролдлого. 15 минутын дараа дахин оролдоно уу', 429)
-    await prisma.otp.updateMany({ where: { email: email!, used: false }, data: { used: true } })
+    await prisma.otp.updateMany({ where: { email, used: false }, data: { used: true } })
     const code = Math.floor(100000 + Math.random() * 900000).toString()
-    await prisma.otp.create({ data: { email: email!, code, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } })
+    await prisma.otp.create({ data: { email, code, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } })
     try {
-      await sendContractOtpEmail(email!, code, wh.name)
+      await sendContractOtpEmail(email, code, wh.name)
     } catch {
       return bad('И-мэйл илгээхэд алдаа гарлаа. Хаягаа шалгаад дахин оролдоно уу', 500)
     }
@@ -106,33 +104,29 @@ export async function POST(req: NextRequest) {
   const lim = await submitByIp.limit(clientIp(req.headers) ?? 'anonymous')
   if (!lim.success) return bad('Хэт олон оролдлого. 15 минутын дараа дахин оролдоно уу', 429)
 
-  if (owner.kind === 'guest') {
-    const otp = await prisma.otp.findFirst({
-      where: { email: email!, code: String(body.code ?? '').trim(), used: false, expiresAt: { gt: new Date() } },
-      orderBy: { id: 'desc' },
-    })
-    if (!otp) return bad('Код буруу эсвэл хугацаа дууссан байна')
-    await prisma.otp.update({ where: { id: otp.id }, data: { used: true } })
+  const otp = await prisma.otp.findFirst({
+    where: { email, code: String(body.code ?? '').trim(), used: false, expiresAt: { gt: new Date() } },
+    orderBy: { id: 'desc' },
+  })
+  if (!otp) return bad('Код буруу эсвэл хугацаа дууссан байна')
+  await prisma.otp.update({ where: { id: otp.id }, data: { used: true } })
 
-    // Нэг и-мэйлээр нэг агуулахад давхар хүсэлт үүсгэхгүй — байгааг нь буцаана
-    const existing = await prisma.warehouseContract.findFirst({
-      where: { cargoId: null, guestEmail: email!, warehouseId: wh.id, status: { in: [...LIVE_STATUSES] } },
-      select: { accessToken: true, contractNo: true, status: true },
-    })
-    if (existing?.accessToken) return NextResponse.json({ token: existing.accessToken, existing: true })
-  } else {
-    const existing = await prisma.warehouseContract.findFirst({
-      where: { cargoId: owner.cargoId, warehouseId: wh.id, status: { in: [...LIVE_STATUSES] } },
-      select: { id: true },
-    })
-    if (existing) return NextResponse.json({ id: existing.id, existing: true })
-    // Хуучин урсгалаар эхэлсэн ноорог байвал цэвэрлээд шинээр баталгаажуулна
-    await prisma.warehouseContract.deleteMany({ where: { cargoId: owner.cargoId, warehouseId: wh.id, status: 'DRAFT' } })
-  }
+  // Нэг хүн (и-мэйл) эсвэл нэг карго нэг агуулахтай нэг л амьд гэрээтэй — байгааг нь буцаана
+  const cargo = await linkedCargo(req)
+  const existing = await prisma.warehouseContract.findFirst({
+    where: {
+      warehouseId: wh.id,
+      status: { in: [...LIVE_STATUSES] },
+      accessToken: { not: null },
+      OR: [{ guestEmail: email }, ...(cargo ? [{ cargoId: cargo.cargoId }] : [])],
+    },
+    select: { accessToken: true },
+  })
+  if (existing?.accessToken) return NextResponse.json({ token: existing.accessToken, existing: true })
 
   const now = new Date()
-  const signerName = [values.repLastName, values.repFirstName].filter(Boolean).join(' ')
-  const accessToken = owner.kind === 'guest' ? newAccessToken() : null
+  const signerName = [values.repLastName, values.repFirstName].join(' ')
+  const accessToken = newAccessToken()
   const origin = requestOrigin(req)
 
   let created: { id: number; contractNo: string }
@@ -142,18 +136,21 @@ export async function POST(req: NextRequest) {
         data: {
           contractNo: `TMP-${crypto.randomUUID()}`,
           warehouseId: wh.id,
-          cargoId: owner.kind === 'cargo' ? owner.cargoId : null,
-          guestEmail: owner.kind === 'guest' ? email : null,
+          cargoId: cargo?.cargoId ?? null,
+          guestEmail: email,
           accessToken,
           templateId: template.id,
           fee: wh.contractFee,
-          createdById: owner.kind === 'cargo' ? owner.userId : null,
+          createdById: cargo?.userId ?? null,
           values: JSON.stringify(values),
         },
         select: { id: true, createdAt: true },
       })
       const contractNo = contractNoFor(c.id, c.createdAt)
-      const renderedBody = JSON.stringify(render(template, wh, contractNo, values, now))
+      const frozen = render(template, wh, contractNo, values, now)
+      // Эцсийн хамгаалалт: гэрээнд нэг ч хоосон зай үлдэхгүй
+      if (hasBlanks(frozen)) throw new Error('BLANKS')
+      const renderedBody = JSON.stringify(frozen)
       await tx.warehouseContract.update({
         where: { id: c.id },
         data: {
@@ -165,46 +162,44 @@ export async function POST(req: NextRequest) {
           payToAccount: wh.bankAccount,
           payToHolder: wh.bankHolder,
           cargoSignedAt: now,
-          cargoSignerId: owner.kind === 'cargo' ? owner.userId : null,
+          cargoSignerId: cargo?.userId ?? null,
           cargoSignerName: signerName,
-          cargoSignerEmail: email || null,
+          cargoSignerEmail: email,
           cargoSignIp: clientIp(req.headers),
         },
       })
-      const actor = { id: owner.kind === 'cargo' ? owner.userId : null, name: signerName }
-      await addEvent(tx, c.id, actor, 'CREATED', owner.kind === 'guest' ? 'Бүртгэлгүй хэрэглэгч' : null)
+      const actor = { id: cargo?.userId ?? null, name: signerName }
+      await addEvent(tx, c.id, actor, 'CREATED', null)
       const device = req.headers.get('user-agent')?.slice(0, 160)
-      await addEvent(tx, c.id, actor, 'SIGNED', [signerName, email, device].filter(Boolean).join(' · '))
+      await addEvent(tx, c.id, actor, 'SIGNED', [signerName, values.cargoRegisterNo, email, device].filter(Boolean).join(' · '))
       return { id: c.id, contractNo }
     })
   } catch (err) {
-    // Зэрэг хоёр хүсэлт — DB-ийн "нэг амьд гэрээ" индекс хамгаална
-    if (owner.kind === 'cargo' && isUniqueViolation(err)) {
-      const again = await prisma.warehouseContract.findFirst({
-        where: { cargoId: owner.cargoId, warehouseId: wh.id, status: { in: [...OPEN_STATUSES] } },
-        select: { id: true },
-      })
-      if (again) return NextResponse.json({ id: again.id, existing: true })
+    if (err instanceof Error && err.message === 'BLANKS') return bad('Гэрээний мэдээлэл дутуу байна. Агуулахтай холбогдоно уу', 409)
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      // Зэрэг хоёр хүсэлт — DB-ийн "нэг амьд гэрээ" индекс хамгаална
+      if (err.code === 'P2002' && cargo) {
+        const again = await prisma.warehouseContract.findFirst({
+          where: { cargoId: cargo.cargoId, warehouseId: wh.id, status: { in: [...LIVE_STATUSES] }, accessToken: { not: null } },
+          select: { accessToken: true },
+        })
+        if (again?.accessToken) return NextResponse.json({ token: again.accessToken, existing: true })
+      }
+      return bad('Хүсэлт хадгалахад алдаа гарлаа. Дахин оролдоно уу', 500)
     }
-    if (err instanceof Prisma.PrismaClientKnownRequestError) return bad('Хүсэлт хадгалахад алдаа гарлаа. Дахин оролдоно уу', 500)
     throw err
   }
 
-  const who = values.cargoLegalName || signerName
   await notifySuper(`Шинэ гэрээний хүсэлт: ${created.contractNo}`, [
-    `"${who}" "${wh.name}" агуулахтай гэрээ байгуулах хүсэлт илгээж, гэрээг цахимаар зөвшөөрлөө.`,
-    `Холбоо барих: ${signerName} · ${values.repPhone}${email ? ' · ' + email : ''}`,
+    `${signerName} "${wh.name}" агуулахтай гэрээ байгуулах хүсэлт илгээж, гэрээг цахимаар зөвшөөрлөө.`,
+    `Холбоо барих: ${values.repPhone} · ${email}`,
     'Төлбөр орсны дараа гэрээг баталгаажуулна уу.',
     appUrl(`/super/contracts/${created.id}`, origin),
   ])
-  if (accessToken && email) {
-    try {
-      await sendGuestLinks(email, [{ warehouseName: wh.name, contractNo: created.contractNo, status: 'AWAITING_PAYMENT', token: accessToken }], origin)
-    } catch (err) {
-      console.error('contract link email failed:', err)
-    }
+  try {
+    await sendGuestLinks(email, [{ warehouseName: wh.name, contractNo: created.contractNo, status: 'AWAITING_PAYMENT', token: accessToken }], origin)
+  } catch (err) {
+    console.error('contract link email failed:', err)
   }
-  return accessToken
-    ? NextResponse.json({ token: accessToken }, { status: 201 })
-    : NextResponse.json({ id: created.id }, { status: 201 })
+  return NextResponse.json({ token: accessToken }, { status: 201 })
 }

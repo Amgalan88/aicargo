@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 import NavLogo from '@/app/components/NavLogo'
 import { formatMnt, warehousePath, cloudinaryThumb } from '@/lib/warehouse'
-import { WAREHOUSE_CONTRACT_SELECT, warehouseReadiness } from '@/lib/contract-server'
+import { WAREHOUSE_CONTRACT_SELECT, LATEST_TEMPLATE_INCLUDE, warehouseReadiness } from '@/lib/contract-server'
 import { CARGO_FIELDS } from '@/lib/contract'
 import { DEMO_SLUG } from '@/lib/demo'
 import RequestForm from './RequestForm'
@@ -13,34 +13,35 @@ export const revalidate = 0
 export const metadata = { title: 'Эрээнд агуулахтай гэрээ байгуулах — Aicargo' }
 
 // Агуулахтай гэрээ — нэг богино маягт: хүсэлт → төлбөр → агуулах холбогдоно.
-// Карго нээх, нэвтрэх шаардлагагүй (бүртгэлгүй бол и-мэйлийн кодоор баталгаажна).
+// Хүн бүрт ижил: карго нээх, нэвтрэх шаардлагагүй, и-мэйлийн кодоор баталгаажна.
 export default async function StartContractPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const byId = /^\d+$/.test(slug)
   const wh = await prisma.partnerWarehouse.findFirst({
     where: { active: true, ...(byId ? { id: Number(slug) } : { slug }) },
-    select: { ...WAREHOUSE_CONTRACT_SELECT, imageUrl: true, _count: { select: { templates: true } } },
+    select: { ...WAREHOUSE_CONTRACT_SELECT, imageUrl: true, ...LATEST_TEMPLATE_INCLUDE },
   })
   if (!wh) notFound()
   if (wh.slug && slug !== wh.slug) redirect(`${warehousePath(wh)}/contract`)
 
-  const ready = wh.acceptingContracts && warehouseReadiness(wh, wh._count.templates > 0).length === 0
+  const ready = wh.acceptingContracts && warehouseReadiness(wh, wh.templates[0]).length === 0
 
-  // Нэвтэрсэн каргогийн эзэмшигч бол мэдээллийг урьдчилж бөглөнө, код шаардахгүй
+  // Нэвтэрсэн каргогийн эзэмшигч бол мэдээллийг нь урьдчилж бөглөнө — алхмууд нь хүн бүрт ижил
+  // (и-мэйлийн код, гэрээний холбоос), гэрээ нь мөн тэр каргод холбогдоно
   const user = await getAuthUser()
-  let cargoPrefill: Record<string, string> | null = null
+  let prefill: { values: Record<string, string>; email: string } | null = null
+  let cargoName: string | null = null
   if (user?.role === 'ADMIN' && user.cargoId && !user.isStaffAdmin) {
     const [cargo, me] = await Promise.all([
       prisma.cargo.findUnique({ where: { id: user.cargoId }, select: { name: true, slug: true } }),
-      prisma.user.findUnique({ where: { id: user.userId }, select: { phone: true, name: true } }),
+      prisma.user.findUnique({ where: { id: user.userId }, select: { phone: true, name: true, email: true } }),
     ])
     if (cargo && cargo.slug !== DEMO_SLUG) {
       const [first, ...rest] = (me?.name ?? '').trim().split(/\s+/).reverse()
-      cargoPrefill = {
-        cargoLegalName: cargo.name,
-        repPhone: me?.phone ?? '',
-        repFirstName: first ?? '',
-        repLastName: rest.reverse().join(' '),
+      cargoName = cargo.name
+      prefill = {
+        values: { repPhone: me?.phone ?? '', repFirstName: first ?? '', repLastName: rest.reverse().join(' ') },
+        email: me?.email ?? '',
       }
     }
   }
@@ -74,8 +75,8 @@ export default async function StartContractPage({ params }: { params: Promise<{ 
             warehouseName={wh.name}
             fee={formatMnt(wh.contractFee.toString())}
             fields={CARGO_FIELDS}
-            prefill={cargoPrefill}
-            loggedInCargo={!!cargoPrefill}
+            prefill={prefill}
+            cargoName={cargoName}
           />
         )}
       </div>

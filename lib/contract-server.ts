@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import {
   ContractBody, CargoValues, parseBody, renderBody, formatAmount, formatContractDate, formatDateTime,
   mnMoneyWords, cnMoneyWords, TERMINATION_NOTICE_DAYS, WEBSITE_BONUS_DAYS, completeValues,
+  extractPlaceholders, ALL_PLACEHOLDERS, SYSTEM_PLACEHOLDERS,
 } from '@/lib/contract'
 import { sendContractEmail, sendGuestContractLinks } from '@/lib/mail'
 
@@ -20,15 +21,35 @@ export const WAREHOUSE_CONTRACT_SELECT = {
 
 export type ContractWarehouse = Prisma.PartnerWarehouseGetPayload<{ select: typeof WAREHOUSE_CONTRACT_SELECT }>
 
-// Гэрээ хүлээн авахад дутуу байгаа тохиргоо — super admin-д харуулж, каргод гэрээ эхлүүлэхийг хаана
-export function warehouseReadiness(wh: ContractWarehouse, hasTemplate: boolean): string[] {
+export interface TemplateText { titleMn: string; titleCn: string; body: string }
+
+// Хамгийн сүүлийн загвар — readiness шалгахад
+export const LATEST_TEMPLATE_INCLUDE = {
+  templates: { orderBy: { version: 'desc' as const }, take: 1, select: { titleMn: true, titleCn: true, body: true } },
+}
+
+// Гэрээнд ороод үгүй бол хоосон зай үлдэх агуулахын тохиргоо — дутуу бол гэрээ хүлээн авахгүй.
+// Загварт ашигласан бүх системийн талбар бөглөгдсөн, загвар зөвхөн мэдэгдэх талбар хэрэглэсэн байх ёстой
+export function warehouseReadiness(wh: ContractWarehouse, template: TemplateText | null | undefined): string[] {
   const missing: string[] = []
   if (!wh.legalNameMn) missing.push('Хуулийн нэр (монгол)')
   if (!wh.legalNameCn) missing.push('Хуулийн нэр (хятад)')
   if (!wh.registerNo) missing.push('Регистр')
   if (!wh.directorName) missing.push('Захирал')
   if (!wh.bankName || !wh.bankAccount || !wh.bankHolder) missing.push('Данс')
-  if (!hasTemplate) missing.push('Гэрээний загвар')
+  if (!template) {
+    missing.push('Гэрээний загвар')
+    return missing
+  }
+  const keys = extractPlaceholders(template.titleMn + template.titleCn + template.body)
+  const unknown = keys.filter(k => !(k in ALL_PLACEHOLDERS))
+  if (unknown.length) missing.push(`Загварт хуучин талбар байна: ${unknown.map(k => `{{${k}}}`).join(', ')}`)
+  // Гэрээ үүсэх үед бөглөгдөх талбарууд (дугаар, огноо) болон дээрх шалгалтуудаас бусад
+  const covered = new Set(['contractNo', 'signDate', 'whLegalNameMn', 'whLegalNameCn', 'whRegisterNo', 'whDirector', 'bankName', 'bankAccount', 'bankHolder'])
+  const vars = buildVars({ contractNo: '', warehouse: wh, values: {}, fee: wh.contractFee })
+  for (const k of keys) {
+    if (k in SYSTEM_PLACEHOLDERS && !covered.has(k) && !vars[k]?.trim()) missing.push(SYSTEM_PLACEHOLDERS[k])
+  }
   return missing
 }
 
@@ -196,17 +217,23 @@ export async function sendGuestLinks(email: string, items: { warehouseName: stri
   await sendGuestContractLinks(email, items.map(i => ({ ...i, link: guestLink(i.token, origin) })))
 }
 
-// Б тал руу мэдэгдэл: бүртгэлтэй каргод эзэмшигч админ(ууд) руу, зочинд өөрийн нууц холбоосоор
+// Б тал руу мэдэгдэл — гэрээ байгуулсан хүний и-мэйл (+ каргод холбогдсон бол эзэмшигчид), нэг л гэрээний холбоосоор
 export async function notifyParty(
   c: { id: number; cargoId: number | null; guestEmail: string | null; accessToken: string | null },
   subject: string,
   lines: string[],
   origin?: string,
 ) {
-  if (c.cargoId) return notifyCargo(c.cargoId, subject, [...lines, appUrl(`/admin/warehouse/${c.id}`, origin)])
-  if (!c.guestEmail || !c.accessToken) return
   try {
-    await sendContractEmail([c.guestEmail], subject, [...lines, 'Гэрээгээ доорх холбоосоор харна уу (бусадтай хуваалцахгүй байна уу):', guestLink(c.accessToken, origin)])
+    const to = new Set<string>()
+    if (c.guestEmail) to.add(c.guestEmail.toLowerCase())
+    if (c.cargoId) for (const e of await cargoOwnerEmails(c.cargoId)) to.add(e.toLowerCase())
+    if (!to.size) return
+    const link = c.accessToken ? guestLink(c.accessToken, origin) : c.cargoId ? appUrl(`/admin/warehouse/${c.id}`, origin) : null
+    await sendContractEmail([...to], subject, [
+      ...lines,
+      ...(link ? ['Гэрээгээ доорх холбоосоор харна уу (бусадтай хуваалцахгүй байна уу):', link] : []),
+    ])
   } catch (err) {
     console.error('notifyParty failed:', subject, err)
   }

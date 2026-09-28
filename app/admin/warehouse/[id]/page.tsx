@@ -11,7 +11,6 @@ export default function AdminContractPage({ params }: { params: Promise<{ id: st
       backHref="/admin/warehouse"
       backLabel="Гэрээнүүд"
       newContractHref={w => `/admin/warehouse?new=${w.id}`}
-      afterDeleteHref="/admin/warehouse"
     />
   )
 }

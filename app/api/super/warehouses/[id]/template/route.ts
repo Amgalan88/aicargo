@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     body,
     placeholders: ALL_PLACEHOLDERS,
     cargoFields: CARGO_FIELD_KEYS,
-    readiness: warehouseReadiness(wh, !!latest),
+    readiness: warehouseReadiness(wh, latest),
     acceptingContracts: wh.acceptingContracts,
   })
 }

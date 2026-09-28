@@ -72,7 +72,7 @@ export interface ContractPdfData {
   terminatedAt: Date | null
   terminationEffectiveAt: Date | null
   status: string
-  cargo: { legalName: string; registerNo: string; repName: string; repPosition: string; repPhone: string }
+  cargo: { name: string; registerNo: string; address: string; phone: string }
   warehouse: { legalNameMn: string; legalNameCn: string; registerNo: string; director: string; address: string }
   verifyUrl: string
 }
@@ -166,11 +166,10 @@ function ContractPdf({ d }: { d: ContractPdfData }) {
             </View>
             <View style={s.signBox}>
               <Text style={s.signHead}>Б тал / 乙方</Text>
-              <Row label="Байгууллага" value={d.cargo.legalName} />
-              <Row label="Регистр / 注册号" value={d.cargo.registerNo} />
-              <Row label="Төлөөлөгч / 代表" value={d.cargo.repName} />
-              <Row label="Тушаал / 职务" value={d.cargo.repPosition} />
-              <Row label="Утас / 电话" value={d.cargo.repPhone} />
+              <Row label="Овог нэр / 姓名" value={d.cargo.name} />
+              <Row label="Регистр / 身份证号" value={d.cargo.registerNo} />
+              <Row label="Хаяг / 地址" value={d.cargo.address} />
+              <Row label="Утас / 电话" value={d.cargo.phone} />
               <View style={s.stamp}>
                 <Text style={{ fontWeight: 700 }}>Цахимаар баталгаажуулсан / 已电子签署</Text>
                 <Text>{formatDateTime(d.cargoSignedAt)}</Text>

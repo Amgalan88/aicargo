@@ -2,11 +2,10 @@
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Copy, Download, FileText, CheckCircle2, Clock, AlertTriangle, MapPin, Gift, MessagesSquare, Phone } from 'lucide-react'
 import { ContractDocument, ContractTimeline, StatusBadge, ContractEventRow } from '@/app/components/ContractDocument'
-import type { CargoField, ContractBody, ReceiveAddress } from '@/lib/contract'
+import type { ContractBody, ReceiveAddress } from '@/lib/contract'
 import { formatDateTime, TERMINATION_NOTICE_DAYS, PDF_STATUSES, ContractStatus, WEBSITE_BONUS_DAYS } from '@/lib/contract'
 import { formatMnt } from '@/lib/warehouse'
 import { resizeImage } from '@/lib/image-resize'
@@ -16,9 +15,7 @@ interface Detail {
   contractNo: string
   status: ContractStatus
   values: Record<string, string>
-  fields: CargoField[]
   body: ContractBody
-  previewHash: string | null
   fee: string
   payTo: { bank: string | null; account: string | null; holder: string | null }
   paymentProofUrl: string | null
@@ -39,20 +36,22 @@ interface Detail {
   terminatedAt: string | null
   events: ContractEventRow[]
   warehouse: { id: number; name: string; slug: string | null; phone?: string | null; wechat?: string | null }
-  warehouseReady: boolean
   canManage: boolean
-  guest: boolean
+  // Гэрээний нууц холбоосоор нээсэн (хүн бүрт ижил хуудас) эсвэл каргогийн админ хэсгээс зөвхөн харах
+  viaLink: boolean
+  // Каргод холбогдсон — вэбсайтын хаяг тохируулах боломжтой
+  cargoLinked: boolean
   me: { name: string; email: string | null }
 }
 
-// Б талын гэрээний ажлын хэсэг — нэвтэрсэн карго (/admin/warehouse/[id]) болон нууц холбоостой зочин (/contracts/g/[token])
+// Б талын гэрээний хуудас — гэрээний нууц холбоос (/contracts/g/[token]) нь бүх үйлдлийн нэг цэг;
+// каргогийн ажилтан /admin/warehouse/[id]-ээр зөвхөн харна
 interface Links {
   api: string
   pdfHref: string
   backHref: string
   backLabel: string
   newContractHref: (warehouse: { id: number; slug: string | null }) => string
-  afterDeleteHref: string
   // Бүртгэлгүй хүний хүчинтэй гэрээнд: каргогоо нээж 60 хоног үнэгүй ашиглах санал
   signupHref?: string
   onLoaded?: (d: { contractNo: string; warehouse: { id: number; name: string } }) => void
@@ -63,14 +62,12 @@ interface Links {
 const STEPS = ['Хүсэлт', 'Төлбөр', 'Холбогдоно']
 
 function stepOf(s: ContractStatus): number {
-  if (s === 'DRAFT') return 0
   if (s === 'AWAITING_PAYMENT' || s === 'PAYMENT_REVIEW') return 1
   return 2
 }
 
 export default function ContractWorkspace(links: Links) {
   const { api, backHref, backLabel, onLoaded, onMissing } = links
-  const router = useRouter()
   const [d, setD] = useState<Detail | null>(null)
   const [error, setError] = useState('')
 
@@ -122,7 +119,7 @@ export default function ContractWorkspace(links: Links) {
       </div>
       <p style={{ color: 'var(--muted)', fontSize: '0.82rem', margin: '0 0 1.1rem' }}>
         Гэрээ № {d.contractNo}
-        {d.guest && d.me.email && <> · энэ хуудасны холбоосыг <b style={{ color: 'var(--text)' }}>{d.me.email}</b> хаяг руу илгээсэн</>}
+        {d.viaLink && d.me.email && <> · энэ хуудасны холбоосыг <b style={{ color: 'var(--text)' }}>{d.me.email}</b> хаяг руу илгээсэн</>}
       </p>
 
       {!closed && (
@@ -135,11 +132,13 @@ export default function ContractWorkspace(links: Links) {
         </ol>
       )}
 
-      {d.status === 'DRAFT' && <DraftPanel d={d} api={api} reload={load} act={act} onDeleted={() => router.push(links.afterDeleteHref)} />}
+      {!d.canManage && (
+        <p className="ct-readonly">Зөвхөн харах горим. Төлбөр мэдэгдэх, цуцлах зэргийг гэрээ байгуулсан хүн и-мэйлээр ирсэн гэрээний холбоосоор хийнэ.</p>
+      )}
       {d.status === 'AWAITING_PAYMENT' && <PaymentPanel d={d} act={act} reload={load} />}
       {d.status === 'PAYMENT_REVIEW' && <ReviewPanel d={d} />}
       {(d.status === 'ACTIVE' || d.status === 'TERMINATION_PENDING') && <ActivePanel d={d} act={act} reload={load} pdfHref={links.pdfHref} />}
-      {d.guest && d.status === 'ACTIVE' && links.signupHref && (
+      {!d.cargoLinked && d.status === 'ACTIVE' && links.signupHref && (
         <div className="card ct-panel" style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
           <Gift size={22} strokeWidth={2} style={{ color: 'var(--accent)', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
@@ -173,7 +172,7 @@ export default function ContractWorkspace(links: Links) {
         </div>
       )}
 
-      {d.status !== 'DRAFT' && (
+      {(
         <div className="ct-more">
           <details className="ct-fold">
             <summary><FileText size={16} />Гэрээний эх бичвэр</summary>
@@ -186,142 +185,6 @@ export default function ContractWorkspace(links: Links) {
         </div>
       )}
       {d.status === 'ACTIVE' && d.canManage && <TerminateBlock d={d} act={act} reload={load} />}
-    </div>
-  )
-}
-
-function DraftPanel({ d, api, reload, act, onDeleted }: {
-  d: Detail; api: string; reload: () => Promise<void>
-  act: (b: Record<string, unknown>) => Promise<boolean>; onDeleted: () => void
-}) {
-  const [values, setValues] = useState(d.values)
-  const [dirty, setDirty] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [agree, setAgree] = useState(false)
-  const [signer, setSigner] = useState(d.me.name)
-  const [busy, setBusy] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const missing = d.fields.filter(f => !values[f.key]?.trim())
-
-  const save = useCallback(async (v: Record<string, string>) => {
-    setSaving(true)
-    const res = await fetch(api, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: v }) })
-    setSaving(false)
-    if (!res.ok) { toast.error('Хадгалж чадсангүй'); return false }
-    setDirty(false)
-    await reload()
-    return true
-  }, [api, reload])
-
-  // Бичиж дуусахад автоматаар хадгалж, урьдчилсан харагдацыг шинэчилнэ
-  function change(key: string, v: string) {
-    const next = { ...values, [key]: v }
-    setValues(next)
-    setDirty(true)
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => save(next), 900)
-  }
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
-
-  async function sign() {
-    if (timer.current) clearTimeout(timer.current)
-    if (dirty && !await save(values)) return
-    setBusy(true)
-    // Хадгалсны дараах хамгийн сүүлийн текстийн hash-ийг ашиглана
-    const fresh = await fetch(api).then(r => r.ok ? r.json() : null).catch(() => null)
-    const ok = await act({ action: 'sign', signerName: signer, agree, previewHash: fresh?.previewHash ?? d.previewHash })
-    setBusy(false)
-    if (!ok) return
-    toast.success('Гэрээг баталгаажууллаа')
-    await reload()
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  async function remove() {
-    if (!await confirmAsync('Энэ ноорог гэрээг устгах уу?')) return
-    const res = await fetch(api, { method: 'DELETE' })
-    if (res.ok) onDeleted()
-    else toast.error('Устгаж чадсангүй')
-  }
-
-  if (!d.warehouseReady) {
-    return (
-      <div className="card ct-panel ct-bad">
-        <AlertTriangle size={20} />
-        <div>
-          <b>Энэ агуулах одоогоор цахим гэрээ хүлээн авахгүй байна.</b>
-          <p>Дараа дахин оролдоно уу.</p>
-          {d.canManage && <button className="btn-ghost" style={btnSm} onClick={remove}>Ноорог устгах</button>}
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="ct-draft">
-      <div className="ct-form">
-        <div className="card" style={{ padding: '1.1rem 1.2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <h3 style={h3}>1. Танай байгууллагын мэдээлэл</h3>
-            <span className="ct-muted" style={{ fontSize: '0.72rem' }}>{saving ? 'Хадгалж байна...' : dirty ? 'Өөрчлөгдсөн' : 'Хадгалагдсан'}</span>
-          </div>
-          {d.fields.map(f => (
-            <div key={f.key} className="form-group" style={{ marginBottom: '0.6rem' }}>
-              <label>{f.label}</label>
-              <input className="input" value={values[f.key] ?? ''} placeholder={f.placeholder} maxLength={f.max}
-                disabled={!d.canManage} onChange={e => change(f.key, e.target.value)} />
-            </div>
-          ))}
-        </div>
-
-        {d.canManage ? (
-          <div className="card" style={{ padding: '1.1rem 1.2rem', marginTop: '1rem' }}>
-            <h3 style={h3}>2. Цахимаар баталгаажуулах</h3>
-            {missing.length > 0 ? (
-              <p className="ct-muted" style={{ fontSize: '0.82rem', margin: 0 }}>
-                Дутуу: {missing.map(f => f.label).join(', ')}
-              </p>
-            ) : (
-              <>
-                <div className="ct-fee">
-                  <span>Гэрээний төлбөр</span>
-                  <b>{formatMnt(d.fee)}</b>
-                  <small>Нэг удаагийн · цуцлагдсан ч буцаагдахгүй</small>
-                </div>
-                <label className="ct-agree">
-                  <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
-                  <span>
-                    Гэрээг бүрэн уншиж танилцсан, нөхцөлийг зөвшөөрч байна. Гэрээний төлбөр нэг удаагийн бөгөөд
-                    гэрээ цуцлагдсан ч буцаагдахгүй гэдгийг ойлгосон.
-                  </span>
-                </label>
-                <div className="form-group" style={{ marginBottom: '0.6rem' }}>
-                  <label>Баталгаажуулж буй хүний бүтэн нэр</label>
-                  <input className="input" value={signer} onChange={e => setSigner(e.target.value)} />
-                </div>
-                <button className="btn" style={{ width: '100%' }} disabled={!agree || signer.trim().length < 3 || busy || saving}
-                  onClick={sign}>
-                  {busy ? 'Баталгаажуулж байна...' : 'Гэрээг баталгаажуулах'}
-                </button>
-                <p className="ct-muted" style={{ fontSize: '0.72rem', margin: '0.5rem 0 0', lineHeight: 1.5 }}>
-                  Энэ товчийг дарснаар гэрээнд цахимаар гарын үсэг зурсанд тооцогдоно. Таны нэр, огноо, IP хаяг гэрээнд бүртгэгдэнэ.
-                </p>
-              </>
-            )}
-            <button className="ct-link" style={{ marginTop: '0.9rem', color: 'var(--danger)' }} onClick={remove}>Ноорог устгах</button>
-          </div>
-        ) : (
-          <p className="ct-muted" style={{ fontSize: '0.8rem', marginTop: '0.8rem' }}>Гэрээг зөвхөн каргогийн эзэмшигч баталгаажуулна.</p>
-        )}
-      </div>
-
-      <div className="ct-preview">
-        <div className="ct-muted" style={{ fontSize: '0.76rem', marginBottom: '0.4rem' }}>
-          Урьдчилан харах — шар хэсгийг зүүн талд бөглөнө
-        </div>
-        <ContractDocument body={d.body} contractNo={d.contractNo} maxHeight="calc(100vh - 140px)" />
-      </div>
     </div>
   )
 }
@@ -470,7 +333,7 @@ function AddressPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, u
       <CopyRow label="手机号 (Утас)" value={a.phone} />
       <CopyRow label="地区 (Бүс)" value={a.region} />
       <CopyRow label="详细地址 (Хаяг)" value={a.address} />
-      {d.canManage && !d.guest && (
+      {d.canManage && d.cargoLinked && (
         d.addressApplied ? (
           <p style={{ fontSize: '0.8rem', color: 'var(--green)', margin: '0.7rem 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
             <CheckCircle2 size={15} /> Вэбсайтад тань тохируулагдсан — хэрэглэгчид "Хаяг" хэсгээс харна.
@@ -609,6 +472,7 @@ const CSS = `
 .ct-agree { display: flex; gap: 0.55rem; align-items: flex-start; font-size: 0.8rem; line-height: 1.5; margin-bottom: 0.8rem; cursor: pointer; }
 .ct-agree input { margin-top: 3px; width: 16px; height: 16px; flex-shrink: 0; }
 .ct-link { background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: 0.8rem; font-weight: 600; }
+.ct-readonly { font-size: 0.8rem; color: var(--muted); background: var(--surface2); border-radius: 10px; padding: 0.6rem 0.85rem; margin: 0 0 1rem; }
 .ct-panel { display: flex; gap: 0.8rem; align-items: flex-start; padding: 1rem 1.2rem; margin-bottom: 1.2rem; }
 .ct-panel p { font-size: 0.84rem; margin: 0.25rem 0 0.2rem; line-height: 1.55; }
 .ct-panel > svg { flex-shrink: 0; margin-top: 2px; }
