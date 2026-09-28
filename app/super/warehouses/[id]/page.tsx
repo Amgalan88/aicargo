@@ -263,8 +263,6 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
             value={form.pricePerTonCny} onChange={v => set('pricePerTonCny', v)} />
           <Field label="1 м³ (юань)" placeholder="жш: 450" inputMode="decimal"
             value={form.pricePerM3Cny} onChange={v => set('pricePerM3Cny', v)} />
-          <Field label="1 кг (төгрөг)" placeholder="жш: 2500" inputMode="decimal"
-            value={form.pricePerKgMnt} onChange={v => set('pricePerKgMnt', v)} />
         </div>
         <div className="form-group" style={{ marginTop: '0.75rem', marginBottom: 0 }}>
           <label>Үйлчилгээ</label>
