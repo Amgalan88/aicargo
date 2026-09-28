@@ -7,45 +7,45 @@ export default async function OrdersPage() {
   const user = await getAuthUser()
   if (!user) redirect('/login')
 
-  const shipments = await prisma.shipment.findMany({
-    where: { userId: user.userId },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  const userRecord = await prisma.user.findUnique({
-    where: { id: user.userId },
-    select: { name: true, email: true, phone: true, cargoId: true },
-  })
-
-  // AI сургалтын санал болгох асуултууд (AI астай каргод виджетэд chip болж гарна)
-  const suggestedQuestions: string[] = await (prisma as any).aiTraining
-    .findMany({
-      where: { active: true },
-      orderBy: [{ order: 'asc' }, { id: 'asc' }],
-      take: 3,
-      select: { question: true },
-    })
-    .then((rows: { question: string }[]) => rows.map(r => r.question))
-    .catch(() => [])
-
-  // Хэрэглэгчийн багцууд (утас эсвэл эзнээр холбогдсон)
-  const batches = userRecord?.cargoId
-    ? await (prisma as any).batch.findMany({
-        where: {
-          cargoId: userRecord.cargoId,
-          OR: [{ userId: user.userId }, { phone: userRecord.phone }],
-        },
-        orderBy: { id: 'desc' },
-        include: { shipments: { select: { id: true, trackCode: true } } },
+  // Хамааралгүй асуултуудыг зэрэг явуулна — DB рүү очих тойрог бүр хугацаа нэмдэг
+  const [shipments, userRecord, suggestedQuestions] = await Promise.all([
+    prisma.shipment.findMany({
+      where: { userId: user.userId },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { name: true, email: true, phone: true, cargoId: true },
+    }),
+    // AI сургалтын санал болгох асуултууд (AI астай каргод виджетэд chip болж гарна)
+    (prisma as any).aiTraining
+      .findMany({
+        where: { active: true },
+        orderBy: [{ order: 'asc' }, { id: 'asc' }],
+        take: 3,
+        select: { question: true },
       })
-    : []
+      .then((rows: { question: string }[]) => rows.map(r => r.question))
+      .catch(() => []) as Promise<string[]>,
+  ])
 
-  const cargo = userRecord?.cargoId
-    ? await (prisma.cargo.findUnique as any)({
-        where: { id: userRecord.cargoId },
-        select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true },
-      })
-    : null
+  const [batches, cargo] = userRecord?.cargoId
+    ? await Promise.all([
+        // Хэрэглэгчийн багцууд (утас эсвэл эзнээр холбогдсон)
+        (prisma as any).batch.findMany({
+          where: {
+            cargoId: userRecord.cargoId,
+            OR: [{ userId: user.userId }, { phone: userRecord.phone }],
+          },
+          orderBy: { id: 'desc' },
+          include: { shipments: { select: { id: true, trackCode: true } } },
+        }),
+        (prisma.cargo.findUnique as any)({
+          where: { id: userRecord.cargoId },
+          select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true },
+        }),
+      ])
+    : [[], null]
 
   return (
     <OrdersClient
