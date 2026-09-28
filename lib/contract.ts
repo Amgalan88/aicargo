@@ -175,7 +175,7 @@ export const WEBSITE_BONUS_DAYS = 60
 export const PAYMENT_WAIT_DAYS = 30
 
 export const EVENT_LABELS: Record<string, string> = {
-  CREATED: 'Ноорог үүсгэсэн',
+  CREATED: 'Хүсэлт илгээсэн',
   SIGNED: 'Карго цахимаар баталгаажуулсан',
   PAYMENT_CLAIMED: 'Карго төлбөр төлснөө мэдэгдсэн',
   PAYMENT_REMINDER: 'Төлбөрийн сануулга илгээсэн',

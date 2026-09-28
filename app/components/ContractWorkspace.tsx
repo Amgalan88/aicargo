@@ -59,13 +59,13 @@ interface Links {
   onMissing?: () => void
 }
 
-const STEPS = ['Мэдээлэл бөглөх', 'Цахимаар баталгаажуулах', 'Төлбөр төлөх', 'Гэрээ хүчинтэй']
+// Хүсэлтийн маягттай ижил 3 алхам
+const STEPS = ['Хүсэлт', 'Төлбөр', 'Холбогдоно']
 
 function stepOf(s: ContractStatus): number {
   if (s === 'DRAFT') return 0
-  if (s === 'AWAITING_PAYMENT') return 2
-  if (s === 'PAYMENT_REVIEW') return 2
-  return 3
+  if (s === 'AWAITING_PAYMENT' || s === 'PAYMENT_REVIEW') return 1
+  return 2
 }
 
 export default function ContractWorkspace(links: Links) {
@@ -100,7 +100,7 @@ export default function ContractWorkspace(links: Links) {
 
   if (error) {
     return (
-      <div className="page-wide" style={{ maxWidth: 1100 }}>
+      <div className="page-wide" style={{ maxWidth: 760 }}>
         <Link href={backHref} style={back}>← {backLabel}</Link>
         <p className="msg-error">{error}</p>
       </div>
@@ -112,16 +112,17 @@ export default function ContractWorkspace(links: Links) {
   const closed = d.status === 'REJECTED' || d.status === 'TERMINATED'
 
   return (
-    <div className="page-wide" style={{ maxWidth: 1100 }}>
+    <div className="page-wide ct-page" style={{ maxWidth: 760 }}>
       <style>{CSS}</style>
       <Link href={backHref} style={back}>← {backLabel}</Link>
+      <p className="ct-eyebrow">Эрээнд ачаа хүлээн авах гэрээ</p>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
         <h1 className="section-title" style={{ margin: 0 }}>{d.warehouse.name}</h1>
         <StatusBadge status={d.status} />
       </div>
       <p style={{ color: 'var(--muted)', fontSize: '0.82rem', margin: '0 0 1.1rem' }}>
         Гэрээ № {d.contractNo}
-        {d.guest && d.me.email && <> · {d.me.email} · <span style={{ color: 'var(--yellow)' }}>энэ хуудасны холбоосыг хадгалж авна уу, бусадтай хуваалцахгүй</span></>}
+        {d.guest && d.me.email && <> · энэ хуудасны холбоосыг <b style={{ color: 'var(--text)' }}>{d.me.email}</b> хаяг руу илгээсэн</>}
       </p>
 
       {!closed && (
@@ -173,17 +174,18 @@ export default function ContractWorkspace(links: Links) {
       )}
 
       {d.status !== 'DRAFT' && (
-        <div className="ct-two">
-          <details className="ct-doc" open={d.status === 'AWAITING_PAYMENT'}>
-            <summary>Гэрээний эх бичвэр</summary>
-            <ContractDocument body={d.body} contractNo={d.contractNo} />
+        <div className="ct-more">
+          <details className="ct-fold">
+            <summary><FileText size={16} />Гэрээний эх бичвэр</summary>
+            <div className="ct-fold-body"><ContractDocument body={d.body} contractNo={d.contractNo} /></div>
           </details>
-          <div className="card" style={{ padding: '1rem 1.1rem' }}>
-            <h3 style={h3}>Түүх</h3>
-            <ContractTimeline events={d.events} />
-          </div>
+          <details className="ct-fold">
+            <summary><Clock size={16} />Түүх <span>{d.events.length}</span></summary>
+            <div className="ct-fold-body"><ContractTimeline events={d.events} /></div>
+          </details>
         </div>
       )}
+      {d.status === 'ACTIVE' && d.canManage && <TerminateBlock d={d} act={act} reload={load} />}
     </div>
   )
 }
@@ -324,13 +326,13 @@ function DraftPanel({ d, api, reload, act, onDeleted }: {
   )
 }
 
-function CopyRow({ label, value }: { label: string; value: string | null }) {
+function CopyRow({ label, value, copy }: { label: string; value: string | null; copy?: string }) {
   return (
     <div className="ct-copy">
       <span>{label}</span>
       <b>{value || '—'}</b>
       {value && (
-        <button aria-label={`${label} хуулах`} onClick={() => navigator.clipboard.writeText(value).then(() => toast.success('Хуулагдлаа'))}>
+        <button aria-label={`${label} хуулах`} onClick={() => navigator.clipboard.writeText(copy ?? value).then(() => toast.success('Хуулагдлаа'))}>
           <Copy size={14} />
         </button>
       )}
@@ -357,25 +359,24 @@ function PaymentPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, u
   }
 
   return (
-    <div className="ct-pay">
-      <div className="card" style={{ padding: '1.1rem 1.2rem' }}>
-        <h3 style={h3}>3. Гэрээний төлбөр төлөх</h3>
-        <p className="ct-muted" style={{ fontSize: '0.8rem', margin: '0 0 0.8rem' }}>
-          Доорх данс руу шилжүүлж, гүйлгээний утгад гэрээний дугаарыг заавал бичнэ үү.
-        </p>
-        <CopyRow label="Банк" value={d.payTo.bank} />
-        <CopyRow label="Данс" value={d.payTo.account} />
-        <CopyRow label="Хүлээн авагч" value={d.payTo.holder} />
-        <CopyRow label="Дүн" value={String(Math.round(Number(d.fee)))} />
-        <CopyRow label="Гүйлгээний утга" value={d.contractNo} />
-        <p style={{ fontSize: '0.74rem', color: 'var(--muted)', margin: '0.7rem 0 0' }}>
-          {formatMnt(d.fee)} · нэг удаагийн, буцаагдахгүй
-        </p>
+    <div className="card ct-paycard">
+      <div className="ct-payhead">
+        <span>Төлөх дүн</span>
+        <b>{formatMnt(d.fee)}</b>
+        <small>нэг удаа · буцаагдахгүй</small>
       </div>
+      <p className="ct-muted" style={{ fontSize: '0.84rem', margin: '0 0 0.6rem' }}>
+        Доорх данс руу шилжүүлж, гүйлгээний утгад <b style={{ color: 'var(--text)' }}>{d.contractNo}</b> гэж заавал бичнэ үү.
+      </p>
+      <CopyRow label="Банк" value={d.payTo.bank} />
+      <CopyRow label="Данс" value={d.payTo.account} />
+      <CopyRow label="Хүлээн авагч" value={d.payTo.holder} />
+      <CopyRow label="Гүйлгээний утга" value={d.contractNo} />
+      <CopyRow label="Дүн" value={formatMnt(d.fee)} copy={String(Math.round(Number(d.fee)))} />
       {d.canManage && (
-        <div className="card" style={{ padding: '1.1rem 1.2rem' }}>
-          <h3 style={h3}>Төлбөр төлсөн бол мэдэгдэнэ үү</h3>
-          <p className="ct-muted" style={{ fontSize: '0.78rem', margin: '0 0 0.7rem' }}>Баримтын зураг, тайлбар заавал биш — шалгахад л тусална.</p>
+        <div className="ct-payact">
+          <details className="ct-proof">
+            <summary>Баримт, тайлбар хавсаргах <span>(заавал биш)</span></summary>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => pick(e.target.files?.[0])} />
           {proof ? (
             <div style={{ position: 'relative', marginBottom: '0.6rem' }}>
@@ -388,11 +389,13 @@ function PaymentPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, u
               Гүйлгээний баримтын зураг хавсаргах
             </button>
           )}
-          <textarea className="input" rows={2} placeholder="Тайлбар (заавал биш): жш. Хаан банкнаас 09/17 шилжүүлсэн"
+          <textarea className="input" rows={2} placeholder="Жш. Хаан банкнаас 09/17 шилжүүлсэн"
             value={note} onChange={e => setNote(e.target.value)} />
-          <button className="btn" style={{ width: '100%', marginTop: '0.6rem' }} disabled={busy} onClick={submit}>
-            {busy ? 'Илгээж байна...' : 'Төлбөр төлсөн'}
+          </details>
+          <button className="btn btn-lg" style={{ width: '100%' }} disabled={busy} onClick={submit}>
+            <CheckCircle2 size={18} />{busy ? 'Илгээж байна...' : 'Төлбөр төлсөн'}
           </button>
+          <p className="ct-expect"><Clock size={14} />Төлбөрийг ихэнхдээ 24 цагийн дотор шалгаж, и-мэйлээр мэдэгдэнэ.</p>
         </div>
       )}
     </div>
@@ -406,8 +409,8 @@ function ReviewPanel({ d }: { d: Detail }) {
       <div>
         <b>Төлбөрийг шалгаж байна</b>
         <p>
-          Та {d.paymentClaimedAt ? formatDateTime(d.paymentClaimedAt) : ''}-нд төлбөр төлснөө мэдэгдсэн. Агуулахын дансанд
-          орсныг шалгасны дараа гэрээ хүчин төгөлдөр болж, и-мэйлээр мэдэгдэнэ.
+          Та {d.paymentClaimedAt ? formatDateTime(d.paymentClaimedAt) : ''}-нд төлбөр төлснөө мэдэгдсэн. Ихэнхдээ 24 цагийн
+          дотор шалгана — гэрээ хүчин төгөлдөр болмогц и-мэйлээр мэдэгдэж, агуулах тантай холбогдоно.
         </p>
         {d.paymentProofUrl && <a href={d.paymentProofUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem' }}>Хавсаргасан баримт ↗</a>}
       </div>
@@ -484,17 +487,8 @@ function AddressPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, u
 }
 
 function ActivePanel({ d, act, reload, pdfHref }: { d: Detail; act: (b: Record<string, unknown>) => Promise<boolean>; reload: () => Promise<void>; pdfHref: string }) {
-  const [open, setOpen] = useState(false)
-  const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
   const pending = d.status === 'TERMINATION_PENDING'
 
-  async function terminate() {
-    setBusy(true)
-    const ok = await act({ action: 'terminate', reason })
-    setBusy(false)
-    if (ok) { setOpen(false); toast.success('Цуцлах мэдэгдэл илгээлээ'); reload() }
-  }
   async function cancel() {
     if (!await confirmAsync('Цуцлах мэдэгдлээ буцаах уу?')) return
     if (await act({ action: 'cancel-termination' })) { toast.success('Гэрээ хүчинтэй хэвээр'); reload() }
@@ -502,6 +496,9 @@ function ActivePanel({ d, act, reload, pdfHref }: { d: Detail; act: (b: Record<s
 
   return (
     <>
+      {/* Хамгийн чухал нь — агуулахтай холбогдож хаягаа авах */}
+      <AddressPanel d={d} act={act} reload={reload} />
+
       <div className={`card ct-panel ${pending ? 'ct-warn' : 'ct-ok'}`}>
         {pending ? <AlertTriangle size={22} /> : <CheckCircle2 size={22} />}
         <div style={{ flex: 1 }}>
@@ -525,31 +522,43 @@ function ActivePanel({ d, act, reload, pdfHref }: { d: Detail; act: (b: Record<s
           {PDF_STATUSES.includes(d.status) && <PdfButtons href={pdfHref} />}
         </div>
       </div>
+    </>
+  )
+}
 
-      <AddressPanel d={d} act={act} reload={reload} />
+// Цуцлах — хуудасны хамгийн доор, чимээгүй линк (гол урсгалд саад болохгүй)
+function TerminateBlock({ d, act, reload }: { d: Detail; act: (b: Record<string, unknown>) => Promise<boolean>; reload: () => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
 
-      {!pending && d.canManage && (
-        <div style={{ margin: '-0.4rem 0 1.2rem' }}>
-          {!open ? (
-            <button className="ct-link" style={{ color: 'var(--danger)' }} onClick={() => setOpen(true)}>Гэрээ цуцлах</button>
-          ) : (
-            <div className="card" style={{ padding: '1rem 1.1rem', borderColor: 'var(--danger)' }}>
-              <b style={{ fontSize: '0.9rem' }}>Гэрээ цуцлах мэдэгдэл</b>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.3rem 0 0.6rem' }}>
-                Гэрээ {TERMINATION_NOTICE_DAYS} хоногийн дараа цуцлагдана. Гэрээний төлбөр ({formatMnt(d.fee)}) буцаагдахгүй.
-              </p>
-              <textarea className="input" rows={2} placeholder="Цуцлах шалтгаан" value={reason} onChange={e => setReason(e.target.value)} />
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
-                <button className="btn" style={{ background: 'var(--danger)' }} disabled={busy || reason.trim().length < 3} onClick={terminate}>
-                  {busy ? '...' : 'Цуцлах мэдэгдэл өгөх'}
-                </button>
-                <button className="btn-ghost" onClick={() => setOpen(false)}>Болих</button>
-              </div>
-            </div>
-          )}
+  async function terminate() {
+    setBusy(true)
+    const ok = await act({ action: 'terminate', reason })
+    setBusy(false)
+    if (ok) { setOpen(false); toast.success('Цуцлах мэдэгдэл илгээлээ'); reload() }
+  }
+
+  return (
+    <div className="ct-terminate">
+      {!open ? (
+        <button className="ct-link ct-link-muted" onClick={() => setOpen(true)}>Гэрээ цуцлах…</button>
+      ) : (
+        <div className="card" style={{ padding: '1rem 1.1rem', borderColor: 'var(--danger)' }}>
+          <b style={{ fontSize: '0.9rem' }}>Гэрээ цуцлах мэдэгдэл</b>
+          <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.3rem 0 0.6rem' }}>
+            Гэрээ {TERMINATION_NOTICE_DAYS} хоногийн дараа цуцлагдана. Гэрээний төлбөр ({formatMnt(d.fee)}) буцаагдахгүй.
+          </p>
+          <textarea className="input" rows={2} placeholder="Цуцлах шалтгаан" value={reason} onChange={e => setReason(e.target.value)} />
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+            <button className="btn" style={{ background: 'var(--danger)' }} disabled={busy || reason.trim().length < 3} onClick={terminate}>
+              {busy ? '...' : 'Цуцлах мэдэгдэл өгөх'}
+            </button>
+            <button className="btn-ghost" onClick={() => setOpen(false)}>Болих</button>
+          </div>
         </div>
       )}
-    </>
+    </div>
   )
 }
 
@@ -558,6 +567,30 @@ const h3: React.CSSProperties = { fontSize: '0.92rem', fontWeight: 700, margin: 
 const btnSm: React.CSSProperties = { padding: '0.4rem 0.8rem', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }
 
 const CSS = `
+.ct-eyebrow { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin: 0.6rem 0 0.2rem; }
+.ct-paycard { padding: 1.2rem 1.25rem; margin-bottom: 1.2rem; }
+.ct-payhead { display: flex; flex-direction: column; align-items: flex-start; padding: 0.85rem 1rem; margin-bottom: 0.85rem; border-radius: 12px; background: linear-gradient(135deg, var(--accent-light), var(--surface2)); }
+.ct-payhead span { font-size: 0.75rem; color: var(--muted); }
+.ct-payhead b { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ct-payhead small { font-size: 0.72rem; color: var(--muted); }
+.ct-payact { margin-top: 1rem; }
+.ct-proof { margin-bottom: 0.7rem; }
+.ct-proof summary { cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--accent); margin-bottom: 0.5rem; list-style: none; }
+.ct-proof summary::-webkit-details-marker { display: none; }
+.ct-proof summary span { color: var(--muted); font-weight: 400; }
+.ct-expect { display: flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.76rem; color: var(--muted); margin: 0.6rem 0 0; text-align: center; }
+.ct-more { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.4rem; }
+.ct-fold { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.ct-fold > summary { display: flex; align-items: center; gap: 0.5rem; padding: 0.85rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.88rem; list-style: none; }
+.ct-fold > summary::-webkit-details-marker { display: none; }
+.ct-fold > summary svg { color: var(--muted); }
+.ct-fold > summary span { font-size: 0.7rem; font-weight: 700; color: var(--muted); background: var(--surface2); border-radius: 100px; padding: 0 0.45rem; line-height: 1.6; }
+.ct-fold > summary::after { content: "+"; margin-left: auto; color: var(--muted); font-size: 1.1rem; font-weight: 400; }
+.ct-fold[open] > summary::after { content: "−"; }
+.ct-fold-body { padding: 0 1rem 1rem; }
+.ct-terminate { margin-top: 1.4rem; text-align: center; }
+.ct-link-muted { color: var(--muted) !important; font-weight: 500 !important; }
+.ct-link-muted:hover { color: var(--danger) !important; }
 .ct-muted { color: var(--muted); }
 .ct-steps { list-style: none; display: flex; gap: 0.4rem; padding: 0; margin: 0 0 1.25rem; overflow-x: auto; }
 .ct-steps li { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--muted); white-space: nowrap;
