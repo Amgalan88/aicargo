@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Send, Mail, FileText, ChevronDown, ShieldCheck, Banknote, MessagesSquare } from 'lucide-react'
@@ -28,6 +28,8 @@ export default function RequestForm({ warehouseId, warehouseName, fee, fields, p
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<ContractBody | null>(null)
+  const [previewError, setPreviewError] = useState('')
+  const [docOpen, setDocOpen] = useState(false)
   const [website, setWebsite] = useState('') // honeypot
 
   const required = fields.filter(f => !f.optional)
@@ -46,10 +48,27 @@ export default function RequestForm({ warehouseId, warehouseName, fee, fields, p
     return { ok: res.ok, d }
   }
 
+  // Нээх бүрт одоогийн бөглөсөн мэдээллээр шинэчилнэ (нэр, хаяг гэрээнд тэр дор нь харагдана)
   async function loadPreview() {
-    if (preview) return
-    const { ok, d } = await post({ step: 'preview' })
-    if (ok) setPreview(d.body)
+    setPreviewError('')
+    try {
+      const { ok, d } = await post({ step: 'preview' })
+      if (ok && d.body) setPreview(d.body)
+      else setPreviewError(d.error || 'Гэрээний текст ачаалагдсангүй')
+    } catch {
+      setPreviewError('Холболтын алдаа гарлаа')
+    }
+  }
+
+  // Хуудас нээгдэхэд урьдчилан ачаална — "унших" дарахад шууд харагдана
+  useEffect(() => { loadPreview() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleDoc(e: React.MouseEvent) {
+    // <details>-ийн onToggle зарим хөтөч/React хувилбарт найдваргүй тул товшилтоор удирдана
+    e.preventDefault()
+    const next = !docOpen
+    setDocOpen(next)
+    if (next) loadPreview()
   }
 
   async function requestCode() {
@@ -125,10 +144,14 @@ export default function RequestForm({ warehouseId, warehouseName, fee, fields, p
           <div className="rq-grid">{optional.map(field)}</div>
         </details>
 
-        <details className="rq-more" onToggle={e => { if ((e.target as HTMLDetailsElement).open) loadPreview() }}>
-          <summary><FileText size={15} />Гэрээний текст унших</summary>
+        <details className="rq-more" open={docOpen}>
+          <summary onClick={toggleDoc}><FileText size={15} />Гэрээний текст унших</summary>
           <div className="rq-doc">
-            {!preview ? <p className="rq-sub">Ачаалж байна…</p> : (
+            {previewError ? (
+              <p className="rq-sub">
+                {previewError} · <button type="button" className="rq-link" onClick={loadPreview}>Дахин оролдох</button>
+              </p>
+            ) : !preview ? <p className="rq-sub">Ачаалж байна…</p> : (
               <>
                 <h3>{preview.titleMn}</h3>
                 {preview.clauses.map((c, i) => (
