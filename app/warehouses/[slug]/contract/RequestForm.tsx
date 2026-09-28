@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Send, Mail, FileText, ChevronDown, ShieldCheck, Banknote, MessagesSquare } from 'lucide-react'
+import { Send, Mail, FileText, ShieldCheck, Banknote, MessagesSquare } from 'lucide-react'
 import type { CargoField, ContractBody } from '@/lib/contract'
 
 const STEPS = [
@@ -33,7 +33,6 @@ export default function RequestForm({ warehouseId, warehouseName, fee, fields, p
   const [website, setWebsite] = useState('') // honeypot
 
   const required = fields.filter(f => !f.optional)
-  const optional = fields.filter(f => f.optional)
   const missing = required.filter(f => !values[f.key]?.trim())
   const emailOk = loggedInCargo || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())
   const canStart = missing.length === 0 && emailOk && agree
@@ -138,11 +137,6 @@ export default function RequestForm({ warehouseId, warehouseName, fee, fields, p
         </div>
         <input tabIndex={-1} autoComplete="off" aria-hidden value={website} onChange={e => setWebsite(e.target.value)}
           style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }} />
-
-        <details className="rq-more">
-          <summary><ChevronDown size={15} />Нэмэлт мэдээлэл <span>(заавал биш — байгууллага, регистр, хаяг)</span></summary>
-          <div className="rq-grid">{optional.map(field)}</div>
-        </details>
 
         <details className="rq-more" open={docOpen}>
           <summary onClick={toggleDoc}><FileText size={15} />Гэрээний текст унших</summary>
