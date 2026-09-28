@@ -3,7 +3,7 @@ import { Prisma, PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import {
   ContractBody, CargoValues, parseBody, renderBody, formatAmount, formatContractDate, formatDateTime,
-  mnMoneyWords, cnMoneyWords, TERMINATION_NOTICE_DAYS, WEBSITE_BONUS_DAYS,
+  mnMoneyWords, cnMoneyWords, TERMINATION_NOTICE_DAYS, WEBSITE_BONUS_DAYS, completeValues,
 } from '@/lib/contract'
 import { sendContractEmail, sendGuestContractLinks } from '@/lib/mail'
 
@@ -15,6 +15,7 @@ export const WAREHOUSE_CONTRACT_SELECT = {
   bankName: true, bankAccount: true, bankHolder: true, contractFee: true,
   pricePerTonCny: true, pricePerM3Cny: true, pricePerKgMnt: true,
   receiveRegion: true, receiveAddress: true, receivePhone: true,
+  phone: true, wechat: true,
 } as const
 
 export type ContractWarehouse = Prisma.PartnerWarehouseGetPayload<{ select: typeof WAREHOUSE_CONTRACT_SELECT }>
@@ -54,7 +55,7 @@ export function buildVars(args: {
   const { warehouse: wh, values } = args
   const fee = Number(args.fee)
   return {
-    ...values,
+    ...completeValues(values),
     contractNo: args.contractNo,
     signDate: args.signDate ? formatContractDate(args.signDate) : '',
     whLegalNameMn: wh.legalNameMn ?? wh.name,

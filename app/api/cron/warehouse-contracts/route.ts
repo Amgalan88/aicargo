@@ -7,6 +7,8 @@ export const maxDuration = 60
 
 const SYSTEM = { id: null, name: 'Систем' }
 const GUEST_DRAFT_DAYS = 14
+// Төлбөрийн сануулга хүсэлт илгээснээс хойш эдгээр хоногт (нэг удаа тус бүр)
+const REMINDER_DAYS = [1, 3]
 
 // Өдөр бүр: 30 хоногийн мэдэгдлийн хугацаа дууссан гэрээг цуцална, удаан төлөгдөөгүй гэрээг хаана
 export async function GET(req: NextRequest) {
@@ -60,10 +62,34 @@ export async function GET(req: NextRequest) {
     ])
   }
 
+  // Төлбөрийн сануулга — хүсэлт илгээснээс 1 ба 3 хоногийн дараа (нийт 2 удаа), төлбөр ороогүй бол
+  const unpaid = await prisma.warehouseContract.findMany({
+    where: { status: 'AWAITING_PAYMENT', cargoSignedAt: { lte: new Date(now.getTime() - REMINDER_DAYS[0] * 86_400_000) } },
+    select: {
+      id: true, contractNo: true, cargoId: true, guestEmail: true, accessToken: true, cargoSignedAt: true, fee: true,
+      payToBank: true, payToAccount: true, warehouse: { select: { name: true } },
+      events: { where: { action: 'PAYMENT_REMINDER' }, select: { id: true } },
+    },
+  })
+  let reminded = 0
+  for (const c of unpaid) {
+    const sent = c.events.length
+    if (sent >= REMINDER_DAYS.length) continue
+    const ageDays = (now.getTime() - c.cargoSignedAt!.getTime()) / 86_400_000
+    if (ageDays < REMINDER_DAYS[sent]) continue
+    await addEvent(prisma, c.id, SYSTEM, 'PAYMENT_REMINDER', `${sent + 1}-р сануулга`)
+    reminded++
+    await notifyParty(c, `Сануулга: ${c.warehouse.name} агуулахтай гэрээний төлбөр`, [
+      `Та "${c.warehouse.name}" агуулахтай ${c.contractNo} гэрээ байгуулах хүсэлт илгээсэн боловч төлбөр хараахан ороогүй байна.`,
+      `Дүн: ${Number(c.fee).toLocaleString('en-US')}₮ · Данс: ${c.payToBank ?? ''} ${c.payToAccount ?? ''} · Гүйлгээний утга: ${c.contractNo}`,
+      'Төлсний дараа гэрээний хуудаснаас "Төлбөр төлсөн" дарна уу. Төлбөр баталгаажмагц агуулах тантай холбогдоно.',
+    ])
+  }
+
   // Хөндөгдөөгүй зочны ноорог — и-мэйл оруулаад орхисон хүсэлтүүд
   const staleDrafts = await prisma.warehouseContract.deleteMany({
     where: { status: 'DRAFT', cargoId: null, updatedAt: { lte: new Date(now.getTime() - GUEST_DRAFT_DAYS * 86_400_000) } },
   })
 
-  return NextResponse.json({ terminated, expired, guestDraftsDeleted: staleDrafts.count })
+  return NextResponse.json({ terminated, expired, reminded, guestDraftsDeleted: staleDrafts.count })
 }

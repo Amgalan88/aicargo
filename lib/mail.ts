@@ -29,6 +29,19 @@ export async function sendCargoSignupOtpEmail(email: string, code: string, cargo
   })
 }
 
+export async function sendContractOtpEmail(email: string, code: string, warehouseName: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `"${warehouseName}" агуулахтай гэрээ — баталгаажуулах код`,
+    text: `"${warehouseName}" агуулахтай гэрээ байгуулах хүсэлтийн баталгаажуулах код: ${code}\n\nЭнэ код 10 минутын дараа хүчингүй болно.\n\nТа өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлоно уу.\n\n— Aicargo`,
+    html: `<p><strong>"${escapeHtml(warehouseName)}"</strong> агуулахтай гэрээ байгуулах хүсэлтийн баталгаажуулах код:</p>
+<p style="font-size:2rem;font-weight:800;letter-spacing:6px;">${code}</p>
+<p style="color:#888;font-size:0.85rem;">Энэ код <strong>10 минутын</strong> дараа хүчингүй болно.</p>
+<p style="color:#888;font-size:0.8rem;">Та өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлоно уу.</p>`,
+  })
+}
+
 export async function sendMoveOtpEmail(email: string, code: string, cargoName: string) {
   await resend.emails.send({
     from: FROM,

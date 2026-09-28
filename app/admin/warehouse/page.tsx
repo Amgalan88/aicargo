@@ -58,18 +58,11 @@ function WarehouseContracts() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  // Шинэ гэрээ — нэг богино маягт (мэдээлэл нь урьдчилан бөглөгдсөн, код шаардахгүй)
   const start = useCallback(async (w: WarehouseRow) => {
     if (w.openContractId) { router.push(`/admin/warehouse/${w.openContractId}`); return }
     setCreating(w.id)
-    const res = await fetch('/api/admin/warehouse-contracts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ warehouseId: w.id }),
-    })
-    const d = await res.json().catch(() => ({}))
-    setCreating(null)
-    if (!res.ok) { toast.error(d.error || 'Алдаа гарлаа'); return }
-    router.push(`/admin/warehouse/${d.id}`)
+    router.push(`${warehousePath(w)}/contract`)
   }, [router])
 
   // Нийтийн агуулахын хуудсаас "Цахим гэрээ байгуулах" дарж ирсэн бол тухайн агуулахыг онцолно

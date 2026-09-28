@@ -148,11 +148,11 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
                 ))}
               </ul>
               {wh.acceptingContracts ? (
-                <Link className="whv-cta" href={`${warehousePath(wh)}/contract`}>Цахим гэрээ байгуулах</Link>
+                <Link className="whv-cta" href={`${warehousePath(wh)}/contract`}>Гэрээ байгуулах хүсэлт илгээх</Link>
               ) : (
                 <button className="whv-cta" disabled>Шинэ гэрээ түр хаалттай</button>
               )}
-              <p className="whv-note">aicargo-д каргогоо нээсэн байх шаардлагатай — эхний 30 хоног үнэгүй.</p>
+              <p className="whv-note">Хувь хүн ч байгуулна — карго нээх шаардлагагүй, 3 минут.</p>
               <p className="whv-note">Төлбөр гэрээ цуцлагдсан ч буцаагдахгүй.</p>
             </div>
 

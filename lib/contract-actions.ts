@@ -101,7 +101,11 @@ export async function getContractView(access: PartyAccess) {
     terminatedAt: c.terminatedAt,
     createdAt: c.createdAt,
     events: c.events,
-    warehouse: { id: wh.id, name: wh.name, slug: wh.slug, imageUrl: wh.imageUrl, legalNameMn: wh.legalNameMn, legalNameCn: wh.legalNameCn },
+    warehouse: {
+      id: wh.id, name: wh.name, slug: wh.slug, imageUrl: wh.imageUrl, legalNameMn: wh.legalNameMn, legalNameCn: wh.legalNameCn,
+      // Хаяг, тэмдгийг талууд чатаар тохирно — холбоо барих мэдээллийг зөвхөн төлбөр баталгаажсаны дараа
+      ...(live ? { phone: wh.phone, wechat: wh.wechat } : {}),
+    },
     warehouseReady,
     canManage: access.canManage,
     guest: access.guest,
@@ -217,8 +221,8 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
 
     case 'payment': {
       if (c.status !== 'AWAITING_PAYMENT') return bad('Энэ гэрээнд төлбөр мэдэгдэх боломжгүй', 409)
+      // Баримт, тайлбар заавал биш — super admin дансаа шалгана
       const note = body.note?.trim().slice(0, 500) || null
-      if (!body.proofBase64 && !note) return bad('Гүйлгээний баримтын зураг эсвэл тайлбар оруулна уу')
       let proofUrl: string | null = null
       if (body.proofBase64) {
         if (!body.proofBase64.startsWith('data:image/')) return bad('Баримт зураг байх ёстой')
@@ -240,6 +244,7 @@ export async function partyAction(req: NextRequest, access: PartyAccess) {
       if (!res) return bad('Гэрээний төлөв өөрчлөгдсөн байна', 409)
       await notifySuper(`Төлбөр шалгах: ${c.contractNo}`, [
         `${who} ${c.contractNo} гэрээний төлбөрөө төлсөн гэж мэдэгдлээ.`,
+        `Холбоо барих: ${[c.cargoSignerName, values.repPhone, c.cargoSignerEmail].filter(Boolean).join(' · ')}`,
         `Данс: ${c.payToBank} ${c.payToAccount} · Дүн: ${Number(c.fee).toLocaleString('en-US')}₮`,
         appUrl(`/super/contracts/${c.id}`, origin),
       ])

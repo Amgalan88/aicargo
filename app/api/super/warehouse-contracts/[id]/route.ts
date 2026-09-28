@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     where: { id },
     select: {
       id: true, contractNo: true, status: true, cargoId: true, guestEmail: true, accessToken: true, warehouseId: true,
-      warehouse: { select: { name: true, receiveRegion: true, receiveAddress: true, receivePhone: true } },
+      warehouse: { select: { name: true, receiveRegion: true, receiveAddress: true, receivePhone: true, phone: true, wechat: true } },
     },
   }) : null
   if (!c) return bad('Гэрээ олдсонгүй', 404)
@@ -111,7 +111,12 @@ export async function POST(req: NextRequest, { params }: Params) {
           `收货人: ${addr.receiver} · 手机号: ${addr.phone}`,
           `地区: ${addr.region} · 详细地址: ${addr.address}`,
           ...(c.cargoId ? ['Админ хэсгийн "Агуулах" цэснээс нэг товчоор вэбсайтдаа тохируулна уу.'] : []),
-        ] : []),
+        ] : [
+          // Хаяг, тэмдгийг талууд чатаар тохирно
+          'Эрээнд ачаа хүлээн авах хаяг, тэмдгээ агуулахтай чатаар тохирно. Агуулах тантай удахгүй холбогдоно.',
+          ...(c.warehouse.phone ? [`Агуулахын утас: ${c.warehouse.phone}`] : []),
+          ...(c.warehouse.wechat ? [`WeChat: ${c.warehouse.wechat}`] : []),
+        ]),
         ...(bonusUntil ? [`Бэлэг: таны aicargo вэбсайтын эрх ${WEBSITE_BONUS_DAYS} хоногоор сунгагдаж ${formatDateTime(bonusUntil).slice(0, 10)} хүртэл боллоо.`] : []),
         ...(!c.cargoId && c.accessToken ? [
           `Бэлэг: өөрийн каргогийн вэбсайтыг нээж ${WEBSITE_BONUS_DAYS} хоног үнэгүй ашиглаарай:`,

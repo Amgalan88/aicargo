@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Copy, Download, FileText, CheckCircle2, Clock, AlertTriangle, MapPin, Gift } from 'lucide-react'
+import { Copy, Download, FileText, CheckCircle2, Clock, AlertTriangle, MapPin, Gift, MessagesSquare, Phone } from 'lucide-react'
 import { ContractDocument, ContractTimeline, StatusBadge, ContractEventRow } from '@/app/components/ContractDocument'
 import type { CargoField, ContractBody, ReceiveAddress } from '@/lib/contract'
 import { formatDateTime, TERMINATION_NOTICE_DAYS, PDF_STATUSES, ContractStatus, WEBSITE_BONUS_DAYS } from '@/lib/contract'
@@ -38,7 +38,7 @@ interface Detail {
   terminationEffectiveAt: string | null
   terminatedAt: string | null
   events: ContractEventRow[]
-  warehouse: { id: number; name: string; slug: string | null }
+  warehouse: { id: number; name: string; slug: string | null; phone?: string | null; wechat?: string | null }
   warehouseReady: boolean
   canManage: boolean
   guest: boolean
@@ -375,6 +375,7 @@ function PaymentPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, u
       {d.canManage && (
         <div className="card" style={{ padding: '1.1rem 1.2rem' }}>
           <h3 style={h3}>Төлбөр төлсөн бол мэдэгдэнэ үү</h3>
+          <p className="ct-muted" style={{ fontSize: '0.78rem', margin: '0 0 0.7rem' }}>Баримтын зураг, тайлбар заавал биш — шалгахад л тусална.</p>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => pick(e.target.files?.[0])} />
           {proof ? (
             <div style={{ position: 'relative', marginBottom: '0.6rem' }}>
@@ -389,7 +390,7 @@ function PaymentPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, u
           )}
           <textarea className="input" rows={2} placeholder="Тайлбар (заавал биш): жш. Хаан банкнаас 09/17 шилжүүлсэн"
             value={note} onChange={e => setNote(e.target.value)} />
-          <button className="btn" style={{ width: '100%', marginTop: '0.6rem' }} disabled={busy || (!proof && !note.trim())} onClick={submit}>
+          <button className="btn" style={{ width: '100%', marginTop: '0.6rem' }} disabled={busy} onClick={submit}>
             {busy ? 'Илгээж байна...' : 'Төлбөр төлсөн'}
           </button>
         </div>
@@ -428,10 +429,23 @@ function AddressPanel({ d, act, reload }: { d: Detail; act: (b: Record<string, u
   const [busy, setBusy] = useState(false)
   const a = d.receiveAddress
   if (!a) {
+    const w = d.warehouse
     return (
       <div className="card ct-panel ct-info">
-        <MapPin size={22} />
-        <div><b>Эрээнд ачаа хүлээн авах хаяг</b><p>Агуулах танд тэмдэг олгож, хаяг бэлтгэж байна. Бэлэн болмогц энд харагдана.</p></div>
+        <MessagesSquare size={22} />
+        <div style={{ flex: 1 }}>
+          <b>Агуулах тантай холбогдоно</b>
+          <p>Эрээнд ачаа хүлээн авах хаяг, тэмдгээ агуулахтай чатаар тохирно. Агуулах удахгүй тантай холбогдоно — хүлээлгүй өөрөө ч холбогдож болно.</p>
+          {(w.phone || w.wechat) && (
+            <div style={{ marginTop: '0.6rem' }}>
+              {w.phone && <CopyRow label="Утас" value={w.phone} />}
+              {w.wechat && <CopyRow label="WeChat" value={w.wechat} />}
+              {w.phone && (
+                <a className="btn-ghost" style={{ ...btnSm, marginTop: '0.6rem' }} href={`tel:${w.phone.replace(/\s/g, '')}`}><Phone size={14} /> Залгах</a>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     )
   }

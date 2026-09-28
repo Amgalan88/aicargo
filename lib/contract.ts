@@ -22,21 +22,34 @@ export interface CargoField {
   label: string
   placeholder?: string
   max: number
+  // Заавал биш — хоосон бол гэрээнд анхдагч утга (completeValues) эсвэл хоосон зай орно
+  optional?: boolean
 }
 
+// Хувь хүн ч гэрээ байгуулна — заавал: овог, нэр, утас, хүргэх хот. Бусад нь нэмэлт.
 export const CARGO_FIELDS: CargoField[] = [
-  { key: 'cargoLegalName', label: 'Байгууллагын нэр', placeholder: 'Их Хүслэн карго ХХК', max: 120 },
-  { key: 'cargoRegisterNo', label: 'Регистрийн дугаар', placeholder: '1234567', max: 20 },
-  { key: 'repLastName', label: 'Төлөөлөгчийн овог', placeholder: 'Батын', max: 60 },
-  { key: 'repFirstName', label: 'Төлөөлөгчийн нэр', placeholder: 'Болд', max: 60 },
-  { key: 'repPosition', label: 'Албан тушаал', placeholder: 'Захирал', max: 60 },
+  { key: 'repLastName', label: 'Овог', placeholder: 'Батын', max: 60 },
+  { key: 'repFirstName', label: 'Нэр', placeholder: 'Болд', max: 60 },
   { key: 'repPhone', label: 'Утас', placeholder: '99112233', max: 30 },
-  { key: 'cargoDistrict', label: 'Дүүрэг', placeholder: 'Баянзүрх', max: 40 },
-  { key: 'cargoKhoroo', label: 'Хороо', placeholder: '5', max: 20 },
-  { key: 'cargoAddress', label: 'Хаяг (гудамж, байр, тоот)', placeholder: '12-р байр, 34 тоот', max: 160 },
   { key: 'destination', label: 'Хүргэх хот / аймаг', placeholder: 'Улаанбаатар хот', max: 80 },
-  { key: 'ubUnloadAddress', label: 'Ачаа буух хаяг', placeholder: 'Баянзүрх дүүрэг, ... ачаа тээш буух цэг', max: 200 },
+  { key: 'cargoLegalName', label: 'Карго / байгууллагын нэр', placeholder: 'Хоосон бол таны нэр орно', max: 120, optional: true },
+  { key: 'cargoRegisterNo', label: 'Регистрийн дугаар', placeholder: 'Иргэний эсвэл байгууллагын', max: 20, optional: true },
+  { key: 'repPosition', label: 'Албан тушаал', placeholder: 'Захирал', max: 60, optional: true },
+  { key: 'cargoDistrict', label: 'Дүүрэг', placeholder: 'Баянзүрх', max: 40, optional: true },
+  { key: 'cargoKhoroo', label: 'Хороо', placeholder: '5', max: 20, optional: true },
+  { key: 'cargoAddress', label: 'Хаяг (гудамж, байр, тоот)', placeholder: '12-р байр, 34 тоот', max: 160, optional: true },
+  { key: 'ubUnloadAddress', label: 'Ачаа буух хаяг', placeholder: 'Хоосон бол талууд тохиролцоно', max: 200, optional: true },
 ]
+
+// Гэрээнд орохоос өмнө хоосон нэмэлт талбарт утга оноох — хувь хүн бол нэр нь "Б тал" болно
+export function completeValues(values: CargoValues): CargoValues {
+  const fullName = [values.repLastName, values.repFirstName].filter(Boolean).join(' ')
+  return {
+    ...values,
+    cargoLegalName: values.cargoLegalName?.trim() || fullName,
+    ubUnloadAddress: values.ubUnloadAddress?.trim() || 'талуудын тохиролцсон цэг',
+  }
+}
 
 export const CARGO_FIELD_KEYS = CARGO_FIELDS.map(f => f.key)
 
@@ -53,7 +66,7 @@ export function sanitizeValues(input: unknown): CargoValues {
 }
 
 export function missingFields(values: CargoValues): CargoField[] {
-  return CARGO_FIELDS.filter(f => !values[f.key]?.trim())
+  return CARGO_FIELDS.filter(f => !f.optional && !values[f.key]?.trim())
 }
 
 // ── Системээс бөглөгдөх талбарууд ──
@@ -165,6 +178,7 @@ export const EVENT_LABELS: Record<string, string> = {
   CREATED: 'Ноорог үүсгэсэн',
   SIGNED: 'Карго цахимаар баталгаажуулсан',
   PAYMENT_CLAIMED: 'Карго төлбөр төлснөө мэдэгдсэн',
+  PAYMENT_REMINDER: 'Төлбөрийн сануулга илгээсэн',
   APPROVED: 'Төлбөр баталгаажиж, гэрээ хүчин төгөлдөр болсон',
   REJECTED: 'Татгалзсан',
   TERMINATION_REQUESTED: 'Цуцлах мэдэгдэл өгсөн',

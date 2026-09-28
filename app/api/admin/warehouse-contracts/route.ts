@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
   ])
 
   const openByWarehouse = new Map(
-    contracts.filter(c => (OPEN_STATUSES as readonly string[]).includes(c.status)).map(c => [c.warehouse.id, c.id]),
+    // Ноорог (хуучин урсгал) нээлттэйд тооцогдохгүй — шинэ маягтаар дахин эхэлнэ
+    contracts.filter(c => c.status !== 'DRAFT' && (OPEN_STATUSES as readonly string[]).includes(c.status)).map(c => [c.warehouse.id, c.id]),
   )
 
   return NextResponse.json({
