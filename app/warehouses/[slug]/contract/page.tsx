@@ -24,11 +24,14 @@ export default async function StartContractPage({ params }: { params: Promise<{ 
   if (!wh) notFound()
   if (wh.slug && slug !== wh.slug) redirect(`${warehousePath(wh)}/contract`)
 
-  const ready = wh.acceptingContracts && warehouseReadiness(wh, wh.templates[0]).length === 0
+  const missing = warehouseReadiness(wh, wh.templates[0])
+  if (!wh.acceptingContracts) missing.unshift('"Гэрээ хүлээн авах" тохиргоо унтраалттай')
+  const ready = missing.length === 0
 
   // Нэвтэрсэн каргогийн эзэмшигч бол мэдээллийг нь урьдчилж бөглөнө — алхмууд нь хүн бүрт ижил
   // (и-мэйлийн код, гэрээний холбоос), гэрээ нь мөн тэр каргод холбогдоно
   const user = await getAuthUser()
+  const isSuper = user?.role === 'SUPER_ADMIN'
   let prefill: { values: Record<string, string>; email: string } | null = null
   let cargoName: string | null = null
   if (user?.role === 'ADMIN' && user.cargoId && !user.isStaffAdmin) {
@@ -68,6 +71,16 @@ export default async function StartContractPage({ params }: { params: Promise<{ 
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', margin: '0.4rem 0 0' }}>
               {wh.phone ? <>Агуулахтай холбогдох: <b style={{ color: 'var(--text)' }}>{wh.phone}</b></> : 'Агуулахтай утсаар холбогдоно уу.'}
             </p>
+            {/* Super admin-д шалтгааныг харуулна — гэрээнд хоосон зай үлдэхээс сэргийлж хаагдсан */}
+            {isSuper && (
+              <div style={{ marginTop: '0.9rem', paddingTop: '0.8rem', borderTop: '1px dashed var(--border)', fontSize: '0.84rem' }}>
+                <b>Super admin: дараах мэдээлэл дутуу тул гэрээ хаалттай</b>
+                <ul style={{ margin: '0.4rem 0 0.6rem 1.1rem', color: 'var(--muted)', lineHeight: 1.7 }}>
+                  {missing.map(m => <li key={m}>{m}</li>)}
+                </ul>
+                <Link href={`/super/warehouses/${wh.id}`} className="btn" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>Агуулахын тохиргоо засах</Link>
+              </div>
+            )}
           </div>
         ) : (
           <RequestForm
