@@ -40,6 +40,15 @@ export function cloudinaryThumb(url: string, width: number): string {
     : url
 }
 
+// Лого жижиг харагддаг ч эх файл нь 20–110KB байж болно — дэлгэцийн хэмжээний 2 дахин дөрвөлжин хувилбар.
+// fill: тойрог/дөрвөлжинд тайрна (object-fit: cover), limit: харьцааг хадгална (object-fit: contain)
+export function cloudinaryLogo(url: string, size: number, crop: 'fill' | 'limit' = 'fill'): string {
+  const px = size * 2
+  return url.includes('res.cloudinary.com') && url.includes('/upload/')
+    ? url.replace('/upload/', `/upload/c_${crop},w_${px},h_${px},q_auto,f_auto/`)
+    : url
+}
+
 export function formatMnt(v: number | string): string {
   return `${Math.round(Number(v)).toLocaleString('en-US')}₮`
 }

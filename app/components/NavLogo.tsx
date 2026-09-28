@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { cloudinaryLogo } from '@/lib/warehouse'
 
 export default function NavLogo({ name, logoUrl }: { name?: string; logoUrl?: string }) {
   return (
@@ -11,7 +12,7 @@ export default function NavLogo({ name, logoUrl }: { name?: string; logoUrl?: st
       }}>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="logo" width={34} height={34}
+          <img src={cloudinaryLogo(logoUrl, 34)} alt="logo" width={34} height={34}
             style={{ objectFit: 'cover', width: '100%', height: '100%', display: 'block' }} />
         ) : (
           <Image src="/logo.svg" alt="logo" width={22} height={22} priority style={{ display: 'block' }} />

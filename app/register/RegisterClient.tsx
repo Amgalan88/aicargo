@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
+import { cloudinaryLogo } from '@/lib/warehouse'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Cargo { id: number; name: string; logoUrl?: string | null }
@@ -132,7 +133,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                 >
                   {c.logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.logoUrl} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
+                    <img src={cloudinaryLogo(c.logoUrl, 36, 'limit')} alt="" loading="lazy" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }} />
                   ) : (
                     <div style={{ width: 36, height: 36, borderRadius: 6, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent)' }}>
                       {c.name.charAt(0)}
@@ -171,7 +172,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                     {selectedCargo.logoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={selectedCargo.logoUrl} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 5 }} />
+                      <img src={cloudinaryLogo(selectedCargo.logoUrl, 32, 'limit')} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 5 }} />
                     ) : (
                       <div style={{ width: 32, height: 32, borderRadius: 5, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--accent)' }}>
                         {selectedCargo.name.charAt(0)}

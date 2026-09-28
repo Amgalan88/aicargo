@@ -2,6 +2,7 @@
 // Түншлэгч каргонуудын лого — хоёр мөр, эсрэг чиглэлд аажуухан гулсана.
 // Хулгана очиход зогсоно; prefers-reduced-motion үед энгийн тор болно (CSS).
 import type { ReactNode } from 'react'
+import { cloudinaryLogo } from '@/lib/warehouse'
 
 interface PartnerCargo { id: number; name: string; logoUrl: string | null }
 
@@ -10,7 +11,7 @@ function Item({ c }: { c: PartnerCargo }) {
     <div className="pm-item" title={c.name}>
       {c.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={c.logoUrl} alt={c.name} className="pm-logo" loading="lazy" />
+        <img src={cloudinaryLogo(c.logoUrl, 48)} alt={c.name} className="pm-logo" loading="lazy" decoding="async" width={44} height={44} />
       ) : (
         <span className="pm-logo pm-fallback">{c.name.trim().charAt(0).toUpperCase()}</span>
       )}
