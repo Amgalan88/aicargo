@@ -51,6 +51,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Утас эсвэл нууц үг буруу' }, { status: 401 })
   }
 
+  // Субдомэйн дээр зөвхөн тухайн каргогийн акаунтаар нэвтэрнэ
+  const hostSlug = req.headers.get('x-cargo-slug')
+  if (hostSlug && user.role !== 'SUPER_ADMIN') {
+    const hostCargo = await prisma.cargo.findUnique({ where: { slug: hostSlug }, select: { id: true } })
+    if (!hostCargo || hostCargo.id !== user.cargoId) {
+      return NextResponse.json(
+        { error: 'Энэ дугаар энэ каргод бүртгэлгүй байна. "Бүртгүүлэх" хэсгээр энэ каргод бүртгүүлнэ үү.' },
+        { status: 403 },
+      )
+    }
+  }
+
   const cargoId = user.role === 'SUPER_ADMIN' ? null : user.cargoId
   const token = signToken({ userId: user.id, role: user.role, cargoId, tokenVersion: user.tokenVersion })
 

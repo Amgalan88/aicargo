@@ -19,6 +19,7 @@ export function proxy(req: NextRequest) {
 
   // Pass slug to server components via request header
   const requestHeaders = new Headers(req.headers)
+  requestHeaders.delete('x-cargo-slug')
   if (slug) requestHeaders.set('x-cargo-slug', slug)
 
   // Protect /orders

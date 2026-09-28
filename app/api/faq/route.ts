@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAuthUserFromRequest } from '@/lib/auth'
+import { getVerifiedUserFromRequest } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   // Logged-in user → use their cargoId from JWT
-  const authUser = getAuthUserFromRequest(req)
+  const authUser = await getVerifiedUserFromRequest(req)
   if (authUser?.cargoId) {
     const faqs = await prisma.faq.findMany({
       where: { cargoId: authUser.cargoId },

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -51,12 +51,21 @@ export function clearAuthCookie(res: NextResponse) {
 
 const VERIFY_SELECT = {
   tokenVersion: true,
+  cargo: { select: { slug: true } },
   name: true,
   isStaffAdmin: true,
   canEditBank: true,
   canEditAddress: true,
   canEditLogo: true,
 } as const
+
+// Субдомэйн (aya.aicargo.mn) дээр зөвхөн тухайн каргогийн хэрэглэгч/админ нэвтэрсэнд тооцогдоно.
+// Өөр каргогийн акаунт энд хэзээ ч харагдахгүй — нэвтрээгүй мэт хандана. Super admin үл хамаарна.
+// Үндсэн домэйн (www) дээр субдомэйн байхгүй тул шалгахгүй.
+function wrongCargo(role: JwtPayload['role'], userCargoSlug: string | null | undefined, hostSlug: string | null): boolean {
+  if (!hostSlug || role === 'SUPER_ADMIN') return false
+  return userCargoSlug !== hostSlug
+}
 
 export async function getAuthUser(): Promise<VerifiedUser | null> {
   const cookieStore = await cookies()
@@ -69,6 +78,7 @@ export async function getAuthUser(): Promise<VerifiedUser | null> {
     select: VERIFY_SELECT,
   })
   if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) return null
+  if (wrongCargo(payload.role, user.cargo?.slug, (await headers()).get('x-cargo-slug'))) return null
   return {
     ...payload,
     name: user.name,
@@ -93,6 +103,7 @@ export async function getVerifiedUserFromRequest(req: NextRequest): Promise<Veri
     select: VERIFY_SELECT,
   })
   if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) return null
+  if (wrongCargo(payload.role, user.cargo?.slug, req.headers.get('x-cargo-slug'))) return null
   return {
     ...payload,
     name: user.name,

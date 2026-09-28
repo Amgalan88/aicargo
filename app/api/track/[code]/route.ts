@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAuthUserFromRequest } from '@/lib/auth'
+import { getVerifiedUserFromRequest } from '@/lib/auth'
 
 // Нэвтрээгүй болон энгийн хэрэглэгчид хувийн мэдээлэл (утас, нэр) буцаахгүй
 const PUBLIC_SELECT = {
@@ -22,7 +22,7 @@ export async function GET(
   const { code } = await params
   const q = code.toUpperCase().trim()
 
-  const authUser = getAuthUserFromRequest(req)
+  const authUser = await getVerifiedUserFromRequest(req)
   const isAdmin = authUser?.role === 'ADMIN' || authUser?.role === 'SUPER_ADMIN'
 
   // Logged-in user: scope to their cargo only
