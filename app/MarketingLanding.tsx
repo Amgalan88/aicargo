@@ -24,46 +24,38 @@ const FB_URL = 'https://www.facebook.com/share/1BSw6dQ22F/'
 const PHONE = '85205258'
 const PRICE = '₮50,000'
 
-// Асуудал → шийдэл: карго эзний өдөр тутмын өвдөлт ба AiCargo-гийн хариу
+// Өмнө → одоо: карго эзний өдөр тутмын өвдөлт ба AiCargo-гийн хариу (богино, нэг харцаар)
 const PAINS: { icon: ReactNode; before: string; after: string }[] = [
-  { icon: <FileSpreadsheet size={18} />, before: 'Трак кодыг Excel, дэвтэрт гараар шивнэ', after: 'Олон зуун трак кодыг Excel-ээс нэг товчоор оруулна' },
-  { icon: <Sparkles size={18} />, before: '"Ачаа маань ирсэн үү?" гэсэн дуудлага өдөрт хэдэн арваар', after: 'Хэрэглэгч ачаагаа өөрөө хянаж, AI асуултад нь хариулна' },
-  { icon: <BarChart3 size={18} />, before: 'Хэн төлсөн, хэн аваагүй нь бүрхэг', after: 'Олголт, төлбөр, орлогын тайлан нэг дэлгэцэнд' },
-  { icon: <Bell size={18} />, before: 'Зарлалаа чат болгонд давтан илгээнэ', after: 'Бүх хэрэглэгчдэд мэдэгдэл нэг дор очно' },
+  { icon: <FileSpreadsheet size={16} />, before: 'Трак кодыг гараар шивнэ', after: 'Excel-ээс нэг товчоор' },
+  { icon: <Phone size={16} />, before: 'Өдөрт хэдэн арван дуудлага', after: 'Хэрэглэгч ачаагаа өөрөө харна' },
+  { icon: <BarChart3 size={16} />, before: 'Хэн төлсөн нь бүрхэг', after: 'Төлбөр, орлого нэг дэлгэцэнд' },
+  { icon: <Bell size={16} />, before: 'Зарлалаа чат бүрт илгээнэ', after: 'Мэдэгдэл бүгдэд нэг дор' },
 ]
 
 const FOR_ADMIN = [
-  { icon: <FileSpreadsheet size={18} />, title: 'Excel-ээр бөөнөөр', desc: 'Эрээнд ирсэн, УБ-д ирсэн ачааг файлаас нэг дор оруулна.' },
-  { icon: <HandCoins size={18} />, title: 'Утсаар хайж олгоно', desc: 'Хэрэглэгчийн утсыг бичээд бүх ачааг нь нэг товчоор олгоно.' },
-  { icon: <BarChart3 size={18} />, title: 'Тайлан, орлого', desc: 'Өдөр, сарын олголт, орлого, хэрэглэгч бүрийн түүх.' },
-  { icon: <Bell size={18} />, title: 'Мэдэгдэл', desc: 'Шинэ ачаа бүртгэгдэхэд танд, ачаа ирэхэд хэрэглэгчид.' },
+  { icon: <FileSpreadsheet size={18} />, title: 'Excel оруулалт', desc: 'Олон зуун код нэг дор' },
+  { icon: <HandCoins size={18} />, title: 'Утсаар олголт', desc: 'Нэг товчоор олгоно' },
+  { icon: <BarChart3 size={18} />, title: 'Тайлан, орлого', desc: 'Өдөр, сараар' },
+  { icon: <Bell size={18} />, title: 'Мэдэгдэл', desc: 'Шинэ ачаа ирэхэд' },
 ]
 const FOR_USER = [
-  { icon: <Globe size={18} />, title: 'Таны нэртэй вэб', desc: 'tanaikargo.aicargo.mn — таны лого, нэртэй, утсанд апп шиг суулгана.' },
-  { icon: <Package size={18} />, title: 'Ачаагаа өөрөө хянана', desc: 'Бүртгүүлсэн → Эрээнд → Ирсэн → Авсан. Төлбөрөө ч харна.' },
-  { icon: <Sparkles size={18} />, title: 'AI туслах', desc: '"Ачаа хаана?", "Хэд төлөх?" — 24/7 шууд хариулна.' },
-  { icon: <Smartphone size={18} />, title: 'Утсаар шалгах', desc: 'Бүртгэлгүйгээр утасны дугаараараа ирсэн ачаагаа шалгана.' },
+  { icon: <Globe size={18} />, title: 'Таны нэртэй вэб', desc: 'Утсанд апп шиг' },
+  { icon: <Package size={18} />, title: 'Ачаа хянах', desc: 'Эрээн → УБ → Авсан' },
+  { icon: <Sparkles size={18} />, title: 'AI туслах', desc: '24/7 хариулна' },
+  { icon: <Smartphone size={18} />, title: 'Утсаар шалгах', desc: 'Бүртгэлгүйгээр' },
 ]
 
 const STEPS = [
-  { title: 'Бүртгүүл', desc: 'Каргоныхоо нэр, вэб хаягаа сонгоод и-мэйлээ баталгаажуул.', time: '2 минут' },
-  { title: 'Тохируул', desc: 'Лого, Эрээний хаяг, тариф, банкны мэдээллээ оруул.', time: '3 минут' },
-  { title: 'Хэрэглэгчдээ урь', desc: 'Линкээ хуваалц — хэрэглэгчид өөрсдөө бүртгүүлж, ачаагаа хянана.', time: 'Бэлэн' },
+  { title: 'Бүртгүүл', desc: 'Нэр, вэб хаягаа сонго', time: '2 минут' },
+  { title: 'Тохируул', desc: 'Лого, тариф, данс', time: '3 минут' },
+  { title: 'Хэрэглэгчээ урь', desc: 'Линкээ хуваалц', time: 'Бэлэн' },
 ]
 
 const PLAN_FEATURES = [
-  'Өөрийн нэртэй вэб хаяг, лого',
+  'Өөрийн нэртэй вэб, лого',
   'Хязгааргүй ачаа, хэрэглэгч',
   'Excel оруулалт, утсаар олголт',
-  'Мэдэгдэл, тайлан, аудит лог',
-  'Ажилтны нэмэлт нэвтрэлт',
-]
-
-const WAREHOUSE_BENEFITS = [
-  'Агуулахад танай каргод зориулсан тусгай зай талбай',
-  'Ачааг хүлээн авч, ангилж, баглаж шуудайлна',
-  'Гаалийн хашаа хүртэл үнэгүй зөөвөрлөнө',
-  'Монгол, хятад хэлээр цахим гэрээ — PDF хувь',
+  'Тайлан, мэдэгдэл, ажилтны эрх',
 ]
 
 interface PartnerCargo { id: number; name: string; logoUrl: string | null }
@@ -174,15 +166,13 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   )
 
   const faqs = [
-    { q: 'Үнэхээр 30 хоног үнэгүй юу? Карт шаардлагатай юу?', a: `Тийм. Эхний 30 хоног бүх боломж нь бүрэн нээлттэй, картын мэдээлэл шаардахгүй. Үргэлжлүүлэн ашиглах бол сарын ${PRICE}-ыг дансаар шилжүүлнэ.` },
-    { q: 'Одоо ашиглаж байгаа Excel өгөгдлөө оруулж болох уу?', a: 'Болно. Олон зуун трак кодыг Excel файлаас нэг дор оруулах тул одоогийн бүртгэлээ хэдхэн минутад шилжүүлнэ.' },
-    { q: 'Хэрэглэгчид минь хэрхэн ашиглах вэ?', a: 'Та өөрийн вэб хаягаа (tanaikargo.aicargo.mn) хэрэглэгчиддээ өгнө. Тэд бүртгүүлээд трак кодоо оруулж ачаагаа хянана, утсандаа апп шиг суулгаж болно. Заавар сургалт шаардлагагүй.' },
-    { q: 'Өгөгдөл минь хаана хадгалагдах вэ, аюулгүй юу?', a: 'Бүх өгөгдөл үүлэн серверт шифрлэгдэн хадгалагдаж, тогтмол нөөцлөгддөг. Карго тус бүрийн өгөгдөл бүрэн тусгаарлагдсан — танай өгөгдөлд зөвхөн та болон таны хэрэглэгчид хандана.' },
-    { q: 'Болиулбал өгөгдлөө буцааж авч чадах уу?', a: 'Тийм. Таны ачаа, хэрэглэгчийн бүртгэл таны өмч — хүссэн үедээ Excel хэлбэрээр татаж авах боломжийг бид олгоно.' },
+    { q: 'Үнэхээр 30 хоног үнэгүй юу?', a: `Тийм, бүх боломж нээлттэй, карт шаардахгүй. Дараа нь сарын ${PRICE}-ыг дансаар төлнө.` },
+    { q: 'Одоогийн Excel-ээ оруулж болох уу?', a: 'Болно. Олон зуун трак кодыг файлаас нэг дор оруулна.' },
+    { q: 'Хэрэглэгчид яаж ашиглах вэ?', a: 'Таны вэб хаягаар (tanaikargo.aicargo.mn) бүртгүүлээд ачаагаа хянана. Апп татах, заавар шаардлагагүй.' },
+    { q: 'Өгөгдөл минь аюулгүй юу?', a: 'Карго бүрийн өгөгдөл тусгаарлагдсан, тогтмол нөөцлөгддөг. Хүссэн үедээ Excel-ээр татаж авна.' },
     ...(warehouses.length ? [
-      { q: 'Эрээнд ачаа хүлээн авах хаяг гэж юу вэ?', a: 'Түншлэгч агуулахтай гэрээ байгуулж төлбөрөө төлөхөд агуулах танд өөрийн тэмдэгтэй (жш: B88) хятад хаяг бэлтгэж, тантай чатаар тохирно. Хэрэглэгчид тань Taobao, Pinduoduo зэрэгт энэ хаягийг бичиж захиалахад агуулах ачааг хүлээн авч, ангилж, баглаад Гаалийн хашаа хүртэл үнэгүй зөөвөрлөнө.' },
-      { q: 'Агуулахын гэрээний төлбөр буцаагдах уу?', a: 'Үгүй. Гэрээний төлбөр нэг удаагийн бөгөөд жил бүр төлөхгүй, гэрээ хугацаагүй. Гэрээ аль ч талын санаачилгаар цуцлагдсан тохиолдолд төлбөр буцаагдахгүй (цуцлахдаа 30 хоногийн өмнө мэдэгдэнэ).' },
-      { q: 'Карго нээгээгүй, хувь хүн бол гэрээ байгуулж болох уу?', a: 'Болно. Агуулахын хуудаснаас овог нэр, утас, и-мэйлээ бөглөж гэрээг зөвшөөрөөд хүсэлт илгээнэ — и-мэйлээр ирсэн кодоор баталгаажна. Төлбөр баталгаажмагц агуулах тантай холбогдоно. Каргогийн вэбсайтаа дараа нь хүссэн үедээ нээж болно.' },
+      { q: 'Эрээний хаяг гэж юу вэ?', a: 'Агуулах танд өөрийн тэмдэгтэй (жш: B88) хятад хаяг өгнө. Хэрэглэгчид тань Taobao, Pinduoduo-д энэ хаягийг бичихэд агуулах хүлээн авч, баглаад Гаалийн хашаа хүртэл хүргэнэ. Хувь хүн ч байгуулж болно.' },
+      { q: 'Гэрээний төлбөр буцаагдах уу?', a: 'Үгүй. Нэг удаагийн төлбөр, гэрээ хугацаагүй. Цуцлахдаа 30 хоногийн өмнө мэдэгдэнэ.' },
     ] : []),
   ]
 
@@ -223,19 +213,28 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </Reveal>
           <Reveal y={22} delay={0.16}>
             <p className="lp-lead">
-              Өөрийн нэртэй вэбсайт, ачаа бүртгэл, олголт, төлбөр — бүгд нэг дор.
-              Хэрэглэгч тань ачаагаа өөрөө хянаж, та утасны дуудлагаас чөлөөлөгдөнө.
+              Өөрийн нэртэй вэбсайт, ачаа бүртгэл, олголт — бүгд нэг дор.
+              Эрээнд ачаа хүлээн авах агуулах ч эндээс.
             </p>
           </Reveal>
           <Reveal y={22} delay={0.24}>
-            <div className="lp-cta-row" ref={heroCta}>
-              <Link href="/signup-cargo" className="btn btn-lg lp-cta-main">Каргогоо үнэгүй нээх <ArrowRight size={18} /></Link>
-              <button onClick={() => setDemoOpen(true)} className="btn-ghost btn-lg"><Monitor size={17} />Демо үзэх</button>
+            {/* Хоёр үйлчилгээ — зочин өөрт хэрэгтэйгээ шууд сонгоно */}
+            <div className="lp-offers" ref={heroCta}>
+              <Link href="/signup-cargo" className="lp-offer lp-offer-main">
+                <span className="lp-offer-ic"><Globe size={20} /></span>
+                <span className="lp-offer-txt"><b>Каргогоо үнэгүй нээх</b><small>Вэбсайт + систем · 30 хоног үнэгүй</small></span>
+                <ArrowRight size={18} className="lp-offer-go" />
+              </Link>
+              <a href={featuredWh ? '#warehouse' : '/warehouses'} className="lp-offer">
+                <span className="lp-offer-ic"><WarehouseIcon size={20} /></span>
+                <span className="lp-offer-txt"><b>Эрээнд агуулахтай болох</b><small>Хувь хүн ч болно · 3 минутад</small></span>
+                <ArrowRight size={18} className="lp-offer-go" />
+              </a>
             </div>
             <ul className="lp-assure">
-              <li><Check size={14} strokeWidth={3} />30 хоног үнэгүй</li>
               <li><Check size={14} strokeWidth={3} />Карт шаардлагагүй</li>
               <li><Check size={14} strokeWidth={3} />Суулгах шаардлагагүй</li>
+              <li><button onClick={() => setDemoOpen(true)} className="lp-demo-link"><Monitor size={14} />Демо үзэх</button></li>
             </ul>
           </Reveal>
         </section>
@@ -255,17 +254,17 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             <SectionHead
               eyebrow="Яагаад AiCargo"
               title={<>Дуудлага, Excel, чатын<br className="lp-br" /> орооцолдоонд цэг тавь</>}
-              sub="Карго эрхлэгчдийн өдөр бүр тулгардаг асуудлыг нэг системээр шийднэ"
             />
-            <Stagger className="lp-pains" gap={0.08}>
-              {PAINS.map(p => (
-                <StaggerItem key={p.before} className="lp-pain">
-                  <div className="lp-pain-before"><span className="lp-pain-x"><X size={13} strokeWidth={3} /></span>{p.before}</div>
-                  <div className="lp-pain-arrow" aria-hidden><ArrowRight size={16} /></div>
-                  <div className="lp-pain-after"><span className="lp-pain-icon">{p.icon}</span>{p.after}</div>
-                </StaggerItem>
-              ))}
-            </Stagger>
+            <div className="lp-vs">
+              <Reveal y={16} className="lp-vs-col lp-vs-old">
+                <h3>Өмнө</h3>
+                <ul>{PAINS.map(p => <li key={p.before}><span className="lp-vs-ic"><X size={13} strokeWidth={3} /></span>{p.before}</li>)}</ul>
+              </Reveal>
+              <Reveal y={16} delay={0.1} className="lp-vs-col lp-vs-new">
+                <h3>AiCargo-той</h3>
+                <ul>{PAINS.map(p => <li key={p.after}><span className="lp-vs-ic">{p.icon}</span>{p.after}</li>)}</ul>
+              </Reveal>
+            </div>
           </div>
         </section>
 
@@ -275,7 +274,6 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             <SectionHead
               eyebrow="Боломжууд"
               title="Карго болон хэрэглэгч — хоёуланд нь"
-              sub="Админ тал ажлаа хурдасгаж, хэрэглэгч тал асуултгүй болно"
             />
             <div className="lp-roles">
               {[
@@ -291,7 +289,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                     {r.items.map(it => (
                       <li key={it.title}>
                         <span className="lp-feat-ic">{it.icon}</span>
-                        <div><b>{it.title}</b><p>{it.desc}</p></div>
+                        <b>{it.title}</b><small>{it.desc}</small>
                       </li>
                     ))}
                   </ul>
@@ -304,7 +302,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         {/* ── ХЭРХЭН ЭХЛЭХ ── */}
         <section className="lp-sec lp-sec-alt">
           <div className="lp-wrap">
-            <SectionHead eyebrow="Эхлэхэд" title="3 алхам, 5 минут" sub="Техникийн мэдлэг, суулгалт хэрэггүй" />
+            <SectionHead eyebrow="Эхлэхэд" title="3 алхам, 5 минут" />
             <Stagger className="lp-steps" gap={0.12}>
               {STEPS.map((s, i) => (
                 <StaggerItem key={s.title} className="lp-step">
@@ -321,12 +319,11 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         {/* ── ҮНЭ ── */}
         <section id="pricing" className="lp-sec">
           <div className="lp-wrap">
-            <SectionHead eyebrow="Үнэ" title="Энгийн, ил тод үнэ" sub="Нуусан төлбөргүй. Хүссэн үедээ зогсооно." />
+            <SectionHead eyebrow="Үнэ" title="Энгийн, ил тод үнэ" sub="Нуусан төлбөргүй · хүссэн үедээ зогсооно" />
             <div className={`lp-plans${featuredWh ? '' : ' lp-plans-one'}`}>
               <Reveal y={20} className="lp-plan lp-plan-main">
                 <span className="lp-plan-tag">Үндсэн</span>
                 <h3>Каргогийн систем</h3>
-                <p className="lp-plan-desc">Вэбсайт, ачаа бүртгэл, олголт — бүх боломж</p>
                 <div className="lp-plan-price"><b>{PRICE}</b><span>/ сар</span></div>
                 <div className="lp-plan-free"><Gift size={14} />Эхний 30 хоног үнэгүй</div>
                 <ul>{PLAN_FEATURES.map(f => <li key={f}><Check size={15} strokeWidth={3} />{f}</li>)}</ul>
@@ -337,14 +334,12 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 <Reveal y={20} delay={0.08} className="lp-plan">
                   <span className="lp-plan-tag lp-plan-tag-alt">Нэмэлт</span>
                   <h3>Эрээнд ачаа хүлээн авах хаяг</h3>
-                  <p className="lp-plan-desc">Түншлэгч агуулахтай цахим гэрээ</p>
                   <div className="lp-plan-price"><b>{formatMnt(featuredWh.contractFee)}</b><span>нэг удаа</span></div>
                   <div className="lp-plan-free"><Gift size={14} />Бэлэг: вэбсайт +60 хоног үнэгүй</div>
                   <ul>
                     <li><Check size={15} strokeWidth={3} />Өөрийн тэмдэгтэй хаяг (жш: B88)</li>
-                    <li><Check size={15} strokeWidth={3} />Хүлээн авах, ангилах, баглах</li>
-                    <li><Check size={15} strokeWidth={3} />Гаалийн хашаа хүртэл үнэгүй</li>
-                    <li><Check size={15} strokeWidth={3} />Хувь хүн ч байгуулна, карго нээх шаардлагагүй</li>
+                    <li><Check size={15} strokeWidth={3} />Хүлээн авч, баглаад Гааль хүртэл</li>
+                    <li><Check size={15} strokeWidth={3} />Хувь хүн ч болно</li>
                   </ul>
                   <a href="#warehouse" className="btn-ghost btn-lg">Дэлгэрэнгүй <ArrowRight size={17} /></a>
                 </Reveal>
@@ -360,63 +355,40 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           const ctaHref = featured.acceptsContracts ? `${warehousePath(featured)}/contract` : '/warehouses'
           return (
             <section id="warehouse" className="lp-wh">
-              <div className="lp-wh-inner">
-                <div className="lp-wh-grid">
-                  <Reveal y={20}>
-                    <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><WarehouseIcon size={15} strokeWidth={2.2} /> Нэмэлт үйлчилгээ · Эрээн</div>
-                    <h2 className="lp-wh-title">Эрээнд ачаа хүлээн авах өөрийн хаягтай бол</h2>
-                    <p className="lp-wh-lead">
-                      Түншлэгч агуулахтай цахим гэрээ байгуулснаар ачаа тань Эрээнд найдвартай гарт очно —
-                      агуулах хүлээн авч, баглаад Гаалийн хашаа хүртэл хүргэнэ.
-                    </p>
-                    <ul className="lp-wh-list">
-                      {WAREHOUSE_BENEFITS.map(b => <li key={b}><span><Check size={13} strokeWidth={3} /></span>{b}</li>)}
-                    </ul>
-                    <div className="lp-wh-actions">
-                      <Link href={ctaHref} className="btn">Эрээнд хаяг авах <ArrowRight size={16} /></Link>
-                      <Link href="/warehouses" className="btn-ghost">Агуулахуудыг үзэх</Link>
-                    </div>
-                    <p className="lp-wh-note">Хувь хүн ч байгуулна · карго нээх шаардлагагүй · 3 минут.</p>
-                  </Reveal>
-                  <Link href={warehousePath(featured)} className="lp-wh-photo">
-                    {featured.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={cloudinaryThumb(featured.imageUrl, 900)} alt={featured.name} loading="lazy" />
-                    ) : <span className="lp-wh-photo-empty"><Factory size={40} strokeWidth={1.5} /></span>}
-                    <span className="lp-wh-photo-cap">{featured.name} · зураг, үйлчилгээ →</span>
-                  </Link>
-                </div>
-
-                <ol className="lp-wh-flow">
-                  {['Хүсэлт илгээж гэрээг зөвшөөр', 'Төлбөрөө төл', 'Агуулахтай хаягаа тохир'].map((t, i) => (
-                    <li key={t}><b>{i + 1}</b>{t}</li>
-                  ))}
-                </ol>
-
-                {warehouses.length > 1 && (
-                  <div className="lp-wh-cards">
-                    {warehouses.map(w => (
-                      <div key={w.id} className="lp-wh-card">
-                        <Link href={warehousePath(w)} className="lp-wh-card-img">
-                          {w.imageUrl
-                            // eslint-disable-next-line @next/next/no-img-element
-                            ? <img src={cloudinaryThumb(w.imageUrl, 400)} alt={w.name} loading="lazy" />
-                            : <span><Factory size={28} strokeWidth={1.6} /></span>}
-                        </Link>
-                        <div className="lp-wh-card-body">
-                          <div className="lp-wh-card-name">{w.name}</div>
-                          <div className="lp-wh-card-fee">Гэрээ: <b>{formatMnt(w.contractFee)}</b></div>
-                          <div className="lp-wh-card-actions">
-                            {w.acceptsContracts
-                              ? <Link href={`${warehousePath(w)}/contract`} className="lp-wh-card-cta">Хаяг авах</Link>
-                              : <span className="lp-wh-card-soon">Удахгүй</span>}
-                            <Link href={warehousePath(w)} className="lp-wh-card-more">Дэлгэрэнгүй</Link>
-                          </div>
-                        </div>
-                      </div>
+              <div className="lp-wh-inner lp-wh-grid">
+                <Reveal y={20}>
+                  <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><WarehouseIcon size={15} strokeWidth={2.2} /> Нэмэлт үйлчилгээ · Эрээн</div>
+                  <h2 className="lp-wh-title">Эрээнд ачаа хүлээн авах өөрийн хаягтай бол</h2>
+                  <p className="lp-wh-lead">Хувь хүн ч болно, карго нээх шаардлагагүй.</p>
+                  <ol className="lp-wh-flow">
+                    {['Хүсэлт', 'Төлбөр', 'Хаягаа тохир'].map((t, i) => (
+                      <li key={t}><b>{i + 1}</b>{t}</li>
                     ))}
-                  </div>
-                )}
+                  </ol>
+                  <Link href={ctaHref} className="btn lp-wh-cta">Эрээнд хаяг авах <ArrowRight size={16} /></Link>
+                </Reveal>
+
+                {/* Агуулах бүр — зураг, үнэ; дарахад дэлгэрэнгүй хуудас */}
+                <div className="lp-wh-cards">
+                  {warehouses.map(w => (
+                    <Link key={w.id} href={warehousePath(w)} className="lp-wh-card">
+                      <span className="lp-wh-card-img">
+                        {w.imageUrl
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={cloudinaryThumb(w.imageUrl, 400)} alt={w.name} loading="lazy" />
+                          : <Factory size={28} strokeWidth={1.6} />}
+                      </span>
+                      <span className="lp-wh-card-body">
+                        <span className="lp-wh-card-name">{w.name}</span>
+                        <span className="lp-wh-card-fee"><b>{formatMnt(w.contractFee)}</b> нэг удаа</span>
+                        {w.acceptsContracts
+                          ? <span className="lp-wh-card-tag on">Гэрээ хийж байна</span>
+                          : <span className="lp-wh-card-tag">Удахгүй</span>}
+                      </span>
+                      <ArrowRight size={17} className="lp-wh-card-go" />
+                    </Link>
+                  ))}
+                </div>
               </div>
             </section>
           )
