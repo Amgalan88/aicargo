@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import StaleEreen from './StaleEreen'
-import { ResultRow, ResultSummaryCard, type ResultShipment, type ResultSummary, type Transit } from './ShipmentResults'
+import { ResultRow, ResultSummaryCard, type ResultShipment, type ResultSummary } from './ShipmentResults'
 import { DELETION_SOURCE_LABELS } from '@/lib/shipment-deletion'
 
 interface Row { trackCode: string; phone?: string }
@@ -71,7 +71,6 @@ export default function ImportPage() {
   const [activeQ, setActiveQ] = useState('')
   const [listOpen, setListOpen] = useState(false)
   const [deletedResults, setDeletedResults] = useState<DeletedResult[]>([])
-  const [transit, setTransit] = useState<Transit>(null)
   const [summary, setSummary] = useState<ResultSummary | null>(null)
   const [arrivedLabel, setArrivedLabel] = useState<string | null>(null)
   const [ereemLabel, setEreemLabel] = useState<string | null>(null)
@@ -97,7 +96,6 @@ export default function ImportPage() {
       setSearchTotal(data.total)
       setSearchPage(data.page)
       setDeletedResults(data.deleted ?? [])
-      setTransit(data.transit ?? null)
       setSummary(data.summary ?? null)
     }
   }
@@ -320,7 +318,6 @@ export default function ImportPage() {
                         key={s.id}
                         s={s}
                         label={STATUS_LABEL[s.status] ?? s.status}
-                        transit={transit}
                         // Утсаар хайсан бол бүх мөрөнд ижил утас — давтаж харуулахгүй
                         showContact={!(activeQ && /^\+?\d{6,}$/.test(activeQ))}
                         onDelete={s.status === 'EREEN_ARRIVED' ? async () => {

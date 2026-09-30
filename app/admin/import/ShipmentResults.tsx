@@ -2,14 +2,13 @@
 import { useState } from 'react'
 
 // Админы хайлт / Эрээний жагсаалтын мөр — ачааны одоогийн төлөв, тухайн төлөвт орсон огноо, хэдэн хоног болсон.
-// "Эрээнд 9/26 · 4 хоног · ~10/2 ирэх төлөвтэй"
+// "Эрээнд 9/26 бүртгэгдсэн"
 
 export interface ResultShipment {
   id: number; trackCode: string; status: string; phone: string | null
   createdAt: string; updatedAt: string; ereenArrivedAt: string | null; arrivedAt: string | null
   user?: { name: string; phone: string } | null
 }
-export type Transit = { median: number; p90: number; n: number } | null
 export interface ResultSummary { counts: Record<string, number>; ereenFrom: string | null; ereenTo: string | null }
 
 // Улаанбаатарын календарийн өдрөөр тооцно
@@ -23,8 +22,6 @@ function md(n: number): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
 }
 const mdIso = (iso: string) => md(dayNum(iso))
-const since = (iso: string) => dayNum(new Date()) - dayNum(iso)
-const daysText = (d: number) => (d <= 0 ? 'өнөөдөр' : `${d} хоног`)
 
 const STATUS = {
   REGISTERED: { label: 'Бүртгэсэн', cls: 'sr-st-reg' },
@@ -33,26 +30,22 @@ const STATUS = {
   PICKED_UP: { label: 'Олгосон', cls: 'sr-st-picked' },
 } as const
 
-// Төлөв бүрт: тухайн төлөвт бүртгэгдсэн огноо, хэдэн хоног болсон
+// Төлөв бүрт: тухайн төлөвт бүртгэгдсэн огноо
 // ("Олгосон" огноо тусдаа хадгалагддаггүй тул сүүлд өөрчлөгдсөн огноо)
-function Meta({ s, transit }: { s: ResultShipment; transit: Transit }) {
+function Meta({ s }: { s: ResultShipment }) {
   if (s.status === 'EREEN_ARRIVED') {
-    if (!s.ereenArrivedAt) return <>Эрээнд бүртгэгдсэн огноо тодорхойгүй</>
-    const d = since(s.ereenArrivedAt)
-    const eta = transit ? dayNum(s.ereenArrivedAt) + Math.round(transit.median) : null
-    return <>Эрээнд {mdIso(s.ereenArrivedAt)} бүртгэгдсэн · {daysText(d)}{eta != null && (eta >= dayNum(new Date()) ? ` · ~${md(eta)} ирэх төлөвтэй` : ' · ирэх хугацаа нь болсон')}</>
+    return <>{s.ereenArrivedAt ? `Эрээнд ${mdIso(s.ereenArrivedAt)} бүртгэгдсэн` : 'Эрээнд бүртгэгдсэн огноо тодорхойгүй'}</>
   }
-  if (s.status === 'REGISTERED') return <>{mdIso(s.createdAt)} бүртгүүлсэн · {daysText(since(s.createdAt))} · Эрээнд бүртгэгдээгүй</>
-  if (s.status === 'ARRIVED') return <>{s.arrivedAt ? `УБ-д ${mdIso(s.arrivedAt)} ирсэн · ${daysText(since(s.arrivedAt))} · ` : ''}авахыг хүлээж байна</>
+  if (s.status === 'REGISTERED') return <>{mdIso(s.createdAt)} бүртгүүлсэн · Эрээнд бүртгэгдээгүй</>
+  if (s.status === 'ARRIVED') return <>{s.arrivedAt ? `УБ-д ${mdIso(s.arrivedAt)} ирсэн` : 'УБ-д ирсэн'}</>
   if (s.status === 'PICKED_UP') return <>{mdIso(s.updatedAt)} олгосон{s.arrivedAt ? ` · УБ-д ${mdIso(s.arrivedAt)} ирсэн` : ''}</>
   return null
 }
 
-export function ResultRow({ s, label, transit, showContact, onDelete }: {
+export function ResultRow({ s, label, showContact, onDelete }: {
   s: ResultShipment
   // Каргоны өөрийн тохируулсан төлвийн нэр (жш: "Эрээнээс 9/26, 27, 30")
   label: string
-  transit: Transit
   showContact: boolean
   onDelete?: () => void
 }) {
@@ -70,7 +63,7 @@ export function ResultRow({ s, label, transit, showContact, onDelete }: {
         <span className="sr-code">{s.trackCode}</span>
         <span className={`sr-label${s.status === 'ARRIVED' ? ' sr-label-arrived' : ''}`}>{label}</span>
         <span className="sr-meta">
-          <Meta s={s} transit={transit} />
+          <Meta s={s} />
           {contact && <span className="sr-contact"> · {contact}</span>}
         </span>
       </button>
