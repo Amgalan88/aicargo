@@ -6,13 +6,11 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import StaleEreen from './StaleEreen'
+import { ResultRow, ResultSummaryCard, type ResultShipment, type ResultSummary, type Transit } from './ShipmentResults'
 import { DELETION_SOURCE_LABELS } from '@/lib/shipment-deletion'
 
 interface Row { trackCode: string; phone?: string }
-interface SearchResult {
-  id: number; trackCode: string; status: string; phone: string | null
-  createdAt: string; user?: { name: string; phone: string } | null
-}
+type SearchResult = ResultShipment
 interface DeletedResult {
   id: number; trackCode: string; phone: string | null; customerName: string | null; description: string | null
   status: string; ereenArrivedAt: string | null; source: string; note: string | null; deletedByName: string; deletedAt: string
@@ -73,6 +71,8 @@ export default function ImportPage() {
   const [activeQ, setActiveQ] = useState('')
   const [listOpen, setListOpen] = useState(false)
   const [deletedResults, setDeletedResults] = useState<DeletedResult[]>([])
+  const [transit, setTransit] = useState<Transit>(null)
+  const [summary, setSummary] = useState<ResultSummary | null>(null)
   const [arrivedLabel, setArrivedLabel] = useState<string | null>(null)
   const [ereemLabel, setEreemLabel] = useState<string | null>(null)
   const STATUS_LABEL = getStatusLabel(arrivedLabel, ereemLabel)
@@ -97,6 +97,8 @@ export default function ImportPage() {
       setSearchTotal(data.total)
       setSearchPage(data.page)
       setDeletedResults(data.deleted ?? [])
+      setTransit(data.transit ?? null)
+      setSummary(data.summary ?? null)
     }
   }
 
@@ -313,49 +315,24 @@ export default function ImportPage() {
               ? <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Олдсонгүй.</p>
               : <>
                   <div className="card" style={{ overflow: 'hidden', marginBottom: '0.75rem' }}>
-                    {searchResults.map((s, i) => (
-                      <div key={s.id} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '0.55rem 1rem', gap: '0.5rem',
-                        borderBottom: i < searchResults.length - 1 ? '1px solid var(--border)' : 'none',
-                        fontSize: '0.83rem',
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{s.trackCode}</span>
-                          <span style={{ color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {s.user ? s.user.phone : (s.phone || '—')}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
-                            {(() => { const d = new Date(s.createdAt); return `${d.getMonth()+1}.${String(d.getDate()).padStart(2,'0')}` })()}
-                          </span>
-                          <span style={{
-                            fontSize: '0.7rem', padding: '0.1rem 0.5rem', borderRadius: '100px',
-                            background: s.status === 'EREEN_ARRIVED' ? 'var(--surface2)' : s.status === 'ARRIVED' ? 'color-mix(in srgb, var(--yellow) 12%, transparent)' : 'var(--surface2)',
-                            color: s.status === 'ARRIVED' ? 'var(--accent)' : 'var(--muted)',
-                            border: '1px solid var(--border)',
-                          }}>{STATUS_LABEL[s.status] ?? s.status}</span>
-                          {s.status === 'EREEN_ARRIVED' && (
-                            <button
-                              onClick={async () => {
-                                if (!await confirmAsync(`"${s.trackCode}" устгах уу?`)) return
-                                const res = await fetch('/api/admin/ereen/recent', {
-                                  method: 'DELETE',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ id: s.id }),
-                                })
-                                if (res.ok) loadList(activeQ, searchPage)
-                                else toast.error((await res.json().catch(() => ({}))).error || 'Устгаж чадсангүй')
-                              }}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem', padding: '0.1rem 0.25rem', lineHeight: 1 }}
-                              onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-                              onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
-                              title="Устгах"
-                            >✕</button>
-                          )}
-                        </div>
-                      </div>
+                    {searchResults.map(s => (
+                      <ResultRow
+                        key={s.id}
+                        s={s}
+                        transit={transit}
+                        // Утсаар хайсан бол бүх мөрөнд ижил утас — давтаж харуулахгүй
+                        showContact={!(activeQ && /^\+?\d{6,}$/.test(activeQ))}
+                        onDelete={s.status === 'EREEN_ARRIVED' ? async () => {
+                          if (!await confirmAsync(`"${s.trackCode}" устгах уу?`)) return
+                          const res = await fetch('/api/admin/ereen/recent', {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: s.id }),
+                          })
+                          if (res.ok) loadList(activeQ, searchPage)
+                          else toast.error((await res.json().catch(() => ({}))).error || 'Устгаж чадсангүй')
+                        } : undefined}
+                      />
                     ))}
                   </div>
                   {searchTotal > 20 && (
@@ -685,6 +662,7 @@ export default function ImportPage() {
         {activeQ ? (
           <>
             <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 0.5rem' }}>"{activeQ}" — {searchTotal} бараа олдлоо</p>
+            {summary && <ResultSummaryCard summary={summary} transit={transit} />}
             {searchResults?.length === 0 && deletedResults.length > 0 ? null : renderResults()}
         {activeQ && deletedResults.length > 0 && (
           <div style={{ marginTop: '1rem' }}>
