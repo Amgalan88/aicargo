@@ -930,29 +930,14 @@ textarea.input { resize: vertical; }
 /* Админы хайлт / Эрээний жагсаалтын мөр (import/ShipmentResults) */
 .sr-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; border-bottom: 1px solid var(--border); }
 .sr-row:last-child { border-bottom: none; }
-.sr-main { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.6rem; align-items: center; padding: 0.6rem 0.9rem; cursor: pointer; min-width: 0; }
-.sr-main:hover { background: var(--surface2); }
-.sr-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sr-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.6rem; align-items: center; padding: 0.6rem 0.9rem; min-width: 0; }
 .sr-code { font-family: monospace; font-weight: 700; font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr-meta { grid-column: 1 / -1; font-size: 0.74rem; color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
 .sr-contact { color: var(--muted); }
 /* Каргоны өөрийн төлвийн нэр — өмнөх хэлбэрээрээ */
 .sr-label { font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 100px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
-.sr-label-arrived { background: color-mix(in srgb, var(--yellow) 12%, transparent); color: var(--accent); }
-.sr-st { display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 700; padding: 0.12rem 0.55rem; border-radius: 100px; white-space: nowrap; }
-.sr-st-reg { background: var(--surface2); color: var(--muted); }
-.sr-st-ereen { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
-.sr-st-arrived { background: color-mix(in srgb, var(--yellow) 16%, transparent); color: var(--yellow); }
-.sr-st-picked { background: color-mix(in srgb, var(--green) 12%, transparent); color: var(--green); }
 .sr-del { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 0.85rem; padding: 0.7rem 0.8rem 0 0.2rem; line-height: 1; }
 .sr-del:hover { color: var(--danger); }
-.sr-tl { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; padding: 0 0.9rem 0.7rem; }
-.sr-tl div { border-top: 3px solid var(--border); padding-top: 0.3rem; font-size: 0.72rem; color: var(--muted); line-height: 1.35; }
-.sr-tl div.done { border-color: var(--green); color: var(--text); }
-.sr-tl div.now { border-color: var(--blue); color: var(--text); }
-.sr-tl b { display: block; font-size: 0.7rem; }
-.sr-summary { display: grid; gap: 0.35rem; padding: 0.6rem 0.8rem; margin-bottom: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-.sr-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 
 /* Вэбсайтын төлбөр (admin) — сануулга, хаагдсан цонх, /admin/billing */
 .bp { text-align: left; }

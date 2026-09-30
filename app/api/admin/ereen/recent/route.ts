@@ -13,15 +13,14 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(req.nextUrl.searchParams.get('page') || '1'))
   const limit = 20
 
-  // When no query: show only EREEN_ARRIVED. When searching: search all statuses, both phone and trackCode.
-  const where = q
-    ? {
-        cargoId: admin.cargoId!,
-        OR: [{ trackCode: { contains: q.toUpperCase() } }, { phone: { contains: q } }],
-      }
-    : { cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' as const }
+  // Эрээний хуудас — зөвхөн "Эрээнд" төлөвтэй ачаа; хайлт утас эсвэл трак кодоор
+  const where = {
+    cargoId: admin.cargoId!,
+    status: 'EREEN_ARRIVED' as const,
+    ...(q ? { OR: [{ trackCode: { contains: q.toUpperCase() } }, { phone: { contains: q } }] } : {}),
+  }
 
-  const [total, shipments, byStatus, ereenRange] = await Promise.all([
+  const [total, shipments] = await Promise.all([
     prisma.shipment.count({ where }),
     prisma.shipment.findMany({
       where,
@@ -40,15 +39,7 @@ export async function GET(req: NextRequest) {
         user: { select: { name: true, phone: true } },
       },
     }),
-    // Хайлтын товч дүгнэлт: төлөв тус бүрийн тоо, Эрээнд ирсэн огнооны хүрээ
-    q ? prisma.shipment.groupBy({ by: ['status'], where, _count: { _all: true } }) : Promise.resolve([]),
-    q ? prisma.shipment.aggregate({ where: { ...where, status: 'EREEN_ARRIVED' }, _min: { ereenArrivedAt: true }, _max: { ereenArrivedAt: true } }) : Promise.resolve(null),
   ])
-  const summary = q ? {
-    counts: Object.fromEntries(byStatus.map(r => [r.status, r._count._all])),
-    ereenFrom: ereenRange?._min.ereenArrivedAt ?? null,
-    ereenTo: ereenRange?._max.ereenArrivedAt ?? null,
-  } : null
 
   // Хайлтад тохирох устгагдсан ачаа — "энэ ачаа яасан бэ" гэдэгт хариулна
   const deleted = q && page === 1
@@ -63,7 +54,7 @@ export async function GET(req: NextRequest) {
       })
     : []
 
-  return NextResponse.json({ items: shipments, total, page, limit, deleted, summary })
+  return NextResponse.json({ items: shipments, total, page, limit, deleted })
 }
 
 export async function DELETE(req: NextRequest) {

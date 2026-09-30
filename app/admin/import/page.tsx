@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import StaleEreen from './StaleEreen'
-import { ResultRow, ResultSummaryCard, type ResultShipment, type ResultSummary } from './ShipmentResults'
+import { ResultRow, type ResultShipment } from './ShipmentResults'
 import { DELETION_SOURCE_LABELS } from '@/lib/shipment-deletion'
 
 interface Row { trackCode: string; phone?: string }
@@ -71,7 +71,6 @@ export default function ImportPage() {
   const [activeQ, setActiveQ] = useState('')
   const [listOpen, setListOpen] = useState(false)
   const [deletedResults, setDeletedResults] = useState<DeletedResult[]>([])
-  const [summary, setSummary] = useState<ResultSummary | null>(null)
   const [arrivedLabel, setArrivedLabel] = useState<string | null>(null)
   const [ereemLabel, setEreemLabel] = useState<string | null>(null)
   const STATUS_LABEL = getStatusLabel(arrivedLabel, ereemLabel)
@@ -96,7 +95,6 @@ export default function ImportPage() {
       setSearchTotal(data.total)
       setSearchPage(data.page)
       setDeletedResults(data.deleted ?? [])
-      setSummary(data.summary ?? null)
     }
   }
 
@@ -660,7 +658,6 @@ export default function ImportPage() {
         {activeQ ? (
           <>
             <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 0.5rem' }}>"{activeQ}" — {searchTotal} бараа олдлоо</p>
-            {summary && <ResultSummaryCard summary={summary} />}
             {searchResults?.length === 0 && deletedResults.length > 0 ? null : renderResults()}
         {activeQ && deletedResults.length > 0 && (
           <div style={{ marginTop: '1rem' }}>
