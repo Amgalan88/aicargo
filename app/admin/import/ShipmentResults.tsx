@@ -2,7 +2,7 @@
 import { useState } from 'react'
 
 // Админы хайлт / Эрээний жагсаалтын мөр — ачааны одоогийн төлөв, тухайн төлөвт орсон огноо, хэдэн хоног болсон.
-// "Эрээнд 9/26 · 4 хоног · ~10/2 ирэх төлөвтэй"; каргоны ердийн хугацаанаас удсан бол "Удаж байна".
+// "Эрээнд 9/26 · 4 хоног · ~10/2 ирэх төлөвтэй"
 
 export interface ResultShipment {
   id: number; trackCode: string; status: string; phone: string | null
@@ -48,7 +48,6 @@ function Meta({ s, transit }: { s: ResultShipment; transit: Transit }) {
   if (s.status === 'EREEN_ARRIVED') {
     if (!s.ereenArrivedAt) return <>Эрээнд ирсэн огноо тодорхойгүй</>
     const d = since(s.ereenArrivedAt)
-    if (transit && d > Math.ceil(transit.p90)) return <span className="sr-late">Удаж байна · {d} хоног</span>
     if (!transit) return <>{daysText(d)}</>
     const eta = dayNum(s.ereenArrivedAt) + Math.round(transit.median)
     return <>{daysText(d)} · {eta >= dayNum(new Date()) ? `~${md(eta)} ирэх төлөвтэй` : 'ирэх хугацаа нь болсон'}</>
@@ -101,22 +100,15 @@ export function ResultRow({ s, transit, showContact, onDelete }: {
   )
 }
 
-export function ResultSummaryCard({ summary, transit }: { summary: ResultSummary; transit: Transit }) {
+export function ResultSummaryCard({ summary }: { summary: ResultSummary }) {
   const order: (keyof typeof STATUS)[] = ['EREEN_ARRIVED', 'ARRIVED', 'REGISTERED', 'PICKED_UP']
   const chips = order.filter(k => summary.counts[k])
   if (!chips.length) return null
-  const notes = [
-    summary.ereenFrom && summary.ereenTo
-      ? `Эрээнд ${mdIso(summary.ereenFrom)}${mdIso(summary.ereenFrom) !== mdIso(summary.ereenTo) ? `–${mdIso(summary.ereenTo)}` : ''} ирсэн`
-      : null,
-    transit ? `энэ карго ихэвчлэн ~${Math.round(transit.median)} хоногт УБ-д ирүүлдэг` : null,
-  ].filter(Boolean)
   return (
     <div className="sr-summary">
       <div className="sr-chips">
         {chips.map(k => <span key={k} className={`sr-st ${STATUS[k].cls}`}>{k === 'REGISTERED' ? 'Бүртгүүлсэн' : k === 'ARRIVED' ? 'УБ-д ирсэн' : STATUS[k].label} {summary.counts[k]}</span>)}
       </div>
-      {notes.length > 0 && <p>{notes.join(' · ')}</p>}
     </div>
   )
 }

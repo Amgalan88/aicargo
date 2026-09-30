@@ -662,7 +662,7 @@ export default function ImportPage() {
         {activeQ ? (
           <>
             <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 0.5rem' }}>"{activeQ}" — {searchTotal} бараа олдлоо</p>
-            {summary && <ResultSummaryCard summary={summary} transit={transit} />}
+            {summary && <ResultSummaryCard summary={summary} />}
             {searchResults?.length === 0 && deletedResults.length > 0 ? null : renderResults()}
         {activeQ && deletedResults.length > 0 && (
           <div style={{ marginTop: '1rem' }}>
