@@ -7,22 +7,9 @@ import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import StaleEreen from './StaleEreen'
 import { ResultRow, type ResultShipment } from './ShipmentResults'
-import { DELETION_SOURCE_LABELS } from '@/lib/shipment-deletion'
 
 interface Row { trackCode: string; phone?: string }
 type SearchResult = ResultShipment
-interface DeletedResult {
-  id: number; trackCode: string; phone: string | null; customerName: string | null; description: string | null
-  status: string; ereenArrivedAt: string | null; source: string; note: string | null; deletedByName: string; deletedAt: string
-}
-
-// Улаанбаатарын цагаар YYYY.MM.DD HH:mm
-const UB_DT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
-function fmtUb(iso: string): string {
-  const p = Object.fromEntries(UB_DT.formatToParts(new Date(iso)).map(x => [x.type, x.value]))
-  return `${p.year}.${p.month}.${p.day} ${p.hour === '24' ? '00' : p.hour}:${p.minute}`
-}
-
 const PAGE_SIZE = 20
 const COLS = 2
 const ROWS = PAGE_SIZE / COLS  // 10 rows
@@ -70,7 +57,6 @@ export default function ImportPage() {
   // Хайлт хийсэн үг (хоосон бол Эрээний жагсаалтын горим) ба жагсаалтыг дэлгэх эсэх
   const [activeQ, setActiveQ] = useState('')
   const [listOpen, setListOpen] = useState(false)
-  const [deletedResults, setDeletedResults] = useState<DeletedResult[]>([])
   const [arrivedLabel, setArrivedLabel] = useState<string | null>(null)
   const [ereemLabel, setEreemLabel] = useState<string | null>(null)
   const STATUS_LABEL = getStatusLabel(arrivedLabel, ereemLabel)
@@ -94,7 +80,6 @@ export default function ImportPage() {
       setSearchResults(data.items)
       setSearchTotal(data.total)
       setSearchPage(data.page)
-      setDeletedResults(data.deleted ?? [])
     }
   }
 
@@ -658,29 +643,7 @@ export default function ImportPage() {
         {activeQ ? (
           <>
             <p style={{ fontSize: '0.78rem', color: 'var(--muted)', margin: '0 0 0.5rem' }}>"{activeQ}" — {searchTotal} бараа олдлоо</p>
-            {searchResults?.length === 0 && deletedResults.length > 0 ? null : renderResults()}
-        {activeQ && deletedResults.length > 0 && (
-          <div style={{ marginTop: '1rem' }}>
-            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, margin: '0 0 0.5rem', color: 'var(--danger)' }}>Устгагдсан бараа ({deletedResults.length})</h3>
-            <div className="card" style={{ overflow: 'hidden', borderColor: 'color-mix(in srgb, var(--danger) 40%, var(--border))' }}>
-              {deletedResults.map((d, i) => (
-                <div key={d.id} style={{ padding: '0.6rem 1rem', borderBottom: i < deletedResults.length - 1 ? '1px solid var(--border)' : 'none', fontSize: '0.8rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.84rem' }}>{d.trackCode}</span>
-                    <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.5rem', borderRadius: 100, background: 'color-mix(in srgb, var(--danger) 12%, transparent)', color: 'var(--danger)', fontWeight: 700 }}>Устгагдсан</span>
-                    <span style={{ color: 'var(--muted)' }}>{[d.phone, d.customerName, d.description].filter(Boolean).join(' · ')}</span>
-                  </div>
-                  <div style={{ color: 'var(--muted)', marginTop: '0.25rem', lineHeight: 1.55 }}>
-                    <b style={{ color: 'var(--text)' }}>{fmtUb(d.deletedAt)}</b>-нд <b style={{ color: 'var(--text)' }}>{d.deletedByName}</b> устгасан · {DELETION_SOURCE_LABELS[d.source] ?? d.source}
-                    {d.note && <> ({d.note})</>}
-                    <br />
-                    Устгах үеийн төлөв: {STATUS_LABEL[d.status] ?? d.status}{d.ereenArrivedAt && <> · Эрээнд ирсэн: {fmtUb(d.ereenArrivedAt)}</>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+            {renderResults()}
           </>
         ) : (
           <>

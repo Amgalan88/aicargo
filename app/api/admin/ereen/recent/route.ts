@@ -41,20 +41,7 @@ export async function GET(req: NextRequest) {
     }),
   ])
 
-  // Хайлтад тохирох устгагдсан ачаа — "энэ ачаа яасан бэ" гэдэгт хариулна
-  const deleted = q && page === 1
-    ? await prisma.shipmentDeletion.findMany({
-        where: { cargoId: admin.cargoId!, OR: [{ trackCode: { contains: q.toUpperCase() } }, { phone: { contains: q } }] },
-        orderBy: { deletedAt: 'desc' },
-        take: 20,
-        select: {
-          id: true, trackCode: true, phone: true, customerName: true, description: true, status: true,
-          ereenArrivedAt: true, source: true, note: true, deletedByName: true, deletedAt: true,
-        },
-      })
-    : []
-
-  return NextResponse.json({ items: shipments, total, page, limit, deleted })
+  return NextResponse.json({ items: shipments, total, page, limit })
 }
 
 export async function DELETE(req: NextRequest) {
