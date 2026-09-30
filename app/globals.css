@@ -936,6 +936,9 @@ textarea.input { resize: vertical; }
 .sr-code { font-family: monospace; font-weight: 700; font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr-meta { grid-column: 1 / -1; font-size: 0.74rem; color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
 .sr-contact { color: var(--muted); }
+/* Каргоны өөрийн төлвийн нэр — өмнөх хэлбэрээрээ */
+.sr-label { font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 100px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
+.sr-label-arrived { background: color-mix(in srgb, var(--yellow) 12%, transparent); color: var(--accent); }
 .sr-st { display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 700; padding: 0.12rem 0.55rem; border-radius: 100px; white-space: nowrap; }
 .sr-st-reg { background: var(--surface2); color: var(--muted); }
 .sr-st-ereen { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }

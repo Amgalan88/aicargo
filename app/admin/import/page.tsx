@@ -319,6 +319,7 @@ export default function ImportPage() {
                       <ResultRow
                         key={s.id}
                         s={s}
+                        label={STATUS_LABEL[s.status] ?? s.status}
                         transit={transit}
                         // Утсаар хайсан бол бүх мөрөнд ижил утас — давтаж харуулахгүй
                         showContact={!(activeQ && /^\+?\d{6,}$/.test(activeQ))}

@@ -33,40 +33,30 @@ const STATUS = {
   PICKED_UP: { label: 'Олгосон', cls: 'sr-st-picked' },
 } as const
 
-// Төлөвт орсон огноо ("Олгосон" тусдаа хадгалагддаггүй тул сүүлд өөрчлөгдсөн огноо)
-function statusDate(s: ResultShipment): string | null {
-  switch (s.status) {
-    case 'REGISTERED': return s.createdAt
-    case 'EREEN_ARRIVED': return s.ereenArrivedAt
-    case 'ARRIVED': return s.arrivedAt
-    case 'PICKED_UP': return s.updatedAt
-    default: return null
-  }
-}
-
+// Төлөв бүрт: тухайн төлөвт бүртгэгдсэн огноо, хэдэн хоног болсон
+// ("Олгосон" огноо тусдаа хадгалагддаггүй тул сүүлд өөрчлөгдсөн огноо)
 function Meta({ s, transit }: { s: ResultShipment; transit: Transit }) {
   if (s.status === 'EREEN_ARRIVED') {
-    if (!s.ereenArrivedAt) return <>Эрээнд ирсэн огноо тодорхойгүй</>
+    if (!s.ereenArrivedAt) return <>Эрээнд бүртгэгдсэн огноо тодорхойгүй</>
     const d = since(s.ereenArrivedAt)
-    if (!transit) return <>{daysText(d)}</>
-    const eta = dayNum(s.ereenArrivedAt) + Math.round(transit.median)
-    return <>{daysText(d)} · {eta >= dayNum(new Date()) ? `~${md(eta)} ирэх төлөвтэй` : 'ирэх хугацаа нь болсон'}</>
+    const eta = transit ? dayNum(s.ereenArrivedAt) + Math.round(transit.median) : null
+    return <>Эрээнд {mdIso(s.ereenArrivedAt)} бүртгэгдсэн · {daysText(d)}{eta != null && (eta >= dayNum(new Date()) ? ` · ~${md(eta)} ирэх төлөвтэй` : ' · ирэх хугацаа нь болсон')}</>
   }
-  if (s.status === 'REGISTERED') return <>{daysText(since(s.createdAt))} · Эрээнд бүртгэгдээгүй</>
-  if (s.status === 'ARRIVED') return <>{s.arrivedAt ? `УБ-д ирээд ${daysText(since(s.arrivedAt))} · ` : ''}авахыг хүлээж байна</>
-  if (s.status === 'PICKED_UP') return <>{s.arrivedAt ? `УБ-д ${mdIso(s.arrivedAt)} ирсэн` : 'Олгосон'}</>
+  if (s.status === 'REGISTERED') return <>{mdIso(s.createdAt)} бүртгүүлсэн · {daysText(since(s.createdAt))} · Эрээнд бүртгэгдээгүй</>
+  if (s.status === 'ARRIVED') return <>{s.arrivedAt ? `УБ-д ${mdIso(s.arrivedAt)} ирсэн · ${daysText(since(s.arrivedAt))} · ` : ''}авахыг хүлээж байна</>
+  if (s.status === 'PICKED_UP') return <>{mdIso(s.updatedAt)} олгосон{s.arrivedAt ? ` · УБ-д ${mdIso(s.arrivedAt)} ирсэн` : ''}</>
   return null
 }
 
-export function ResultRow({ s, transit, showContact, onDelete }: {
+export function ResultRow({ s, label, transit, showContact, onDelete }: {
   s: ResultShipment
+  // Каргоны өөрийн тохируулсан төлвийн нэр (жш: "Эрээнээс 9/26, 27, 30")
+  label: string
   transit: Transit
   showContact: boolean
   onDelete?: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const st = STATUS[s.status as keyof typeof STATUS] ?? { label: s.status, cls: 'sr-st-reg' }
-  const date = statusDate(s)
   const contact = showContact ? [s.user?.phone ?? s.phone, s.user?.name].filter(Boolean).join(' · ') : ''
   const steps: [string, string | null, boolean][] = [
     ['Бүртгэсэн', s.createdAt, true],
@@ -78,7 +68,7 @@ export function ResultRow({ s, transit, showContact, onDelete }: {
     <div className="sr-row">
       <button type="button" className="sr-main" onClick={() => setOpen(o => !o)} aria-expanded={open}>
         <span className="sr-code">{s.trackCode}</span>
-        <span className={`sr-st ${st.cls}`}>{st.label}{date ? ` ${mdIso(date)}` : ''}</span>
+        <span className={`sr-label${s.status === 'ARRIVED' ? ' sr-label-arrived' : ''}`}>{label}</span>
         <span className="sr-meta">
           <Meta s={s} transit={transit} />
           {contact && <span className="sr-contact"> · {contact}</span>}
