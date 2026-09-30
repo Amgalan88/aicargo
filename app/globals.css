@@ -927,6 +927,34 @@ textarea.input { resize: vertical; }
 .lp-assure li { display: inline-flex; align-items: center; gap: 0.35rem; }
 .lp-assure svg { color: var(--green); }
 .lp-mock { padding: 0.75rem 0 clamp(3rem, 7vw, 4.5rem); }
+/* Вэбсайтын төлбөр (admin) — сануулга, хаагдсан цонх, /admin/billing */
+.bp { text-align: left; }
+.bp-offer { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.85rem 1rem; border-radius: 12px; margin-bottom: 0.8rem; background: var(--accent-light); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.bp-offer span { font-size: var(--fs-sm); color: var(--muted); }
+.bp-offer b { font-size: 1.25rem; font-weight: 800; color: var(--accent); letter-spacing: -0.01em; }
+.bp-offer small { font-size: var(--fs-xs); color: var(--muted); line-height: 1.5; }
+.bp-bank { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.3rem 1rem; }
+.bp-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.bp-row:last-child { border-bottom: none; }
+.bp-row > span { font-size: 0.8rem; color: var(--muted); }
+.bp-row > div { display: flex; align-items: center; gap: 0.35rem; min-width: 0; }
+.bp-row b { font-size: 0.88rem; font-weight: 600; overflow-wrap: anywhere; text-align: right; }
+.bp-row b.bp-mono { font-family: monospace; letter-spacing: 0.03em; }
+.bp-row b.bp-hl { color: var(--accent); font-weight: 700; }
+.bp-row button { background: none; border: none; cursor: pointer; color: var(--muted); padding: 0.2rem; display: inline-flex; }
+.bp-row button.ok { color: var(--green); }
+.bp-note { font-size: 0.75rem; color: var(--muted); text-align: center; margin: 0.7rem 0; line-height: 1.5; }
+.bp-note b { color: var(--text); }
+.bp-how { border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+.bp-how > summary { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.65rem 0.9rem; cursor: pointer; list-style: none; font-size: var(--fs-sm); font-weight: 700; }
+.bp-how > summary::-webkit-details-marker { display: none; }
+.bp-how > summary svg { color: var(--muted); transition: transform .15s; flex-shrink: 0; }
+.bp-how[open] > summary svg { transform: rotate(180deg); }
+.bp-how ul { margin: 0; padding: 0 0.9rem 0 2rem; display: grid; gap: 0.45rem; font-size: 0.8rem; line-height: 1.55; color: var(--muted); }
+.bp-how ul b { color: var(--text); }
+.bp-example { margin: 0.7rem 0.9rem 0.9rem; padding: 0.6rem 0.75rem; border-radius: 10px; background: var(--surface2); font-size: 0.78rem; line-height: 1.55; color: var(--muted); }
+.bp-example b { color: var(--text); }
+
 /* Hero-гийн хоёр үйлчилгээ */
 .lp-offers { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; max-width: 740px; margin: 0 auto; text-align: left; }
 .lp-offer {

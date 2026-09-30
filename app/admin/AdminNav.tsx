@@ -179,6 +179,9 @@ export default function AdminNav({
                     <p style={{ marginTop: '0.35rem', fontSize: 'var(--fs-md)', fontWeight: 700, color: paid.color }}>
                       {paid.days >= 0 ? `${paid.days} өдөр үлдсэн` : `${-paid.days} өдөр хэтэрсэн`}
                     </p>
+                    <Link href="/admin/billing" onClick={() => setPaidOpen(false)} className="btn" style={{ marginTop: '0.7rem', width: '100%', padding: '0.45rem 0.8rem', fontSize: 'var(--fs-sm)' }}>
+                      Сунгах · төлбөр хэрхэн тооцогдох
+                    </Link>
                   </div>
                 </>
               )}

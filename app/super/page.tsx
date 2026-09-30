@@ -2,6 +2,7 @@
 import { Bell, BellOff, Smartphone, Boxes, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { renewedUntil, daysFrom, formatBillingDate, PRICE_PER_PERIOD, PERIOD_DAYS } from '@/lib/billing'
 
 interface Admin { id: number; name: string; phone: string }
 interface CargoStat {
@@ -234,6 +235,7 @@ export default function SuperPage() {
                   onChange={e => setPaidDates(prev => ({ ...prev, [c.id]: e.target.value }))}
                   style={{ fontSize: '0.82rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '0.3rem 0.5rem', color: 'var(--text)', fontFamily: 'inherit', width: '100%' }}
                 />
+                <RenewBox cargoId={c.id} paidUntil={c.paidUntil} onDone={load} />
               </div>
             ))}
           </div>
@@ -536,5 +538,57 @@ export default function SuperPage() {
         </div>
       )}
     </>
+  )
+}
+
+// Улаанбаатарын өнөөдөр (YYYY-MM-DD)
+function ubToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar' }).format(new Date())
+}
+
+// Төлбөр бүртгэх — шинэ огноог дүрмээр тооцно (хаагдсан хугацаа тооцогдохгүй, ашигласан хоног хасагдана)
+function RenewBox({ cargoId, paidUntil, onDone }: { cargoId: number; paidUntil: string | null; onDone: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [periods, setPeriods] = useState(1)
+  const [paidOn, setPaidOn] = useState(ubToday())
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  if (!open) {
+    return <button type="button" className="btn-ghost" style={{ fontSize: '0.74rem', padding: '0.25rem 0.5rem', marginTop: '0.15rem' }} onClick={() => setOpen(true)}>+ Төлбөр бүртгэх</button>
+  }
+  const pay = new Date(`${paidOn}T00:00:00Z`)
+  const until = Number.isNaN(pay.getTime()) ? null : renewedUntil(paidUntil, periods, pay)
+  async function save() {
+    setBusy(true); setError('')
+    const res = await fetch(`/api/super/cargo/${cargoId}/renew`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ periods, paidOn }),
+    })
+    const d = await res.json().catch(() => ({}))
+    setBusy(false)
+    if (!res.ok) { setError(d.error || 'Алдаа гарлаа'); return }
+    setOpen(false)
+    onDone()
+  }
+  const input = { fontSize: '0.78rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '0.25rem 0.4rem', color: 'var(--text)', fontFamily: 'inherit' }
+  return (
+    <div style={{ marginTop: '0.3rem', padding: '0.5rem', borderRadius: 8, background: 'var(--surface2)', display: 'grid', gap: '0.35rem', fontSize: '0.76rem' }}>
+      <div style={{ display: 'flex', gap: '0.35rem' }}>
+        <select value={periods} onChange={e => setPeriods(Number(e.target.value))} style={{ ...input, flex: 1 }}>
+          {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} сар · {(n * PRICE_PER_PERIOD).toLocaleString('en-US')}₮</option>)}
+        </select>
+        <input type="date" value={paidOn} max={ubToday()} onChange={e => setPaidOn(e.target.value)} title="Төлбөр орсон өдөр" style={{ ...input, flex: 1 }} />
+      </div>
+      {until && (
+        <div style={{ color: 'var(--muted)', lineHeight: 1.4 }}>
+          → <b style={{ color: 'var(--text)' }}>{formatBillingDate(until)}</b> хүртэл
+          ({daysFrom(until, pay)} хоног{daysFrom(until, pay) < periods * PERIOD_DAYS ? `, ашигласан ${periods * PERIOD_DAYS - daysFrom(until, pay)} хоног хасагдсан` : ''})
+        </div>
+      )}
+      {error && <div style={{ color: 'var(--danger)' }}>{error}</div>}
+      <div style={{ display: 'flex', gap: '0.35rem' }}>
+        <button type="button" className="btn" style={{ fontSize: '0.74rem', padding: '0.3rem 0.6rem', flex: 1 }} disabled={busy || !until} onClick={save}>{busy ? '...' : 'Бүртгэх'}</button>
+        <button type="button" className="btn-ghost" style={{ fontSize: '0.74rem', padding: '0.3rem 0.6rem' }} onClick={() => setOpen(false)}>Болих</button>
+      </div>
+    </div>
   )
 }
