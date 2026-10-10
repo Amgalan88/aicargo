@@ -1,5 +1,6 @@
 'use client'
 import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight } from 'lucide-react'
+import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
@@ -245,6 +246,7 @@ export default function OrdersClient({
   ereemPhone,
   ereemRegion,
   ereemAddress,
+  ereenAddresses,
   tariff,
   priceCubic = null,
   priceWeight = null,
@@ -273,6 +275,7 @@ export default function OrdersClient({
   ereemPhone: string
   ereemRegion?: string
   ereemAddress: string
+  ereenAddresses?: EreenAddress[]
   tariff?: string | null
   priceCubic?: number | null
   priceWeight?: number | null
@@ -1032,7 +1035,7 @@ export default function OrdersClient({
         onConfirm={() => confirmDelete !== null && deleteShipment(confirmDelete)}
         onCancel={() => setConfirmDelete(null)}
       />
-      <SiteFooter cargoName={cargoName} ereemReceiver={ereemReceiver} ereemPhone={ereemPhone} ereemRegion={ereemRegion} ereemAddress={ereemAddress} tariff={tariff} announcement={announcement} contactInfo={contactInfo} bankName={bankName} bankAccountHolder={bankAccountHolder} bankAccountNumber={bankAccountNumber} bankTransferNote={bankTransferNote} />
+      <SiteFooter cargoName={cargoName} ereemReceiver={ereemReceiver} ereemPhone={ereemPhone} ereemRegion={ereemRegion} ereemAddress={ereemAddress} addresses={ereenAddresses} tariff={tariff} announcement={announcement} contactInfo={contactInfo} bankName={bankName} bankAccountHolder={bankAccountHolder} bankAccountNumber={bankAccountNumber} bankTransferNote={bankTransferNote} />
     </>
   )
 }

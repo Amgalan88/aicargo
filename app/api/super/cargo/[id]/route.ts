@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { uploadLogo } from '@/lib/cloudinary'
+import { sanitizeExtraAddresses } from '@/lib/ereen-address'
 
 export async function PATCH(
   req: NextRequest,
@@ -16,7 +17,11 @@ export async function PATCH(
   if (!cargoId) return NextResponse.json({ error: 'ID буруу' }, { status: 400 })
 
   const { name, slug, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, logoUrl,
-    bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, notificationsEnabled, searchByPhone, paidUntil, batchEnabled, aiEnabled } = await req.json()
+    bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, notificationsEnabled, searchByPhone, paidUntil, batchEnabled, aiEnabled, ereemTitle, ereemAddresses } = await req.json()
+
+  // Нэмэлт Эрээний хаягууд — нэр, хүлээн авагч, хаяг заавал
+  const extra = ereemAddresses !== undefined ? sanitizeExtraAddresses(ereemAddresses) : null
+  if (extra?.error) return NextResponse.json({ error: extra.error }, { status: 400 })
 
   let finalLogoUrl = logoUrl
   if (logoUrl?.startsWith('data:')) {
@@ -42,6 +47,8 @@ export async function PATCH(
       ...(batchEnabled !== undefined ? { batchEnabled: Boolean(batchEnabled) } : {}),
       ...(aiEnabled !== undefined ? { aiEnabled: Boolean(aiEnabled) } : {}),
       ...(paidUntil !== undefined ? { paidUntil: paidUntil ? new Date(paidUntil) : null } : {}),
+      ...(ereemTitle !== undefined ? { ereemTitle: String(ereemTitle ?? '').trim().slice(0, 40) || null } : {}),
+      ...(extra ? { ereemAddresses: extra.value } : {}),
     },
   })
 

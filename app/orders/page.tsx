@@ -2,6 +2,7 @@ import { getAuthUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import OrdersClient from './OrdersClient'
+import { cargoAddresses } from '@/lib/ereen-address'
 
 export default async function OrdersPage() {
   const user = await getAuthUser()
@@ -42,7 +43,7 @@ export default async function OrdersPage() {
         }),
         (prisma.cargo.findUnique as any)({
           where: { id: userRecord.cargoId },
-          select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true },
+          select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true },
         }),
       ])
     : [[], null]
@@ -59,6 +60,7 @@ export default async function OrdersPage() {
       ereemPhone={cargo?.ereemPhone ?? ''}
       ereemRegion={cargo?.ereemRegion ?? ''}
       ereemAddress={cargo?.ereemAddress ?? ''}
+      ereenAddresses={cargo ? cargoAddresses(cargo) : []}
       tariff={cargo?.tariff ?? null}
       priceCubic={cargo?.priceCubic ? Number(cargo.priceCubic) : null}
       priceWeight={cargo?.priceWeight ? Number(cargo.priceWeight) : null}

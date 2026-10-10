@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import EreenAddresses from './components/EreenAddresses'
+import { cargoAddresses } from '@/lib/ereen-address'
 import Link from 'next/link'
 import NavLogo from './components/NavLogo'
 import { AIAvatar } from './components/AIAvatar'
@@ -50,6 +52,8 @@ interface CargoInfo {
   ereemPhone: string
   ereemRegion: string
   ereemAddress: string
+  ereemTitle?: string | null
+  ereemAddresses?: unknown
   tariff: string | null
   announcement: string | null
   contactInfo: string | null
@@ -328,34 +332,7 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
           {activeTab && (
             <div id="tab-content" style={{ padding: '0.75rem 5%', fontSize: '0.83rem', lineHeight: 1.8, color: 'var(--text)' }}>
               {activeTab === 'address' && (
-                <div style={{ borderTop: '1px solid var(--border)' }}>
-                  <CopyItem label="收货人 (Нэр)" value={cargo.ereemReceiver} />
-                  <CopyItem label="手机号 (Утас)" value={cargo.ereemPhone} />
-                  {cargo.ereemRegion && (() => {
-                    const parts = cargo.ereemRegion.split('·').map((s: string) => s.trim()).filter(Boolean)
-                    return (
-                      <div style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '0.7rem 0', borderBottom: '1px solid var(--border)', gap: '1rem',
-                      }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)', flexShrink: 0 }}>地区 (Бүс)</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          {parts.map((part: string, i: number) => (
-                            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <span style={{
-                                fontSize: '0.78rem', fontWeight: 500,
-                                background: 'var(--surface)', border: '1px solid var(--border)',
-                                borderRadius: '5px', padding: '0.2rem 0.5rem', color: 'var(--text)',
-                              }}>{part}</span>
-                              {i < parts.length - 1 && <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>›</span>}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })()}
-                  <CopyItem label="详细地址 (Хаяг)" value={cargo.ereemAddress} />
-                </div>
+                <EreenAddresses addresses={cargoAddresses(cargo)} storageKey={cargo.name} />
               )}
               {activeTab === 'tariff' && (
                 cargo.tariff

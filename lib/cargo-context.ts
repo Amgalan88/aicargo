@@ -9,6 +9,8 @@ export interface CargoInfo {
   ereemPhone: string
   ereemRegion: string
   ereemAddress: string
+  ereemTitle: string | null
+  ereemAddresses: unknown
   tariff: string | null
   announcement: string | null
   contactInfo: string | null
@@ -35,6 +37,8 @@ export async function getCargoFromSubdomain(): Promise<CargoInfo | null> {
       ereemPhone: true,
       ereemRegion: true,
       ereemAddress: true,
+      ereemTitle: true,
+      ereemAddresses: true,
       tariff: true,
       announcement: true,
       contactInfo: true,

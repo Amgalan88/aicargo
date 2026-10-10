@@ -20,6 +20,9 @@ model Cargo {
   ereemPhone    String
   ereemRegion   String  @default("")
   ereemAddress  String
+  // Нэмэлт Эрээний хаягтай карго (жш: "Жижиглэн ачаа", "Бөөн ачаа"): үндсэн хаягийн нэр + бусад хаяг
+  ereemTitle     String?
+  ereemAddresses Json?
   logoUrl          String?
   lastNotifiedAt        DateTime?
   notificationsEnabled  Boolean    @default(false)

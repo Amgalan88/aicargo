@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { cargoAddresses, addressesText } from '@/lib/ereen-address'
 
 // Түгээмэл асуултуудад LLM дуудалгүй, DB + template-ээр шууд хариулдаг router.
 // Таарвал { matched: true, reply } — таараагүй бол LLM руу унана.
@@ -82,7 +83,7 @@ export async function routeUserQuestion(
       batchEnabled: true, arrivedLabel: true, ereemLabel: true,
       contactInfo: true, tariff: true,
       bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true,
-      ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true,
+      ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true,
     },
   })
   if (!cargo) return { matched: false }
@@ -132,13 +133,8 @@ export async function routeUserQuestion(
     if (!cargo.ereemReceiver && !cargo.ereemAddress) {
       return { matched: true, reply: 'Эрээний хаяг бүртгэгдээгүй байна. Каргогийн админтай холбогдоно уу.' }
     }
-    const lines = [
-      cargo.ereemReceiver && `收货人: ${cargo.ereemReceiver}`,
-      cargo.ereemPhone && `手机号: ${cargo.ereemPhone}`,
-      cargo.ereemRegion && `地区: ${cargo.ereemRegion}`,
-      cargo.ereemAddress && `地址: ${cargo.ereemAddress}`,
-    ].filter(Boolean)
-    return { matched: true, reply: lines.join('\n') }
+    // Олон хаягтай бол (жш: жижиглэн, бөөн) бүгдийг нэрээр нь
+    return { matched: true, reply: addressesText(cargoAddresses(cargo)) }
   }
 
   // ── 4. Тариф ──

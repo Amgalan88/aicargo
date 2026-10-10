@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { uploadLogo } from '@/lib/cloudinary'
 import { logAdminAction } from '@/lib/audit'
+import { sanitizeExtraAddresses } from '@/lib/ereen-address'
 
 export async function GET(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   const cargo = await (prisma.cargo as any).findUnique({
     where: { id: admin.cargoId! },
-    select: { name: true, logoUrl: true, batchEnabled: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true },
+    select: { name: true, logoUrl: true, batchEnabled: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true },
   })
   // Хандаж буй хэрэглэгчийн эрхийн мэдээллийг хамт буцаана — клиент юуг
   // disable хийхээ мэдэх ёстой (утгыг нь биш, зөвхөн засах эрхийг хязгаарлана).
@@ -29,7 +30,7 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { tariff, priceCubic, priceWeight, priceWeightUnit, priceWeightTiers, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, logoBase64 } = await req.json()
+  const { tariff, priceCubic, priceWeight, priceWeightUnit, priceWeightTiers, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, ereemTitle, ereemAddresses, logoBase64 } = await req.json()
 
   // Ажилтан admin-д банк/хаяг/лого засах эрхийг тус тусад нь шалгана — эзэмшигчид үргэлж зөвшөөрнө.
   const allowBank = !admin.isStaffAdmin || admin.canEditBank
@@ -38,7 +39,11 @@ export async function PATCH(req: NextRequest) {
 
   const deniedFields: string[] = []
   if (logoBase64 && !allowLogo) deniedFields.push('лого')
-  if (!allowAddress && [ereemReceiver, ereemPhone, ereemRegion, ereemAddress].some(v => v !== undefined)) deniedFields.push('Эрээний хаяг')
+  if (!allowAddress && [ereemReceiver, ereemPhone, ereemRegion, ereemAddress, ereemTitle, ereemAddresses].some(v => v !== undefined)) deniedFields.push('Эрээний хаяг')
+
+  // Нэмэлт Эрээний хаягууд (жш: бөөн ачааны хаяг) — нэр, хүлээн авагч, хаяг заавал
+  const extra = allowAddress && ereemAddresses !== undefined ? sanitizeExtraAddresses(ereemAddresses) : null
+  if (extra?.error) return NextResponse.json({ error: extra.error }, { status: 400 })
   if (!allowBank && [bankName, bankAccountHolder, bankAccountNumber, bankTransferNote].some(v => v !== undefined)) deniedFields.push('данс')
 
   // Үнэ бодогчийн тохиргоо — хоосон бол null, эс бол 0-ээс их тоо байх ёстой
@@ -88,6 +93,8 @@ export async function PATCH(req: NextRequest) {
     ...(allowAddress && ereemPhone !== undefined ? { ereemPhone: String(ereemPhone).trim() } : {}),
     ...(allowAddress && ereemRegion !== undefined ? { ereemRegion: String(ereemRegion).trim() } : {}),
     ...(allowAddress && ereemAddress !== undefined ? { ereemAddress: String(ereemAddress).trim() } : {}),
+    ...(allowAddress && ereemTitle !== undefined ? { ereemTitle: String(ereemTitle ?? '').trim().slice(0, 40) || null } : {}),
+    ...(extra ? { ereemAddresses: extra.value } : {}),
     ...(tariff !== undefined ? { tariff: tariff || null } : {}),
     ...(cubic !== undefined ? { priceCubic: cubic } : {}),
     ...(weight !== undefined ? { priceWeight: weight } : {}),

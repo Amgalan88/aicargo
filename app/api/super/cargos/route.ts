@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
       ereemPhone: c.ereemPhone,
       ereemRegion: (c as any).ereemRegion ?? '',
       ereemAddress: c.ereemAddress,
+      ereemTitle: c.ereemTitle ?? null,
+      ereemAddresses: c.ereemAddresses ?? [],
       logoUrl: (c as any).logoUrl ?? null,
       bankName: (c as any).bankName ?? null,
       bankAccountHolder: (c as any).bankAccountHolder ?? null,

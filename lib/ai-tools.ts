@@ -286,6 +286,8 @@ export async function executeAITool(
             ereemPhone: true,
             ereemRegion: true,
             ereemAddress: true,
+            ereemTitle: true,
+            ereemAddresses: true,
             tariff: true,
             announcement: true,
             contactInfo: true,

@@ -2,11 +2,13 @@
 import { Tag } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
+import EreenAddressExtras from '@/app/components/EreenAddressExtras'
+import { parseExtraAddresses, type EreenAddress } from '@/lib/ereen-address'
 
 interface Tier { min: string; price: string }
 
 export default function SettingsPage() {
-  const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '' })
+  const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '', ereemTitle: '', ereemAddresses: [] as EreenAddress[] })
   const [tiers, setTiers] = useState<Tier[]>([])
   const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null; batchEnabled?: boolean } | null>(null)
   const [me, setMe] = useState({ isStaffAdmin: false, canEditBank: false, canEditAddress: false, canEditLogo: false })
@@ -38,7 +40,7 @@ export default function SettingsPage() {
       .then(d => {
         setCargo(d)
         setMe({ isStaffAdmin: !!d.isStaffAdmin, canEditBank: !!d.canEditBank, canEditAddress: !!d.canEditAddress, canEditLogo: !!d.canEditLogo })
-        const loadedForm = { tariff: d.tariff ?? '', priceCubic: d.priceCubic ? String(Number(d.priceCubic)) : '', priceWeight: d.priceWeight ? String(Number(d.priceWeight)) : '', priceWeightUnit: d.priceWeightUnit === 't' ? 't' : 'kg', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '' }
+        const loadedForm = { tariff: d.tariff ?? '', priceCubic: d.priceCubic ? String(Number(d.priceCubic)) : '', priceWeight: d.priceWeight ? String(Number(d.priceWeight)) : '', priceWeightUnit: d.priceWeightUnit === 't' ? 't' : 'kg', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '', ereemTitle: d.ereemTitle ?? '', ereemAddresses: parseExtraAddresses(d.ereemAddresses) }
         let loadedTiers: Tier[] = []
         try {
           const parsed = d.priceWeightTiers ? JSON.parse(d.priceWeightTiers) : []
@@ -167,6 +169,13 @@ export default function SettingsPage() {
           <input className="input" disabled={!allowAddress} placeholder="жш: XX小区 X号楼 XXX" value={form.ereemAddress}
             onChange={e => setForm(f => ({ ...f, ereemAddress: e.target.value }))} />
         </div>
+        <EreenAddressExtras
+          title={form.ereemTitle}
+          onTitle={v => setForm(f => ({ ...f, ereemTitle: v }))}
+          extras={form.ereemAddresses}
+          onExtras={v => setForm(f => ({ ...f, ereemAddresses: v }))}
+          disabled={!allowAddress}
+        />
         {!allowAddress && ownerOnlyNote}
       </div>
 

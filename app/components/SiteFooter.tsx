@@ -1,5 +1,7 @@
 'use client'
 import { useState } from 'react'
+import EreenAddresses from './EreenAddresses'
+import { cargoAddresses, type EreenAddress } from '@/lib/ereen-address'
 
 function CopyItem({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
@@ -36,6 +38,8 @@ interface FooterProps {
   ereemPhone: string
   ereemRegion?: string
   ereemAddress: string
+  // Олон хаягтай карго (жш: жижиглэн, бөөн) — байхгүй бол дээрх нэг хаяг
+  addresses?: EreenAddress[]
   tariff?: string | null
   announcement?: string | null
   contactInfo?: string | null
@@ -51,6 +55,7 @@ export default function SiteFooter({
   ereemPhone,
   ereemRegion,
   ereemAddress,
+  addresses,
   tariff,
   announcement,
   contactInfo,
@@ -61,7 +66,7 @@ export default function SiteFooter({
 }: FooterProps) {
   const [activeTab, setActiveTab] = useState<string | null>(null)
 
-  const regionParts = ereemRegion ? ereemRegion.split('·').map(s => s.trim()).filter(Boolean) : []
+  const addressList = addresses?.length ? addresses : cargoAddresses({ ereemReceiver, ereemPhone, ereemRegion, ereemAddress })
 
   return (
     <footer style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)', marginTop: '2rem' }}>
@@ -103,31 +108,7 @@ export default function SiteFooter({
                   marginBottom: '0.75rem',
                 }}>{cargoName} хаяг холбох</p>
               )}
-              <div style={{ borderTop: '1px solid var(--border)' }}>
-                <CopyItem label="收货人 (Нэр)" value={ereemReceiver} />
-                <CopyItem label="手机号 (Утас)" value={ereemPhone} />
-                {regionParts.length > 0 && (
-                  <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '0.7rem 0', borderBottom: '1px solid var(--border)', gap: '1rem',
-                  }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--muted)', flexShrink: 0 }}>地区 (Бүс)</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      {regionParts.map((part, i) => (
-                        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{
-                            fontSize: '0.78rem', fontWeight: 500,
-                            background: 'var(--surface)', border: '1px solid var(--border)',
-                            borderRadius: '5px', padding: '0.2rem 0.5rem', color: 'var(--text)',
-                          }}>{part}</span>
-                          {i < regionParts.length - 1 && <span style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>›</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <CopyItem label="详细地址 (Хаяг)" value={ereemAddress} />
-              </div>
+              <EreenAddresses addresses={addressList} storageKey={cargoName} />
             </div>
           )}
           {activeTab === 'tariff' && (

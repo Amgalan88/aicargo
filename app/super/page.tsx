@@ -2,6 +2,8 @@
 import { Bell, BellOff, Smartphone, Boxes, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import EreenAddressExtras from '@/app/components/EreenAddressExtras'
+import { parseExtraAddresses, type EreenAddress } from '@/lib/ereen-address'
 import { renewedUntil, daysFrom, formatBillingDate, PRICE_PER_PERIOD, PERIOD_DAYS } from '@/lib/billing'
 
 interface Admin { id: number; name: string; phone: string }
@@ -13,6 +15,8 @@ interface CargoStat {
   ereemPhone: string
   ereemRegion: string
   ereemAddress: string
+  ereemTitle?: string | null
+  ereemAddresses?: unknown
   logoUrl: string | null
   bankName: string | null
   bankAccountHolder: string | null
@@ -77,6 +81,8 @@ interface EditState {
   ereemPhone: string
   ereemRegion: string
   ereemAddress: string
+  ereemTitle: string
+  ereemAddresses: EreenAddress[]
   logoUrl: string
   bankName: string
   bankAccountHolder: string
@@ -88,7 +94,7 @@ export default function SuperPage() {
   const [cargos, setCargos] = useState<CargoStat[]>([])
   const [loading, setLoading] = useState(true)
   const [editId, setEditId] = useState<number | null>(null)
-  const [editForm, setEditForm] = useState<EditState>({ name: '', slug: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '', logoUrl: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '' })
+  const [editForm, setEditForm] = useState<EditState>({ name: '', slug: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '', ereemTitle: '', ereemAddresses: [], logoUrl: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '' })
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState('')
   const [pwModal, setPwModal] = useState<{ userId: number; name: string } | null>(null)
@@ -155,7 +161,7 @@ export default function SuperPage() {
 
   function startEdit(c: CargoStat) {
     setEditId(c.id)
-    setEditForm({ name: c.name, slug: c.slug, ereemReceiver: c.ereemReceiver, ereemPhone: c.ereemPhone, ereemRegion: c.ereemRegion ?? '', ereemAddress: c.ereemAddress, logoUrl: c.logoUrl ?? '', bankName: c.bankName ?? '', bankAccountHolder: c.bankAccountHolder ?? '', bankAccountNumber: c.bankAccountNumber ?? '', bankTransferNote: c.bankTransferNote ?? '' })
+    setEditForm({ name: c.name, slug: c.slug, ereemReceiver: c.ereemReceiver, ereemPhone: c.ereemPhone, ereemRegion: c.ereemRegion ?? '', ereemAddress: c.ereemAddress, ereemTitle: c.ereemTitle ?? '', ereemAddresses: parseExtraAddresses(c.ereemAddresses), logoUrl: c.logoUrl ?? '', bankName: c.bankName ?? '', bankAccountHolder: c.bankAccountHolder ?? '', bankAccountNumber: c.bankAccountNumber ?? '', bankTransferNote: c.bankTransferNote ?? '' })
     setEditError('')
   }
 
@@ -323,6 +329,14 @@ export default function SuperPage() {
                       <input className="input" value={editForm.ereemAddress}
                         onChange={e => setEditForm(f => ({ ...f, ereemAddress: e.target.value }))} />
                     </div>
+                  </div>
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <EreenAddressExtras
+                      title={editForm.ereemTitle}
+                      onTitle={v => setEditForm(f => ({ ...f, ereemTitle: v }))}
+                      extras={editForm.ereemAddresses}
+                      onExtras={v => setEditForm(f => ({ ...f, ereemAddresses: v }))}
+                    />
                   </div>
 
                   {/* Bank fields */}
