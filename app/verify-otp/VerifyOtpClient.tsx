@@ -35,7 +35,7 @@ function VerifyOtpForm({ cargoName, logoUrl }: { cargoName?: string; logoUrl?: s
       <div className="page" style={{ maxWidth: 420 }}>
         <h1 className="section-title">Код оруулах</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-          <strong style={{ color: 'var(--text)' }}>{email}</strong> хаяг руу код илгээгдлээ.
+          Хэрэв <strong style={{ color: 'var(--text)' }}>{email}</strong> хаягаар бүртгэл байгаа бол код илгээгдлээ. Ирэхгүй бол <b>Spam</b> хавтсаа шалгаж, бүртгүүлсэн и-мэйлээ зөв бичсэн эсэхээ шалгана уу.
         </p>
         <form onSubmit={submit}>
           <div className="form-group">

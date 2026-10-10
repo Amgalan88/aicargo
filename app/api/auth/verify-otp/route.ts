@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { prisma } from '@/lib/prisma'
+import { normEmail, findUserByEmail } from '@/lib/email'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -21,7 +22,9 @@ const emailRatelimit = new Ratelimit({
 })
 
 export async function POST(req: NextRequest) {
-  const { email, code } = await req.json()
+  const body = await req.json().catch(() => ({}))
+  const email = normEmail(body.email)
+  const code = typeof body.code === 'string' ? body.code.trim() : ''
 
   if (!email || !code) {
     return NextResponse.json({ error: 'И-мэйл болон кодоо оруулна уу' }, { status: 400 })
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'anonymous'
   const [{ success: ipOk }, { success: emailOk }] = await Promise.all([
     ipRatelimit.limit(ip),
-    emailRatelimit.limit(String(email)),
+    emailRatelimit.limit(email),
   ])
   if (!ipOk || !emailOk) {
     return NextResponse.json({ error: 'Хэт олон оролдлого. Түр хүлээгээд дахин оролдоно уу.' }, { status: 429 })
@@ -51,9 +54,12 @@ export async function POST(req: NextRequest) {
 
   await prisma.otp.update({ where: { id: otp.id }, data: { used: true } })
 
-  // jti = энэ OTP-ийн id — reset-password дээр токеныг нэг л удаа хэрэглэгдэхийг баталгаажуулахад ашиглана
+  // jti = энэ OTP-ийн id — reset-password дээр токеныг нэг л удаа хэрэглэгдэхийг баталгаажуулахад ашиглана.
+  // uid — и-мэйлийн том/жижиг үсгээс үл хамааран яг энэ хэрэглэгчийн нууц үгийг солино
+  const user = await findUserByEmail(email)
+  if (!user) return NextResponse.json({ error: 'Хэрэглэгч олдсонгүй' }, { status: 404 })
   const { sign } = await import('jsonwebtoken')
-  const token = sign({ email, jti: String(otp.id) }, process.env.JWT_SECRET!, { expiresIn: '15m' })
+  const token = sign({ email, uid: user.id, jti: String(otp.id) }, process.env.JWT_SECRET!, { expiresIn: '15m' })
 
   return NextResponse.json({ resetToken: token })
 }

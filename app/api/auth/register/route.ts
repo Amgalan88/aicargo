@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
+import { normEmail, findUserByEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
-  const { name, phone, email, password, cargoId } = await req.json()
+  const body = await req.json()
+  const { name, phone, password, cargoId } = body
+  // И-мэйлийг жижиг үсгээр хадгална — нууц үг сэргээхэд олдохгүй байхаас сэргийлнэ
+  const email = normEmail(body.email)
 
   if (!name || !phone || !email || !password || !cargoId) {
     return NextResponse.json({ error: 'Бүх талбарыг бөглөнө үү' }, { status: 400 })
@@ -17,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const [byPhone, byEmail] = await Promise.all([
     prisma.user.findUnique({ where: { phone } }),
-    prisma.user.findUnique({ where: { email } }),
+    findUserByEmail(email),
   ])
 
   if (byEmail && byEmail.id !== byPhone?.id) {

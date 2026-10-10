@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendOtpEmail } from '@/lib/mail'
+import { normEmail, findUserByEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
-  const { email } = await req.json()
+  const body = await req.json().catch(() => ({}))
+  // Том/жижиг үсэг, зай үл хамааран (утасны гар эхний үсгийг томруулдаг)
+  const email = normEmail(body.email)
 
   if (!email) {
     return NextResponse.json({ error: 'И-мэйл оруулна уу' }, { status: 400 })
   }
 
-  const user = await prisma.user.findUnique({ where: { email } })
+  const user = await findUserByEmail(email)
   // Don't reveal if user exists or not
   if (!user) {
     return NextResponse.json({ ok: true })
@@ -27,9 +30,9 @@ export async function POST(req: NextRequest) {
   await prisma.otp.create({ data: { email, code, expiresAt } })
 
   try {
-    await sendOtpEmail(email, code)
+    await sendOtpEmail(user.email ?? email, code)
   } catch {
-    return NextResponse.json({ error: 'И-мэйл илгээхэд алдаа гарлаа' }, { status: 500 })
+    return NextResponse.json({ error: 'И-мэйл илгээхэд алдаа гарлаа. Түр хүлээгээд дахин оролдоно уу' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })

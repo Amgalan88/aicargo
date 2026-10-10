@@ -14,13 +14,19 @@ export default function ForgotPasswordClient({ cargoName, logoUrl }: { cargoName
     e.preventDefault()
     setLoading(true)
     setError('')
-    await fetch('/api/auth/forgot-password', {
+    const clean = email.trim().toLowerCase()
+    const res = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
+      body: JSON.stringify({ email: clean }),
+    }).catch(() => null)
     setLoading(false)
-    router.push(`/verify-otp?email=${encodeURIComponent(email)}`)
+    if (!res || !res.ok) {
+      const d = await res?.json().catch(() => ({}))
+      setError(d?.error || 'Холболтын алдаа гарлаа. Дахин оролдоно уу')
+      return
+    }
+    router.push(`/verify-otp?email=${encodeURIComponent(clean)}`)
   }
 
   return (
@@ -31,7 +37,7 @@ export default function ForgotPasswordClient({ cargoName, logoUrl }: { cargoName
       <div className="page" style={{ maxWidth: 420 }}>
         <h1 className="section-title">Нууц үг сэргээх</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-          Бүртгэлтэй и-мэйл рүүгээ 6 оронтой код илгээнэ.
+          Бүртгэлтэй и-мэйл рүүгээ 6 оронтой код илгээнэ. 1–2 минутад ирэхгүй бол <b>Spam</b> хавтсаа шалгана уу.
         </p>
         <form onSubmit={submit}>
           <div className="form-group">

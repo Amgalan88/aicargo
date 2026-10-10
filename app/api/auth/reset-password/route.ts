@@ -21,10 +21,12 @@ export async function POST(req: NextRequest) {
   }
 
   let email: string
+  let uid: number | null
   let jti: string
   try {
-    const decoded = jwt.verify(resetToken, process.env.JWT_SECRET!) as { email: string; jti?: string }
+    const decoded = jwt.verify(resetToken, process.env.JWT_SECRET!) as { email: string; uid?: number; jti?: string }
     email = decoded.email
+    uid = typeof decoded.uid === 'number' ? decoded.uid : null
     jti = decoded.jti ?? ''
   } catch {
     return NextResponse.json({ error: 'Хугацаа дууссан эсвэл буруу токен' }, { status: 400 })
@@ -41,7 +43,8 @@ export async function POST(req: NextRequest) {
 
   const hashed = await bcrypt.hash(newPassword, 10)
   try {
-    await prisma.user.update({ where: { email }, data: { password: hashed } })
+    // Шинэ токен хэрэглэгчийн id-тай; өмнө гарсан (15 мин хүчинтэй) токен и-мэйлээр
+    await prisma.user.update({ where: uid ? { id: uid } : { email }, data: { password: hashed } })
   } catch {
     return NextResponse.json({ error: 'Хэрэглэгч олдсонгүй' }, { status: 404 })
   }

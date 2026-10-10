@@ -3,8 +3,18 @@ import { Resend } from 'resend'
 const resend = new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.MAIL_FROM || 'Aicargo <onboarding@resend.dev>'
 
+// Resend алдааг шидэхгүй, буцааж өгдөг — шалгахгүй бол илгээгдээгүй и-мэйл "амжилттай" мэт харагдана
+type MailPayload = Parameters<typeof resend.emails.send>[0]
+async function send(payload: MailPayload) {
+  const { error } = await resend.emails.send(payload)
+  if (error) {
+    console.error('mail send failed:', error.name, error.message)
+    throw new Error(error.message)
+  }
+}
+
 export async function sendOtpEmail(email: string, code: string) {
-  await resend.emails.send({
+  await send({
     from: FROM,
     to: email,
     subject: 'Нууц үг сэргээх код',
@@ -17,7 +27,7 @@ export async function sendOtpEmail(email: string, code: string) {
 }
 
 export async function sendCargoSignupOtpEmail(email: string, code: string, cargoName: string) {
-  await resend.emails.send({
+  await send({
     from: FROM,
     to: email,
     subject: `"${cargoName}" карго нээх баталгаажуулах код`,
@@ -30,7 +40,7 @@ export async function sendCargoSignupOtpEmail(email: string, code: string, cargo
 }
 
 export async function sendContractOtpEmail(email: string, code: string, warehouseName: string) {
-  await resend.emails.send({
+  await send({
     from: FROM,
     to: email,
     subject: `"${warehouseName}" агуулахтай гэрээ — баталгаажуулах код`,
@@ -43,7 +53,7 @@ export async function sendContractOtpEmail(email: string, code: string, warehous
 }
 
 export async function sendMoveOtpEmail(email: string, code: string, cargoName: string) {
-  await resend.emails.send({
+  await send({
     from: FROM,
     to: email,
     subject: `"${cargoName}" компанид шилжих баталгаажуулах код`,
@@ -73,7 +83,7 @@ ${cargoName} өнөөдөр ${closingTime} цаг хүртэл ажиллаж б
 
 — ${cargoName}`
 
-  await resend.emails.send({
+  await send({
     from: FROM,
     to: email,
     subject: `Таны ${cargoCount} ачаа ирлээ`,
@@ -91,7 +101,7 @@ function escapeHtml(s: string): string {
 }
 
 export async function sendContractEmail(to: string[], subject: string, lines: string[]) {
-  await resend.emails.send({
+  await send({
     from: FROM,
     to,
     subject,
@@ -110,7 +120,7 @@ const STATUS_MN: Record<string, string> = {
 // Нэвтрэлтгүй гэрээний нууц холбоос(ууд)
 export async function sendGuestContractLinks(email: string, items: { warehouseName: string; contractNo: string; status: string; link: string }[]) {
   const text = items.map(i => `• ${i.warehouseName} — ${i.contractNo} (${STATUS_MN[i.status] ?? i.status})\n  ${i.link}`).join('\n\n')
-  await resend.emails.send({
+  await send({
     from: FROM,
     to: email,
     subject: items.length === 1 ? `"${items[0].warehouseName}" агуулахтай байгуулах гэрээ` : 'Таны агуулахын гэрээнүүд',
