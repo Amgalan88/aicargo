@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
   // Лого оруулсан бол Cloudinary-д байршуулна — бүтэлгүйтвэл бүртгэлийг унагахгүй
   if (body.logoBase64) {
     try {
-      const logoUrl = await uploadLogo(body.logoBase64, result.cargo.slug)
+      const logoUrl = await uploadLogo(body.logoBase64, `cargo-${result.cargo.id}`)
       await prisma.cargo.update({ where: { id: result.cargo.id }, data: { logoUrl } })
     } catch (err) {
       console.error('Signup logo upload failed:', err)

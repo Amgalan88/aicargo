@@ -77,11 +77,12 @@ export async function PATCH(req: NextRequest) {
   if (logoBase64 && allowLogo) {
     const current = await prisma.cargo.findUnique({
       where: { id: admin.cargoId! },
-      select: { slug: true },
+      select: { id: true },
     })
     if (!current) return NextResponse.json({ error: 'Карго олдсонгүй' }, { status: 404 })
     try {
-      logoUrl = await uploadLogo(logoBase64, current.slug)
+      // Каргоны id-аар — slug солигдох, чөлөөлөгдсөн нэрийг өөр карго авах үед логог дарж бичихгүй
+      logoUrl = await uploadLogo(logoBase64, `cargo-${current.id}`)
     } catch {
       return NextResponse.json({ error: 'Лого байршуулахад алдаа гарлаа' }, { status: 500 })
     }

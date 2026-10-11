@@ -20,10 +20,8 @@ export async function POST(req: NextRequest) {
 
   const slugClean = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
-  let finalLogoUrl = logoUrl || null
-  if (logoUrl?.startsWith('data:')) {
-    finalLogoUrl = await uploadLogo(logoUrl, slugClean)
-  }
+  // Лого (data:) каргыг үүсгэсний дараа id-аар нь байршуулна — slug-аар хадгалбал өөр каргоны логог дарж бичих эрсдэлтэй
+  const finalLogoUrl = logoUrl && !logoUrl.startsWith('data:') ? logoUrl : null
 
   const existingSlug = await prisma.cargo.findUnique({ where: { slug: slugClean } })
   if (existingSlug) {
@@ -59,6 +57,15 @@ export async function POST(req: NextRequest) {
     },
     include: { users: { select: { id: true, name: true, phone: true, role: true } } },
   })
+
+  if (logoUrl?.startsWith('data:')) {
+    try {
+      const uploaded = await uploadLogo(logoUrl, `cargo-${cargo.id}`)
+      await prisma.cargo.update({ where: { id: cargo.id }, data: { logoUrl: uploaded } })
+    } catch (err) {
+      console.error('Cargo logo upload failed:', err)
+    }
+  }
 
   return NextResponse.json(cargo, { status: 201 })
 }
