@@ -113,6 +113,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: `try{if(location.pathname!=='/'){var t=localStorage.getItem('theme');if(t==='night'||t==='comfort')document.documentElement.dataset.theme=t}}catch(e){}`,
           }}
         />
+        {/* Апп суулгах санал (Android) React ачаалагдахаас өмнө ирж болох тул эрт барина */}
+        <script dangerouslySetInnerHTML={{ __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e})` }} />
         <PwaRegister />
         {isDemo && <DemoBanner />}
         {unknown ? <UnknownCargo slug={unknown} /> : children}

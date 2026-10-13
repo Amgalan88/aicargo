@@ -23,7 +23,10 @@ export async function GET(req: NextRequest) {
     name,
     short_name: shortName,
     description: 'Карго бараа хянах систем',
-    start_url: '/',
+    id: '/',
+    // Суулгасан апп шууд "Миний ачаа" нээгдэнэ (нэвтрээгүй бол нэвтрэх рүү шилжинэ)
+    start_url: slug ? '/orders' : '/',
+    scope: '/',
     display: 'standalone',
     background_color: '#f5f4ef',
     theme_color: '#c05a2a',

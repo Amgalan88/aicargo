@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { recordDeletions, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
+import { notifyEreenForCargo } from '@/lib/push'
 
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const existing = await prisma.shipment.findUnique({
     where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-    select: { phone: true, userId: true },
+    select: { phone: true, userId: true, status: true },
   })
 
   let userId: number | null = existing?.userId ?? null
@@ -32,6 +33,12 @@ export async function POST(req: NextRequest) {
     create: { trackCode: code, status: 'EREEN_ARRIVED', ereenArrivedAt: new Date(), cargoId: admin.cargoId!, ...(userId ? { userId } : {}) },
     include: { user: { select: { name: true, phone: true } } },
   })
+
+  // Шинээр Эрээнд ирсэн бол эзэнд нь push (дахин уншуулахад давтахгүй)
+  if (shipment.userId && (!existing || existing.status === 'REGISTERED')) {
+    const cargoId = admin.cargoId!
+    after(() => notifyEreenForCargo(cargoId, [{ userId: shipment.userId, trackCode: shipment.trackCode }]))
+  }
 
   return NextResponse.json(shipment)
 }

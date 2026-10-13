@@ -1908,3 +1908,48 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
   .st-savebar.show { transform: none; }
   .st-savebar > span { flex: 1; min-width: 0; font-size: var(--fs-xs); }
 }
+
+/* ═══ Push мэдэгдэл ба апп суулгах (хэрэглэгч) ═══ */
+.pp {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem;
+  padding: 0.8rem 0.9rem; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+.pp-ic { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: var(--accent); color: var(--on-accent); }
+.pp-txt { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.pp-txt b { font-size: 0.9rem; }
+.pp-txt span { font-size: var(--fs-xs); color: var(--muted); line-height: 1.45; }
+.pp-act { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
+.pp-act .btn-sm { padding: 0.45rem 0.95rem; }
+.pp-later { background: none; border: none; color: var(--muted); font: inherit; font-size: var(--fs-sm); cursor: pointer; padding: 0.45rem 0.5rem; }
+.pp-later:hover { color: var(--text); }
+.aps-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.aps-lbl { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--muted); }
+.aps-note { font-size: 0.7rem; color: var(--muted); line-height: 1.4; margin: 0.35rem 0 0; }
+.aps-install {
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem; width: 100%; margin-top: 0.5rem;
+  padding: 0.5rem; border-radius: 9px; border: 1px solid var(--accent); background: var(--accent-light);
+  color: var(--accent); font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+}
+.ins-bg { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,0.45); display: flex; align-items: flex-end; justify-content: center; }
+.ins {
+  width: 100%; max-width: 440px; background: var(--surface); border-radius: 18px 18px 0 0;
+  padding: 1rem 1.1rem calc(1.25rem + env(safe-area-inset-bottom)); box-shadow: var(--shadow-lg);
+  animation: an-up 0.22s cubic-bezier(.22,1,.36,1);
+}
+@media (min-width: 640px) { .ins-bg { align-items: center; } .ins { border-radius: 18px; } }
+.ins-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.ins-head b { font-size: var(--fs-md); }
+.ins-x { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--surface2); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.ins-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; counter-reset: ins; }
+.ins-steps li { display: flex; align-items: center; gap: 0.75rem; font-size: var(--fs-sm); line-height: 1.45; counter-increment: ins; }
+.ins-steps li span {
+  position: relative; width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; display: grid; place-items: center;
+  background: var(--surface2); color: var(--accent);
+}
+.ins-steps li span::after {
+  content: counter(ins); position: absolute; top: -5px; left: -5px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent); font-size: 0.65rem; font-weight: 700; display: grid; place-items: center;
+}
+.ins-p { display: flex; gap: 0.6rem; align-items: flex-start; font-size: var(--fs-sm); line-height: 1.55; margin: 0; }
+.ins-p svg { flex-shrink: 0; margin-top: 0.15rem; color: var(--accent); }

@@ -353,27 +353,26 @@ function BannerSection() {
 
 export default function NotifyPage() {
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ sent: number; noEmail: number; failed: number } | null>(null)
+  const [result, setResult] = useState<{ sent: number; failed: number } | null>(null)
   const [error, setError] = useState('')
   const [closingTime, setClosingTime] = useState('18:00')
   const [confirmData, setConfirmData] = useState<{ count: number } | null>(null)
-  const [canSend, setCanSend] = useState(true)
-  const [nextAllowedAt, setNextAllowedAt] = useState<string | null>(null)
+  const [info, setInfo] = useState<{ count: number; total: number; canSend: boolean; nextAllowedAt: string | null; configured: boolean } | null>(null)
 
-  useEffect(() => {
-    fetch('/api/admin/notify-all')
-      .then(r => r.json())
-      .then(d => { setCanSend(d.canSend); setNextAllowedAt(d.nextAllowedAt ?? null) })
-      .catch(() => {})
-  }, [])
+  function loadInfo() {
+    return fetch('/api/admin/notify-all')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setInfo(d); return d })
+      .catch(() => null)
+  }
+  useEffect(() => { loadInfo() }, [])
 
   async function handleSendClick() {
     setError('')
-    const res = await fetch('/api/admin/notify-all')
-    if (!res.ok) { setError('Алдаа гарлаа'); return }
-    const data = await res.json()
-    if (!data.canSend) { setCanSend(false); setNextAllowedAt(data.nextAllowedAt); return }
-    setConfirmData({ count: data.count })
+    const d = await loadInfo()
+    if (!d) { setError('Алдаа гарлаа'); return }
+    if (!d.canSend || !d.count) return
+    setConfirmData({ count: d.count })
   }
 
   async function confirmSend() {
@@ -385,11 +384,14 @@ export default function NotifyPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ closingTime }),
     })
-    const data = await res.json()
+    const data = await res.json().catch(() => ({}))
     setLoading(false)
-    if (!res.ok) { setError(data.error); return }
+    if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
     setResult(data)
+    loadInfo()
   }
+
+  const canSend = !!info?.canSend && !!info?.count && info.configured
 
   return (
     <div className="page" style={{ maxWidth: 520 }}>
@@ -398,8 +400,12 @@ export default function NotifyPage() {
       <BannerSection />
 
       <div className="card" style={{ padding: '1.25rem' }}>
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1rem' }}>
-          И-мэйл мэдэгдэл илгээх
+        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
+          Ачаа ирсэн мэдэгдэл
+        </p>
+        <p style={{ fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.5, marginBottom: '1rem' }}>
+          &quot;Ирсэн&quot; ачаатай хэрэглэгчдийн утсанд push мэдэгдэл очно.
+          {info && <> Ачаа ирсэн <b style={{ color: 'var(--text)' }}>{info.total}</b> хэрэглэгчээс <b style={{ color: 'var(--text)' }}>{info.count}</b> нь мэдэгдэл асаасан байна.</>}
         </p>
 
         <div className="form-group">
@@ -409,14 +415,29 @@ export default function NotifyPage() {
             style={{ maxWidth: 160 }} />
         </div>
 
-        <button className="btn" onClick={handleSendClick} disabled={loading || !closingTime || !canSend} style={{ marginTop: '0.5rem' }}>
+        {/* Хэрэглэгчид очих мэдэгдлийн жишээ */}
+        <div style={{ display: 'flex', gap: '0.6rem', padding: '0.7rem 0.8rem', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border)', marginBottom: '1rem' }}>
+          <span style={{ fontSize: '1.1rem' }} aria-hidden>📦</span>
+          <div style={{ fontSize: '0.78rem', lineHeight: 1.45, minWidth: 0 }}>
+            <b style={{ display: 'block', fontSize: '0.82rem' }}>Таны 2 ачаа ирлээ</b>
+            <span style={{ color: 'var(--muted)' }}>Таны 9911xxxx дугаар дээр 2 ачаа ирсэн байна. Нийт ₮24,000. Танай карго өнөөдөр {closingTime || '18:00'} хүртэл ажиллаж байна.</span>
+          </div>
+        </div>
+
+        <button className="btn" onClick={handleSendClick} disabled={loading || !closingTime || !canSend}>
           {loading ? 'Илгээж байна...' : 'Мэдэгдэл илгээх'}
         </button>
 
-        {!canSend && nextAllowedAt && (
+        {info && !info.configured && (
+          <p style={{ fontSize: '0.82rem', color: 'var(--danger)', marginTop: '0.6rem' }}>Push мэдэгдлийн тохиргоо хийгдээгүй байна.</p>
+        )}
+        {info && info.configured && info.canSend && info.count === 0 && (
+          <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.6rem' }}>Ачаа ирсэн, мэдэгдэл асаасан хэрэглэгч одоогоор алга.</p>
+        )}
+        {info && !info.canSend && info.nextAllowedAt && (
           <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.6rem' }}>
             Дараагийн илгээлт: <strong style={{ color: 'var(--text)' }}>
-              {new Date(nextAllowedAt).toLocaleString('mn-MN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              {new Date(info.nextAllowedAt).toLocaleString('mn-MN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </strong>
           </p>
         )}
@@ -426,19 +447,13 @@ export default function NotifyPage() {
         {result && (
           <div className="card" style={{ marginTop: '1.2rem' }}>
             <div className="card-row">
-              <span className="label">Илгээгдсэн</span>
+              <span className="label">Хүрсэн</span>
               <strong style={{ color: 'var(--green)' }}>{result.sent} хэрэглэгч</strong>
             </div>
-            {result.noEmail > 0 && (
-              <div className="card-row">
-                <span className="label">И-мэйлгүй</span>
-                <span style={{ color: 'var(--muted)' }}>{result.noEmail} хэрэглэгч</span>
-              </div>
-            )}
             {result.failed > 0 && (
               <div className="card-row">
-                <span className="label">Илгээхэд алдаа</span>
-                <span style={{ color: 'var(--danger)' }}>{result.failed} хэрэглэгч</span>
+                <span className="label">Хүрээгүй</span>
+                <span style={{ color: 'var(--muted)' }}>{result.failed} хэрэглэгч (апп устгасан эсвэл мэдэгдлээ хаасан)</span>
               </div>
             )}
           </div>

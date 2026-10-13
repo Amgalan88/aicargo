@@ -14,6 +14,7 @@ import AnnouncementModal from '../components/AnnouncementModal'
 import SuperAnnouncementModal from '../components/SuperAnnouncementModal'
 import UserAIWidget from '../components/UserAIWidget'
 import ThemeToggle from '../components/ThemeToggle'
+import { PushPrompt, AppSettingsRows } from '../components/AppNotify'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useUserLang } from '../components/useUserLang'
 import { StaggerItem } from '../components/motion'
@@ -613,6 +614,10 @@ export default function OrdersClient({
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.navTheme}</span>
                     <ThemeToggle />
                   </div>
+                  {/* Push мэдэгдэл + апп суулгах */}
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.45rem', marginTop: '0.1rem' }}>
+                    <AppSettingsRows t={t} />
+                  </div>
                   {linkOrders && (
                     <div style={{
                       borderTop: '1px solid var(--border)', paddingTop: '0.45rem', marginTop: '0.1rem',
@@ -780,6 +785,7 @@ export default function OrdersClient({
       )}
 
       <div className="page orders-page">
+        <PushPrompt t={t} />
         <div className="orders-head">
           <div className="orders-head-title">
             <h1 className="section-title" style={{ marginBottom: 0 }}>{t.myOrders}</h1>

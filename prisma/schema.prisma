@@ -52,6 +52,7 @@ model Cargo {
   users         User[]
   shipments     Shipment[]
   linkOrders    LinkOrder[]
+  pushSubscriptions PushSubscription[]
   faqs          Faq[]
   notifications Notification[]
   banners       Banner[]
@@ -79,6 +80,7 @@ model User {
   createdAt    DateTime   @default(now())
   shipments    Shipment[]
   linkOrders   LinkOrder[]
+  pushSubscriptions PushSubscription[]
   bannerDismisses      BannerDismiss[]
   superBannerDismisses SuperBannerDismiss[]
 
@@ -485,4 +487,21 @@ model LinkOrder {
   @@index([cargoId, status])
   @@index([cargoId, createdAt])
   @@index([userId])
+}
+
+// Web push — хэрэглэгчийн төхөөрөмж бүрийн бүртгэл (утас, компьютер тус тусдаа)
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cargoId   Int
+  cargo     Cargo    @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([cargoId])
 }
