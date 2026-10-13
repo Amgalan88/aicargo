@@ -1,4 +1,5 @@
 import webpush from 'web-push'
+import { Redis } from '@upstash/redis'
 import { prisma } from '@/lib/prisma'
 
 // Web push илгээх. Түлхүүргүй орчинд (VAPID тохируулаагүй) чимээгүй алгасна — бусад үйлдлийг унагахгүй.
@@ -60,10 +61,34 @@ export async function sendPushToUsers(messages: { userId: number; payload: PushP
   return { users: reached.size, devices }
 }
 
-// Эрээнд ирсэн ачааг эзэнд нь мэдэгдэнэ — нэг хэрэглэгчийн олон ачааг нэг мэдэгдэл болгоно.
-// label: каргогийн өөрийн төлөвийн нэр (жш: "Эрээнээс ачигдсан"), хоосон бол "Эрээнд ирлээ"
-export async function notifyEreenArrived(rows: { userId: number | null; trackCode: string }[], label?: string | null): Promise<void> {
-  if (!ready()) return
+// ── Автомат мэдэгдэл: нэг хүнд 4 цагт нэг л удаа ──
+const THROTTLE_SECONDS = 4 * 3600
+let redis: Redis | null | undefined
+function getRedis(): Redis | null {
+  if (redis !== undefined) return redis
+  const url = process.env.UPSTASH_REDIS_REST_URL, token = process.env.UPSTASH_REDIS_REST_TOKEN
+  redis = url && token ? new Redis({ url, token }) : null
+  return redis
+}
+
+// Мэдэгдэл асаасан, сүүлийн 4 цагт мэдэгдэл аваагүй хэрэглэгчдийг шүүнэ (тэмдэглэгээг мөн тавина)
+async function claimUsers(userIds: number[]): Promise<number[]> {
+  const ids = [...new Set(userIds)]
+  if (!ids.length) return []
+  const subscribed = await prisma.pushSubscription.findMany({ where: { userId: { in: ids } }, select: { userId: true }, distinct: ['userId'] })
+  const withSub = subscribed.map(x => x.userId)
+  const r = getRedis()
+  if (!r) return withSub
+  const out: number[] = []
+  await Promise.all(withSub.map(async id => {
+    // SET NX EX — 4 цагийн дотор аль хэдийн илгээсэн бол алгасна
+    const ok = await r.set(`push:u:${id}`, '1', { nx: true, ex: THROTTLE_SECONDS }).catch(() => 'OK')
+    if (ok === 'OK') out.push(id)
+  }))
+  return out
+}
+
+function groupCodes(rows: { userId: number | null; trackCode: string }[]): Map<number, string[]> {
   const byUser = new Map<number, string[]>()
   for (const r of rows) {
     if (!r.userId) continue
@@ -71,26 +96,57 @@ export async function notifyEreenArrived(rows: { userId: number | null; trackCod
     if (!list.includes(r.trackCode)) list.push(r.trackCode)
     byUser.set(r.userId, list)
   }
-  if (!byUser.size) return
-  const messages = [...byUser.entries()].map(([userId, codes]) => ({
-    userId,
-    payload: {
-      kind: 'ereen' as const,
-      tag: 'ereen',
-      codes,
-      title: label?.trim()
-        ? `📦 ${codes.length > 1 ? `${codes.length} ачаа` : 'Ачаа'} · ${label.trim()}`
-        : codes.length > 1 ? `📦 ${codes.length} ачаа Эрээнд ирлээ` : '📦 Ачаа Эрээнд ирлээ',
-      body: codes.slice(0, 3).join(', ') + (codes.length > 3 ? ` +${codes.length - 3}` : ''),
-      url: '/orders',
-    },
-  }))
-  await sendPushToUsers(messages).catch(e => console.error('ereen push', e))
+  return byUser
 }
 
-// Каргогийн "Эрээнд ирсэн" шошгыг аваад мэдэгдэнэ — route-ууд after() дотроос дуудна
+const codeList = (codes: string[]) => codes.slice(0, 3).join(', ') + (codes.length > 3 ? ` +${codes.length - 3}` : '')
+
+// Эрээнд ирсэн ачаа — нэг хэрэглэгчийн олон ачааг нэг мэдэгдэл болгоно.
+// Каргогийн өөрийн "Эрээнд ирсэн" нэрийг (жш: "Эрээнээс ачигдсан") ашиглана
 export async function notifyEreenForCargo(cargoId: number, rows: { userId: number | null; trackCode: string }[]): Promise<void> {
-  if (!ready() || !rows.some(r => r.userId)) return
+  if (!ready()) return
+  const byUser = groupCodes(rows)
+  const allowed = await claimUsers([...byUser.keys()])
+  if (!allowed.length) return
   const cargo = await prisma.cargo.findUnique({ where: { id: cargoId }, select: { ereemLabel: true } }).catch(() => null)
-  await notifyEreenArrived(rows, cargo?.ereemLabel)
+  const label = cargo?.ereemLabel?.trim()
+  await sendPushToUsers(allowed.map(userId => {
+    const codes = byUser.get(userId)!
+    return {
+      userId,
+      payload: {
+        kind: 'ereen' as const, tag: 'ereen', codes, url: '/orders',
+        title: label
+          ? `📦 ${codes.length > 1 ? `${codes.length} ачаа` : 'Ачаа'} · ${label}`
+          : codes.length > 1 ? `📦 ${codes.length} ачаа Эрээнд ирлээ` : '📦 Ачаа Эрээнд ирлээ',
+        body: codeList(codes),
+      },
+    }
+  })).catch(e => console.error('ereen push', e))
+}
+
+// Монголд ирсэн ачаа — хэрэглэгчийн одоо авахаар хүлээж буй БҮХ ирсэн ачааг тоолж, нийт дүнтэй нь мэдэгдэнэ
+export async function notifyArrivedForCargo(cargoId: number, rows: { userId: number | null; trackCode: string }[]): Promise<void> {
+  if (!ready()) return
+  const allowed = await claimUsers([...groupCodes(rows).keys()])
+  if (!allowed.length) return
+  const [cargo, users] = await Promise.all([
+    prisma.cargo.findUnique({ where: { id: cargoId }, select: { name: true } }).catch(() => null),
+    prisma.user.findMany({
+      where: { id: { in: allowed } },
+      select: { id: true, phone: true, shipments: { where: { cargoId, status: 'ARRIVED' }, select: { adminPrice: true } } },
+    }),
+  ])
+  await sendPushToUsers(users.filter(u => u.shipments.length).map(u => {
+    const n = u.shipments.length
+    const total = u.shipments.reduce((sum, x) => sum + (x.adminPrice ? Number(x.adminPrice) : 0), 0)
+    return {
+      userId: u.id,
+      payload: {
+        kind: 'arrived' as const, tag: 'arrived', url: '/orders',
+        title: `📦 Таны ${n} ачаа ирлээ`,
+        body: `Таны ${u.phone} дугаар дээр ${n} ачаа ирсэн байна.${total > 0 ? ` Нийт ₮${Math.round(total).toLocaleString('en-US')}.` : ''}${cargo?.name ? ` — ${cargo.name}` : ''}`,
+      },
+    }
+  })).catch(e => console.error('arrived push', e))
 }

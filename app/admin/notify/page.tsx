@@ -352,46 +352,10 @@ function BannerSection() {
 }
 
 export default function NotifyPage() {
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ sent: number; failed: number } | null>(null)
-  const [error, setError] = useState('')
-  const [closingTime, setClosingTime] = useState('18:00')
-  const [confirmData, setConfirmData] = useState<{ count: number } | null>(null)
-  const [info, setInfo] = useState<{ count: number; total: number; canSend: boolean; nextAllowedAt: string | null; configured: boolean } | null>(null)
-
-  function loadInfo() {
-    return fetch('/api/admin/notify-all')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setInfo(d); return d })
-      .catch(() => null)
-  }
-  useEffect(() => { loadInfo() }, [])
-
-  async function handleSendClick() {
-    setError('')
-    const d = await loadInfo()
-    if (!d) { setError('Алдаа гарлаа'); return }
-    if (!d.canSend || !d.count) return
-    setConfirmData({ count: d.count })
-  }
-
-  async function confirmSend() {
-    setConfirmData(null)
-    setLoading(true)
-    setResult(null)
-    const res = await fetch('/api/admin/notify-all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ closingTime }),
-    })
-    const data = await res.json().catch(() => ({}))
-    setLoading(false)
-    if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
-    setResult(data)
-    loadInfo()
-  }
-
-  const canSend = !!info?.canSend && !!info?.count && info.configured
+  const [info, setInfo] = useState<{ subscribers: number; users: number; configured: boolean } | null>(null)
+  useEffect(() => {
+    fetch('/api/admin/notify-all').then(r => r.ok ? r.json() : null).then(setInfo).catch(() => {})
+  }, [])
 
   return (
     <div className="page" style={{ maxWidth: 520 }}>
@@ -401,79 +365,33 @@ export default function NotifyPage() {
 
       <div className="card" style={{ padding: '1.25rem' }}>
         <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
-          Ачаа ирсэн мэдэгдэл
+          Утасны мэдэгдэл (автомат)
         </p>
-        <p style={{ fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.5, marginBottom: '1rem' }}>
-          &quot;Ирсэн&quot; ачаатай хэрэглэгчдийн утсанд push мэдэгдэл очно.
-          {info && <> Ачаа ирсэн <b style={{ color: 'var(--text)' }}>{info.total}</b> хэрэглэгчээс <b style={{ color: 'var(--text)' }}>{info.count}</b> нь мэдэгдэл асаасан байна.</>}
+        <p style={{ fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.55, marginBottom: '0.9rem' }}>
+          Ачаа бүртгэхэд хэрэглэгчийн утсанд <b style={{ color: 'var(--text)' }}>автоматаар</b> мэдэгдэл очно — гараар илгээх шаардлагагүй.
         </p>
-
-        <div className="form-group">
-          <label>Өнөөдөр хэдэн цаг хүртэл ажиллах вэ?</label>
-          <input className="input" type="time" value={closingTime}
-            onChange={e => setClosingTime(e.target.value)}
-            style={{ maxWidth: 160 }} />
-        </div>
-
-        {/* Хэрэглэгчид очих мэдэгдлийн жишээ */}
-        <div style={{ display: 'flex', gap: '0.6rem', padding: '0.7rem 0.8rem', borderRadius: 12, background: 'var(--surface2)', border: '1px solid var(--border)', marginBottom: '1rem' }}>
-          <span style={{ fontSize: '1.1rem' }} aria-hidden>📦</span>
-          <div style={{ fontSize: '0.78rem', lineHeight: 1.45, minWidth: 0 }}>
-            <b style={{ display: 'block', fontSize: '0.82rem' }}>Таны 2 ачаа ирлээ</b>
-            <span style={{ color: 'var(--muted)' }}>Таны 9911xxxx дугаар дээр 2 ачаа ирсэн байна. Нийт ₮24,000. Танай карго өнөөдөр {closingTime || '18:00'} хүртэл ажиллаж байна.</span>
-          </div>
-        </div>
-
-        <button className="btn" onClick={handleSendClick} disabled={loading || !closingTime || !canSend}>
-          {loading ? 'Илгээж байна...' : 'Мэдэгдэл илгээх'}
-        </button>
-
-        {info && !info.configured && (
-          <p style={{ fontSize: '0.82rem', color: 'var(--danger)', marginTop: '0.6rem' }}>Push мэдэгдлийн тохиргоо хийгдээгүй байна.</p>
-        )}
-        {info && info.configured && info.canSend && info.count === 0 && (
-          <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.6rem' }}>Ачаа ирсэн, мэдэгдэл асаасан хэрэглэгч одоогоор алга.</p>
-        )}
-        {info && !info.canSend && info.nextAllowedAt && (
-          <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.6rem' }}>
-            Дараагийн илгээлт: <strong style={{ color: 'var(--text)' }}>
-              {new Date(info.nextAllowedAt).toLocaleString('mn-MN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-            </strong>
-          </p>
-        )}
-
-        {error && <p className="msg-error" style={{ marginTop: '1rem' }}>{error}</p>}
-
-        {result && (
-          <div className="card" style={{ marginTop: '1.2rem' }}>
-            <div className="card-row">
-              <span className="label">Хүрсэн</span>
-              <strong style={{ color: 'var(--green)' }}>{result.sent} хэрэглэгч</strong>
-            </div>
-            {result.failed > 0 && (
-              <div className="card-row">
-                <span className="label">Хүрээгүй</span>
-                <span style={{ color: 'var(--muted)' }}>{result.failed} хэрэглэгч (апп устгасан эсвэл мэдэгдлээ хаасан)</span>
+        <div style={{ display: 'grid', gap: '0.5rem', marginBottom: '0.9rem' }}>
+          {[
+            ['📦', 'Эрээнд ирсэн', 'Эрээн дээр уншуулах эсвэл Excel импорт хийхэд'],
+            ['🏠', 'Ирсэн', 'Ирсэн бүртгэх эсвэл Excel импорт хийхэд — нийт ачаа, үнийн дүнтэй'],
+          ].map(([ic, t, d]) => (
+            <div key={t} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', padding: '0.6rem 0.75rem', borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <span aria-hidden style={{ fontSize: '1.05rem' }}>{ic}</span>
+              <div style={{ fontSize: '0.8rem', lineHeight: 1.45 }}>
+                <b style={{ display: 'block' }}>{t}</b>
+                <span style={{ color: 'var(--muted)' }}>{d}</span>
               </div>
-            )}
-          </div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.5, margin: 0 }}>
+          Нэг хүнд <b style={{ color: 'var(--text)' }}>4 цагт нэг л</b> мэдэгдэл очно — олон ачаа дараалан бүртгэхэд утас нь дүүрэхгүй.
+          {info && <> Одоогоор <b style={{ color: 'var(--text)' }}>{info.users}</b> хэрэглэгчээс <b style={{ color: 'var(--green)' }}>{info.subscribers}</b> нь мэдэгдэл асаасан.</>}
+        </p>
+        {info && !info.configured && (
+          <p style={{ fontSize: '0.8rem', color: 'var(--danger)', marginTop: '0.6rem' }}>Push мэдэгдлийн тохиргоо хийгдээгүй байна.</p>
         )}
       </div>
-
-      {confirmData !== null && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '1rem' }}>
-          <div className="card" style={{ width: '100%', maxWidth: 340, padding: '1.5rem', textAlign: 'center' }}>
-            <p style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>Мэдэгдэл илгээх</p>
-            <p style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: '1.25rem' }}>
-              <strong style={{ color: 'var(--text)', fontSize: '1.2rem' }}>{confirmData.count}</strong> хэрэглэгчид мэдэгдэл илгээх үү?
-            </p>
-            <div style={{ display: 'flex', gap: '0.6rem' }}>
-              <button className="btn" onClick={confirmSend} style={{ flex: 1 }}>Илгээх</button>
-              <button onClick={() => setConfirmData(null)} style={{ flex: 1, padding: '0.6rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Болих</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

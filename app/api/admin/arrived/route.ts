@@ -1,8 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { logAdminAction } from '@/lib/audit'
+import { notifyArrivedForCargo } from '@/lib/push'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -79,6 +80,13 @@ export async function PUT(req: NextRequest) {
     cargoId
   ).catch(console.error)
 
+  // Шинээр ирсэн ачааны эзэнд push (4 цагт нэг удаа)
+  const arrivedNew = codes
+    .map((code, i) => ({ code, userId: userIds[i], prev: existingByCode.get(code)?.status }))
+    .filter(x => x.userId && x.prev !== 'ARRIVED' && x.prev !== 'PICKED_UP')
+    .map(x => ({ userId: x.userId, trackCode: x.code }))
+  if (arrivedNew.length) after(() => notifyArrivedForCargo(cargoId, arrivedNew))
+
   // PICKED_UP статустай мөрүүд WHERE-д тааруулагдаагүй тул бодитоор шинэчлэгдээгүй
   const skipped = codes.filter(c => existingByCode.get(c)?.status === 'PICKED_UP').length
   return NextResponse.json({ count: codes.length - skipped })
@@ -139,6 +147,12 @@ export async function POST(req: NextRequest) {
   })
 
   checkCrossCargoOnImport([{ trackCode: code, phone: resolvedPhone, status: 'ARRIVED' }], admin.cargoId!).catch(console.error)
+
+  // Шинээр ирсэн бол эзэнд нь push (үнэ засахад дахин очихгүй)
+  if (shipment.userId && existing?.status !== 'ARRIVED') {
+    const cargoId = admin.cargoId!
+    after(() => notifyArrivedForCargo(cargoId, [{ userId: shipment.userId, trackCode: shipment.trackCode }]))
+  }
 
   await logAdminAction(prisma, {
     cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,

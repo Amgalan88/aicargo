@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden, JwtPayload } from '@/lib/auth'
+import { notifyArrivedForCargo } from '@/lib/push'
 
 // Том багц (олон трак код) DB руу мөр мөрөөр upsert хийвэл round-tripихдэж
 // Vercel-ийн function timeout-д мөргөж "Connection error" гардаг байсан тул нэмэв.
@@ -110,6 +111,9 @@ export async function POST(req: NextRequest) {
     })
     return b
   })
+
+  // Багцын эзэнд "ирлээ" push (4 цагт нэг удаа)
+  if (owner?.id) after(() => notifyArrivedForCargo(cargoId, codes.map(trackCode => ({ userId: owner.id, trackCode }))))
 
   return NextResponse.json({ ok: true, id: batch.id }, { status: 201 })
 }

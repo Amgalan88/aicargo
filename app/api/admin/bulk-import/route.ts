@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { notifyEreenForCargo } from '@/lib/push'
+import { notifyEreenForCargo, notifyArrivedForCargo } from '@/lib/push'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
@@ -117,6 +117,11 @@ export async function POST(req: NextRequest) {
     .filter(x => statuses[x.i] === 'EREEN_ARRIVED' && (!x.prev || x.prev === 'REGISTERED') && userIds[x.i])
     .map(x => ({ userId: userIds[x.i], trackCode: x.code }))
   if (ereenNew.length) after(() => notifyEreenForCargo(cargoId, ereenNew))
+  const arrivedNew = codes
+    .map((code, i) => ({ code, i, prev: existingByCode.get(code)?.status }))
+    .filter(x => statuses[x.i] === 'ARRIVED' && x.prev !== 'ARRIVED' && x.prev !== 'PICKED_UP' && userIds[x.i])
+    .map(x => ({ userId: userIds[x.i], trackCode: x.code }))
+  if (arrivedNew.length) after(() => notifyArrivedForCargo(cargoId, arrivedNew))
 
   return NextResponse.json({ count: rows.length, duplicates })
 }

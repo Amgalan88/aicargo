@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { notifyArrivedForCargo } from '@/lib/push'
 
 // Багцын статусыг бүхэлд нь шилжүүлнэ — зөвхөн ADMIN
 export async function POST(req: NextRequest) {
@@ -39,6 +40,12 @@ export async function POST(req: NextRequest) {
       },
     }),
   ])
+
+  // Багц Эрээнээс Монголд ирсэн болж шилжвэл эзэнд push
+  if (status === 'ARRIVED' && batch.status !== 'ARRIVED' && batch.userId) {
+    const ownerId: number = batch.userId
+    after(() => notifyArrivedForCargo(cargoId, [{ userId: ownerId, trackCode: `batch-${batch.id}` }]))
+  }
 
   return NextResponse.json({ ok: true })
 }
