@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const hostCargo = await prisma.cargo.findUnique({ where: { slug: hostSlug }, select: { id: true } })
     if (!hostCargo || hostCargo.id !== user.cargoId) {
       return NextResponse.json(
-        { error: 'Энэ дугаар энэ каргод бүртгэлгүй байна. "Бүртгүүлэх" хэсгээр энэ каргод бүртгүүлнэ үү.' },
+        { error: hostCargo ? 'Энэ дугаар энэ каргод бүртгэлгүй байна. "Бүртгүүлэх" хэсгээр энэ каргод бүртгүүлнэ үү.' : 'Энэ хаягаар карго олдсонгүй. Каргоныхоо зөв хаягаар орно уу.' },
         { status: 403 },
       )
     }

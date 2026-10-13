@@ -602,6 +602,13 @@ textarea.input { resize: vertical; }
 }
 .empty-state h3 { font-size: var(--fs-md); color: var(--text); font-weight: 700; }
 .empty-state p { font-size: var(--fs-sm); max-width: 320px; }
+.uc .uc-host { color: var(--text); overflow-wrap: anywhere; }
+.uc-list { display: grid; gap: 0.5rem; width: 100%; margin-top: 0.5rem; text-align: left; }
+.uc-list > span { font-size: var(--fs-sm); font-weight: 600; color: var(--text); text-align: center; }
+.uc-item { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); text-decoration: none; color: var(--text); }
+.uc-item:hover { border-color: var(--accent); }
+.uc-item small { color: var(--accent); font-weight: 600; }
+.uc-home { margin-top: 0.75rem; font-size: var(--fs-sm); color: var(--muted); }
 
 /* ── Ачааны явцын stepper (хэрэглэгчийн карт) ── */
 .ship-steps { display: flex; align-items: center; gap: 4px; padding: 0.55rem 1.1rem 0.7rem; }

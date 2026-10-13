@@ -9,6 +9,14 @@ import AppToaster from './components/AppToaster'
 import { ConfirmHost } from './components/ConfirmDialog'
 import DemoBanner from './components/DemoBanner'
 import { DEMO_SLUG } from '@/lib/demo'
+import { hostCargoExists } from '@/lib/cargo-host'
+import UnknownCargo from './components/UnknownCargo'
+
+// Бүртгэлгүй субдомэйн уу (жш: 808cargo.aicargo.mn). DB алдаа гарвал сайтыг унагахгүй — байгаа гэж үзнэ
+async function unknownSlug(slug: string | null): Promise<string | null> {
+  if (!slug) return null
+  try { return (await hostCargoExists(slug)) ? null : slug } catch { return null }
+}
 
 // Кирилл үсэгтэй нэг фонт — Windows/Android/iOS дээр ижил харагдана
 const inter = Inter({ subsets: ['latin', 'cyrillic'], variable: '--font-sans', display: 'swap' })
@@ -46,7 +54,10 @@ export async function generateMetadata(): Promise<Metadata> {
         where: { slug },
         select: { name: true, logoUrl: true },
       })
-      if (cargo) {
+      if (!cargo) {
+        title = 'Карго олдсонгүй'
+        noIndex = true
+      } else {
         title = cargo.name
         ogTitle = cargo.name
         ogSub = `${slug}.aicargo.mn · Ачаа хянах систем`
@@ -88,7 +99,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const isDemo = (await headers()).get('x-cargo-slug') === DEMO_SLUG
+  const slug = (await headers()).get('x-cargo-slug')
+  const isDemo = slug === DEMO_SLUG
+  const unknown = await unknownSlug(slug)
 
   return (
     <html lang="mn" className={inter.variable} suppressHydrationWarning>
@@ -102,7 +115,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <PwaRegister />
         {isDemo && <DemoBanner />}
-        {children}
+        {unknown ? <UnknownCargo slug={unknown} /> : children}
         <AppToaster />
         <ConfirmHost />
         <Analytics />
