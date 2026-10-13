@@ -1925,6 +1925,7 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
 .pp-later:hover { color: var(--text); }
 .aps-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .aps-lbl { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--muted); }
+.aps-test { display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.35rem; padding: 0; border: none; background: none; color: var(--accent); font: inherit; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
 .aps-note { font-size: 0.7rem; color: var(--muted); line-height: 1.4; margin: 0.35rem 0 0; }
 .aps-install {
   display: flex; align-items: center; justify-content: center; gap: 0.4rem; width: 100%; margin-top: 0.5rem;

@@ -12,7 +12,7 @@ export interface PushPayload {
   // Ижил tag-тай мэдэгдэл овоолохгүй, нэг болж солигдоно (жш: 'ereen')
   tag?: string
   // Service worker нэгтгэхэд ашиглана (жш: Эрээнд ирсэн трак кодууд)
-  kind?: 'ereen' | 'arrived'
+  kind?: 'ereen' | 'arrived' | 'test'
   codes?: string[]
   // Service worker хэрэглэгчийн хэлээр (MN/EN/中文) текстийг дахин бүтээхэд ашиглана
   n?: number
@@ -108,9 +108,66 @@ function groupCodes(rows: { userId: number | null; trackCode: string }[]): Map<n
 
 const codeList = (codes: string[]) => codes.slice(0, 3).join(', ') + (codes.length > 3 ? ` +${codes.length - 3}` : '')
 
+type Rows = { userId: number | null; trackCode: string }[]
+
+// ── Шөнийн цаг: 22:00–08:00 (Улаанбаатар) мэдэгдэл илгээхгүй — дараалалд хадгалаад 08:00-д илгээнэ ──
+const QUIET_FROM = 22, QUIET_TO = 8
+const PENDING_KEY = 'push:pending'
+export function isQuietHours(d = new Date()): boolean {
+  const h = (d.getUTCHours() + 8) % 24
+  return h >= QUIET_FROM || h < QUIET_TO
+}
+
+async function queueOrSend(kind: 'ereen' | 'arrived', cargoId: number, rows: Rows): Promise<void> {
+  if (!ready() || !rows.some(r => r.userId)) return
+  const r = getRedis()
+  if (r && isQuietHours()) {
+    const slim = rows.filter(x => x.userId).map(x => ({ userId: x.userId, trackCode: x.trackCode }))
+    await r.rpush(PENDING_KEY, JSON.stringify({ kind, cargoId, rows: slim })).catch(e => console.error('push queue', e))
+    await r.expire(PENDING_KEY, 2 * 86400).catch(() => {})
+    return
+  }
+  if (kind === 'ereen') await sendEreen(cargoId, rows)
+  else await sendArrived(cargoId, rows)
+}
+
+export const notifyEreenForCargo = (cargoId: number, rows: Rows) => queueOrSend('ereen', cargoId, rows)
+export const notifyArrivedForCargo = (cargoId: number, rows: Rows) => queueOrSend('arrived', cargoId, rows)
+
+// Өглөө 08:00-д (cron) шөнө хуримтлагдсан мэдэгдлийг карго, төрлөөр нь нэгтгэж илгээнэ (4 цагийн хязгаар мөрдөнө)
+export async function flushPendingPush(): Promise<{ batches: number }> {
+  const r = getRedis()
+  if (!r || !ready()) return { batches: 0 }
+  const [items] = await r.multi().lrange(PENDING_KEY, 0, -1).del(PENDING_KEY).exec() as [unknown[], number]
+  const groups = new Map<string, { kind: 'ereen' | 'arrived'; cargoId: number; rows: Rows }>()
+  for (const raw of items ?? []) {
+    try {
+      const it = (typeof raw === 'string' ? JSON.parse(raw) : raw) as { kind: 'ereen' | 'arrived'; cargoId: number; rows: Rows }
+      const key = `${it.kind}:${it.cargoId}`
+      const g = groups.get(key) ?? { kind: it.kind, cargoId: it.cargoId, rows: [] }
+      g.rows.push(...it.rows)
+      groups.set(key, g)
+    } catch {}
+  }
+  for (const g of groups.values()) {
+    if (g.kind === 'ereen') await sendEreen(g.cargoId, g.rows)
+    else await sendArrived(g.cargoId, g.rows)
+  }
+  return { batches: groups.size }
+}
+
+// Хэрэглэгч өөрөө шалгах туршилтын мэдэгдэл (шөнө ч очно). 30 секундэд нэг удаа; хязгаарт хүрвэл -1
+export async function sendTestPush(userId: number): Promise<number> {
+  if (!ready()) return 0
+  const r = getRedis()
+  if (r && (await r.set(`push:test:u:${userId}`, '1', { nx: true, ex: 30 }).catch(() => 'OK')) !== 'OK') return -1
+  const { devices } = await sendPushToUsers([{ userId, payload: { kind: 'test', tag: 'test', url: '/orders', title: '🔔 Туршилтын мэдэгдэл', body: 'Мэдэгдэл зөв ажиллаж байна. Ачаа Эрээнд, Монголд ирэхэд ингэж мэдэгдэнэ.' } }])
+  return devices
+}
+
 // Эрээнд ирсэн ачаа — нэг хэрэглэгчийн олон ачааг нэг мэдэгдэл болгоно.
 // Каргогийн өөрийн "Эрээнд ирсэн" нэрийг (жш: "Эрээнээс ачигдсан") ашиглана
-export async function notifyEreenForCargo(cargoId: number, rows: { userId: number | null; trackCode: string }[]): Promise<void> {
+async function sendEreen(cargoId: number, rows: Rows): Promise<void> {
   if (!ready()) return
   const byUser = groupCodes(rows)
   const allowed = await claimUsers('ereen', [...byUser.keys()])
@@ -133,7 +190,7 @@ export async function notifyEreenForCargo(cargoId: number, rows: { userId: numbe
 }
 
 // Монголд ирсэн ачаа — хэрэглэгчийн одоо авахаар хүлээж буй БҮХ ирсэн ачааг тоолж, нийт дүнтэй нь мэдэгдэнэ
-export async function notifyArrivedForCargo(cargoId: number, rows: { userId: number | null; trackCode: string }[]): Promise<void> {
+async function sendArrived(cargoId: number, rows: Rows): Promise<void> {
   if (!ready()) return
   const allowed = await claimUsers('arrived', [...groupCodes(rows).keys()])
   if (!allowed.length) return

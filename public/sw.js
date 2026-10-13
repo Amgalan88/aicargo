@@ -71,6 +71,12 @@ function arrivedText(lang, d) {
   }
 }
 
+function testText(lang) {
+  if (lang === 'en') return { title: '🔔 Test notification', body: 'Notifications are working. You will be notified like this when your parcels reach Ereen and arrive.' }
+  if (lang === 'cn') return { title: '🔔 测试通知', body: '通知正常。货物到达二连和到达时会这样通知您。' }
+  return { title: '🔔 Туршилтын мэдэгдэл', body: 'Мэдэгдэл зөв ажиллаж байна. Ачаа Эрээнд, Монголд ирэхэд ингэж мэдэгдэнэ.' }
+}
+
 self.addEventListener('push', e => {
   let d = {}
   try { d = e.data ? e.data.json() : {} } catch { d = { title: 'Мэдэгдэл', body: e.data ? e.data.text() : '' } }
@@ -91,6 +97,8 @@ self.addEventListener('push', e => {
       if (codes.length) ({ title, body } = ereenText(lang, codes, d.label))
     } else if (d.kind === 'arrived' && typeof d.n === 'number' && d.phone) {
       ({ title, body } = arrivedText(lang, d))
+    } else if (d.kind === 'test') {
+      ({ title, body } = testText(lang))
     }
     await self.registration.showNotification(title, {
       body,

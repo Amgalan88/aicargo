@@ -11,7 +11,8 @@ import type { UserDict } from '@/lib/user-i18n'
 
 type T = Pick<UserDict,
   'pushTitle' | 'pushAskTitle' | 'pushAskBody' | 'pushTurnOn' | 'pushLater' | 'pushOnToast' | 'pushOffToast' | 'pushDenied'
-  | 'pushNeedsInstall' | 'installApp' | 'installTitle' | 'installIos1' | 'installIos2' | 'installIos3' | 'installInapp' | 'installManual' | 'installDone'>
+  | 'pushNeedsInstall' | 'installApp' | 'installTitle' | 'installIos1' | 'installIos2' | 'installIos3' | 'installInapp' | 'installManual' | 'installDone'
+  | 'pushTest' | 'pushTestSent' | 'pushTestFail'>
 
 export function PushPrompt({ t }: { t: T }) {
   const { state, enable } = usePush()
@@ -68,6 +69,13 @@ export function AppSettingsRows({ t }: { t: T }) {
             }}><span /></button>
         ) : null}
       </div>
+      {on && (
+        <button type="button" className="aps-test" onClick={async () => {
+          const res = await fetch('/api/push/test', { method: 'POST' }).catch(() => null)
+          const d = await res?.json().catch(() => ({}))
+          if (res?.ok) toast.success(t.pushTestSent); else toast.error(d?.error || t.pushTestFail)
+        }}><BellRing size={13} />{t.pushTest}</button>
+      )}
       {state === 'denied' && <p className="aps-note">{t.pushDenied}</p>}
       {state === 'needs-install' && mode !== 'installed' && <p className="aps-note">{t.pushNeedsInstall}</p>}
       {mode !== 'installed' && (
