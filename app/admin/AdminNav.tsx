@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Truck,
-  Users, Megaphone, CircleHelp, Warehouse, Settings, Sparkles, ScrollText, SearchCheck,
+  Users, Megaphone, CircleHelp, Settings, Sparkles, ScrollText, SearchCheck,
   Bell, LogOut, Link2, Check, CalendarClock, Ellipsis, ChevronDown, X,
   type LucideIcon,
 } from 'lucide-react'
@@ -122,7 +122,6 @@ export default function AdminNav({
   ]
   const more: NavLink[] = [
     ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт', icon: SearchCheck }] : []),
-    { href: '/admin/warehouse', label: 'Агуулах', icon: Warehouse },
     { href: '/admin/ai', label: 'AI туслах', icon: Sparkles },
     { href: '/admin/faq', label: 'FAQ', icon: CircleHelp },
     { href: '/admin/settings', label: 'Тохиргоо', icon: Settings },
