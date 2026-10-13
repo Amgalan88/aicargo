@@ -13,7 +13,7 @@ interface Item {
 }
 interface Row { url: string; quantity: string; note: string; image: string | null }
 
-const STEPS = ['Линкээ илгээнэ', 'Барааны үнэ ирнэ', 'Төлбөрөө төлнө', 'Захиалж өгнө']
+const STEPS = ['Линкээ илгээнэ', 'Барааны үнэ ирнэ', 'Төлбөрөө төлнө', 'Трак код ирнэ']
 const EMPTY: Row = { url: '', quantity: '1', note: '', image: null }
 
 const UB = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar', month: 'numeric', day: 'numeric' })
