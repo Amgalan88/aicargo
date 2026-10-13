@@ -13,8 +13,8 @@ export default async function UnknownCargo({ slug }: { slug: string }) {
             <span>Та энэ каргог хайж байсан уу?</span>
             {suggestions.map(c => (
               <a key={c.slug} href={`https://${c.slug}.aicargo.mn`} className="uc-item">
-                <b>{c.name}</b>
-                <small>{c.slug}.aicargo.mn →</small>
+                <b>{c.slug}.aicargo.mn →</b>
+                <small>{c.name}</small>
               </a>
             ))}
           </div>

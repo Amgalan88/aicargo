@@ -607,7 +607,8 @@ textarea.input { resize: vertical; }
 .uc-list > span { font-size: var(--fs-sm); font-weight: 600; color: var(--text); text-align: center; }
 .uc-item { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); text-decoration: none; color: var(--text); }
 .uc-item:hover { border-color: var(--accent); }
-.uc-item small { color: var(--accent); font-weight: 600; }
+.uc-item b { color: var(--accent); overflow-wrap: anywhere; }
+.uc-item small { color: var(--muted); }
 .uc-home { margin-top: 0.75rem; font-size: var(--fs-sm); color: var(--muted); }
 
 /* ── Ачааны явцын stepper (хэрэглэгчийн карт) ── */
