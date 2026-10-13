@@ -1,5 +1,5 @@
 'use client'
-import { Tag } from 'lucide-react'
+import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2 } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
@@ -8,6 +8,36 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 interface Tier { min: string; price: string }
+
+// Хэсгүүд — дээд талын товч цэс болон гарчигт ашиглана
+const SECTIONS = [
+  { id: 'st-brand', label: 'Лого' },
+  { id: 'st-info', label: 'Мэдээлэл' },
+  { id: 'st-price', label: 'Үнэ бодогч' },
+  { id: 'st-bank', label: 'Данс' },
+  { id: 'st-ereen', label: 'Эрээний хаяг' },
+  { id: 'st-labels', label: 'Төлөвийн нэр' },
+  { id: 'st-links', label: 'Линк захиалга' },
+  { id: 'st-staff', label: 'Ажилтан' },
+]
+
+function Section({ id, icon: Icon, title, desc, locked, children }: {
+  id: string; icon: React.ElementType; title: string; desc?: React.ReactNode; locked?: boolean; children: React.ReactNode
+}) {
+  return (
+    <section id={id} className={`card st-sec${locked ? ' locked' : ''}`}>
+      <header className="st-sec-head">
+        <span className="st-sec-ic"><Icon size={18} strokeWidth={2} /></span>
+        <div>
+          <h2>{title}</h2>
+          {desc && <p>{desc}</p>}
+        </div>
+      </header>
+      {children}
+      {locked && <p className="st-locked">Зөвхөн эзэн админ солих боломжтой.</p>}
+    </section>
+  )
+}
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -33,18 +63,20 @@ export default function SettingsPage() {
   const [me, setMe] = useState({ isStaffAdmin: false, canEditBank: false, canEditAddress: false, canEditLogo: false })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [logoError, setLogoError] = useState('')
   // Ямар нэг өөрчлөлт орсон эсэхийг мэдэхийн тулд ачаалсан үеийн байдлыг хадгална
   const [baseline, setBaseline] = useState('')
+  const [loaded, setLoaded] = useState<{ form: typeof form; tiers: Tier[] } | null>(null)
 
   const snapshotOf = (f: typeof form, t: Tier[], logo: string | null) => JSON.stringify([f, t, !!logo])
   const dirty = baseline !== '' && snapshotOf(form, tiers, logoBase64) !== baseline
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm(f => ({ ...f, [k]: e.target.value }))
 
   function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     if (file.size > 3 * 1024 * 1024) { setLogoError('Лого 3MB-аас бага байх ёстой'); return }
     setLogoError('')
@@ -68,15 +100,28 @@ export default function SettingsPage() {
         setForm(loadedForm)
         setLinkOn(!!d.linkOrdersEnabled)
         setTiers(loadedTiers)
+        setLoaded({ form: loadedForm, tiers: loadedTiers })
         setBaseline(snapshotOf(loadedForm, loadedTiers, null))
         setLoading(false)
       })
   }, [])
 
+  // Хадгалаагүй өөрчлөлттэй хуудсаас гарах үед сануулна
+  useEffect(() => {
+    if (!dirty) return
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', h)
+    return () => window.removeEventListener('beforeunload', h)
+  }, [dirty])
+
+  function discard() {
+    if (!loaded) return
+    setForm(loaded.form); setTiers(loaded.tiers); setLogoBase64(null); setLogoError(''); setSaveError('')
+  }
+
   async function save() {
     if (saving || !dirty) return
     setSaving(true)
-    setSaved(false)
     setSaveError('')
     try {
       const res = await fetch('/api/admin/settings', {
@@ -98,13 +143,13 @@ export default function SettingsPage() {
       const updated = await res.json()
       if (updated?.logoUrl) setCargo(c => c ? { ...c, logoUrl: updated.logoUrl } : c)
       setLogoBase64(null)
+      setLoaded({ form, tiers })
       setBaseline(snapshotOf(form, tiers, null))
       // Цэсний "Эрээнд ирсэн"/"Ирсэн" шошгыг хуудас солихгүйгээр шууд шинэчилнэ
       window.dispatchEvent(new Event('admin-settings-saved'))
       // Цэс (жш: "Линк захиалга") серверээс ирдэг тул layout-ыг дахин ачаална
       router.refresh()
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      toast.success('Амжилттай хадгалагдлаа')
     } catch {
       setSaveError('Холболтын алдаа гарлаа. Дахин оролдоно уу.')
     } finally {
@@ -112,84 +157,123 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading) return <p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p>
+  if (loading) return <div className="st-page"><p style={{ color: 'var(--muted)' }}>Ачааллаж байна...</p></div>
 
   const allowBank = !me.isStaffAdmin || me.canEditBank
   const allowAddress = !me.isStaffAdmin || me.canEditAddress
   const allowLogo = !me.isStaffAdmin || me.canEditLogo
-  const ownerOnlyNote = <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.4rem' }}>Зөвхөн эзэн админ солих боломжтой.</p>
+  const sections = SECTIONS.filter(s => s.id !== 'st-staff' || !me.isStaffAdmin)
+  const unit = form.priceWeightUnit === 't' ? 'тонн' : 'кг'
 
   return (
-    <>
-      <div style={{ marginBottom: '1.5rem' }}>
+    <div className="st-page">
+      <div className="st-head">
         <h1 className="section-title" style={{ margin: 0 }}>Тохиргоо</h1>
-        {cargo && <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginTop: '0.3rem' }}>{cargo.name}</p>}
+        {cargo && <p>{cargo.name}</p>}
       </div>
 
-      {/* Logo */}
-      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem', opacity: allowLogo ? 1 : 0.6 }}>
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>Лого</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+      <nav className="st-jump" aria-label="Тохиргооны хэсгүүд">
+        {sections.map(s => <a key={s.id} href={`#${s.id}`}>{s.label}</a>)}
+      </nav>
+
+      <Section id="st-brand" icon={ImageUp} title="Лого" desc="Вэб хаяг, апп-ын икон, нүүр хуудсанд харагдана." locked={!allowLogo}>
+        <div className="st-logo">
           {(logoBase64 || cargo?.logoUrl) ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoBase64 || cargo!.logoUrl!} alt="logo" style={{
-              width: 56, height: 56, borderRadius: 12, objectFit: 'cover',
-              border: '1px solid var(--border)', flexShrink: 0,
-            }} />
+            <img src={logoBase64 || cargo!.logoUrl!} alt="Лого" />
           ) : (
-            <div style={{
-              width: 56, height: 56, borderRadius: 12, background: 'var(--surface2)',
-              border: '1px dashed var(--border)', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '1.3rem', color: 'var(--muted)',
-            }}><Tag size={20} strokeWidth={2} /></div>
+            <span className="st-logo-empty"><Tag size={20} strokeWidth={2} /></span>
           )}
-          <div style={{ minWidth: 200, flex: 1 }}>
-            <input type="file" accept="image/*" onChange={handleLogo} disabled={!allowLogo} style={{ fontSize: '0.82rem' }} />
-            {allowLogo ? (
-              <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.35rem' }}>
-                Вэб хаяг, апп-ын икон, нүүр хуудсанд харагдана. Сонгоод доорх "Хадгалах" товчийг дарна.
-              </p>
-            ) : ownerOnlyNote}
-            {logoBase64 && <p style={{ fontSize: '0.75rem', color: 'var(--accent)', marginTop: '0.25rem' }}>Шинэ лого сонгогдлоо — хадгалахаа мартуузай</p>}
-            {logoError && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.25rem' }}>{logoError}</p>}
+          <div>
+            <label className={`btn btn-ghost btn-sm${allowLogo ? '' : ' disabled'}`}>
+              <input type="file" accept="image/*" hidden onChange={handleLogo} disabled={!allowLogo} />
+              {cargo?.logoUrl || logoBase64 ? 'Лого солих' : 'Лого оруулах'}
+            </label>
+            {logoBase64 && <p className="st-note accent">Шинэ лого сонгогдлоо — хадгалахаа мартуузай</p>}
+            {logoError && <p className="st-note danger">{logoError}</p>}
+            {!logoBase64 && !logoError && <p className="st-note">PNG, JPG · 3MB хүртэл · дөрвөлжин зураг гоё харагдана</p>}
           </div>
         </div>
-      </div>
+      </Section>
 
-      {/* Эрээний ажилтны нэвтрэлт — багц бүртгэл идэвхтэй үед, зөвхөн эзэн админд */}
-      {cargo?.batchEnabled && !me.isStaffAdmin && <EreenStaffSection />}
-
-      {/* Ажилтан admin — зөвхөн эзэн админд */}
-      {!me.isStaffAdmin && <StaffAdminSection />}
-
-      {/* Ereen address — админ өөрөө тохируулна */}
-      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem', opacity: allowAddress ? 1 : 0.6 }}>
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Эрээний хаяг</p>
-        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
-          Хэрэглэгчид тань Хятадаас бараа захиалахдаа энэ хаягийг ашиглана. Нүүр хуудсанд хуулах товчтой харагдана.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>收货人 (Хүлээн авагчийн нэр)</label>
-            <input className="input" disabled={!allowAddress} placeholder="жш: 王明" value={form.ereemReceiver}
-              onChange={e => setForm(f => ({ ...f, ereemReceiver: e.target.value }))} />
+      <Section id="st-info" icon={Megaphone} title="Хэрэглэгчид харагдах мэдээлэл" desc="Хэрэглэгчийн нүүр хуудсанд гарна. Хоосон талбар харагдахгүй.">
+        <div className="form-group">
+          <label>Анхааруулга <small>чухал мэдэгдэл</small></label>
+          <textarea className="input" rows={2} placeholder="Баяр наадмын үеэр ачаа хүлээн авахгүй..." value={form.announcement} onChange={set('announcement')} />
+        </div>
+        <div className="st-grid">
+          <div className="form-group">
+            <label>Тариф <small>кг үнэ, дүрэм</small></label>
+            <textarea className="input" rows={4} placeholder={'1кг — ₮8,500\n5кг дээш — ₮8,000'} value={form.tariff} onChange={set('tariff')} />
           </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>手机号 (Утас)</label>
-            <input className="input" disabled={!allowAddress} placeholder="жш: 15848201234" value={form.ereemPhone}
-              onChange={e => setForm(f => ({ ...f, ereemPhone: e.target.value }))} />
+          <div className="form-group">
+            <label>Холбоо барих <small>утас, цаг, хаяг</small></label>
+            <textarea className="input" rows={4} placeholder={'Утас: 99001122\nЦаг: Д-Б 09:00–18:00'} value={form.contactInfo} onChange={set('contactInfo')} />
           </div>
         </div>
-        <div className="form-group" style={{ marginTop: '0.75rem' }}>
-          <label>地区 (Бүс) <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(· тэмдгээр тусгаарлана, жш: 内蒙古 · 锡林郭勒盟 · 二连浩特市)</span></label>
-          <input className="input" disabled={!allowAddress} placeholder="内蒙古 · 锡林郭勒盟 · 二连浩特市" value={form.ereemRegion}
-            onChange={e => setForm(f => ({ ...f, ereemRegion: e.target.value }))} />
+      </Section>
+
+      <Section id="st-price" icon={Calculator} title="Үнэ бодогч"
+        desc={<>Хэрэглэгч хэмжээ, жингээ оруулж үнээ урьдчилан бодно — кубын болон жингийн үнийн <b>өндөр</b> нь баримтлагдана. Хоёулаа хоосон бол харагдахгүй.</>}>
+        <div className="st-grid">
+          <div className="form-group">
+            <label>Кубын үнэ <small>₮ / м³</small></label>
+            <input className="input" type="number" min="0" placeholder="жш: 350000" value={form.priceCubic} onChange={set('priceCubic')} />
+          </div>
+          <div className="form-group">
+            <label>Жингийн үнэ <small>₮ / {unit}</small></label>
+            <div className="st-unit">
+              <input className="input" type="number" min="0" placeholder={form.priceWeightUnit === 't' ? 'жш: 3500000' : 'жш: 3500'} value={form.priceWeight} onChange={set('priceWeight')} />
+              <div className="seg" role="group" aria-label="Жингийн нэгж">
+                {(['kg', 't'] as const).map(u => (
+                  <button key={u} type="button" className={form.priceWeightUnit === u ? 'on' : ''} aria-pressed={form.priceWeightUnit === u}
+                    onClick={() => setForm(f => ({ ...f, priceWeightUnit: u }))}>{u === 'kg' ? 'кг' : 'тонн'}</button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="form-group" style={{ marginBottom: 0 }}>
-          <label>详细地址 (Дэлгэрэнгүй хаяг)</label>
-          <input className="input" disabled={!allowAddress} placeholder="жш: XX小区 X号楼 XXX" value={form.ereemAddress}
-            onChange={e => setForm(f => ({ ...f, ereemAddress: e.target.value }))} />
+
+        {form.priceWeight && (
+          <div className="st-tiers">
+            <p className="st-sub">Шатлалтай үнэ <small>заавал биш — босго давбал НИЙТ жин тэр үнээр бодогдоно</small></p>
+            {tiers.map((tier, i) => (
+              <div key={i} className="st-tier">
+                <input className="input" type="number" min="0" placeholder="100" aria-label="Босго жин"
+                  value={tier.min} onChange={e => setTiers(ts => ts.map((t, j) => j === i ? { ...t, min: e.target.value } : t))} />
+                <span>{unit}-аас дээш →</span>
+                <input className="input" type="number" min="0" placeholder={form.priceWeightUnit === 't' ? '2000000' : '2000'} aria-label="Үнэ"
+                  value={tier.price} onChange={e => setTiers(ts => ts.map((t, j) => j === i ? { ...t, price: e.target.value } : t))} />
+                <span>₮/{unit}</span>
+                <button type="button" className="st-x" aria-label="Шатлал хасах" onClick={() => setTiers(ts => ts.filter((_, j) => j !== i))}><Trash2 size={15} /></button>
+              </div>
+            ))}
+            <button type="button" className="st-add" onClick={() => setTiers(ts => [...ts, { min: '', price: '' }])}><Plus size={14} />Шатлал нэмэх</button>
+          </div>
+        )}
+      </Section>
+
+      <Section id="st-bank" icon={Landmark} title="Төлбөр төлөх данс" desc="Хэрэглэгч төлбөрөө шилжүүлэх данс. Хуулах товчтой харагдана." locked={!allowBank}>
+        <div className="st-grid">
+          <div className="form-group"><label>Банкны нэр</label><input className="input" disabled={!allowBank} placeholder="Хаан банк" value={form.bankName} onChange={set('bankName')} /></div>
+          <div className="form-group"><label>Хүлээн авагчийн нэр</label><input className="input" disabled={!allowBank} placeholder="Овог Нэр" value={form.bankAccountHolder} onChange={set('bankAccountHolder')} /></div>
+          <div className="form-group"><label>Дансны дугаар</label><input className="input" disabled={!allowBank} placeholder="5000123456" value={form.bankAccountNumber} onChange={set('bankAccountNumber')} /></div>
+          <div className="form-group"><label>Гүйлгээний утга <small>заавар</small></label><input className="input" disabled={!allowBank} placeholder="Утасны дугаараа заавал бичнэ үү" value={form.bankTransferNote} onChange={set('bankTransferNote')} /></div>
+        </div>
+      </Section>
+
+      <Section id="st-ereen" icon={MapPin} title="Эрээний хаяг" desc="Хэрэглэгч Хятадаас бараа захиалахдаа энэ хаягийг ашиглана." locked={!allowAddress}>
+        <div className="st-grid">
+          <div className="form-group"><label>收货人 <small>Хүлээн авагч</small></label><input className="input" disabled={!allowAddress} placeholder="жш: 王明" value={form.ereemReceiver} onChange={set('ereemReceiver')} /></div>
+          <div className="form-group"><label>手机号 <small>Утас</small></label><input className="input" disabled={!allowAddress} placeholder="жш: 15848201234" value={form.ereemPhone} onChange={set('ereemPhone')} /></div>
+        </div>
+        <div className="form-group">
+          <label>地区 <small>Бүс · тэмдгээр тусгаарлана</small></label>
+          <input className="input" disabled={!allowAddress} placeholder="内蒙古 · 锡林郭勒盟 · 二连浩特市" value={form.ereemRegion} onChange={set('ereemRegion')} />
+        </div>
+        <div className="form-group">
+          <label>详细地址 <small>Дэлгэрэнгүй хаяг</small></label>
+          <input className="input" disabled={!allowAddress} placeholder="жш: XX小区 X号楼 XXX" value={form.ereemAddress} onChange={set('ereemAddress')} />
         </div>
         <EreenAddressExtras
           title={form.ereemTitle}
@@ -198,212 +282,94 @@ export default function SettingsPage() {
           onExtras={v => setForm(f => ({ ...f, ereemAddresses: v }))}
           disabled={!allowAddress}
         />
-        {!allowAddress && ownerOnlyNote}
-      </div>
+      </Section>
 
-      {/* Линкээр захиалга — эзэмшигч асааж/унтраана (анхдагч: хаалттай) */}
-      <div className="card" style={{ padding: '1.1rem 1.25rem', marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-          <div style={{ minWidth: 0 }}>
-            <b id="link-orders-label" style={{ fontSize: '0.95rem' }}>Линкээр захиалга авах</b>
-            <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.2rem 0 0', lineHeight: 1.5 }}>
-              {linkOn
-                ? 'Нээлттэй — хэрэглэгчид барааны линкээ илгээнэ. Хүсэлтүүд "Линк захиалга" цэсэнд ирнэ.'
-                : 'Хаалттай — нээвэл хэрэглэгчид Taobao, Pinduoduo, 1688-ийн линкээ илгээж, та үнэ, төлбөрийг нь бүртгэнэ.'}
-            </p>
-          </div>
+      <Section id="st-labels" icon={Tags} title="Төлөвийн нэр" desc='Ачааны төлөвийг өөрийнхөөрөө нэрлэж болно. Хоосон бол анхны нэрээр харагдана.'>
+        <div className="st-grid">
+          <div className="form-group"><label>"Эрээнд ирсэн"</label><input className="input" placeholder="жш: Эрээнээс ачигдсан" value={form.ereemLabel} onChange={set('ereemLabel')} /></div>
+          <div className="form-group"><label>"Ирсэн"</label><input className="input" placeholder="жш: Дарханд ирсэн" value={form.arrivedLabel} onChange={set('arrivedLabel')} /></div>
+        </div>
+      </Section>
+
+      <Section id="st-links" icon={ShoppingCart} title="Линкээр захиалга авах">
+        <div className="st-toggle">
+          <p id="link-orders-label">
+            {linkOn
+              ? 'Нээлттэй — хэрэглэгчид барааны линкээ илгээнэ. Хүсэлтүүд "Линк захиалга" цэсэнд ирнэ.'
+              : 'Хаалттай — нээвэл хэрэглэгчид Taobao, Pinduoduo, 1688-ийн линкээ илгээж, та үнэ, төлбөрийг нь бүртгэнэ.'}
+            <small>Дармагц шууд хадгалагдана.</small>
+          </p>
           <button type="button" role="switch" aria-checked={linkOn} aria-labelledby="link-orders-label"
             className={`switch${linkOn ? ' on' : ''}`} disabled={me.isStaffAdmin || linkBusy} onClick={toggleLinks}>
             <span />
           </button>
         </div>
-        {me.isStaffAdmin && <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: '0.6rem 0 0' }}>Зөвхөн каргогийн эзэмшигч өөрчилнө.</p>}
+        {me.isStaffAdmin && <p className="st-locked">Зөвхөн каргогийн эзэмшигч өөрчилнө.</p>}
+      </Section>
+
+      {/* Ажилтнууд — зөвхөн эзэн админд */}
+      {!me.isStaffAdmin && (
+        <Section id="st-staff" icon={Users} title="Ажилтан" desc="Ажилтан тус бүр өөрийн утас, нууц үгээр нэвтэрнэ. Ажилтан нэмэх эрх зөвхөн танд байна.">
+          <StaffAdminSection />
+          {cargo?.batchEnabled && <EreenStaffSection />}
+        </Section>
+      )}
+
+      {/* Хадгалах самбар — өөрчлөлт орох үед доор гарна */}
+      <div className={`st-savebar${dirty || saveError ? ' show' : ''}`} role="region" aria-label="Хадгалах">
+        <span className={saveError ? 'danger' : ''}>{saveError || 'Хадгалаагүй өөрчлөлт байна'}</span>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={discard} disabled={saving}>Болих</button>
+        <button type="button" className="btn btn-sm" onClick={save} disabled={saving || !dirty}>{saving ? 'Хадгалж байна…' : 'Хадгалах'}</button>
       </div>
-
-      {/* Editable fields */}
-      <div className="card" style={{ padding: '1.25rem' }}>
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1rem' }}>Нүүр хуудасны мэдээлэл</p>
-
-        <div className="form-group">
-          <label>"Эрээнд ирсэн" төлөвийн нэр <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(хоосон бол "Эрээнд ирсэн" гэж харагдана)</span></label>
-          <input
-            className="input"
-            placeholder="Эрээнээс ачигдсан"
-            value={form.ereemLabel}
-            onChange={e => setForm(f => ({ ...f, ereemLabel: e.target.value }))}
-          />
-        </div>
-
-        <div className="form-group">
-          <label>"Ирсэн" төлөвийн нэр <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(хоосон бол "Ирсэн" гэж харагдана)</span></label>
-          <input
-            className="input"
-            placeholder="Булганд ирсэн"
-            value={form.arrivedLabel}
-            onChange={e => setForm(f => ({ ...f, arrivedLabel: e.target.value }))}
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Тариф <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(кг үнэ, дүрэм гэх мэт)</span></label>
-          <textarea
-            className="input"
-            rows={5}
-            placeholder={"1кг — ₮8,500\n5кг дээш — ₮8,000\nХажуугийн хэмжээ хязгаар: 1м"}
-            value={form.tariff}
-            onChange={e => setForm(f => ({ ...f, tariff: e.target.value }))}
-            style={{ resize: 'vertical', fontFamily: 'inherit' }}
-          />
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.25rem 0' }} />
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Үнэ бодогч</p>
-        <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
-          Хэрэглэгч ачааныхаа хэмжээ (урт·өргөн·өндөр) болон жинг оруулж үнэ урьдчилан тооцоолно — кубын болон жингийн үнийн <strong>өндөр</strong> нь баримтлагдана. Хоёулаа хоосон бол хэрэглэгчид энэ хэсэг харагдахгүй.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Кубын үнэ <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(₮ / м³)</span></label>
-            <input className="input" type="number" min="0" placeholder="жш: 350000"
-              value={form.priceCubic}
-              onChange={e => setForm(f => ({ ...f, priceCubic: e.target.value }))} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Жингийн үнэ</label>
-            <div style={{ display: 'flex', gap: '0.4rem' }}>
-              <input className="input" type="number" min="0" placeholder={form.priceWeightUnit === 't' ? 'жш: 3500000' : 'жш: 3500'}
-                value={form.priceWeight}
-                onChange={e => setForm(f => ({ ...f, priceWeight: e.target.value }))}
-                style={{ flex: 1, minWidth: 0 }} />
-              {(['kg', 't'] as const).map(u => (
-                <button key={u} type="button" onClick={() => setForm(f => ({ ...f, priceWeightUnit: u }))} style={{
-                  padding: '0 0.75rem', borderRadius: 'var(--radius)', border: '1px solid',
-                  cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0,
-                  borderColor: form.priceWeightUnit === u ? 'var(--accent)' : 'var(--border)',
-                  background: form.priceWeightUnit === u ? 'var(--accent)' : 'var(--surface)',
-                  color: form.priceWeightUnit === u ? 'var(--on-accent)' : 'var(--muted)',
-                }}>
-                  ₮/{u === 'kg' ? 'кг' : 'тонн'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Жингийн шатлалтай үнэ */}
-        {form.priceWeight && (
-          <div style={{ marginTop: '0.75rem' }}>
-            <label style={{ fontSize: '0.82rem', fontWeight: 500 }}>
-              Шатлалтай үнэ <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(заавал биш — жш: 100 кг-аас дээш бол өөр үнээр)</span>
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginTop: '0.45rem' }}>
-              {tiers.map((tier, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                  <input className="input" type="number" min="0" placeholder="100"
-                    value={tier.min}
-                    onChange={e => setTiers(ts => ts.map((t, j) => j === i ? { ...t, min: e.target.value } : t))}
-                    style={{ width: 100, padding: '0.45rem 0.6rem', fontSize: '0.85rem' }} />
-                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)', flexShrink: 0 }}>кг-аас дээш →</span>
-                  <input className="input" type="number" min="0" placeholder={form.priceWeightUnit === 't' ? '2000000' : '2000'}
-                    value={tier.price}
-                    onChange={e => setTiers(ts => ts.map((t, j) => j === i ? { ...t, price: e.target.value } : t))}
-                    style={{ width: 130, padding: '0.45rem 0.6rem', fontSize: '0.85rem' }} />
-                  <span style={{ fontSize: '0.8rem', color: 'var(--muted)', flexShrink: 0 }}>₮/{form.priceWeightUnit === 't' ? 'тонн' : 'кг'}</span>
-                  <button type="button" onClick={() => setTiers(ts => ts.filter((_, j) => j !== i))} style={{
-                    background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer',
-                    fontSize: '0.9rem', padding: '0.2rem 0.4rem', fontFamily: 'inherit',
-                  }}>✕</button>
-                </div>
-              ))}
-              <button type="button" onClick={() => setTiers(ts => [...ts, { min: '', price: '' }])} style={{
-                alignSelf: 'flex-start', background: 'none', border: '1px dashed var(--border)',
-                borderRadius: 'var(--radius)', color: 'var(--muted)', cursor: 'pointer',
-                fontSize: '0.78rem', padding: '0.35rem 0.8rem', fontFamily: 'inherit',
-              }}>
-                + Шатлал нэмэх
-              </button>
-            </div>
-            <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.4rem' }}>
-              Жин нь босго давсан тохиолдолд НИЙТ жин тухайн шатлалын үнээр бодогдоно.
-            </p>
-          </div>
-        )}
-
-        <div className="form-group">
-          <label>Анхааруулга <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(чухал мэдэгдэл)</span></label>
-          <textarea
-            className="input"
-            rows={3}
-            placeholder="Баяр наадмын үеэр ачаа хүлээн авахгүй..."
-            value={form.announcement}
-            onChange={e => setForm(f => ({ ...f, announcement: e.target.value }))}
-            style={{ resize: 'vertical', fontFamily: 'inherit' }}
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Холбоо барих <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(утас, цаг, хаяг)</span></label>
-          <textarea
-            className="input"
-            rows={3}
-            placeholder={"Утас: 99001122\nЦаг: Д-Б 09:00–18:00\nДархан, 3-р хороо"}
-            value={form.contactInfo}
-            onChange={e => setForm(f => ({ ...f, contactInfo: e.target.value }))}
-            style={{ resize: 'vertical', fontFamily: 'inherit' }}
-          />
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.25rem 0' }} />
-        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: allowBank ? '1rem' : '0.35rem' }}>Төлбөр төлөх данс</p>
-        {!allowBank && ownerOnlyNote}
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem', opacity: allowBank ? 1 : 0.6, marginTop: allowBank ? 0 : '0.75rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Банкны нэр</label>
-            <input className="input" disabled={!allowBank} placeholder="Хаан банк" value={form.bankName}
-              onChange={e => setForm(f => ({ ...f, bankName: e.target.value }))} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Хүлээн авагчийн нэр</label>
-            <input className="input" disabled={!allowBank} placeholder="Овог Нэр" value={form.bankAccountHolder}
-              onChange={e => setForm(f => ({ ...f, bankAccountHolder: e.target.value }))} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Дансны дугаар</label>
-            <input className="input" disabled={!allowBank} placeholder="5000123456" value={form.bankAccountNumber}
-              onChange={e => setForm(f => ({ ...f, bankAccountNumber: e.target.value }))} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>Гүйлгээний утга <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.78rem' }}>(зааварчилгаа)</span></label>
-            <input className="input" disabled={!allowBank} placeholder="Утасны дугаараа заавал бичнэ үү" value={form.bankTransferNote}
-              onChange={e => setForm(f => ({ ...f, bankTransferNote: e.target.value }))} />
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <button className="btn" onClick={save} disabled={saving || !dirty}
-            style={{ opacity: saving || !dirty ? 0.5 : 1 }}>
-            {saving ? 'Хадгалж байна...' : 'Хадгалах'}
-          </button>
-          {saved && <span style={{ fontSize: '0.82rem', color: 'var(--green)' }}>✓ Амжилттай хадгалагдлаа</span>}
-          {saveError && <span style={{ fontSize: '0.82rem', color: 'var(--danger)' }}>✗ {saveError}</span>}
-          {!saved && !saveError && dirty && !saving && (
-            <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Хадгалаагүй өөрчлөлт байна</span>
-          )}
-        </div>
-      </div>
-    </>
+    </div>
   )
 }
 
 interface Staff { id: number; name: string; phone: string }
 
+// Шинэ ажилтны маягт — "+ Нэмэх" дармагц нээгдэнэ
+function NewStaffForm({ busy, onCreate, onCancel, children }: {
+  busy: boolean
+  onCreate: (f: { name: string; phone: string; password: string }) => Promise<boolean>
+  onCancel: () => void
+  children?: React.ReactNode
+}) {
+  const [f, setF] = useState({ name: '', phone: '', password: '' })
+  const ok = f.name.trim().length >= 2 && /^\d{8}$/.test(f.phone) && f.password.length >= 6
+  return (
+    <form className="st-newstaff" onSubmit={async e => { e.preventDefault(); if (ok && await onCreate(f)) setF({ name: '', phone: '', password: '' }) }}>
+      <div className="st-grid3">
+        <div className="form-group"><label>Нэр</label><input className="input" placeholder="Ажилтны нэр" value={f.name} onChange={e => setF(x => ({ ...x, name: e.target.value }))} /></div>
+        <div className="form-group"><label>Утас</label><input className="input" type="tel" maxLength={8} placeholder="99001122" value={f.phone} onChange={e => setF(x => ({ ...x, phone: e.target.value.replace(/\D/g, '').slice(0, 8) }))} /></div>
+        <div className="form-group"><label>Нууц үг</label><input className="input" type="text" placeholder="6+ тэмдэгт" value={f.password} onChange={e => setF(x => ({ ...x, password: e.target.value }))} /></div>
+      </div>
+      {children}
+      <div className="st-newstaff-actions">
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Болих</button>
+        <button className="btn btn-sm" disabled={busy || !ok}>{busy ? 'Үүсгэж байна…' : 'Үүсгэх'}</button>
+      </div>
+    </form>
+  )
+}
+
+function StaffRow({ name, phone, onReset, onRemove, children }: { name: string; phone: string; onReset: () => void; onRemove: () => void; children?: React.ReactNode }) {
+  return (
+    <div className="st-staff">
+      <div className="st-staff-top">
+        <span className="st-avatar" aria-hidden>{name.trim().charAt(0).toUpperCase() || '?'}</span>
+        <div className="st-staff-name"><b>{name}</b><span>{phone}</span></div>
+        <button type="button" className="st-icon" title="Нууц үг солих" aria-label={`${name} — нууц үг солих`} onClick={onReset}><KeyRound size={15} /></button>
+        <button type="button" className="st-icon danger" title="Устгах" aria-label={`${name} — устгах`} onClick={onRemove}><Trash2 size={15} /></button>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 function EreenStaffSection() {
   const [staff, setStaff] = useState<Staff[]>([])
-  const [form, setForm] = useState({ name: '', phone: '', password: '' })
+  const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [err, setErr] = useState('')
 
   function load() {
     fetch('/api/admin/ereen-staff')
@@ -413,8 +379,8 @@ function EreenStaffSection() {
   }
   useEffect(() => { load() }, [])
 
-  async function create() {
-    setBusy(true); setErr(''); setMsg('')
+  async function create(form: { name: string; phone: string; password: string }) {
+    setBusy(true)
     const res = await fetch('/api/admin/ereen-staff', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -422,23 +388,22 @@ function EreenStaffSection() {
     })
     setBusy(false)
     const d = await res.json().catch(() => ({}))
-    if (!res.ok) { setErr(d.error || 'Алдаа гарлаа'); return }
-    setMsg('✓ Нэвтрэлт үүслээ')
-    setForm({ name: '', phone: '', password: '' })
+    if (!res.ok) { toast.error(d.error || 'Алдаа гарлаа'); return false }
+    toast.success('Нэвтрэлт үүслээ')
+    setAdding(false)
     load()
-    setTimeout(() => setMsg(''), 3000)
+    return true
   }
 
   async function resetPw(id: number) {
     const pw = prompt('Шинэ нууц үг (6+ тэмдэгт):')
     if (!pw || pw.length < 6) return
-    await fetch('/api/admin/ereen-staff', {
+    const res = await fetch('/api/admin/ereen-staff', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, password: pw }),
     })
-    setMsg('✓ Нууц үг солигдлоо')
-    setTimeout(() => setMsg(''), 3000)
+    if (res.ok) toast.success('Нууц үг солигдлоо'); else toast.error('Алдаа гарлаа')
   }
 
   async function remove(id: number) {
@@ -452,83 +417,48 @@ function EreenStaffSection() {
   }
 
   return (
-    <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
-      <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Эрээний ажилтны нэвтрэлт</p>
-      <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
-        Энэ эрхээр нэвтэрсэн хүн зөвхөн багц бүртгэлийн хуудас (₮/¥ хэл солигддог) хардаг — таны бусад мэдээлэлд хандахгүй.
-      </p>
-
-      {staff.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1rem' }}>
-          {staff.map(s => (
-            <div key={s.id} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '0.5rem 0.75rem', background: 'var(--bg)',
-              border: '1px solid var(--border)', borderRadius: 8, gap: '0.5rem',
-            }}>
-              <span style={{ fontSize: '0.84rem' }}>
-                <strong>{s.name}</strong>
-                <span style={{ fontFamily: 'monospace', color: 'var(--muted)', marginLeft: 8 }}>{s.phone}</span>
-              </span>
-              <span style={{ display: 'flex', gap: '0.4rem' }}>
-                <button onClick={() => resetPw(s.id)} style={{
-                  background: 'none', border: '1px solid var(--border)', borderRadius: 6,
-                  fontSize: '0.72rem', padding: '0.2rem 0.6rem', cursor: 'pointer',
-                  color: 'var(--muted)', fontFamily: 'inherit',
-                }}>Нууц үг солих</button>
-                <button onClick={() => remove(s.id)} style={{
-                  background: 'none', border: '1px solid var(--danger)', borderRadius: 6,
-                  fontSize: '0.72rem', padding: '0.2rem 0.6rem', cursor: 'pointer',
-                  color: 'var(--danger)', fontFamily: 'inherit',
-                }}>Устгах</button>
-              </span>
-            </div>
-          ))}
+    <div className="st-group">
+      <div className="st-group-head">
+        <div>
+          <b>Эрээний ажилтан</b>
+          <p>Зөвхөн багц бүртгэлийн хуудсыг харна (₮/¥ хэл солигддог).</p>
         </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.5rem', alignItems: 'end' }} className="admin-form-2col">
-        <div className="form-group" style={{ margin: 0 }}>
-          <label>Нэр</label>
-          <input className="input" placeholder="Ажилтны нэр" value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-        </div>
-        <div className="form-group" style={{ margin: 0 }}>
-          <label>Утас</label>
-          <input className="input" type="tel" maxLength={8} placeholder="99001122" value={form.phone}
-            onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
-        </div>
-        <div className="form-group" style={{ margin: 0 }}>
-          <label>Нууц үг</label>
-          <input className="input" type="text" placeholder="6+ тэмдэгт" value={form.password}
-            onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-        </div>
-        <button className="btn" onClick={create}
-          disabled={busy || form.name.trim().length < 2 || !/^\d{8}$/.test(form.phone) || form.password.length < 6}
-          style={{ padding: '0.6rem 1rem', fontSize: '0.82rem' }}>
-          {busy ? '...' : '+ Үүсгэх'}
-        </button>
+        {!adding && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}><Plus size={14} />Нэмэх</button>}
       </div>
-      {err && <p className="msg-error" style={{ marginTop: '0.6rem' }}>{err}</p>}
-      {msg && <p style={{ color: 'var(--green)', fontSize: '0.82rem', marginTop: '0.6rem' }}>{msg}</p>}
+      {staff.map(s => <StaffRow key={s.id} name={s.name} phone={s.phone} onReset={() => resetPw(s.id)} onRemove={() => remove(s.id)} />)}
+      {!staff.length && !adding && <p className="st-empty">Одоогоор Эрээний ажилтан алга.</p>}
+      {adding && <NewStaffForm busy={busy} onCreate={create} onCancel={() => setAdding(false)} />}
     </div>
   )
 }
 
 interface StaffAdmin { id: number; name: string; phone: string; canEditBank: boolean; canEditAddress: boolean; canEditLogo: boolean }
+type PermKey = 'canEditBank' | 'canEditAddress' | 'canEditLogo'
 
-const PERM_OPTIONS: { key: 'canEditBank' | 'canEditAddress' | 'canEditLogo'; label: string }[] = [
-  { key: 'canEditBank', label: 'Дансны мэдээлэл засах' },
-  { key: 'canEditAddress', label: 'Эрээний хаяг засах' },
-  { key: 'canEditLogo', label: 'Лого солих' },
+const PERM_OPTIONS: { key: PermKey; label: string }[] = [
+  { key: 'canEditBank', label: 'Данс' },
+  { key: 'canEditAddress', label: 'Эрээний хаяг' },
+  { key: 'canEditLogo', label: 'Лого' },
 ]
+
+function PermChips({ value, onToggle }: { value: Record<PermKey, boolean>; onToggle: (k: PermKey) => void }) {
+  return (
+    <div className="st-perms">
+      <span>Засах эрх:</span>
+      {PERM_OPTIONS.map(p => (
+        <button key={p.key} type="button" className={`st-perm${value[p.key] ? ' on' : ''}`} aria-pressed={value[p.key]} onClick={() => onToggle(p.key)}>
+          {p.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 function StaffAdminSection() {
   const [staff, setStaff] = useState<StaffAdmin[]>([])
-  const [form, setForm] = useState({ name: '', phone: '', password: '', canEditBank: false, canEditAddress: false, canEditLogo: false })
+  const [adding, setAdding] = useState(false)
+  const [perms, setPerms] = useState<Record<PermKey, boolean>>({ canEditBank: false, canEditAddress: false, canEditLogo: false })
   const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState('')
-  const [err, setErr] = useState('')
 
   function load() {
     fetch('/api/admin/staff-admin')
@@ -538,23 +468,24 @@ function StaffAdminSection() {
   }
   useEffect(() => { load() }, [])
 
-  async function create() {
-    setBusy(true); setErr(''); setMsg('')
+  async function create(form: { name: string; phone: string; password: string }) {
+    setBusy(true)
     const res = await fetch('/api/admin/staff-admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, ...perms }),
     })
     setBusy(false)
     const d = await res.json().catch(() => ({}))
-    if (!res.ok) { setErr(d.error || 'Алдаа гарлаа'); return }
-    setMsg('✓ Ажилтны admin нэвтрэлт үүслээ')
-    setForm({ name: '', phone: '', password: '', canEditBank: false, canEditAddress: false, canEditLogo: false })
+    if (!res.ok) { toast.error(d.error || 'Алдаа гарлаа'); return false }
+    toast.success('Ажилтан admin нэвтрэлт үүслээ')
+    setPerms({ canEditBank: false, canEditAddress: false, canEditLogo: false })
+    setAdding(false)
     load()
-    setTimeout(() => setMsg(''), 3000)
+    return true
   }
 
-  async function togglePerm(s: StaffAdmin, key: 'canEditBank' | 'canEditAddress' | 'canEditLogo') {
+  async function togglePerm(s: StaffAdmin, key: PermKey) {
     const next = !s[key]
     setStaff(prev => prev.map(x => x.id === s.id ? { ...x, [key]: next } : x)) // optimistic
     const res = await fetch('/api/admin/staff-admin', {
@@ -562,19 +493,18 @@ function StaffAdminSection() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: s.id, [key]: next }),
     })
-    if (!res.ok) setStaff(prev => prev.map(x => x.id === s.id ? { ...x, [key]: s[key] } : x)) // revert on failure
+    if (!res.ok) { setStaff(prev => prev.map(x => x.id === s.id ? { ...x, [key]: s[key] } : x)); toast.error('Алдаа гарлаа') } // revert on failure
   }
 
   async function resetPw(id: number) {
     const pw = prompt('Шинэ нууц үг (6+ тэмдэгт):')
     if (!pw || pw.length < 6) return
-    await fetch('/api/admin/staff-admin', {
+    const res = await fetch('/api/admin/staff-admin', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, password: pw }),
     })
-    setMsg('✓ Нууц үг солигдлоо')
-    setTimeout(() => setMsg(''), 3000)
+    if (res.ok) toast.success('Нууц үг солигдлоо'); else toast.error('Алдаа гарлаа')
   }
 
   async function remove(id: number) {
@@ -588,87 +518,25 @@ function StaffAdminSection() {
   }
 
   return (
-    <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
-      <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Ажилтан admin</p>
-      <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginBottom: '1rem' }}>
-        Энэ эрхээр нэвтэрсэн хүн бусад admin-тэй адил бүртгэл/олголт/мэдэгдэл хийж чадна, гэхдээ доор тэмдэглэсэн эрхийг л
-        онгойлгосон тохиолдолд Дансны мэдээлэл, Эрээний хаяг, Лого зэргийг засах боломжтой болно — та бусад ажилтан admin
-        болон Эрээний ажилтны нэвтрэлт үүсгэх эрхийг зөвхөн өөрөө хадгална.
-      </p>
-
-      {staff.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-          {staff.map(s => (
-            <div key={s.id} style={{
-              padding: '0.6rem 0.75rem', background: 'var(--bg)',
-              border: '1px solid var(--border)', borderRadius: 8,
-              display: 'flex', flexDirection: 'column', gap: '0.5rem',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.84rem' }}>
-                  <strong>{s.name}</strong>
-                  <span style={{ fontFamily: 'monospace', color: 'var(--muted)', marginLeft: 8 }}>{s.phone}</span>
-                </span>
-                <span style={{ display: 'flex', gap: '0.4rem' }}>
-                  <button onClick={() => resetPw(s.id)} style={{
-                    background: 'none', border: '1px solid var(--border)', borderRadius: 6,
-                    fontSize: '0.72rem', padding: '0.2rem 0.6rem', cursor: 'pointer',
-                    color: 'var(--muted)', fontFamily: 'inherit',
-                  }}>Нууц үг солих</button>
-                  <button onClick={() => remove(s.id)} style={{
-                    background: 'none', border: '1px solid var(--danger)', borderRadius: 6,
-                    fontSize: '0.72rem', padding: '0.2rem 0.6rem', cursor: 'pointer',
-                    color: 'var(--danger)', fontFamily: 'inherit',
-                  }}>Устгах</button>
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap' }}>
-                {PERM_OPTIONS.map(p => (
-                  <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--muted)' }}>
-                    <input type="checkbox" checked={s[p.key]} onChange={() => togglePerm(s, p.key)}
-                      style={{ width: 14, height: 14, cursor: 'pointer', accentColor: 'var(--accent)' }} />
-                    {p.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
+    <div className="st-group">
+      <div className="st-group-head">
+        <div>
+          <b>Ажилтан admin</b>
+          <p>Бүртгэл, олголт, мэдэгдэл хийнэ. Данс, хаяг, логог зөвхөн зөвшөөрсөн эрхээр засна.</p>
         </div>
+        {!adding && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}><Plus size={14} />Нэмэх</button>}
+      </div>
+      {staff.map(s => (
+        <StaffRow key={s.id} name={s.name} phone={s.phone} onReset={() => resetPw(s.id)} onRemove={() => remove(s.id)}>
+          <PermChips value={s} onToggle={k => togglePerm(s, k)} />
+        </StaffRow>
+      ))}
+      {!staff.length && !adding && <p className="st-empty">Одоогоор ажилтан admin алга.</p>}
+      {adding && (
+        <NewStaffForm busy={busy} onCreate={create} onCancel={() => setAdding(false)}>
+          <PermChips value={perms} onToggle={k => setPerms(p => ({ ...p, [k]: !p[k] }))} />
+        </NewStaffForm>
       )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '0.5rem', alignItems: 'end' }} className="admin-form-2col">
-        <div className="form-group" style={{ margin: 0 }}>
-          <label>Нэр</label>
-          <input className="input" placeholder="Ажилтны нэр" value={form.name}
-            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-        </div>
-        <div className="form-group" style={{ margin: 0 }}>
-          <label>Утас</label>
-          <input className="input" type="tel" maxLength={8} placeholder="99001122" value={form.phone}
-            onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
-        </div>
-        <div className="form-group" style={{ margin: 0 }}>
-          <label>Нууц үг</label>
-          <input className="input" type="text" placeholder="6+ тэмдэгт" value={form.password}
-            onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-        </div>
-        <button className="btn" onClick={create}
-          disabled={busy || form.name.trim().length < 2 || !/^\d{8}$/.test(form.phone) || form.password.length < 6}
-          style={{ padding: '0.6rem 1rem', fontSize: '0.82rem' }}>
-          {busy ? '...' : '+ Үүсгэх'}
-        </button>
-      </div>
-      <div style={{ display: 'flex', gap: '0.9rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
-        {PERM_OPTIONS.map(p => (
-          <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--muted)' }}>
-            <input type="checkbox" checked={form[p.key]} onChange={e => setForm(f => ({ ...f, [p.key]: e.target.checked }))}
-              style={{ width: 14, height: 14, cursor: 'pointer', accentColor: 'var(--accent)' }} />
-            {p.label}
-          </label>
-        ))}
-      </div>
-      {err && <p className="msg-error" style={{ marginTop: '0.6rem' }}>{err}</p>}
-      {msg && <p style={{ color: 'var(--green)', fontSize: '0.82rem', marginTop: '0.6rem' }}>{msg}</p>}
     </div>
   )
 }
