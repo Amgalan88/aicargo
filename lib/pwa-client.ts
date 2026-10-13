@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
 
 // Хэрэглэгчийн төхөөрөмж дээрх апп суулгалт ба push мэдэгдэл (зөвхөн хөтөч дээр ажиллана)
 
@@ -73,17 +73,22 @@ async function save(sub: PushSubscription) {
   if (!res.ok) throw new Error('save failed')
 }
 
-export function usePush() {
-  const [state, setState] = useState<PushState>('loading')
+// Нэг хуудсан дээрх баннер ба тохиргооны toggle НЭГ төлөвийг хуваалцана —
+// нэгээс нь асаахад нөгөө нь шууд мэднэ (өмнө нь баннер "Асаах" гэж үлддэг байсан)
+let pushState: PushState = 'loading'
+let started = false
+const pushListeners = new Set<() => void>()
+function setPush(s: PushState) { pushState = s; pushListeners.forEach(l => l()) }
 
-  const refresh = useCallback(async () => {
-    if (!supported()) {
-      // iPhone дээр зөвхөн апп болгож суулгасны дараа push ажиллана
-      const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
-      setState(ios && 'serviceWorker' in navigator ? 'needs-install' : 'unsupported')
-      return
-    }
-    if (Notification.permission === 'denied') { setState('denied'); return }
+async function refreshPush() {
+  if (!supported()) {
+    // iPhone дээр зөвхөн апп болгож суулгасны дараа push ажиллана
+    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    setPush(ios && 'serviceWorker' in navigator ? 'needs-install' : 'unsupported')
+    return
+  }
+  if (Notification.permission === 'denied') { setPush('denied'); return }
+  try {
     const reg = await navigator.serviceWorker.ready
     let sub = await reg.pushManager.getSubscription()
     let off = false
@@ -92,49 +97,58 @@ export function usePush() {
     if (!sub && Notification.permission === 'granted' && !off) {
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey()! }).catch(() => null)
     }
-    if (sub && !off) { save(sub).catch(() => {}); setState('on') } else setState('off')
-  }, [])
+    if (sub && !off) { save(sub).catch(() => {}); setPush('on') } else setPush('off')
+  } catch {
+    setPush('off')
+  }
+}
 
-  useEffect(() => { refresh() }, [refresh])
+async function enablePush(): Promise<boolean> {
+  if (!supported()) return false
+  setPush('loading')
+  try {
+    const perm = await Notification.requestPermission()
+    if (perm !== 'granted') { setPush(perm === 'denied' ? 'denied' : 'off'); return false }
+    const reg = await navigator.serviceWorker.ready
+    const sub = (await reg.pushManager.getSubscription()) ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey()! })
+    await save(sub)
+    try { localStorage.removeItem(OFF_KEY) } catch {}
+    setPush('on')
+    return true
+  } catch {
+    setPush('off')
+    return false
+  }
+}
 
-  const enable = useCallback(async (): Promise<boolean> => {
-    if (!supported()) return false
-    setState('loading')
-    try {
-      const perm = await Notification.requestPermission()
-      if (perm !== 'granted') { setState(perm === 'denied' ? 'denied' : 'off'); return false }
-      const reg = await navigator.serviceWorker.ready
-      const sub = (await reg.pushManager.getSubscription()) ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey()! })
-      await save(sub)
-      try { localStorage.removeItem(OFF_KEY) } catch {}
-      setState('on')
-      return true
-    } catch {
-      setState('off')
-      return false
+async function disablePush() {
+  setPush('loading')
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const sub = await reg.pushManager.getSubscription()
+    if (sub) {
+      await fetch('/api/push', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {})
+      await sub.unsubscribe().catch(() => {})
     }
-  }, [])
+  } catch {}
+  try { localStorage.setItem(OFF_KEY, '1') } catch {}
+  setPush('off')
+}
 
-  const disable = useCallback(async () => {
-    setState('loading')
-    try {
-      const reg = await navigator.serviceWorker.ready
-      const sub = await reg.pushManager.getSubscription()
-      if (sub) {
-        await fetch('/api/push', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {})
-        await sub.unsubscribe().catch(() => {})
-      }
-    } catch {}
-    try { localStorage.setItem(OFF_KEY, '1') } catch {}
-    setState('off')
-  }, [])
-
-  return { state, enable, disable }
+export function usePush() {
+  const state = useSyncExternalStore(
+    cb => { pushListeners.add(cb); return () => { pushListeners.delete(cb) } },
+    () => pushState,
+    () => 'loading' as PushState,
+  )
+  useEffect(() => { if (!started) { started = true; refreshPush() } }, [])
+  return { state, enable: enablePush, disable: disablePush }
 }
 
 // "Дараа" дарсан бол 7 хоног асуухгүй; өөрөө унтраасан бол огт асуухгүй
 export function shouldAskPush(): boolean {
   try {
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'default') return false
     if (localStorage.getItem(OFF_KEY) === '1') return false
     const later = Number(localStorage.getItem(ASK_KEY) || 0)
     return Date.now() - later > 7 * 86_400_000

@@ -22,6 +22,10 @@ export async function POST(req: NextRequest) {
     update: { userId: user.userId, cargoId: user.cargoId, p256dh, auth, userAgent },
     create: { endpoint, userId: user.userId, cargoId: user.cargoId, p256dh, auth, userAgent },
   })
+  // Нэг төхөөрөмж/хөтөч дахин бүртгэгдвэл хуучин бүртгэлийг нь устгана — мэдэгдэл давхар ирэхээс сэргийлнэ
+  if (userAgent) {
+    await prisma.pushSubscription.deleteMany({ where: { userId: user.userId, userAgent, endpoint: { not: endpoint } } })
+  }
   return NextResponse.json({ ok: true })
 }
 
