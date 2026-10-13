@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   const cargo = await (prisma.cargo as any).findUnique({
     where: { id: admin.cargoId! },
-    select: { name: true, logoUrl: true, batchEnabled: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true },
+    select: { name: true, logoUrl: true, batchEnabled: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, linkOrdersEnabled: true },
   })
   // Хандаж буй хэрэглэгчийн эрхийн мэдээллийг хамт буцаана — клиент юуг
   // disable хийхээ мэдэх ёстой (утгыг нь биш, зөвхөн засах эрхийг хязгаарлана).
@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { tariff, priceCubic, priceWeight, priceWeightUnit, priceWeightTiers, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, ereemTitle, ereemAddresses, logoBase64 } = await req.json()
+  const { tariff, priceCubic, priceWeight, priceWeightUnit, priceWeightTiers, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, ereemTitle, ereemAddresses, linkOrdersEnabled, logoBase64 } = await req.json()
 
   // Ажилтан admin-д банк/хаяг/лого засах эрхийг тус тусад нь шалгана — эзэмшигчид үргэлж зөвшөөрнө.
   const allowBank = !admin.isStaffAdmin || admin.canEditBank
@@ -109,6 +109,8 @@ export async function PATCH(req: NextRequest) {
     ...(allowBank && bankTransferNote !== undefined ? { bankTransferNote: bankTransferNote || null } : {}),
     ...(arrivedLabel !== undefined ? { arrivedLabel: arrivedLabel || null } : {}),
     ...(ereemLabel !== undefined ? { ereemLabel: ereemLabel || null } : {}),
+    // Линкээр захиалга авах эсэхийг зөвхөн эзэмшигч шийднэ
+    ...(!admin.isStaffAdmin && typeof linkOrdersEnabled === 'boolean' ? { linkOrdersEnabled } : {}),
   }
 
   const cargo = await (prisma.cargo as any).update({ where: { id: admin.cargoId! }, data })

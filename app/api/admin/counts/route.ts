@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   if (admin.role !== 'ADMIN') return forbidden()
   if (!admin.cargoId) return NextResponse.json({ error: 'CargoId шаардлагатай' }, { status: 400 })
 
-  const [shipments, batches] = await Promise.all([
+  const [shipments, batches, linkNew] = await Promise.all([
     prisma.shipment.groupBy({
       by: ['status'],
       where: { cargoId: admin.cargoId, status: { in: ['REGISTERED', 'EREEN_ARRIVED', 'ARRIVED'] } },
@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
       where: { cargoId: admin.cargoId, status: { in: ['EREEN_ARRIVED', 'ARRIVED'] } },
       _count: { _all: true },
     }),
+    // Линк захиалга — үнэ илгээх хүлээж буй
+    prisma.linkOrder.count({ where: { cargoId: admin.cargoId, status: 'NEW' } }),
   ])
 
   const s = Object.fromEntries(shipments.map(r => [r.status, r._count._all]))
@@ -30,5 +32,6 @@ export async function GET(req: NextRequest) {
     arrived: s.ARRIVED ?? 0,
     batchesShipped: b.EREEN_ARRIVED ?? 0,
     batchesArrived: b.ARRIVED ?? 0,
+    linkNew,
   })
 }

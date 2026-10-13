@@ -43,7 +43,7 @@ export default async function OrdersPage() {
         }),
         (prisma.cargo.findUnique as any)({
           where: { id: userRecord.cargoId },
-          select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true },
+          select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true, linkOrdersEnabled: true },
         }),
       ])
     : [[], null]
@@ -81,6 +81,7 @@ export default async function OrdersPage() {
       ereemLabel={cargo?.ereemLabel ?? null}
       aiEnabled={cargo?.aiEnabled ?? false}
       batchMode={cargo?.batchEnabled ?? false}
+      linkOrders={cargo?.linkOrdersEnabled ?? false}
       batches={JSON.parse(JSON.stringify(batches))}
       aiSuggestions={suggestedQuestions}
     />

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Truck,
   Users, Megaphone, CircleHelp, Settings, Sparkles, ScrollText, SearchCheck,
-  Bell, LogOut, Link2, Check, CalendarClock, Ellipsis, ChevronDown, X,
+  Bell, LogOut, Link2, Check, ShoppingCart, CalendarClock, Ellipsis, ChevronDown, X,
   type LucideIcon,
 } from 'lucide-react'
 import NavLogo from '@/app/components/NavLogo'
@@ -14,7 +14,7 @@ import { confirmAsync } from '@/app/components/ConfirmDialog'
 
 type NavLink = { href: string; label: string; short?: string; icon: LucideIcon; count?: number }
 
-type Counts = { registered: number; ereen: number; arrived: number; batchesShipped: number; batchesArrived: number }
+type Counts = { registered: number; ereen: number; arrived: number; batchesShipped: number; batchesArrived: number; linkNew?: number }
 
 // Төлбөрийн хугацааны өнгө — token-оор (шөнийн горимд зохицно)
 function paidInfo(paidUntil?: string | null) {
@@ -37,6 +37,7 @@ export default function AdminNav({
   paidUntil,
   batchEnabled,
   isStaffAdmin,
+  linkOrders,
 }: {
   cargoName?: string
   logoUrl?: string
@@ -45,6 +46,8 @@ export default function AdminNav({
   paidUntil?: string | null
   batchEnabled?: boolean
   isStaffAdmin?: boolean
+  // Линкээр захиалга авдаг карго
+  linkOrders?: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -118,6 +121,7 @@ export default function AdminNav({
   // Хоёрдогч — өдөр тутам бага хэрэглэгдэх хэсгүүд
   const primaryExtra: NavLink[] = [
     { href: '/admin/users', label: 'Хэрэглэгчид', icon: Users },
+    ...(linkOrders ? [{ href: '/admin/link-orders', label: 'Линк захиалга', icon: ShoppingCart, count: counts?.linkNew }] : []),
     { href: '/admin/notify', label: 'Мэдэгдэл', icon: Megaphone },
   ]
   const more: NavLink[] = [
@@ -225,6 +229,7 @@ export default function AdminNav({
           return (
             <Link key={l.href} href={l.href} className={`an-link an-extra${on ? ' on' : ''}`} aria-current={on ? 'page' : undefined}>
               <Icon size={15} strokeWidth={2.2} />{l.label}
+              {!!l.count && <span className="an-count">{l.count > 99 ? '99+' : l.count}</span>}
             </Link>
           )
         })}
@@ -241,6 +246,7 @@ export default function AdminNav({
                 return (
                   <Link key={l.href} href={l.href} role="menuitem" className={`popover-item an-more-extra${isActive(pathname, l.href) ? ' active' : ''}`}>
                     <Icon size={16} strokeWidth={2} />{l.label}
+                    {!!l.count && <span className="an-count">{l.count}</span>}
                   </Link>
                 )
               })}

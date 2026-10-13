@@ -67,7 +67,7 @@ function WarningBanner({ cargoName, paidUntil, daysToBlock, onClose }: { cargoNa
   )
 }
 
-export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil, batchEnabled, onboarding, isStaffAdmin }: { children: React.ReactNode; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null; batchEnabled?: boolean; onboarding?: OnboardingState | null; isStaffAdmin?: boolean }) {
+export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil, batchEnabled, onboarding, isStaffAdmin, linkOrders }: { children: React.ReactNode; linkOrders?: boolean; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null; batchEnabled?: boolean; onboarding?: OnboardingState | null; isStaffAdmin?: boolean }) {
   const router = useRouter()
   const [warningDismissed, setWarningDismissed] = useState(false)
 
@@ -88,7 +88,7 @@ export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, ha
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <AdminNav cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} isStaffAdmin={isStaffAdmin} />
+      <AdminNav cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} isStaffAdmin={isStaffAdmin} linkOrders={linkOrders} />
       {onboarding && <OnboardingCard state={onboarding} cargoSlug={cargoSlug} batchEnabled={batchEnabled} />}
       <div className="admin-content" style={{ minHeight: 'calc(100vh - 96px)' }}>
         {children}
