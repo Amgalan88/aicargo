@@ -48,9 +48,36 @@ export async function GET(req: NextRequest) {
   })
 }
 
+type Row = { id: number; userId: number | null; phone: string; note: string | null; trackCode: string | null }
+
+// Трак кодыг хэрэглэгчийн "Миний ачаа"-нд бүртгэнэ. Код зассан бол хуучин (Эрээнд ороогүй) ачааны кодыг шинэчилнэ.
+// Буцаах утга: анхааруулга эсвэл null
+async function attachShipment(cargoId: number, x: Row, trackCode: string): Promise<string | null> {
+  if (!x.userId) return null
+  const existing = await prisma.shipment.findUnique({ where: { trackCode_cargoId: { trackCode, cargoId } } })
+  if (existing) {
+    if (!existing.userId) {
+      await prisma.shipment.update({ where: { id: existing.id }, data: { userId: x.userId, phone: existing.phone ?? x.phone } })
+      return null
+    }
+    return existing.userId === x.userId ? null : 'Энэ трак код өөр хэрэглэгчид бүртгэлтэй байна — хэрэглэгчийн ачаанд нэмэгдээгүй'
+  }
+  const old = x.trackCode && x.trackCode !== trackCode
+    ? await prisma.shipment.findUnique({ where: { trackCode_cargoId: { trackCode: x.trackCode, cargoId } } })
+    : null
+  if (old && old.userId === x.userId && old.status === 'REGISTERED' && !old.ereenArrivedAt) {
+    await prisma.shipment.update({ where: { id: old.id }, data: { trackCode } })
+  } else {
+    await prisma.shipment.create({
+      data: { trackCode, cargoId, userId: x.userId, phone: x.phone, status: 'REGISTERED', description: x.note ?? null },
+    })
+  }
+  return null
+}
+
 interface Body {
   ids?: number[]
-  action?: 'quote' | 'paid' | 'ordered' | 'cancel' | 'reopen'
+  action?: 'quote' | 'paid' | 'ordered' | 'track' | 'cancel' | 'reopen'
   price?: number | string
   paidAmount?: number | string
   trackCode?: string
@@ -61,6 +88,7 @@ const FROM: Record<NonNullable<Body['action']>, LinkStatus[]> = {
   quote: ['NEW', 'QUOTED'],
   paid: ['QUOTED'],
   ordered: ['PAID'],
+  track: ['ORDERED'],
   cancel: ['NEW', 'QUOTED', 'PAID'],
   reopen: ['CANCELLED'],
 }
@@ -112,19 +140,15 @@ export async function PATCH(req: NextRequest) {
         data: { status: 'ORDERED', orderedAt: now, ...(trackCode ? { trackCode } : {}) },
       })
       // Трак кодтой бол хэрэглэгчийн "Миний ачаа"-нд автоматаар бүртгэнэ
-      const x = rows[0]
-      if (trackCode && x.userId && rows.length === 1) {
-        const existing = await prisma.shipment.findUnique({ where: { trackCode_cargoId: { trackCode, cargoId: a.cargoId } } })
-        if (!existing) {
-          await prisma.shipment.create({
-            data: { trackCode, cargoId: a.cargoId, userId: x.userId, phone: x.phone, status: 'REGISTERED', description: x.note ?? null },
-          })
-        } else if (!existing.userId) {
-          await prisma.shipment.update({ where: { id: existing.id }, data: { userId: x.userId, phone: existing.phone ?? x.phone } })
-        } else if (existing.userId !== x.userId) {
-          warning = 'Энэ трак код өөр хэрэглэгчид бүртгэлтэй байна — хэрэглэгчийн ачаанд нэмэгдээгүй'
-        }
-      }
+      if (trackCode && rows.length === 1) warning = await attachShipment(a.cargoId, rows[0], trackCode)
+      break
+    }
+    case 'track': {
+      // Захиалсны дараа худалдагчаас ирсэн трак кодыг оруулах / засах
+      const trackCode = body.trackCode?.trim().toUpperCase().slice(0, 60) || null
+      if (!trackCode || rows.length !== 1) return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
+      warning = await attachShipment(a.cargoId, rows[0], trackCode)
+      await prisma.linkOrder.update({ where: { id: rows[0].id }, data: { trackCode } })
       break
     }
     case 'cancel':

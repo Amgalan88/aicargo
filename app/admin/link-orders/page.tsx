@@ -142,7 +142,8 @@ function ItemRow({ it, act }: { it: Item; act: (ids: number[], action: string, e
   const st = LINK_STATUS[it.status]
   const [price, setPrice] = useState(it.price ? String(Math.round(Number(it.price))) : '')
   const [editPrice, setEditPrice] = useState(false)
-  const [track, setTrack] = useState('')
+  const [track, setTrack] = useState(it.trackCode ?? '')
+  const [editTrack, setEditTrack] = useState(false)
   const [busy, setBusy] = useState(false)
   const run = async (action: string, extra?: Record<string, unknown>) => { setBusy(true); await act([it.id], action, extra); setBusy(false) }
 
@@ -190,8 +191,18 @@ function ItemRow({ it, act }: { it: Item; act: (ids: number[], action: string, e
             <button className="btn lo-btn" disabled={busy}>Захиалсан</button>
           </form>
         )}
-        {it.status === 'ORDERED' && (
-          <span className="lo-done">{money(it.paidAmount)}{it.trackCode ? <> · <b className="lo-mono">{it.trackCode}</b></> : ''}</span>
+        {it.status === 'ORDERED' && (!it.trackCode || editTrack) && (
+          <form className="lo-inline" onSubmit={e => { e.preventDefault(); if (track.trim()) run('track', { trackCode: track }).then(() => setEditTrack(false)) }}>
+            <span className="lo-amount lo-paid">{money(it.paidAmount)}</span>
+            <input className="input" placeholder="Трак код" title="Худалдагчаас ирсэн трак код — хэрэглэгчийн ачаанд нэмэгдэнэ" value={track} onChange={e => setTrack(e.target.value)} />
+            <button className="btn lo-btn" disabled={busy || !track.trim()}>Хадгалах</button>
+          </form>
+        )}
+        {it.status === 'ORDERED' && it.trackCode && !editTrack && (
+          <>
+            <span className="lo-done">{money(it.paidAmount)} · <b className="lo-mono">{it.trackCode}</b></span>
+            <button type="button" className="lo-text" onClick={() => setEditTrack(true)}>Засах</button>
+          </>
         )}
         {(it.status === 'NEW' || it.status === 'QUOTED' || it.status === 'PAID') && (
           <button type="button" className="lo-text lo-danger" disabled={busy} onClick={async () => {

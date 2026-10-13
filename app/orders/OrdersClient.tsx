@@ -226,11 +226,12 @@ function CopyText({ text, children, style }: { text: string; children: React.Rea
 // Nav дээрх дүрс товч тус бүрийн дор жижиг үсгээр юу болохыг тайлбарлана.
 // Шошгын багана нарийн (44px) тул урт үг байсан ч дараагийн мөрөнд өөрөө
 // шилждэг — өргөн дэлгэц дээр ч, нарийн утсан дээр ч мөр давахгүй.
-function NavItem({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+function NavItem({ label, short, children }: { label: React.ReactNode; short: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem', minWidth: 44, padding: '0 2px', flexShrink: 0 }}>
       {children}
       <span className="nav-item-lbl" style={{ fontSize: '0.6rem', color: 'var(--muted)', lineHeight: 1.15, textAlign: 'center' }}>{label}</span>
+      <span className="nav-item-short">{short}</span>
     </div>
   )
 }
@@ -497,7 +498,7 @@ export default function OrdersClient({
       <nav className="nav">
         <Link href="/" style={{ minWidth: 0, overflow: 'hidden' }}><NavLogo name={cargoName || undefined} logoUrl={logoUrl || undefined} /></Link>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.1rem', flexShrink: 0 }}>
-          <NavItem label={t.navFaq}>
+          <NavItem label={t.navFaq} short={t.navFaqShort}>
             <button onClick={() => setNavPopup(navPopup === 'faq' ? null : 'faq')} title={t.faqTooltip} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 38, height: 38, borderRadius: '50%',
@@ -509,7 +510,7 @@ export default function OrdersClient({
               </svg>
             </button>
           </NavItem>
-          <NavItem label={t.navSearch}>
+          <NavItem label={t.navSearch} short={t.navSearchShort}>
             <button onClick={() => setNavPopup(navPopup === 'nameless' ? null : 'nameless')} title={t.namelessTooltip} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 38, height: 38, borderRadius: '50%',
@@ -522,7 +523,7 @@ export default function OrdersClient({
             </button>
           </NavItem>
           {linkOrders && (
-            <NavItem label={t.navLinks}>
+            <NavItem label={t.navLinks} short={t.navLinksShort}>
               <Link href="/links" title={t.navLinks} aria-label={t.navLinks} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 width: 38, height: 38, borderRadius: '50%', color: 'var(--muted)',
@@ -533,7 +534,7 @@ export default function OrdersClient({
               </Link>
             </NavItem>
           )}
-          <NavItem label={t.navProfile}>
+          <NavItem label={t.navProfile} short={t.navProfileShort}>
           <div style={{ position: 'relative' }}>
             <button onClick={() => setNavPopup(navPopup === 'profile' ? null : 'profile')} title={userName} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
