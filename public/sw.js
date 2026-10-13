@@ -1,4 +1,6 @@
 const CACHE = 'aicargo-v2'
+// Хэрэглэгчийн хэл (push мэдэгдлийн текст) — шинэчлэлтэд устгагдахгүй
+const PREFS = 'aicargo-prefs'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
@@ -8,7 +10,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && k !== PREFS).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   )
 })
@@ -31,25 +33,64 @@ self.addEventListener('fetch', e => {
 })
 
 // ── Push мэдэгдэл ──
+// Текстийг хэрэглэгчийн сонгосон хэлээр (MN/EN/中文) энд бүтээнэ. Мэдэгдэх утга алга бол серверийн монгол текст.
 // Эрээнд ирсэн мэдэгдэл дараалан ирвэл овоолохгүй — өмнөхтэй нь нэгтгэж "N ачаа" болгоно
+async function pushLang() {
+  try {
+    const r = await caches.match('/__push-lang', { cacheName: PREFS })
+    const t = r ? await r.text() : ''
+    return t === 'en' || t === 'cn' ? t : 'mn'
+  } catch { return 'mn' }
+}
+
+const money = v => '₮' + Math.round(v).toLocaleString('en-US')
+const codeList = codes => codes.slice(0, 3).join(', ') + (codes.length > 3 ? ` +${codes.length - 3}` : '')
+
+function ereenText(lang, codes, label) {
+  const n = codes.length
+  const title = lang === 'en' ? (n > 1 ? `📦 ${n} parcels reached Ereen` : '📦 Your parcel reached Ereen')
+    : lang === 'cn' ? (n > 1 ? `📦 ${n} 件货物已到二连` : '📦 货物已到二连')
+    : label ? `📦 ${n > 1 ? `${n} ачаа` : 'Ачаа'} · ${label}`
+    : n > 1 ? `📦 ${n} ачаа Эрээнд ирлээ` : '📦 Ачаа Эрээнд ирлээ'
+  return { title, body: codeList(codes) }
+}
+
+function arrivedText(lang, d) {
+  const n = d.n, total = d.total > 0 ? d.total : 0, cargo = d.cargo ? ` — ${d.cargo}` : ''
+  if (lang === 'en') return {
+    title: `📦 ${n} parcel${n > 1 ? 's' : ''} arrived`,
+    body: `${n} parcel${n > 1 ? 's' : ''} for ${d.phone} ${n > 1 ? 'are' : 'is'} ready for pickup.${total ? ` Total ${money(total)}.` : ''}${cargo}`,
+  }
+  if (lang === 'cn') return {
+    title: `📦 您的 ${n} 件货物已到达`,
+    body: `${d.phone} 的 ${n} 件货物已到达，可以取货。${total ? `合计 ${money(total)}。` : ''}${cargo}`,
+  }
+  return {
+    title: `📦 Таны ${n} ачаа ирлээ`,
+    body: `Таны ${d.phone} дугаар дээр ${n} ачаа ирсэн байна.${total ? ` Нийт ${money(total)}.` : ''}${cargo}`,
+  }
+}
+
 self.addEventListener('push', e => {
   let d = {}
   try { d = e.data ? e.data.json() : {} } catch { d = { title: 'Мэдэгдэл', body: e.data ? e.data.text() : '' } }
   e.waitUntil((async () => {
+    const lang = await pushLang()
     let title = d.title || 'Мэдэгдэл'
     let body = d.body || ''
-    let codes = Array.isArray(d.codes) ? d.codes : []
-    if (d.kind === 'ereen' && d.tag) {
-      const prev = await self.registration.getNotifications({ tag: d.tag })
-      for (const n of prev) {
-        const old = (n.data && Array.isArray(n.data.codes)) ? n.data.codes : []
-        for (const c of old) if (!codes.includes(c)) codes.push(c)
-        n.close()
+    let codes = Array.isArray(d.codes) ? d.codes.slice() : []
+    if (d.kind === 'ereen') {
+      if (d.tag) {
+        const prev = await self.registration.getNotifications({ tag: d.tag })
+        for (const n of prev) {
+          const old = (n.data && Array.isArray(n.data.codes)) ? n.data.codes : []
+          for (const c of old) if (!codes.includes(c)) codes.push(c)
+          n.close()
+        }
       }
-      if (codes.length > 1) {
-        title = String(title).replace(/^📦\s*(\d+\s*ачаа|Ачаа)/, `📦 ${codes.length} ачаа`)
-        body = codes.slice(0, 3).join(', ') + (codes.length > 3 ? ` +${codes.length - 3}` : '')
-      }
+      if (codes.length) ({ title, body } = ereenText(lang, codes, d.label))
+    } else if (d.kind === 'arrived' && typeof d.n === 'number' && d.phone) {
+      ({ title, body } = arrivedText(lang, d))
     }
     await self.registration.showNotification(title, {
       body,

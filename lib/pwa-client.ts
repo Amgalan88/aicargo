@@ -159,3 +159,13 @@ export function shouldAskPush(): boolean {
 export function askPushLater() {
   try { localStorage.setItem(ASK_KEY, String(Date.now())) } catch {}
 }
+
+// Push мэдэгдлийг хэрэглэгчийн хэлээр харуулахын тулд сонгосон хэлийг service worker-т үлдээнэ
+// (SW localStorage уншиж чаддаггүй тул Cache Storage ашиглана)
+export function rememberLangForPush(lang: string) {
+  try {
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      caches.open('aicargo-prefs').then(c => c.put('/__push-lang', new Response(lang))).catch(() => {})
+    }
+  } catch {}
+}

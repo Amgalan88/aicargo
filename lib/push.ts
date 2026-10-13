@@ -14,6 +14,12 @@ export interface PushPayload {
   // Service worker нэгтгэхэд ашиглана (жш: Эрээнд ирсэн трак кодууд)
   kind?: 'ereen' | 'arrived'
   codes?: string[]
+  // Service worker хэрэглэгчийн хэлээр (MN/EN/中文) текстийг дахин бүтээхэд ашиглана
+  n?: number
+  total?: number
+  phone?: string
+  cargo?: string
+  label?: string
 }
 
 let configured: boolean | null = null
@@ -116,7 +122,7 @@ export async function notifyEreenForCargo(cargoId: number, rows: { userId: numbe
     return {
       userId,
       payload: {
-        kind: 'ereen' as const, tag: 'ereen', codes, url: '/orders',
+        kind: 'ereen' as const, tag: 'ereen', codes, url: '/orders', label: label || undefined,
         title: label
           ? `📦 ${codes.length > 1 ? `${codes.length} ачаа` : 'Ачаа'} · ${label}`
           : codes.length > 1 ? `📦 ${codes.length} ачаа Эрээнд ирлээ` : '📦 Ачаа Эрээнд ирлээ',
@@ -145,6 +151,7 @@ export async function notifyArrivedForCargo(cargoId: number, rows: { userId: num
       userId: u.id,
       payload: {
         kind: 'arrived' as const, tag: 'arrived', url: '/orders',
+        n, total: Math.round(total), phone: u.phone, cargo: cargo?.name ?? undefined,
         title: `📦 Таны ${n} ачаа ирлээ`,
         body: `Таны ${u.phone} дугаар дээр ${n} ачаа ирсэн байна.${total > 0 ? ` Нийт ₮${Math.round(total).toLocaleString('en-US')}.` : ''}${cargo?.name ? ` — ${cargo.name}` : ''}`,
       },

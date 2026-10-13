@@ -1078,7 +1078,7 @@ export default function OrdersClient({
         onConfirm={() => confirmDelete !== null && deleteShipment(confirmDelete)}
         onCancel={() => setConfirmDelete(null)}
       />
-      <SiteFooter cargoName={cargoName} ereemReceiver={ereemReceiver} ereemPhone={ereemPhone} ereemRegion={ereemRegion} ereemAddress={ereemAddress} addresses={ereenAddresses} tariff={tariff} announcement={announcement} contactInfo={contactInfo} bankName={bankName} bankAccountHolder={bankAccountHolder} bankAccountNumber={bankAccountNumber} bankTransferNote={bankTransferNote} />
+      <SiteFooter labels={t} cargoName={cargoName} ereemReceiver={ereemReceiver} ereemPhone={ereemPhone} ereemRegion={ereemRegion} ereemAddress={ereemAddress} addresses={ereenAddresses} tariff={tariff} announcement={announcement} contactInfo={contactInfo} bankName={bankName} bankAccountHolder={bankAccountHolder} bankAccountNumber={bankAccountNumber} bankTransferNote={bankTransferNote} />
     </>
   )
 }

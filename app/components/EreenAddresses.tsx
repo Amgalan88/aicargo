@@ -5,7 +5,7 @@ import type { EreenAddress } from '@/lib/ereen-address'
 // Хэрэглэгчид харагдах Эрээний хаяг (нүүр хуудас, "Миний ачаа"-ны доод хэсэг).
 // Хэд хэдэн хаягтай бол дээр нь нэрээр сонгоно (жш: Жижиглэн ачаа | Бөөн ачаа); нэг хаягтай бол урьдын адил.
 
-function CopyItem({ label, value }: { label: string; value: string }) {
+function CopyItem({ label, value, copyLabel = 'Хуулах' }: { label: string; value: string; copyLabel?: string }) {
   const [copied, setCopied] = useState(false)
   function copy() {
     navigator.clipboard.writeText(value).catch(() => {})
@@ -27,7 +27,7 @@ function CopyItem({ label, value }: { label: string; value: string }) {
           padding: '0.15rem 0.4rem', borderRadius: '4px',
           transition: 'color 0.15s', flexShrink: 0,
         }}>
-          {copied ? '✓' : 'Хуулах'}
+          {copied ? '✓' : copyLabel}
         </button>
       </div>
     </div>
@@ -59,7 +59,7 @@ function Region({ value }: { value: string }) {
   )
 }
 
-export default function EreenAddresses({ addresses, storageKey }: { addresses: EreenAddress[]; storageKey?: string }) {
+export default function EreenAddresses({ addresses, storageKey, copyLabel }: { addresses: EreenAddress[]; storageKey?: string; copyLabel?: string }) {
   const [idx, setIdx] = useState(0)
   // Сүүлд сонгосон хаягийг энэ төхөөрөмж дээр санана
   const key = storageKey ? `ereen-address:${storageKey}` : null
@@ -105,10 +105,10 @@ export default function EreenAddresses({ addresses, storageKey }: { addresses: E
         </div>
       )}
       <div style={{ borderTop: '1px solid var(--border)' }}>
-        <CopyItem label="收货人 (Нэр)" value={a.receiver} />
-        <CopyItem label="手机号 (Утас)" value={a.phone} />
+        <CopyItem label="收货人 (Нэр)" value={a.receiver} copyLabel={copyLabel} />
+        <CopyItem label="手机号 (Утас)" value={a.phone} copyLabel={copyLabel} />
         {a.region && <Region value={a.region} />}
-        <CopyItem label="详细地址 (Хаяг)" value={a.address} />
+        <CopyItem label="详细地址 (Хаяг)" value={a.address} copyLabel={copyLabel} />
       </div>
     </>
   )
