@@ -46,35 +46,26 @@ async function pushLang() {
 const money = v => '₮' + Math.round(v).toLocaleString('en-US')
 const codeList = codes => codes.slice(0, 3).join(', ') + (codes.length > 3 ? ` +${codes.length - 3}` : '')
 
+// Гарчиг богино — Android дээр апп нэр, цаг хажууд нь гардаг тул урт гарчиг таслагдана.
+// Каргогийн өөрийн төлөвийн нэр (монгол) зөвхөн монгол хэлэнд гарчиг болно
 function ereenText(lang, codes, label) {
-  const n = codes.length
-  const title = lang === 'en' ? (n > 1 ? `📦 ${n} parcels reached Ereen` : '📦 Your parcel reached Ereen')
-    : lang === 'cn' ? (n > 1 ? `📦 ${n} 件货物已到二连` : '📦 货物已到二连')
-    : label ? `📦 ${n > 1 ? `${n} ачаа` : 'Ачаа'} · ${label}`
-    : n > 1 ? `📦 ${n} ачаа Эрээнд ирлээ` : '📦 Ачаа Эрээнд ирлээ'
-  return { title, body: codeList(codes) }
+  const n = codes.length, one = n === 1
+  if (lang === 'en') return { title: 'Reached Ereen', body: one ? `Tracking: ${codes[0]}` : `${n} parcels · ${codeList(codes)}` }
+  if (lang === 'cn') return { title: '已到二连', body: one ? `单号：${codes[0]}` : `${n} 件 · ${codeList(codes)}` }
+  return { title: label || 'Эрээнд ирлээ', body: one ? `Трак: ${codes[0]}` : `${n} ачаа · ${codeList(codes)}` }
 }
 
 function arrivedText(lang, d) {
-  const n = d.n, total = d.total > 0 ? d.total : 0, cargo = d.cargo ? ` — ${d.cargo}` : ''
-  if (lang === 'en') return {
-    title: `📦 ${n} parcel${n > 1 ? 's' : ''} arrived`,
-    body: `${n} parcel${n > 1 ? 's' : ''} for ${d.phone} ${n > 1 ? 'are' : 'is'} ready for pickup.${total ? ` Total ${money(total)}.` : ''}${cargo}`,
-  }
-  if (lang === 'cn') return {
-    title: `📦 您的 ${n} 件货物已到达`,
-    body: `${d.phone} 的 ${n} 件货物已到达，可以取货。${total ? `合计 ${money(total)}。` : ''}${cargo}`,
-  }
-  return {
-    title: `📦 Таны ${n} ачаа ирлээ`,
-    body: `Таны ${d.phone} дугаар дээр ${n} ачаа ирсэн байна.${total ? ` Нийт ${money(total)}.` : ''}${cargo}`,
-  }
+  const n = d.n, total = d.total > 0 ? money(d.total) : ''
+  if (lang === 'en') return { title: 'Parcels arrived', body: `${n} parcel${n > 1 ? 's' : ''} ready for pickup${total ? ` · Total ${total}` : ''}` }
+  if (lang === 'cn') return { title: '货物已到达', body: `${n} 件货物可取${total ? ` · 合计 ${total}` : ''}` }
+  return { title: d.label || 'Ачаа ирлээ', body: `${n} ачаа авахад бэлэн${total ? ` · Нийт ${total}` : ''}` }
 }
 
 function testText(lang) {
-  if (lang === 'en') return { title: '🔔 Test notification', body: 'Notifications are working. You will be notified like this when your parcels reach Ereen and arrive.' }
-  if (lang === 'cn') return { title: '🔔 测试通知', body: '通知正常。货物到达二连和到达时会这样通知您。' }
-  return { title: '🔔 Туршилтын мэдэгдэл', body: 'Мэдэгдэл зөв ажиллаж байна. Ачаа Эрээнд, Монголд ирэхэд ингэж мэдэгдэнэ.' }
+  if (lang === 'en') return { title: 'Test notification', body: 'Working — you will be notified like this when parcels reach Ereen and arrive.' }
+  if (lang === 'cn') return { title: '测试通知', body: '通知正常 — 货物到达二连和到达时会这样通知您。' }
+  return { title: 'Туршилтын мэдэгдэл', body: 'Ажиллаж байна — ачаа Эрээнд, Монголд ирэхэд ингэж мэдэгдэнэ.' }
 }
 
 self.addEventListener('push', e => {
@@ -104,8 +95,8 @@ self.addEventListener('push', e => {
       body,
       tag: d.tag || undefined,
       renotify: !!d.tag,
-      icon: '/api/cargo-icon',
-      badge: '/icon-192.png',
+      icon: /Android/i.test(self.navigator.userAgent) ? undefined : '/api/cargo-icon',
+      badge: '/badge-96.png',
       data: { url: d.url || '/orders', codes },
     })
   })())

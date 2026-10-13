@@ -161,7 +161,7 @@ export async function sendTestPush(userId: number): Promise<number> {
   if (!ready()) return 0
   const r = getRedis()
   if (r && (await r.set(`push:test:u:${userId}`, '1', { nx: true, ex: 30 }).catch(() => 'OK')) !== 'OK') return -1
-  const { devices } = await sendPushToUsers([{ userId, payload: { kind: 'test', tag: 'test', url: '/orders', title: '🔔 Туршилтын мэдэгдэл', body: 'Мэдэгдэл зөв ажиллаж байна. Ачаа Эрээнд, Монголд ирэхэд ингэж мэдэгдэнэ.' } }])
+  const { devices } = await sendPushToUsers([{ userId, payload: { kind: 'test', tag: 'test', url: '/orders', title: 'Туршилтын мэдэгдэл', body: 'Ажиллаж байна — ачаа Эрээнд, Монголд ирэхэд ингэж мэдэгдэнэ.' } }])
   return devices
 }
 
@@ -180,10 +180,8 @@ async function sendEreen(cargoId: number, rows: Rows): Promise<void> {
       userId,
       payload: {
         kind: 'ereen' as const, tag: 'ereen', codes, url: '/orders', label: label || undefined,
-        title: label
-          ? `📦 ${codes.length > 1 ? `${codes.length} ачаа` : 'Ачаа'} · ${label}`
-          : codes.length > 1 ? `📦 ${codes.length} ачаа Эрээнд ирлээ` : '📦 Ачаа Эрээнд ирлээ',
-        body: codeList(codes),
+        title: label || 'Эрээнд ирлээ',
+        body: codes.length > 1 ? `${codes.length} ачаа · ${codeList(codes)}` : `Трак: ${codes[0]}`,
       },
     }
   })).catch(e => console.error('ereen push', e))
@@ -195,7 +193,7 @@ async function sendArrived(cargoId: number, rows: Rows): Promise<void> {
   const allowed = await claimUsers('arrived', [...groupCodes(rows).keys()])
   if (!allowed.length) return
   const [cargo, users] = await Promise.all([
-    prisma.cargo.findUnique({ where: { id: cargoId }, select: { name: true } }).catch(() => null),
+    prisma.cargo.findUnique({ where: { id: cargoId }, select: { arrivedLabel: true } }).catch(() => null),
     prisma.user.findMany({
       where: { id: { in: allowed } },
       select: { id: true, phone: true, shipments: { where: { cargoId, status: 'ARRIVED' }, select: { adminPrice: true } } },
@@ -208,9 +206,9 @@ async function sendArrived(cargoId: number, rows: Rows): Promise<void> {
       userId: u.id,
       payload: {
         kind: 'arrived' as const, tag: 'arrived', url: '/orders',
-        n, total: Math.round(total), phone: u.phone, cargo: cargo?.name ?? undefined,
-        title: `📦 Таны ${n} ачаа ирлээ`,
-        body: `Таны ${u.phone} дугаар дээр ${n} ачаа ирсэн байна.${total > 0 ? ` Нийт ₮${Math.round(total).toLocaleString('en-US')}.` : ''}${cargo?.name ? ` — ${cargo.name}` : ''}`,
+        n, total: Math.round(total), phone: u.phone, label: cargo?.arrivedLabel?.trim() || undefined,
+        title: cargo?.arrivedLabel?.trim() || 'Ачаа ирлээ',
+        body: `${n} ачаа авахад бэлэн${total > 0 ? ` · Нийт ₮${Math.round(total).toLocaleString('en-US')}` : ''}`,
       },
     }
   })).catch(e => console.error('arrived push', e))
