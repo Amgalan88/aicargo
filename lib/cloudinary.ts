@@ -51,6 +51,15 @@ export async function uploadPaymentProof(base64: string, contractId: number): Pr
   return result.secure_url
 }
 
+// Линк захиалгын сонголтын зураг (өнгө, хэмжээ г.м.)
+export async function uploadLinkOrderImage(base64: string, cargoId: number): Promise<string> {
+  const result = await cloudinary.uploader.upload(base64, {
+    folder: `link-orders/${cargoId}`,
+    transformation: [{ width: 1400, height: 1400, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+  })
+  return result.secure_url
+}
+
 export async function deleteCloudinaryImage(publicId: string): Promise<void> {
   await cloudinary.uploader.destroy(publicId)
 }

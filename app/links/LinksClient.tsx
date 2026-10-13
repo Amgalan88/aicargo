@@ -2,18 +2,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Send } from 'lucide-react'
+import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Send, ImagePlus, X } from 'lucide-react'
+import { resizeImage } from '@/lib/image-resize'
 import { LINK_STATUS, MAX_ITEMS_PER_REQUEST, linkHost, money, type LinkStatus } from '@/lib/link-orders'
 
 interface Item {
-  id: number; url: string; quantity: number; note: string | null; status: LinkStatus
+  id: number; url: string; quantity: number; note: string | null; imageUrl: string | null; status: LinkStatus
   price: string | null; paidAmount: string | null; paidAt: string | null; quotedAt: string | null
   orderedAt: string | null; trackCode: string | null; adminNote: string | null; createdAt: string
 }
-interface Row { url: string; quantity: string; note: string }
+interface Row { url: string; quantity: string; note: string; image: string | null }
 
-const STEPS = ['Линкээ илгээнэ', 'Карго үнэ тооцно', 'Төлбөрөө төлнө', 'Захиалж өгнө']
-const EMPTY: Row = { url: '', quantity: '1', note: '' }
+const STEPS = ['Линкээ илгээнэ', 'Барааны үнэ ирнэ', 'Төлбөрөө төлнө', 'Захиалж өгнө']
+const EMPTY: Row = { url: '', quantity: '1', note: '', image: null }
 
 const UB = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar', month: 'numeric', day: 'numeric' })
 const md = (iso: string) => { const p = Object.fromEntries(UB.formatToParts(new Date(iso)).map(x => [x.type, x.value])); return `${Number(p.month)}/${Number(p.day)}` }
@@ -47,21 +48,26 @@ export default function LinksClient({ phone, bank }: {
   }, [])
   useEffect(() => { load() }, [load])
 
-  const set = (i: number, k: keyof Row, v: string) => setRows(rs => rs.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
+  const set = (i: number, k: keyof Row, v: string | null) => setRows(rs => rs.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
+  // Сонголтын зураг — утасны том зургийг хөтөч дээр багасгана
+  async function pickImage(i: number, file: File | undefined) {
+    if (!file) return
+    try { set(i, 'image', await resizeImage(file, 1000)) } catch { toast.error('Зураг уншигдсангүй') }
+  }
   const filled = rows.filter(r => r.url.trim())
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!filled.length || sending) return
+    const body = JSON.stringify({ items: filled.map(r => ({ url: r.url, quantity: Number(r.quantity) || 1, note: r.note, image: r.image })) })
+    // Vercel-ийн body хязгаар 4.5MB — олон зурагтай бол хэд хуваагаад илгээнэ
+    if (body.length > 4_000_000) { setError('Зураг хэт олон байна. Хэдэн удаа хувааж илгээнэ үү'); return }
     setSending(true); setError('')
-    const res = await fetch('/api/link-orders', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: filled.map(r => ({ url: r.url, quantity: Number(r.quantity) || 1, note: r.note })) }),
-    })
+    const res = await fetch('/api/link-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
     const d = await res.json().catch(() => ({}))
     setSending(false)
     if (!res.ok) { setError(d.error || 'Алдаа гарлаа'); return }
-    toast.success(`${d.count} линк илгээгдлээ. Карго үнийг тооцоод мэдэгдэнэ.`)
+    toast.success(`${d.count} линк илгээгдлээ. Барааны үнийг тооцоод мэдэгдэнэ.`)
     setRows([{ ...EMPTY }])
     load()
   }
@@ -79,7 +85,8 @@ export default function LinksClient({ phone, bank }: {
   return (
     <div className="page lk-page">
       <h1 className="section-title" style={{ marginBottom: '0.3rem' }}>Линкээр захиалах</h1>
-      <p className="lk-sub">Taobao, Pinduoduo, 1688 зэрэг сайтын барааны линкээ илгээгээрэй. Карго үнийг тооцоод танд мэдэгдэнэ.</p>
+      <p className="lk-sub">Taobao, Pinduoduo, 1688 зэрэг сайтын барааны линкээ илгээгээрэй. Карго барааны үнийг тооцоод танд мэдэгдэнэ.
+        Тээврийн (карго) төлбөр ачаа ирэхэд <b>тарифын дагуу</b> тусад нь бодогдоно.</p>
 
       <ol className="lk-steps">
         {STEPS.map((s, i) => <li key={s}><b>{i + 1}</b>{s}</li>)}
@@ -98,7 +105,7 @@ export default function LinksClient({ phone, bank }: {
             <CopyLine label="Хүлээн авагч" value={bank.holder} />
             <CopyLine label="Гүйлгээний утга" value={phone} />
           </div>
-          <p className="lk-hint">{bank.note || 'Гүйлгээний утгад утасны дугаараа бичнэ үү. Төлбөр орсныг карго баталгаажуулмагц захиалж өгнө.'}</p>
+          <p className="lk-hint">{bank.note || 'Гүйлгээний утгад утасны дугаараа бичнэ үү. Төлбөр орсныг карго баталгаажуулмагц захиалж өгнө.'} Энэ нь барааны үнэ — карго төлбөр ачаа ирэхэд тарифаар бодогдоно.</p>
         </div>
       )}
 
@@ -117,6 +124,19 @@ export default function LinksClient({ phone, bank }: {
               <label><span>Тоо</span><input className="input" type="number" min={1} max={999} value={r.quantity} onChange={e => set(i, 'quantity', e.target.value)} /></label>
               <label><span>Өнгө, хэмжээ, тайлбар</span><input className="input" placeholder="жш: хар, XL" maxLength={300} value={r.note} onChange={e => set(i, 'note', e.target.value)} /></label>
             </div>
+            {r.image ? (
+              <div className="lk-img">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={r.image} alt="Сонголтын зураг" />
+                <span>Сонголтын зураг</span>
+                <button type="button" className="lk-icon" aria-label="Зураг хасах" onClick={() => set(i, 'image', null)}><X size={15} /></button>
+              </div>
+            ) : (
+              <label className="lk-img-add">
+                <input type="file" accept="image/*" hidden onChange={e => { pickImage(i, e.target.files?.[0]); e.target.value = '' }} />
+                <ImagePlus size={16} />Сонгосон өнгө, хэмжээний зураг <small>(заавал биш)</small>
+              </label>
+            )}
           </div>
         ))}
         {rows.length < MAX_ITEMS_PER_REQUEST && (
@@ -143,9 +163,17 @@ export default function LinksClient({ phone, bank }: {
                   </a>
                   <span className={`lk-st lk-${st.tone}`}>{st.user}</span>
                 </div>
-                <div className="lk-meta">{i.quantity} ширхэг{i.note ? ` · ${i.note}` : ''} · {md(i.createdAt)}-нд илгээсэн</div>
+                <div className="lk-meta-row">
+                  <div className="lk-meta">{i.quantity} ширхэг{i.note ? ` · ${i.note}` : ''} · {md(i.createdAt)}-нд илгээсэн</div>
+                  {i.imageUrl && (
+                    <a href={i.imageUrl} target="_blank" rel="noopener noreferrer" className="lk-thumb" aria-label="Сонголтын зураг томоор харах">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={i.imageUrl.replace('/upload/', '/upload/c_fill,w_96,h_96,q_auto,f_auto/')} alt="" />
+                    </a>
+                  )}
+                </div>
                 {i.status === 'NEW' && (
-                  <div className="lk-foot"><span>Карго үнийг тооцоолж байна</span><button type="button" className="lk-text-btn" onClick={() => cancel(i.id)}>Цуцлах</button></div>
+                  <div className="lk-foot"><span>Барааны үнийг тооцоолж байна</span><button type="button" className="lk-text-btn" onClick={() => cancel(i.id)}>Цуцлах</button></div>
                 )}
                 {i.status === 'QUOTED' && <div className="lk-foot"><span>Төлөх</span><b className="lk-amount">{money(i.price)}</b></div>}
                 {i.status === 'PAID' && <div className="lk-foot"><span>Төлсөн{i.paidAt ? ` · ${md(i.paidAt)}` : ''}</span><b>{money(i.paidAmount)}</b></div>}

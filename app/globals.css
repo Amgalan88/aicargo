@@ -979,6 +979,16 @@ textarea.input { resize: vertical; }
 .lk-mono { font-family: monospace; }
 .lk-note { font-size: 0.78rem; color: var(--muted); margin: 0; font-style: italic; }
 .lk-text-btn { background: none; border: none; color: var(--danger); cursor: pointer; font: inherit; font-size: 0.8rem; padding: 0; }
+.lk-img-add { display: inline-flex; align-items: center; gap: 0.4rem; justify-self: start; font-size: 0.8rem; font-weight: 600; color: var(--accent); cursor: pointer; padding: 0.35rem 0.1rem; }
+.lk-img-add small { font-weight: 400; color: var(--muted); }
+.lk-img { display: flex; align-items: center; gap: 0.6rem; padding: 0.35rem; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.lk-img img { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.lk-img span { flex: 1; font-size: 0.8rem; color: var(--muted); }
+.lk-meta-row, .lo-meta-row { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.lk-meta-row .lk-meta { flex: 1; min-width: 0; }
+.lk-thumb, .lo-thumb { flex-shrink: 0; display: block; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.lk-thumb img { width: 44px; height: 44px; object-fit: cover; display: block; }
+.lo-thumb img { width: 52px; height: 52px; object-fit: cover; display: block; }
 .lk-st, .lo-st { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.55rem; border-radius: 100px; white-space: nowrap; flex-shrink: 0; }
 .lk-blue, .lo-blue { background: color-mix(in srgb, var(--blue) 12%, transparent); color: var(--blue); }
 .lk-yellow, .lo-yellow { background: color-mix(in srgb, var(--yellow) 15%, transparent); color: var(--yellow); }
@@ -1039,17 +1049,17 @@ textarea.input { resize: vertical; }
 .lo-group-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.75rem 1rem; background: var(--surface2); border-bottom: 1px solid var(--border); }
 .lo-group-head > div { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
 .lo-phone { display: inline-flex; align-items: center; gap: 0.3rem; font-family: monospace; font-size: 0.85rem; color: var(--muted); text-decoration: none; }
-.lo-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem 1rem; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+.lo-item { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
 .lo-item:last-child { border-bottom: none; }
 .lo-item.off { opacity: 0.6; }
-.lo-item-main { min-width: 0; display: grid; gap: 0.2rem; }
+.lo-item-main { flex: 1 1 260px; min-width: 0; display: grid; gap: 0.2rem; }
 .lo-item-top { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
 .lo-link { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 700; font-size: 0.88rem; color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lo-link:hover { color: var(--accent); }
 .lo-icon { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0.15rem; display: inline-flex; }
 .lo-meta { font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
 .lo-meta b { color: var(--text); }
-.lo-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+.lo-actions { flex: 0 1 auto; margin-left: auto; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
 .lo-inline { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .lo-inline .input { width: 9.5rem; padding-top: 0.4rem; padding-bottom: 0.4rem; }
 .lo-btn { padding: 0.42rem 0.8rem; font-size: 0.8rem; white-space: nowrap; }
@@ -1061,8 +1071,7 @@ textarea.input { resize: vertical; }
 .lo-mono { font-family: monospace; color: var(--text); }
 @media (max-width: 720px) {
   .lo-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .lo-item { grid-template-columns: 1fr; }
-  .lo-actions { justify-content: flex-start; }
+  .lo-actions { flex-basis: 100%; margin-left: 0; justify-content: flex-start; }
   .lo-inline .input { flex: 1; width: auto; min-width: 0; }
 }
 

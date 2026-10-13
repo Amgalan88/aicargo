@@ -7,7 +7,7 @@ import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { LINK_STATUS, linkHost, money, type LinkStatus } from '@/lib/link-orders'
 
 interface Item {
-  id: number; userId: number | null; name: string; phone: string; url: string; quantity: number; note: string | null
+  id: number; userId: number | null; name: string; phone: string; url: string; quantity: number; note: string | null; imageUrl: string | null
   status: LinkStatus; price: string | null; paidAmount: string | null; paidAt: string | null; trackCode: string | null
   adminNote: string | null; createdAt: string
 }
@@ -154,14 +154,22 @@ function ItemRow({ it, act }: { it: Item; act: (ids: number[], action: string, e
           <button type="button" className="lo-icon" aria-label="Линк хуулах" title="Линк хуулах" onClick={() => navigator.clipboard.writeText(it.url).then(() => toast.success('Линк хуулагдлаа')).catch(() => {})}><Copy size={13} /></button>
           <span className={`lo-st lo-${st.tone}`}>{st.label}</span>
         </div>
-        <div className="lo-meta"><b>{it.quantity} ш</b>{it.note ? ` · ${it.note}` : ''} · {when(it.createdAt)}</div>
+        <div className="lo-meta-row">
+          {it.imageUrl && (
+            <a href={it.imageUrl} target="_blank" rel="noopener noreferrer" className="lo-thumb" aria-label="Сонголтын зураг томоор харах" title="Сонголтын зураг">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={it.imageUrl.replace('/upload/', '/upload/c_fill,w_112,h_112,q_auto,f_auto/')} alt="" />
+            </a>
+          )}
+          <div className="lo-meta"><b>{it.quantity} ш</b>{it.note ? ` · ${it.note}` : ''} · {when(it.createdAt)}</div>
+        </div>
         {it.adminNote && it.status === 'CANCELLED' && <div className="lo-meta">Шалтгаан: {it.adminNote}</div>}
       </div>
 
       <div className="lo-actions">
         {(it.status === 'NEW' || (it.status === 'QUOTED' && editPrice)) && (
           <form className="lo-inline" onSubmit={e => { e.preventDefault(); if (Number(price) > 0) run('quote', { price: Number(price) }).then(() => setEditPrice(false)) }}>
-            <input className="input" inputMode="numeric" placeholder="Нийт үнэ ₮" value={price} onChange={e => setPrice(e.target.value.replace(/\D/g, ''))} />
+            <input className="input" inputMode="numeric" placeholder="Барааны үнэ ₮" title="Барааны нийт үнэ — карго (тээврийн) төлбөр ачаа ирэхэд тарифаар бодогдоно" value={price} onChange={e => setPrice(e.target.value.replace(/\D/g, ''))} />
             <button className="btn lo-btn" disabled={busy || !(Number(price) > 0)}>{it.status === 'NEW' ? 'Үнэ илгээх' : 'Хадгалах'}</button>
           </form>
         )}

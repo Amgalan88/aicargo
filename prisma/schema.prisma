@@ -468,6 +468,8 @@ model LinkOrder {
   url        String
   quantity   Int       @default(1)
   note       String?
+  // Хэрэглэгчийн сонгосон өнгө/хэмжээний зураг (заавал биш)
+  imageUrl   String?
   status     String    @default("NEW")
   price      Decimal?  @db.Decimal(12, 2)
   paidAmount Decimal?  @db.Decimal(12, 2)

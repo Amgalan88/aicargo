@@ -15,7 +15,10 @@ export const LINK_STATUS: Record<LinkStatus, { label: string; user: string; tone
 export const MAX_ITEMS_PER_REQUEST = 10
 export const MAX_ITEMS_PER_DAY = 50
 
-export interface LinkItemInput { url: string; quantity: number; note: string }
+export interface LinkItemInput { url: string; quantity: number; note: string; image: string | null }
+
+// Сонголтын зураг: хөтөч дээр багасгасан JPEG (data URL). ~1MB-аас их бол татгалзана
+const MAX_IMAGE_CHARS = 1_400_000
 
 // Линк: http(s) хаяг. Taobao аппаас хуулсан "【淘宝】… https://m.tb.cn/…" зэрэг текстээс хаягийг нь салгаж авна
 export function extractUrl(raw: string): string | null {
@@ -40,7 +43,11 @@ export function sanitizeItems(input: unknown): { items: LinkItemInput[]; error: 
     const q = Math.floor(Number(r.quantity))
     const quantity = Number.isFinite(q) && q >= 1 ? Math.min(q, 999) : 1
     const note = String(r.note ?? '').replace(/\s+/g, ' ').trim().slice(0, 300)
-    items.push({ url, quantity, note })
+    const img = typeof r.image === 'string' && r.image ? r.image : null
+    if (img && (!/^data:image\/(jpeg|png|webp);base64,/.test(img) || img.length > MAX_IMAGE_CHARS)) {
+      return { items: [], error: `${i + 1}-р мөр: зураг буруу эсвэл хэт том байна` }
+    }
+    items.push({ url, quantity, note, image: img })
   }
   return { items, error: null }
 }

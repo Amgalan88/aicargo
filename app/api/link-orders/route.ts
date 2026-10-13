@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized } from '@/lib/auth'
 import { sanitizeItems, MAX_ITEMS_PER_DAY } from '@/lib/link-orders'
+import { uploadLinkOrderImage } from '@/lib/cloudinary'
 
 // Хэрэглэгчийн линк захиалга: GET — өөрийн жагсаалт, POST — шинэ линкүүд, DELETE — шинэ (үнэ ирээгүй) захиалгаа цуцлах
 
 const SELECT = {
-  id: true, url: true, quantity: true, note: true, status: true, price: true, paidAmount: true,
+  id: true, url: true, quantity: true, note: true, imageUrl: true, status: true, price: true, paidAmount: true,
   paidAt: true, quotedAt: true, orderedAt: true, trackCode: true, adminNote: true, createdAt: true,
 } as const
 
@@ -49,10 +50,18 @@ export async function POST(req: NextRequest) {
 
   const me = await prisma.user.findUnique({ where: { id: user.userId }, select: { name: true, phone: true } })
   if (!me) return unauthorized()
+
+  // Сонголтын зургуудыг зэрэг байршуулна
+  let images: (string | null)[]
+  try {
+    images = await Promise.all(items.map(i => (i.image ? uploadLinkOrderImage(i.image, cargo.id) : Promise.resolve(null))))
+  } catch {
+    return NextResponse.json({ error: 'Зураг байршуулахад алдаа гарлаа. Дахин оролдоно уу' }, { status: 500 })
+  }
   await prisma.linkOrder.createMany({
-    data: items.map(i => ({
+    data: items.map((i, k) => ({
       cargoId: cargo.id, userId: user.userId, name: me.name, phone: me.phone,
-      url: i.url, quantity: i.quantity, note: i.note || null,
+      url: i.url, quantity: i.quantity, note: i.note || null, imageUrl: images[k],
     })),
   })
   return NextResponse.json({ ok: true, count: items.length }, { status: 201 })
