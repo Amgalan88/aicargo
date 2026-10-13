@@ -18,7 +18,7 @@ export default async function LinksPage() {
           select: { name: true, logoUrl: true, linkOrdersEnabled: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true },
         })
       : null,
-    prisma.user.findUnique({ where: { id: user.userId }, select: { phone: true } }),
+    prisma.user.findUnique({ where: { id: user.userId }, select: { phone: true, linkOrdersOn: true } }),
   ])
 
   return (
@@ -38,6 +38,7 @@ export default async function LinksPage() {
       ) : (
         <LinksClient
           phone={me?.phone ?? ''}
+          initialOn={me?.linkOrdersOn ?? false}
           bank={{
             name: cargo.bankName ?? '',
             holder: cargo.bankAccountHolder ?? '',

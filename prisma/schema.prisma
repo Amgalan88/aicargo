@@ -75,6 +75,7 @@ model User {
   canEditBank    Boolean  @default(false)
   canEditAddress Boolean  @default(false)
   canEditLogo    Boolean  @default(false)
+  linkOrdersOn   Boolean  @default(false) // хэрэглэгч линк захиалгаа өөрөө асаасан эсэх (карго асаасан байх ёстой)
   createdAt    DateTime   @default(now())
   shipments    Shipment[]
   linkOrders   LinkOrder[]

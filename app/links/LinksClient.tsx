@@ -33,14 +33,26 @@ function CopyLine({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function LinksClient({ phone, bank }: {
+export default function LinksClient({ phone, initialOn, bank }: {
   phone: string
+  initialOn: boolean
   bank: { name: string; holder: string; account: string; note: string }
 }) {
   const [items, setItems] = useState<Item[] | null>(null)
   const [rows, setRows] = useState<Row[]>([{ ...EMPTY }])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  // Хэрэглэгч өөрөө асаагаагүй бол маягтын оронд "Асаах" карт гарна (өмнөх захиалга, төлбөр харагдсаар)
+  const [on, setOn] = useState(initialOn)
+  const [turningOn, setTurningOn] = useState(false)
+  async function turnOn() {
+    setTurningOn(true)
+    const res = await fetch('/api/link-orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: true }) }).catch(() => null)
+    setTurningOn(false)
+    if (!res?.ok) { toast.error('Алдаа гарлаа'); return }
+    setOn(true)
+    toast.success('Линк захиалга асаалаа — дээд цэсэнд гарч ирлээ')
+  }
 
   const load = useCallback(async () => {
     const res = await fetch('/api/link-orders')
@@ -109,6 +121,15 @@ export default function LinksClient({ phone, bank }: {
         </div>
       )}
 
+      {!on ? (
+        <div className="card lk-off">
+          <div>
+            <b>Линк захиалга унтраалттай байна</b>
+            <p>Асаавал дээд цэсэнд "Захиалах" гарч ирнэ. Тохиргоо цэснээс хүссэн үедээ унтрааж болно.</p>
+          </div>
+          <button type="button" className="btn" disabled={turningOn} onClick={turnOn}>{turningOn ? 'Асааж байна…' : 'Асаах'}</button>
+        </div>
+      ) : (
       <form className="card lk-form" onSubmit={submit}>
         <h2>Шинэ захиалга</h2>
         {rows.map((r, i) => (
@@ -147,6 +168,7 @@ export default function LinksClient({ phone, bank }: {
           <Send size={16} />{sending ? 'Илгээж байна…' : filled.length > 1 ? `${filled.length} линк илгээх` : 'Илгээх'}
         </button>
       </form>
+      )}
 
       <h2 className="lk-h2">Миний захиалга</h2>
       {items === null ? <p className="lk-sub">Ачааллаж байна…</p> : active.length === 0 && cancelled.length === 0 ? (

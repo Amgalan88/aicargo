@@ -4,7 +4,8 @@ import { getVerifiedUserFromRequest, unauthorized } from '@/lib/auth'
 import { sanitizeItems, MAX_ITEMS_PER_DAY } from '@/lib/link-orders'
 import { uploadLinkOrderImage } from '@/lib/cloudinary'
 
-// Хэрэглэгчийн линк захиалга: GET — өөрийн жагсаалт, POST — шинэ линкүүд, DELETE — шинэ (үнэ ирээгүй) захиалгаа цуцлах
+// Хэрэглэгчийн линк захиалга: GET — өөрийн жагсаалт, POST — шинэ линкүүд, DELETE — шинэ (үнэ ирээгүй) захиалгаа цуцлах,
+// PATCH { on } — линк захиалгаа өөрөө асаах / унтраах
 
 const SELECT = {
   id: true, url: true, quantity: true, note: true, imageUrl: true, status: true, price: true, paidAmount: true,
@@ -48,8 +49,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Өдөрт ${MAX_ITEMS_PER_DAY} хүртэл линк илгээнэ` }, { status: 429 })
   }
 
-  const me = await prisma.user.findUnique({ where: { id: user.userId }, select: { name: true, phone: true } })
+  const me = await prisma.user.findUnique({ where: { id: user.userId }, select: { name: true, phone: true, linkOrdersOn: true } })
   if (!me) return unauthorized()
+  if (!me.linkOrdersOn) return NextResponse.json({ error: 'Линк захиалга унтраалттай байна. Эхлээд асаана уу' }, { status: 403 })
 
   // Сонголтын зургуудыг зэрэг байршуулна
   let images: (string | null)[]
@@ -65,6 +67,17 @@ export async function POST(req: NextRequest) {
     })),
   })
   return NextResponse.json({ ok: true, count: items.length }, { status: 201 })
+}
+
+export async function PATCH(req: NextRequest) {
+  const user = await getVerifiedUserFromRequest(req)
+  if (!user) return unauthorized()
+  const body = await req.json().catch(() => ({}))
+  const on = body.on === true
+  // Асаахад карго линк захиалга авдаг байх ёстой; унтраахыг үргэлж зөвшөөрнө
+  if (on && !(await enabledCargo(user.cargoId))) return NextResponse.json({ error: 'Энэ карго линкээр захиалга авдаггүй' }, { status: 403 })
+  await prisma.user.update({ where: { id: user.userId }, data: { linkOrdersOn: on } })
+  return NextResponse.json({ ok: true, on })
 }
 
 export async function DELETE(req: NextRequest) {

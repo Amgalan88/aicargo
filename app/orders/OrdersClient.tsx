@@ -264,6 +264,7 @@ export default function OrdersClient({
   aiEnabled,
   batchMode = false,
   linkOrders = false,
+  linkOrdersOn = false,
   batches = [],
   aiSuggestions = [],
 }: {
@@ -295,6 +296,7 @@ export default function OrdersClient({
   batchMode?: boolean
   // Линкээр захиалга авдаг карго — дээд цэсэнд "Линк захиалга"
   linkOrders?: boolean
+  linkOrdersOn?: boolean
   batches?: UserBatch[]
   aiSuggestions?: string[]
 }) {
@@ -308,6 +310,15 @@ export default function OrdersClient({
     .filter(tab => !(batchMode && tab.key === 'EREEN_ARRIVED'))
     .map(tab => tab.key === 'ALL' ? { ...tab, label: allLabel } : { ...tab, label: STATUS_LABEL[tab.key] ?? tab.label })
   const [shipments, setShipments] = useState(initialShipments)
+  // Линк захиалга: карго асаасан + хэрэглэгч өөрөө асаасан үед л дээд цэсэнд гарна
+  const [linkOn, setLinkOn] = useState(linkOrdersOn)
+  async function toggleLinkOrders() {
+    const on = !linkOn
+    setLinkOn(on)
+    const res = await fetch('/api/link-orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on }) }).catch(() => null)
+    if (!res?.ok) { setLinkOn(!on); toast.error('Алдаа гарлаа'); return }
+    toast.success(on ? t.linksOnToast : t.linksOffToast)
+  }
   const [activeTab, setActiveTab] = useState('ALL')
   const [viewMode, setViewMode] = useState<'list' | 'byDate'>('list')
   const [expandedDate, setExpandedDate] = useState<string | null>(null)
@@ -522,7 +533,7 @@ export default function OrdersClient({
               </svg>
             </button>
           </NavItem>
-          {linkOrders && (
+          {linkOrders && linkOn && (
             <NavItem label={t.navLinks} short={t.navLinksShort}>
               <Link href="/links" title={t.navLinks} aria-label={t.navLinks} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -602,6 +613,16 @@ export default function OrdersClient({
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.navTheme}</span>
                     <ThemeToggle />
                   </div>
+                  {linkOrders && (
+                    <div style={{
+                      borderTop: '1px solid var(--border)', paddingTop: '0.45rem', marginTop: '0.1rem',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
+                    }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.navLinks}</span>
+                      <button type="button" role="switch" aria-checked={linkOn} aria-label={t.navLinks}
+                        className={`switch${linkOn ? ' on' : ''}`} onClick={toggleLinkOrders}><span /></button>
+                    </div>
+                  )}
                 </div>
 
                 <button onClick={logout} style={{
