@@ -61,7 +61,7 @@ export async function sendPushToUsers(messages: { userId: number; payload: PushP
   return { users: reached.size, devices }
 }
 
-// ── Автомат мэдэгдэл: нэг хүнд 4 цагт нэг л удаа ──
+// ── Автомат мэдэгдэл: нэг хүнд төрөл тус бүрээр (Эрээн / Ирсэн) 4 цагт нэг л удаа ──
 const THROTTLE_SECONDS = 4 * 3600
 let redis: Redis | null | undefined
 function getRedis(): Redis | null {
@@ -71,8 +71,9 @@ function getRedis(): Redis | null {
   return redis
 }
 
-// Мэдэгдэл асаасан, сүүлийн 4 цагт мэдэгдэл аваагүй хэрэглэгчдийг шүүнэ (тэмдэглэгээг мөн тавина)
-async function claimUsers(userIds: number[]): Promise<number[]> {
+// Мэдэгдэл асаасан, сүүлийн 4 цагт энэ төрлийн мэдэгдэл аваагүй хэрэглэгчдийг шүүнэ (тэмдэглэгээг мөн тавина).
+// Эрээн, Ирсэн тусдаа тоологдоно — "Ирсэн" мэдэгдэл Эрээний мэдэгдлийн улмаас алдагдахгүй
+async function claimUsers(kind: 'ereen' | 'arrived', userIds: number[]): Promise<number[]> {
   const ids = [...new Set(userIds)]
   if (!ids.length) return []
   const subscribed = await prisma.pushSubscription.findMany({ where: { userId: { in: ids } }, select: { userId: true }, distinct: ['userId'] })
@@ -82,7 +83,7 @@ async function claimUsers(userIds: number[]): Promise<number[]> {
   const out: number[] = []
   await Promise.all(withSub.map(async id => {
     // SET NX EX — 4 цагийн дотор аль хэдийн илгээсэн бол алгасна
-    const ok = await r.set(`push:u:${id}`, '1', { nx: true, ex: THROTTLE_SECONDS }).catch(() => 'OK')
+    const ok = await r.set(`push:${kind}:u:${id}`, '1', { nx: true, ex: THROTTLE_SECONDS }).catch(() => 'OK')
     if (ok === 'OK') out.push(id)
   }))
   return out
@@ -106,7 +107,7 @@ const codeList = (codes: string[]) => codes.slice(0, 3).join(', ') + (codes.leng
 export async function notifyEreenForCargo(cargoId: number, rows: { userId: number | null; trackCode: string }[]): Promise<void> {
   if (!ready()) return
   const byUser = groupCodes(rows)
-  const allowed = await claimUsers([...byUser.keys()])
+  const allowed = await claimUsers('ereen', [...byUser.keys()])
   if (!allowed.length) return
   const cargo = await prisma.cargo.findUnique({ where: { id: cargoId }, select: { ereemLabel: true } }).catch(() => null)
   const label = cargo?.ereemLabel?.trim()
@@ -128,7 +129,7 @@ export async function notifyEreenForCargo(cargoId: number, rows: { userId: numbe
 // Монголд ирсэн ачаа — хэрэглэгчийн одоо авахаар хүлээж буй БҮХ ирсэн ачааг тоолж, нийт дүнтэй нь мэдэгдэнэ
 export async function notifyArrivedForCargo(cargoId: number, rows: { userId: number | null; trackCode: string }[]): Promise<void> {
   if (!ready()) return
-  const allowed = await claimUsers([...groupCodes(rows).keys()])
+  const allowed = await claimUsers('arrived', [...groupCodes(rows).keys()])
   if (!allowed.length) return
   const [cargo, users] = await Promise.all([
     prisma.cargo.findUnique({ where: { id: cargoId }, select: { name: true } }).catch(() => null),

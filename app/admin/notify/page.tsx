@@ -385,7 +385,7 @@ export default function NotifyPage() {
           ))}
         </div>
         <p style={{ fontSize: '0.78rem', color: 'var(--muted)', lineHeight: 1.5, margin: 0 }}>
-          Нэг хүнд <b style={{ color: 'var(--text)' }}>4 цагт нэг л</b> мэдэгдэл очно — олон ачаа дараалан бүртгэхэд утас нь дүүрэхгүй.
+          Нэг хүнд Эрээн, Ирсэн тус бүр <b style={{ color: 'var(--text)' }}>4 цагт нэг л</b> мэдэгдэл очно — олон ачаа дараалан бүртгэхэд утас нь дүүрэхгүй.
           {info && <> Одоогоор <b style={{ color: 'var(--text)' }}>{info.users}</b> хэрэглэгчээс <b style={{ color: 'var(--green)' }}>{info.subscribers}</b> нь мэдэгдэл асаасан.</>}
         </p>
         {info && !info.configured && (
