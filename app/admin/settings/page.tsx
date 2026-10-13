@@ -5,12 +5,29 @@ import { useState, useEffect } from 'react'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
 import { parseExtraAddresses, type EreenAddress } from '@/lib/ereen-address'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 interface Tier { min: string; price: string }
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '', ereemTitle: '', ereemAddresses: [] as EreenAddress[], linkOrdersEnabled: false })
+  // Линкээр захиалга — шилжүүлэгч дармагц шууд хадгалагдана
+  const [linkOn, setLinkOn] = useState(false)
+  const [linkBusy, setLinkBusy] = useState(false)
+  async function toggleLinks() {
+    if (linkBusy) return
+    const next = !linkOn
+    setLinkBusy(true)
+    const res = await fetch('/api/admin/settings', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ linkOrdersEnabled: next }),
+    }).catch(() => null)
+    setLinkBusy(false)
+    if (!res?.ok) { toast.error('Хадгалахад алдаа гарлаа'); return }
+    setLinkOn(next)
+    toast.success(next ? 'Линк захиалга нээгдлээ' : 'Линк захиалга хаагдлаа')
+    router.refresh()
+  }
+  const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '', ereemTitle: '', ereemAddresses: [] as EreenAddress[] })
   const [tiers, setTiers] = useState<Tier[]>([])
   const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null; batchEnabled?: boolean } | null>(null)
   const [me, setMe] = useState({ isStaffAdmin: false, canEditBank: false, canEditAddress: false, canEditLogo: false })
@@ -42,13 +59,14 @@ export default function SettingsPage() {
       .then(d => {
         setCargo(d)
         setMe({ isStaffAdmin: !!d.isStaffAdmin, canEditBank: !!d.canEditBank, canEditAddress: !!d.canEditAddress, canEditLogo: !!d.canEditLogo })
-        const loadedForm = { tariff: d.tariff ?? '', priceCubic: d.priceCubic ? String(Number(d.priceCubic)) : '', priceWeight: d.priceWeight ? String(Number(d.priceWeight)) : '', priceWeightUnit: d.priceWeightUnit === 't' ? 't' : 'kg', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '', ereemTitle: d.ereemTitle ?? '', ereemAddresses: parseExtraAddresses(d.ereemAddresses), linkOrdersEnabled: !!d.linkOrdersEnabled }
+        const loadedForm = { tariff: d.tariff ?? '', priceCubic: d.priceCubic ? String(Number(d.priceCubic)) : '', priceWeight: d.priceWeight ? String(Number(d.priceWeight)) : '', priceWeightUnit: d.priceWeightUnit === 't' ? 't' : 'kg', announcement: d.announcement ?? '', contactInfo: d.contactInfo ?? '', bankName: d.bankName ?? '', bankAccountHolder: d.bankAccountHolder ?? '', bankAccountNumber: d.bankAccountNumber ?? '', bankTransferNote: d.bankTransferNote ?? '', arrivedLabel: d.arrivedLabel ?? '', ereemLabel: d.ereemLabel ?? '', ereemReceiver: d.ereemReceiver ?? '', ereemPhone: d.ereemPhone ?? '', ereemRegion: d.ereemRegion ?? '', ereemAddress: d.ereemAddress ?? '', ereemTitle: d.ereemTitle ?? '', ereemAddresses: parseExtraAddresses(d.ereemAddresses) }
         let loadedTiers: Tier[] = []
         try {
           const parsed = d.priceWeightTiers ? JSON.parse(d.priceWeightTiers) : []
           if (Array.isArray(parsed)) loadedTiers = parsed.map((t: any) => ({ min: String(t.min), price: String(t.price) }))
         } catch {}
         setForm(loadedForm)
+        setLinkOn(!!d.linkOrdersEnabled)
         setTiers(loadedTiers)
         setBaseline(snapshotOf(loadedForm, loadedTiers, null))
         setLoading(false)
@@ -183,20 +201,22 @@ export default function SettingsPage() {
         {!allowAddress && ownerOnlyNote}
       </div>
 
-      {/* Линкээр захиалга — эзэмшигч асаана */}
-      <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: me.isStaffAdmin ? 'default' : 'pointer' }}>
-          <input type="checkbox" checked={form.linkOrdersEnabled} disabled={me.isStaffAdmin}
-            onChange={e => setForm(f => ({ ...f, linkOrdersEnabled: e.target.checked }))}
-            style={{ width: 20, height: 20, marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }} />
-          <span>
-            <b style={{ fontSize: '0.95rem' }}>Линкээр захиалга авах</b>
-            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.2rem', lineHeight: 1.5 }}>
-              Хэрэглэгчид Taobao, Pinduoduo, 1688-ийн барааны линкээ илгээнэ. Та үнийг илгээж, төлбөр орсныг бүртгээд захиална.
-              Хүсэлтүүд "Линк захиалга" цэсэнд харагдана.
-            </span>
-          </span>
-        </label>
+      {/* Линкээр захиалга — эзэмшигч асааж/унтраана (анхдагч: хаалттай) */}
+      <div className="card" style={{ padding: '1.1rem 1.25rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <div style={{ minWidth: 0 }}>
+            <b id="link-orders-label" style={{ fontSize: '0.95rem' }}>Линкээр захиалга авах</b>
+            <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.2rem 0 0', lineHeight: 1.5 }}>
+              {linkOn
+                ? 'Нээлттэй — хэрэглэгчид барааны линкээ илгээнэ. Хүсэлтүүд "Линк захиалга" цэсэнд ирнэ.'
+                : 'Хаалттай — нээвэл хэрэглэгчид Taobao, Pinduoduo, 1688-ийн линкээ илгээж, та үнэ, төлбөрийг нь бүртгэнэ.'}
+            </p>
+          </div>
+          <button type="button" role="switch" aria-checked={linkOn} aria-labelledby="link-orders-label"
+            className={`switch${linkOn ? ' on' : ''}`} disabled={me.isStaffAdmin || linkBusy} onClick={toggleLinks}>
+            <span />
+          </button>
+        </div>
         {me.isStaffAdmin && <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: '0.6rem 0 0' }}>Зөвхөн каргогийн эзэмшигч өөрчилнө.</p>}
       </div>
 

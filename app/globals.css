@@ -927,6 +927,15 @@ textarea.input { resize: vertical; }
 .lp-assure li { display: inline-flex; align-items: center; gap: 0.35rem; }
 .lp-assure svg { color: var(--green); }
 .lp-mock { padding: 0.75rem 0 clamp(3rem, 7vw, 4.5rem); }
+/* Шилжүүлэгч (role="switch") */
+.switch { position: relative; flex-shrink: 0; width: 46px; height: 26px; border-radius: 100px; border: none; padding: 0; cursor: pointer; background: var(--border-strong); transition: background .2s; }
+.switch span { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform .2s; }
+.switch.on { background: var(--green); }
+.switch.on span { transform: translateX(20px); }
+.switch:disabled { opacity: 0.55; cursor: not-allowed; }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .switch, .switch span { transition: none; } }
+
 /* ═══ Линкээр захиалга ═══ */
 /* Хэрэглэгч (/links) */
 .lk-page { max-width: 640px; }
@@ -980,6 +989,24 @@ textarea.input { resize: vertical; }
   .lk-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lk-copy { grid-template-columns: 6.2rem minmax(0, 1fr) auto; }
 }
+
+/* Шинэ линк захиалгын live мэдэгдэл (админы баруун дээд) */
+.loa { position: fixed; z-index: 60; top: calc(env(safe-area-inset-top, 0px) + 76px); right: 16px; width: min(340px, calc(100vw - 32px));
+  display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.75rem 0.7rem 0.8rem; border-radius: 14px;
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: 0 12px 32px -10px rgba(0,0,0,0.3); animation: loa-in .35s cubic-bezier(.22,1,.36,1); }
+.loa-ic { position: relative; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent-light); color: var(--accent); }
+.loa-ic i { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px var(--surface); }
+.loa-ic i::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--green); animation: loa-ping 1.6s ease-out infinite; }
+.loa-body { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.loa-body b { font-size: 0.86rem; }
+.loa-body span { font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loa-go { flex-shrink: 0; font-size: 0.8rem; font-weight: 700; color: var(--on-accent); background: var(--accent); border-radius: 8px; padding: 0.35rem 0.7rem; text-decoration: none; }
+.loa-x { flex-shrink: 0; background: none; border: none; color: var(--muted); cursor: pointer; padding: 0.2rem; display: inline-flex; }
+@keyframes loa-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@keyframes loa-ping { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(2.6); opacity: 0; } }
+@media (max-width: 640px) { .loa { top: calc(env(safe-area-inset-top, 0px) + 64px); } }
+@media (prefers-reduced-motion: reduce) { .loa { animation: none; } .loa-ic i::after { animation: none; } }
 
 /* Админ самбар (/admin/link-orders) */
 .lo-page { max-width: 980px; }

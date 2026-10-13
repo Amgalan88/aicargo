@@ -50,6 +50,14 @@ export default function AdminNav({
   linkOrders?: boolean
 }) {
   const pathname = usePathname()
+  // Шинэ линк захиалга ирэхэд (LinkOrderAlert) цэсний тоог шинэчилнэ
+  useEffect(() => {
+    const refresh = () => {
+      fetch('/api/admin/counts').then(r => r.ok ? r.json() : null).then(d => { if (d) setCounts(d) }).catch(() => {})
+    }
+    window.addEventListener('admin-counts-refresh', refresh)
+    return () => window.removeEventListener('admin-counts-refresh', refresh)
+  }, [])
   const router = useRouter()
   const [copied, setCopied] = useState(false)
   const [unread, setUnread] = useState(0)

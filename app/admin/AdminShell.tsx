@@ -6,6 +6,7 @@ import OnboardingCard, { OnboardingState } from './OnboardingCard'
 import SuperAnnouncementModal from '@/app/components/SuperAnnouncementModal'
 import { Lock, TriangleAlert, X } from 'lucide-react'
 import BillingPanel from './BillingPanel'
+import LinkOrderAlert from './LinkOrderAlert'
 import { billingState, GRACE_DAYS } from '@/lib/billing'
 
 function BlockingOverlay({ cargoName, overdueDays, paidUntil }: { cargoName: string; overdueDays: number; paidUntil: string | null }) {
@@ -98,6 +99,7 @@ export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, ha
         <WarningBanner cargoName={cargoName ?? ''} paidUntil={paidUntil ?? null} daysToBlock={GRACE_DAYS - bill!.overdueDays} onClose={() => setWarningDismissed(true)} />
       )}
       <SuperAnnouncementModal />
+      {linkOrders && <LinkOrderAlert />}
     </div>
   )
 }

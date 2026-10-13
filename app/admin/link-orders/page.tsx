@@ -42,6 +42,11 @@ export default function LinkOrdersPage() {
     else toast.error('Ачаалахад алдаа гарлаа')
   }, [status, query])
   useEffect(() => { load() }, [load])
+  // Шинэ захиалга ирэхэд (баруун дээд мэдэгдэл) жагсаалтыг өөрөө шинэчилнэ
+  useEffect(() => {
+    window.addEventListener('link-orders-new', load)
+    return () => window.removeEventListener('link-orders-new', load)
+  }, [load])
 
   async function act(ids: number[], action: string, extra: Record<string, unknown> = {}) {
     const res = await fetch('/api/admin/link-orders', {
