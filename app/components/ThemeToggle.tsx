@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 
 type Theme = 'day' | 'night' | 'comfort'
 const ORDER: Theme[] = ['day', 'night', 'comfort']
+// Админы дээд мөрөнд icon-ын доор гарах богино шошго
+const SHORT: Record<Theme, string> = { day: 'Өдөр', night: 'Шөнө', comfort: 'Нүд ээлтэй' }
 const LABEL: Record<Theme, string> = {
   day: 'Өдрийн горим',
   night: 'Шөнийн горим',
@@ -14,7 +16,7 @@ function applyTheme(t: Theme) {
   else document.documentElement.dataset.theme = t
 }
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ labeled = false }: { labeled?: boolean }) {
   const [theme, setTheme] = useState<Theme | null>(null)
 
   useEffect(() => {
@@ -37,9 +39,10 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={cycle}
-      title={theme ? LABEL[theme] : ''}
+      title={theme ? `${LABEL[theme]} — дарж солино` : ''}
       aria-label="Харагдацын горим солих"
-      style={{
+      className={labeled ? 'an-act' : undefined}
+      style={labeled ? { visibility: theme ? 'visible' : 'hidden' } : {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 38, height: 38, borderRadius: '50%',
         background: 'none', border: 'none', cursor: 'pointer',
@@ -62,6 +65,7 @@ export default function ThemeToggle() {
           <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.9" y1="4.9" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.1" y2="19.1"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.9" y1="19.1" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.1" y2="4.9"/>
         </svg>
       )}
+      {labeled && <span>{theme ? SHORT[theme] : ''}</span>}
     </button>
   )
 }

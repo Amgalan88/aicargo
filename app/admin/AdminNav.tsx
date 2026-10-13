@@ -170,14 +170,14 @@ export default function AdminNav({
           {paid && (
             <div style={{ position: 'relative' }}>
               <button
-                className="an-paid"
+                className="an-act an-paid"
                 onClick={() => setPaidOpen(o => !o)}
                 aria-expanded={paidOpen}
                 style={{ ['--c' as string]: paid.color }}
                 title="Вэбсайтын төлбөрийн хугацаа"
               >
-                <CalendarClock size={15} strokeWidth={2.2} />
-                <span className="an-paid-text">{paid.days < 0 ? 'Төлбөр дууссан' : `${paid.short} хүртэл`}</span>
+                <CalendarClock size={18} strokeWidth={2.2} />
+                <span>{paid.days < 0 ? 'Төлбөр дууссан' : <>{paid.short}<em className="an-paid-until"> хүртэл</em></>}</span>
               </button>
               {paidOpen && (
                 <>
@@ -199,17 +199,21 @@ export default function AdminNav({
             </div>
           )}
           {cargoSlug && (
-            <button className="icon-btn an-hide-sm" onClick={copyInvite} title="Хэрэглэгчдэд илгээх урилгын линк хуулах" aria-label="Урилгын линк хуулах">
+            <button className="an-act an-hide-sm" onClick={copyInvite} title="Хэрэглэгчдэд илгээх урилгын линк хуулах" aria-label="Урилгын линк хуулах">
               {copied ? <Check size={18} strokeWidth={2.2} style={{ color: 'var(--green)' }} /> : <Link2 size={18} strokeWidth={2} />}
+              <span>{copied ? 'Хуулсан' : 'Урилга'}</span>
             </button>
           )}
-          <ThemeToggle />
-          <Link href="/admin/notifications" className="icon-btn" aria-label={`Мэдэгдэл${unread ? ` (${unread} уншаагүй)` : ''}`} title="Мэдэгдэл">
+          <ThemeToggle labeled />
+          <Link href="/admin/notifications" className="an-act" aria-label={`Мэдэгдэл${unread ? ` (${unread} уншаагүй)` : ''}`} title="Мэдэгдэл">
             <Bell size={18} strokeWidth={2} />
-            {unread > 0 && <span className="icon-btn-badge">{unread > 99 ? '99+' : unread}</span>}
+            {unread > 0 && <b className="an-act-badge">{unread > 99 ? '99+' : unread}</b>}
+            <span>Мэдэгдэл</span>
           </Link>
-          <button className="icon-btn" onClick={logout} title="Гарах" aria-label="Гарах">
+          <i className="an-act-sep" aria-hidden />
+          <button className="an-act" onClick={logout} title="Гарах" aria-label="Гарах">
             <LogOut size={18} strokeWidth={2} />
+            <span>Гарах</span>
           </button>
         </div>
       </div>
