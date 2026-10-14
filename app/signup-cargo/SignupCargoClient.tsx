@@ -2,6 +2,7 @@
 import { Sparkles, Smartphone, Bell, Gift, PartyPopper } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import NavLogo from '@/app/components/NavLogo'
 
 const FEATURES = [
@@ -21,7 +22,7 @@ const FEATURES = [
     key: 'notificationsEnabled' as const,
     icon: <Bell size={16} strokeWidth={2.2} />,
     title: 'Мэдэгдлийн систем',
-    desc: 'Шинэ ачаа бүртгэгдэхэд танд мэдэгдэл очно. Мөн хэрэглэгчдэд ачаа ирснийг имэйлээр мэдэгдэх боломж.',
+    desc: 'Шинэ ачаа бүртгэгдэхэд танд мэдэгдэл очно. Хэрэглэгчдийн утсанд ачаа Эрээнд, Монголд ирэхэд автоматаар мэдэгдэл очно.',
   },
 ]
 
@@ -48,7 +49,7 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false, 
   const [form, setForm] = useState<Form>({
     cargoName: offer?.cargoName ?? '', slug: '', adminName: offer?.adminName ?? '', phone: offer?.phone ?? '',
     email: offer?.email ?? '', password: '',
-    aiEnabled: true, searchByPhone: true, notificationsEnabled: true,
+    aiEnabled: AI_SUPPORT_ENABLED, searchByPhone: true, notificationsEnabled: true,
   })
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'ok' | 'taken'>('idle')
   const [slugMsg, setSlugMsg] = useState('')
@@ -261,7 +262,7 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false, 
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.25rem' }}>
-              {FEATURES.map(f => (
+              {FEATURES.filter(f => f.key !== 'aiEnabled' || AI_SUPPORT_ENABLED).map(f => (
                 <label key={f.key} style={{
                   display: 'flex', gap: '0.7rem', alignItems: 'flex-start',
                   padding: '0.8rem 0.9rem', cursor: 'pointer',

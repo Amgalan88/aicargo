@@ -11,6 +11,7 @@ import DemoBanner from './components/DemoBanner'
 import { DEMO_SLUG } from '@/lib/demo'
 import { hostCargoExists } from '@/lib/cargo-host'
 import UnknownCargo from './components/UnknownCargo'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 
 // Бүртгэлгүй субдомэйн уу (жш: 808cargo.aicargo.mn). DB алдаа гарвал сайтыг унагахгүй — байгаа гэж үзнэ
 async function unknownSlug(slug: string | null): Promise<string | null> {
@@ -31,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
   let title = 'AiCargo — Карго менежментийн систем | Ачаа бүртгэл, хяналт'
   let ogTitle = 'Карго бизнесээ 5 минутад онлайн болго'
   let ogSub = 'aicargo.mn · Эхний 30 хоног үнэгүй'
-  let description = 'Карго бизнесээ 5 минутад онлайн болго — өөрийн вэб хаягтай ачаа бүртгэл, хяналтын систем. Эрээн агуулахаас олголт хүртэл, AI туслахтай. Эхний 30 хоног үнэгүй.'
+  let description = `Карго бизнесээ 5 минутад онлайн болго — өөрийн вэб хаягтай ачаа бүртгэл, хяналтын систем. Эрээн агуулахаас олголт хүртэл, ${AI_SUPPORT_ENABLED ? 'AI туслахтай' : 'утасны мэдэгдэлтэй'}. Эхний 30 хоног үнэгүй.`
   let icon = '/favicon.svg'
   let apple = '/apple-icon.png'
   let baseUrl = 'https://www.aicargo.mn'

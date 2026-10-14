@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner'
 import { warehousePath, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
 import HeroMockup from './components/HeroMockup'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import PartnerMarquee from './components/PartnerMarquee'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -41,7 +42,10 @@ const FOR_ADMIN = [
 const FOR_USER = [
   { icon: <Globe size={18} />, title: 'Таны нэртэй вэб', desc: 'Утсанд апп шиг' },
   { icon: <Package size={18} />, title: 'Ачаа хянах', desc: 'Эрээн → УБ → Авсан' },
-  { icon: <Sparkles size={18} />, title: 'AI туслах', desc: '24/7 хариулна' },
+  // AI туслах түр хаалттай үед оронд нь утасны мэдэгдэл (lib/ai-feature-flag)
+  AI_SUPPORT_ENABLED
+    ? { icon: <Sparkles size={18} />, title: 'AI туслах', desc: '24/7 хариулна' }
+    : { icon: <Bell size={18} />, title: 'Утсанд мэдэгдэл', desc: 'Ачаа ирэхэд шууд' },
   { icon: <Smartphone size={18} />, title: 'Утсаар шалгах', desc: 'Бүртгэлгүйгээр' },
 ]
 
@@ -141,7 +145,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Web',
         url: 'https://www.aicargo.mn',
-        description: 'Карго компанид зориулсан ачаа бүртгэл, хяналтын систем — Эрээн агуулахаас олголт хүртэл, AI туслахтай.',
+        description: `Карго компанид зориулсан ачаа бүртгэл, хяналтын систем — Эрээн агуулахаас олголт хүртэл, ${AI_SUPPORT_ENABLED ? 'AI туслахтай' : 'утасны мэдэгдэлтэй'}.`,
         inLanguage: 'mn',
         offers: { '@type': 'Offer', price: '50000', priceCurrency: 'MNT', description: 'Эхний 30 хоног үнэгүй · цаашид сарын ₮50,000' },
       },
@@ -203,7 +207,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         <section className="lp-hero">
           <div className="lp-hero-glow" aria-hidden />
           <Reveal y={14}>
-            <span className="lp-pill"><Sparkles size={13} strokeWidth={2.5} />Монголын анхны AI-суурьтай карго платформ</span>
+            <span className="lp-pill"><Sparkles size={13} strokeWidth={2.5} />{AI_SUPPORT_ENABLED ? 'Монголын анхны AI-суурьтай карго платформ' : 'Эрээнээс олголт хүртэл — нэг системд'}</span>
           </Reveal>
           <Reveal y={22} delay={0.08}>
             <h1 className="lp-h1">
