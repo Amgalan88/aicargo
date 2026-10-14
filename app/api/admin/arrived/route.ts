@@ -2,7 +2,7 @@
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
-import { logAdminAction } from '@/lib/audit'
+import { logAdminAction, auditLater } from '@/lib/audit'
 import { notifyArrivedForCargo } from '@/lib/push'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
@@ -89,6 +89,12 @@ export async function PUT(req: NextRequest) {
 
   // PICKED_UP статустай мөрүүд WHERE-д тааруулагдаагүй тул бодитоор шинэчлэгдээгүй
   const skipped = codes.filter(c => existingByCode.get(c)?.status === 'PICKED_UP').length
+  // Олон ачааг НЭГ бичлэгээр
+  auditLater({
+    cargoId, userId: admin.userId, userName: admin.name,
+    action: 'shipment:import-arrived',
+    detail: `${codes.length - skipped} ачаа${skipped ? ` (${skipped} олгогдсон тул алгассан)` : ''}`,
+  })
   return NextResponse.json({ count: codes.length - skipped })
 }
 
@@ -154,7 +160,7 @@ export async function POST(req: NextRequest) {
     after(() => notifyArrivedForCargo(cargoId, [{ userId: shipment.userId, trackCode: shipment.trackCode }]))
   }
 
-  await logAdminAction(prisma, {
+  auditLater({
     cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
     action: 'shipment:register-arrived',
     detail: `${code}${resolvedPhone ? ' · ' + resolvedPhone : ''}${adminPrice ? ' · ' + Number(adminPrice).toLocaleString() + '₮' : ''}`,
@@ -171,6 +177,10 @@ export async function PATCH(req: NextRequest) {
   const { id, adminPrice, adminNote, phone } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID шаардлагатай' }, { status: 400 })
 
+  const before = await prisma.shipment.findFirst({
+    where: { id: Number(id), cargoId: admin.cargoId! },
+    select: { trackCode: true, adminPrice: true, phone: true, adminNote: true },
+  })
   const shipment = await prisma.shipment.update({
     where: { id: Number(id), cargoId: admin.cargoId! },
     data: {
@@ -179,6 +189,21 @@ export async function PATCH(req: NextRequest) {
       phone: phone !== undefined ? (phone || null) : undefined,
     },
   })
+
+  // Мөнгө, эзэнтэй холбоотой тул юунаас юу болсныг хадгална
+  if (before) {
+    const tg = (v: unknown) => (v == null ? 'үнэгүй' : '₮' + Math.round(Number(v)).toLocaleString('en-US'))
+    const changes: string[] = []
+    if (Number(before.adminPrice ?? 0) !== Number(shipment.adminPrice ?? 0)) changes.push(`үнэ ${tg(before.adminPrice)} → ${tg(shipment.adminPrice)}`)
+    if ((before.phone ?? '') !== (shipment.phone ?? '')) changes.push(`утас ${before.phone || '—'} → ${shipment.phone || '—'}`)
+    if ((before.adminNote ?? '') !== (shipment.adminNote ?? '')) changes.push('тэмдэглэл')
+    if (changes.length) {
+      auditLater({
+        cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+        action: 'shipment:edit', detail: `${before.trackCode}: ${changes.join(', ')}`,
+      })
+    }
+  }
   return NextResponse.json(shipment)
 }
 

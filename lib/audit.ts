@@ -1,4 +1,6 @@
 import { Prisma, PrismaClient } from '@prisma/client'
+import { after } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
 type AuditClient = PrismaClient | Prisma.TransactionClient
 
@@ -27,4 +29,12 @@ export async function logAdminAction(client: AuditClient, entry: AuditEntry): Pr
   } catch (err) {
     console.error('logAdminAction failed:', entry.action, err)
   }
+}
+
+// Хариу буцаасны дараа бичнэ — админы үйлдлийг огт удаашруулахгүй (route handler дотроос дуудна)
+export function auditLater(entry: AuditEntry | (() => Promise<AuditEntry | null>)): void {
+  after(async () => {
+    const e = typeof entry === 'function' ? await entry().catch(() => null) : entry
+    if (e) await logAdminAction(prisma, e)
+  })
 }

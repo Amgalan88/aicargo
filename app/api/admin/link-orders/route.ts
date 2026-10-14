@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { logAdminAction } from '@/lib/audit'
+import { logAdminAction, auditLater } from '@/lib/audit'
 import { LINK_STATUSES, type LinkStatus } from '@/lib/link-orders'
 
 // Админы линк захиалгын самбар: GET — жагсаалт + тоо, PATCH — үнэ илгээх / төлбөр орсон / захиалсан / цуцлах
@@ -157,6 +157,17 @@ export async function PATCH(req: NextRequest) {
     case 'reopen':
       await prisma.linkOrder.updateMany({ where: { id: { in: rows.map(x => x.id) } }, data: { status: 'NEW', adminNote: null } })
       break
+  }
+  if (body.action !== 'paid') {
+    const x = rows[0]
+    const extra = body.action === 'quote' ? ` · ₮${Math.round(Number(body.price)).toLocaleString('en-US')}`
+      : (body.action === 'ordered' || body.action === 'track') && body.trackCode ? ` · трак ${String(body.trackCode).trim().toUpperCase()}`
+      : body.action === 'cancel' && note ? ` · ${note}` : ''
+    auditLater({
+      cargoId: a.cargoId, userId: a.userId, userName: a.name,
+      action: `link-order:${body.action}`,
+      detail: `${x.name} ${x.phone} · ${rows.length} бараа${extra}`,
+    })
   }
   return NextResponse.json({ ok: true, count: rows.length, warning })
 }

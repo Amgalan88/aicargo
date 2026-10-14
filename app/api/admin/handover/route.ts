@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { logAdminAction } from '@/lib/audit'
+import { auditLater } from '@/lib/audit'
 
 // GET /api/admin/handover?q=phone_or_trackcode
 // GET /api/admin/handover?summary=1
@@ -96,15 +96,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Бараа сонгоно уу' }, { status: 400 })
   }
 
-  await prisma.shipment.updateMany({
-    where: { id: { in: shipmentIds }, status: 'ARRIVED', cargoId: admin.cargoId! },
+  const ids = shipmentIds.map(Number).filter(Boolean)
+  const { count } = await prisma.shipment.updateMany({
+    where: { id: { in: ids }, status: 'ARRIVED', cargoId: admin.cargoId! },
     data: { status: 'PICKED_UP' },
   })
 
-  await logAdminAction(prisma, {
-    cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
-    action: 'shipment:handover', detail: `${shipmentIds.length} бараа`,
+  // Хэнд, ямар ачаа, ямар дүнтэй олгосныг (маргаан гарвал шалгахад) — хариу өгсний дараа бичнэ
+  const cargoId = admin.cargoId!
+  auditLater(async () => {
+    const rows = await prisma.shipment.findMany({
+      where: { id: { in: ids }, cargoId, status: 'PICKED_UP' },
+      select: { trackCode: true, phone: true, adminPrice: true, user: { select: { phone: true } } },
+    })
+    const phones = [...new Set(rows.map(r => r.user?.phone || r.phone).filter(Boolean))]
+    const total = rows.reduce((t, r) => t + Number(r.adminPrice ?? 0), 0)
+    const codes = rows.map(r => r.trackCode)
+    return {
+      cargoId, userId: admin.userId, userName: admin.name,
+      action: 'shipment:handover',
+      detail: [
+        `${count} ачаа`,
+        phones.length ? phones.slice(0, 2).join(', ') + (phones.length > 2 ? ` +${phones.length - 2}` : '') : null,
+        total > 0 ? '₮' + Math.round(total).toLocaleString('en-US') : null,
+        codes.slice(0, 5).join(', ') + (codes.length > 5 ? ` +${codes.length - 5}` : ''),
+      ].filter(Boolean).join(' · '),
+    }
   })
 
-  return NextResponse.json({ ok: true, count: shipmentIds.length })
+  return NextResponse.json({ ok: true, count })
 }

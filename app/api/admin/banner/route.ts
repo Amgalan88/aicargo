@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { auditLater } from '@/lib/audit'
 
 export async function GET(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -37,6 +38,10 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true, content: true, imageUrl: true, expiresAt: true, createdAt: true },
   })
+  if (admin.cargoId) {
+    const text = content.trim().replace(/\s+/g, ' ')
+    auditLater({ cargoId: admin.cargoId, userId: admin.userId, userName: admin.name, action: 'banner:create', detail: text.length > 80 ? text.slice(0, 80) + '…' : text })
+  }
   return NextResponse.json(banner, { status: 201 })
 }
 
@@ -45,6 +50,7 @@ export async function DELETE(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN' && admin.role !== 'SUPER_ADMIN') return forbidden()
 
-  await (prisma.banner as any).deleteMany({ where: { cargoId: admin.cargoId! } })
+  const { count } = await (prisma.banner as any).deleteMany({ where: { cargoId: admin.cargoId! } })
+  if (count && admin.cargoId) auditLater({ cargoId: admin.cargoId, userId: admin.userId, userName: admin.name, action: 'banner:delete' })
   return NextResponse.json({ ok: true })
 }

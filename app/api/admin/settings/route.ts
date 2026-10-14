@@ -113,12 +113,19 @@ export async function PATCH(req: NextRequest) {
     ...(!admin.isStaffAdmin && typeof linkOrdersEnabled === 'boolean' ? { linkOrdersEnabled } : {}),
   }
 
+  // Өөрчлөлтийн өмнөх утга — аудитад юу өөрчлөгдсөнийг л бичнэ
+  const keys = Object.keys(data)
+  const prev = keys.length
+    ? await (prisma.cargo as any).findUnique({ where: { id: admin.cargoId! }, select: Object.fromEntries(keys.map(k => [k, true])) })
+    : null
+
   const cargo = await (prisma.cargo as any).update({ where: { id: admin.cargoId! }, data })
 
-  if (Object.keys(data).length > 0) {
+  const changed = describeSettingsChanges(prev ?? {}, cargo)
+  if (changed) {
     await logAdminAction(prisma, {
       cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
-      action: 'settings:update', detail: Object.keys(data).join(', '),
+      action: 'settings:update', detail: changed,
     })
   }
   if (deniedFields.length > 0) {
@@ -128,4 +135,36 @@ export async function PATCH(req: NextRequest) {
     })
   }
   return NextResponse.json(cargo)
+}
+
+// Тохиргооны талбарын монгол нэр. VALUE_FIELDS-ийн утгыг хуучин → шинэ гэж харуулна (данс, үнэ, шошго)
+const FIELD_LABELS: Record<string, string> = {
+  logoUrl: 'Лого', ereemReceiver: 'Эрээний хүлээн авагч', ereemPhone: 'Эрээний утас', ereemRegion: 'Эрээний бүс',
+  ereemAddress: 'Эрээний хаяг', ereemTitle: 'Хаягийн нэр', ereemAddresses: 'Нэмэлт хаягууд', tariff: 'Тариф',
+  priceCubic: 'Кубын үнэ', priceWeight: 'Жингийн үнэ', priceWeightUnit: 'Жингийн нэгж', priceWeightTiers: 'Шатлалтай үнэ',
+  announcement: 'Анхааруулга', contactInfo: 'Холбоо барих', bankName: 'Банк', bankAccountHolder: 'Данс эзэмшигч',
+  bankAccountNumber: 'Дансны дугаар', bankTransferNote: 'Гүйлгээний утга', arrivedLabel: '"Ирсэн" нэр',
+  ereemLabel: '"Эрээнд ирсэн" нэр', linkOrdersEnabled: 'Линк захиалга',
+}
+const VALUE_FIELDS = new Set(['bankName', 'bankAccountHolder', 'bankAccountNumber', 'priceCubic', 'priceWeight', 'priceWeightUnit', 'arrivedLabel', 'ereemLabel', 'linkOrdersEnabled', 'ereemPhone'])
+
+function norm(v: unknown): string {
+  if (v == null || v === '') return ''
+  if (typeof v === 'object' && v !== null && 'toString' in v && !Array.isArray(v) && Object.getPrototypeOf(v) !== Object.prototype) return String(Number(v))
+  return typeof v === 'object' ? JSON.stringify(v) : String(v)
+}
+function show(k: string, v: string): string {
+  if (k === 'linkOrdersEnabled') return v === 'true' ? 'асаасан' : 'унтраасан'
+  if (!v) return '(хоосон)'
+  return v.length > 40 ? v.slice(0, 40) + '…' : v
+}
+function describeSettingsChanges(prev: Record<string, unknown>, next: Record<string, unknown>): string {
+  const out: string[] = []
+  for (const k of Object.keys(prev)) {
+    const a = norm(prev[k]), b = norm(next[k])
+    if (a === b) continue
+    const label = FIELD_LABELS[k] ?? k
+    out.push(VALUE_FIELDS.has(k) ? `${label}: ${show(k, a)} → ${show(k, b)}` : label)
+  }
+  return out.join('; ')
 }

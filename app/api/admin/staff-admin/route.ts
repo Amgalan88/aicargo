@@ -91,7 +91,7 @@ export async function PATCH(req: NextRequest) {
     const incoming = { canEditBank, canEditAddress, canEditLogo }[key]
     if (incoming !== undefined && !!incoming !== staff[key]) {
       data[key] = !!incoming
-      permChanges.push(`${label}: ${staff[key]}→${!!incoming}`)
+      permChanges.push(`${label} ${incoming ? 'эрх өгсөн' : 'эрх хассан'}`)
     }
   }
 

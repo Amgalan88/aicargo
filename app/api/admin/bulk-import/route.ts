@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { notifyEreenForCargo, notifyArrivedForCargo } from '@/lib/push'
+import { auditLater } from '@/lib/audit'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
@@ -122,6 +123,13 @@ export async function POST(req: NextRequest) {
     .filter(x => statuses[x.i] === 'ARRIVED' && x.prev !== 'ARRIVED' && x.prev !== 'PICKED_UP' && userIds[x.i])
     .map(x => ({ userId: userIds[x.i], trackCode: x.code }))
   if (arrivedNew.length) after(() => notifyArrivedForCargo(cargoId, arrivedNew))
+
+  const nEreen = statuses.filter(x => x === 'EREEN_ARRIVED').length
+  auditLater({
+    cargoId, userId: admin.userId, userName: admin.name,
+    action: 'shipment:import',
+    detail: [nEreen && `Эрээн ${nEreen}`, codes.length - nEreen && `Ирсэн ${codes.length - nEreen}`].filter(Boolean).join(' · ') + ' ачаа',
+  })
 
   return NextResponse.json({ count: rows.length, duplicates })
 }

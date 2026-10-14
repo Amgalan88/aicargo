@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { recordDeletions, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
 import { notifyEreenForCargo } from '@/lib/push'
+import { auditLater } from '@/lib/audit'
 
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -32,6 +33,12 @@ export async function POST(req: NextRequest) {
     update: { status: 'EREEN_ARRIVED', ereenArrivedAt: new Date(), ...(userId ? { userId } : {}) },
     create: { trackCode: code, status: 'EREEN_ARRIVED', ereenArrivedAt: new Date(), cargoId: admin.cargoId!, ...(userId ? { userId } : {}) },
     include: { user: { select: { name: true, phone: true } } },
+  })
+
+  auditLater({
+    cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+    action: 'shipment:ereen-scan',
+    detail: `${shipment.trackCode}${shipment.user?.phone ? ` · ${shipment.user.phone}` : ''}`,
   })
 
   // Шинээр Эрээнд ирсэн бол эзэнд нь push (дахин уншуулахад давтахгүй)
