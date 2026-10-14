@@ -13,6 +13,7 @@ import NavLogo from '../components/NavLogo'
 import AnnouncementModal from '../components/AnnouncementModal'
 import SuperAnnouncementModal from '../components/SuperAnnouncementModal'
 import UserAIWidget from '../components/UserAIWidget'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import ThemeToggle from '../components/ThemeToggle'
 import { PushPrompt, AppSettingsRows } from '../components/AppNotify'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -649,7 +650,7 @@ export default function OrdersClient({
       </nav>
       <ChatWidget open={navPopup === 'faq'} onClose={() => setNavPopup(null)} />
       <NamelessSearch open={navPopup === 'nameless'} onClose={() => setNavPopup(null)} t={t} />
-      {aiEnabled && <UserAIWidget userName={userName} cargoName={cargoName} suggestions={aiSuggestions} />}
+      {aiEnabled && AI_SUPPORT_ENABLED && <UserAIWidget userName={userName} cargoName={cargoName} suggestions={aiSuggestions} />}
       {/* z-index 99: nav (z=100) доторх dropdown-ий товчнууд дарагдахуйц байхын тулд nav-аас доогуур */}
       {navPopup === 'profile' && <div onClick={() => setNavPopup(null)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />}
 

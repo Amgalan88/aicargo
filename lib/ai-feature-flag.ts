@@ -1,1 +1,3 @@
-export const AI_SUPPORT_ENABLED = true
+// AI туслах түр хаалттай — хөгжүүлж дуусаад true болгоно.
+// false үед: хэрэглэгчийн хөвөгч товч, каргогийн нүүр хуудасны товч, админы цэс нуугдана; API 503 буцаана.
+export const AI_SUPPORT_ENABLED = false

@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import { USER_AI_TOOLS, executeUserAITool } from '@/lib/user-ai-tools'
 import { routeUserQuestion } from '@/lib/user-ai-router'
 import { prisma } from '@/lib/prisma'
@@ -72,6 +73,8 @@ Tool дуудаад үр дүн авсны дараа ЗААВАЛ монгол�
 }
 
 export async function POST(req: NextRequest) {
+  // AI туслах түр хаалттай (lib/ai-feature-flag)
+  if (!AI_SUPPORT_ENABLED) return NextResponse.json({ error: 'AI туслах түр ажиллахгүй байна' }, { status: 503 })
   const user = await getVerifiedUserFromRequest(req)
   if (!user) return unauthorized()
   if (user.role !== 'USER') return forbidden()

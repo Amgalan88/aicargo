@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import NavLogo from '@/app/components/NavLogo'
 import ThemeToggle from '@/app/components/ThemeToggle'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 
 type NavLink = { href: string; label: string; short?: string; icon: LucideIcon; count?: number }
@@ -134,7 +135,7 @@ export default function AdminNav({
   ]
   const more: NavLink[] = [
     ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт', icon: SearchCheck }] : []),
-    { href: '/admin/ai', label: 'AI туслах', icon: Sparkles },
+    ...(AI_SUPPORT_ENABLED ? [{ href: '/admin/ai', label: 'AI туслах', icon: Sparkles }] : []),
     { href: '/admin/faq', label: 'FAQ', icon: CircleHelp },
     { href: '/admin/settings', label: 'Тохиргоо', icon: Settings },
     ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог', icon: ScrollText }] : []),

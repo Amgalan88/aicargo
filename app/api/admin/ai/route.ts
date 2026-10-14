@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import { AI_TOOLS, executeAITool } from '@/lib/ai-tools'
 import { prisma } from '@/lib/prisma'
 
@@ -66,6 +67,8 @@ function buildAdminPrompt(customPrompt?: string | null): string {
 }
 
 export async function POST(req: NextRequest) {
+  // AI туслах түр хаалттай (lib/ai-feature-flag)
+  if (!AI_SUPPORT_ENABLED) return NextResponse.json({ error: 'AI туслах түр ажиллахгүй байна' }, { status: 503 })
   const admin = await getVerifiedUserFromRequest(req)
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN' && admin.role !== 'SUPER_ADMIN') return forbidden()

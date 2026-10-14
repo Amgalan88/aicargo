@@ -4,6 +4,7 @@ import EreenAddresses from './components/EreenAddresses'
 import { cargoAddresses } from '@/lib/ereen-address'
 import Link from 'next/link'
 import NavLogo from './components/NavLogo'
+import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import { AIAvatar } from './components/AIAvatar'
 
 function CopyItem({ label, value }: { label: string; value: string }) {
@@ -392,7 +393,7 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
           <div style={{ fontWeight: 600 }}>"Бизнес интеллижэнс" ХХК хөгжүүлж байна</div>
           <div>Бүх эрх хуулиар хамгаалагдсан болно · 85205258 · 2026</div>
         </div>
-        <button
+        {AI_SUPPORT_ENABLED && <button
           onClick={() => setAiOpen(o => !o)}
           aria-label="AI Туслах"
           style={{
@@ -424,11 +425,11 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
               <span style={{ color: 'white', fontSize: '0.77rem', fontWeight: 600, fontFamily: 'inherit' }}>AI Туслах</span>
             </>
           )}
-        </button>
+        </button>}
       </footer>
 
       {/* Teaser chat popup */}
-      {aiOpen && (
+      {AI_SUPPORT_ENABLED && aiOpen && (
         <div style={{
           position: 'fixed', bottom: 72, right: 16, zIndex: 999,
           width: 312,
