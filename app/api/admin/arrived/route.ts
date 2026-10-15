@@ -4,7 +4,7 @@ import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { logAdminAction, auditLater } from '@/lib/audit'
 import { notifyArrivedForCargo } from '@/lib/push'
-import { parseTrackCode } from '@/lib/track-code'
+import { parseArrivedCode } from '@/lib/track-code'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -27,7 +27,7 @@ export async function PUT(req: NextRequest) {
   const rowByCode = new Map<string, { trackCode: string; phone?: string; price?: number }>()
   const notCodes: string[] = []
   for (const r of rows) {
-    const c = parseTrackCode(r.trackCode)
+    const c = parseArrivedCode(r.trackCode)
     if (c) rowByCode.set(c, { ...r, trackCode: c })
     else notCodes.push(String(r.trackCode ?? '').slice(0, 40))
   }
@@ -115,8 +115,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
   }
 
-  const code = parseTrackCode(trackCode)
-  if (!code) return NextResponse.json({ error: `Трак код биш байна: "${String(trackCode).slice(0, 40)}"` }, { status: 400 })
+  const code = parseArrivedCode(trackCode)
+  if (!code) return NextResponse.json({ error: 'Трак код хоосон эсвэл хэт урт байна (60 тэмдэгт хүртэл)' }, { status: 400 })
 
   // Try to find existing shipment to get user's phone
   const existing = await prisma.shipment.findUnique({

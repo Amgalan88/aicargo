@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import StaleEreen from './StaleEreen'
 import { ResultRow, type ResultShipment } from './ShipmentResults'
-import { cleanTrackCode, isTrackCode } from '@/lib/track-code'
+import { cleanTrackCode, isTrackCode, parseTrackCode } from '@/lib/track-code'
 
 interface Row { trackCode: string; phone?: string }
 type SearchResult = ResultShipment
@@ -112,7 +112,7 @@ export default function ImportPage() {
             const isPhone = /^\d{8}$/.test(col1)
             return {
               raw: String(row[0] ?? '').trim(),
-              trackCode: cleanTrackCode(row[0]),
+              trackCode: parseTrackCode(row[0]) ?? cleanTrackCode(row[0]),
               phoneRaw: col1,
               phone: isPhone ? col1 : undefined,
             }
@@ -201,7 +201,7 @@ export default function ImportPage() {
   }
 
   async function addRow() {
-    const code = cleanTrackCode(input)
+    const code = parseTrackCode(input) ?? cleanTrackCode(input)
     if (!code) return
     if (!isTrackCode(code)) {
       setLastAdded(`⚠ Трак код биш байна: "${input.trim().slice(0, 30)}" — латин үсэг, тоогоор 6+ тэмдэгт`)

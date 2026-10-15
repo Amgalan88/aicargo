@@ -15,7 +15,7 @@ const MN_KEYBOARD: Record<string, string> = {
   Я: 'Z', Ч: 'X', Ё: 'C', С: 'V', М: 'B', И: 'N', Т: 'M',
 }
 const CYRILLIC = /[А-ЯЁӨҮа-яёөү]/
-const PREFIX = /^(?:bar\s*code\s*scan\s*result|scan\s*result|barcode|order\s*no\.?|order\s*number|tracking\s*(?:no\.?|number)?|waybill\s*(?:no\.?)?|运单号|快递单号|单号)\s*[:：#]?\s*/i
+const PREFIX = /^(?:bar\s*code\s*scan\s*result|scan\s*result|barcode|order\s*no\.?|order\s*number|tracking\s*(?:no\.?|number)?|waybill\s*(?:no\.?)?|运单号|快递单号|订单编号|订单号|单号)\s*[:：#]?\s*/i
 // Түгээмэл шуудангийн угтвартай код (QR, урт текст дотроос хайхад)
 const CARRIER = /\b(?:SF|JT|YT|ZTO|JD|YD|STO|DPK|TT|EMS|DB|AN|HT|YZ|KY)[0-9]{8,20}\b/i
 
@@ -44,10 +44,28 @@ export function isTrackCode(code: string): boolean {
   return /^[A-Z0-9][A-Z0-9-]{5,39}$/.test(code) && /\d/.test(code)
 }
 
-// Цэвэрлээд шалгана: код эсвэл null
+// Сканнерын гацалт: "5#YT7646540047714" → шуудангийн код; "8260385958521 (4 адилхан хайрцаг)" → эхний үг
+function salvage(raw: unknown): string | null {
+  const s = String(raw ?? '').trim().replace(PREFIX, '').toUpperCase()
+  const carrier = s.match(CARRIER)
+  if (carrier && isTrackCode(carrier[0])) return carrier[0]
+  const first = cleanTrackCode(s.split(/[\s(（]/)[0])
+  return isTrackCode(first) ? first : null
+}
+
+// Цэвэрлээд шалгана: код эсвэл null (Эрээн, хэрэглэгчийн бүртгэл — заавал жинхэнэ ачааны код)
 export function parseTrackCode(raw: unknown): string | null {
   const c = cleanTrackCode(raw)
-  return isTrackCode(c) ? c : null
+  return isTrackCode(c) ? c : salvage(raw)
+}
+
+// "Ирсэн" бүртгэл — зарим карго төлбөр, барааг кодгүйгээр бичдэг ("АЧАА ЗАДЛАХ ТӨЛБӨР", "БУДАА"),
+// тиймээс чөлөөт текстийг зөвшөөрнө; зөвхөн угтвар, Монгол гарын кодыг засаж, хэт урт заавар текстийг татгалзана
+export function parseArrivedCode(raw: unknown): string | null {
+  const strict = parseTrackCode(raw)
+  if (strict) return strict
+  const text = String(raw ?? '').trim().replace(/\s+/g, ' ').toUpperCase()
+  return text && text.length <= 60 ? text : null
 }
 
 // Pinduoduo, Taobao захиалгын дугаар (трак код биш) — хэрэглэгчид сануулахад

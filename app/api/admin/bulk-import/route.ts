@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { notifyEreenForCargo, notifyArrivedForCargo } from '@/lib/push'
 import { auditLater } from '@/lib/audit'
-import { parseTrackCode } from '@/lib/track-code'
+import { parseTrackCode, parseArrivedCode } from '@/lib/track-code'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
   const rowByCode = new Map<string, ImportRow>()
   const notCodes: string[] = []
   for (const r of rows) {
-    const c = parseTrackCode(r.trackCode)
+    // Эрээн — заавал ачааны код; Ирсэн — төлбөр, барааны нэр ч зөвшөөрнө
+    const c = r.status === 'ARRIVED' ? parseArrivedCode(r.trackCode) : parseTrackCode(r.trackCode)
     if (c) rowByCode.set(c, { ...r, trackCode: c })
     else notCodes.push(String(r.trackCode ?? '').slice(0, 40))
   }
