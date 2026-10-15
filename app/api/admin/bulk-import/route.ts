@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { notifyEreenForCargo, notifyArrivedForCargo } from '@/lib/push'
 import { auditLater } from '@/lib/audit'
+import { parseTrackCode } from '@/lib/track-code'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
@@ -48,8 +49,14 @@ export async function POST(req: NextRequest) {
   // Нэг импортод ижил код давхар орвол сүүлийнх нь дийлдэнэ (bulk upsert нэг
   // conflict target-ийг хоёр удаа хөндөж чадахгүй тул урьдчилан dedupe хийнэ)
   const rowByCode = new Map<string, ImportRow>()
-  for (const r of rows) rowByCode.set(r.trackCode.trim().toUpperCase(), r)
+  const notCodes: string[] = []
+  for (const r of rows) {
+    const c = parseTrackCode(r.trackCode)
+    if (c) rowByCode.set(c, { ...r, trackCode: c })
+    else notCodes.push(String(r.trackCode ?? '').slice(0, 40))
+  }
   const codes = Array.from(rowByCode.keys())
+  if (!codes.length) return NextResponse.json({ error: 'Трак код олдсонгүй', notCodes: notCodes.slice(0, 10) }, { status: 400 })
 
   // Одоо байгаа ачаануудыг (эзний утастай нь) НЭГ query-гээр бүгдийг татна
   const existingRows = await prisma.shipment.findMany({
@@ -108,7 +115,7 @@ export async function POST(req: NextRequest) {
 
   // Cross-cargo check: notify if any imported codes belong to sibling cargo users
   checkCrossCargoOnImport(
-    rows.map(r => ({ trackCode: r.trackCode.trim().toUpperCase(), phone: r.phone?.trim() || null, status: r.status })),
+    [...rowByCode.values()].map(r => ({ trackCode: r.trackCode, phone: r.phone?.trim() || null, status: r.status })),
     cargoId
   ).catch(console.error)
 
@@ -131,5 +138,5 @@ export async function POST(req: NextRequest) {
     detail: [nEreen && `Эрээн ${nEreen}`, codes.length - nEreen && `Ирсэн ${codes.length - nEreen}`].filter(Boolean).join(' · ') + ' ачаа',
   })
 
-  return NextResponse.json({ count: rows.length, duplicates })
+  return NextResponse.json({ count: codes.length, duplicates, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length })
 }

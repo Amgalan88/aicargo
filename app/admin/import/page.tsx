@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import StaleEreen from './StaleEreen'
 import { ResultRow, type ResultShipment } from './ShipmentResults'
+import { cleanTrackCode, isTrackCode } from '@/lib/track-code'
 
 interface Row { trackCode: string; phone?: string }
 type SearchResult = ResultShipment
@@ -110,17 +111,26 @@ export default function ImportPage() {
             const col1 = String(row[1] ?? '').trim()
             const isPhone = /^\d{8}$/.test(col1)
             return {
-              trackCode: String(row[0] ?? '').trim().toUpperCase(),
+              raw: String(row[0] ?? '').trim(),
+              trackCode: cleanTrackCode(row[0]),
               phoneRaw: col1,
               phone: isPhone ? col1 : undefined,
             }
           })
-          .filter(r => r.trackCode.length >= 4)
-        if (rawParsedAll.length === 0) { setXlsxMsg('Трак код олдсонгүй'); return }
+          .filter(r => r.raw)
+        // Трак код биш мөр (гарчиг, тайлбар, барааны нэр) — алгасахаас өмнө админд харуулна
+        const notCodes = rawParsedAll.filter(r => !isTrackCode(r.trackCode))
+        const validRows = rawParsedAll.filter(r => isTrackCode(r.trackCode))
+        if (validRows.length === 0) { setXlsxMsg(`Трак код олдсонгүй${notCodes.length ? ` — эхний баганад: "${notCodes[0].raw.slice(0, 30)}"…` : ''}`); return }
+        if (notCodes.length > 0) {
+          const ex = notCodes.slice(0, 5).map(r => `"${r.raw.slice(0, 40)}"`).join('\n')
+          const proceed = await confirmAsync(`⚠ ${notCodes.length} мөр трак код биш тул алгасна:\n\n${ex}${notCodes.length > 5 ? '\n...' : ''}\n\nҮлдсэн ${validRows.length} трак кодыг оруулах уу?`)
+          if (!proceed) return
+        }
 
         // B баганад 8 оронтой тоо биш утга (жш нэр) орсон бол баганын дараалал буруу байж магадгүй —
         // ийм утас чимээгүй хаягдчихдаггүй, харин админд анхааруулна
-        const badPhoneRows = rawParsedAll.filter(r => r.phoneRaw && !r.phone)
+        const badPhoneRows = validRows.filter(r => r.phoneRaw && !r.phone)
         if (badPhoneRows.length > 0) {
           const examples = badPhoneRows.slice(0, 5).map(r => `${r.trackCode} → "${r.phoneRaw}"`).join('\n')
           const proceed = await confirmAsync(
@@ -129,7 +139,7 @@ export default function ImportPage() {
           if (!proceed) return
         }
 
-        const rawParsed = rawParsedAll.map(({ trackCode, phone }) => ({ trackCode, phone }))
+        const rawParsed = validRows.map(({ trackCode, phone }) => ({ trackCode, phone }))
 
         // Detect within-file duplicates
         const seenInFile = new Set<string>()
@@ -191,10 +201,10 @@ export default function ImportPage() {
   }
 
   async function addRow() {
-    const code = input.trim().toUpperCase()
+    const code = cleanTrackCode(input)
     if (!code) return
-    if (code.length < MIN_LEN) {
-      setLastAdded(`⚠ Трак код хэт богино байна (хамгийн багадаа ${MIN_LEN} тэмдэгт)`)
+    if (!isTrackCode(code)) {
+      setLastAdded(`⚠ Трак код биш байна: "${input.trim().slice(0, 30)}" — латин үсэг, тоогоор 6+ тэмдэгт`)
       return
     }
     if (rows.some(r => r.trackCode === code)) {
@@ -429,8 +439,8 @@ export default function ImportPage() {
             e.preventDefault()
             const lines = text.split(/\r?\n/)
             const codes = lines
-              .map(l => l.replace(/^\s*\d+[.、)]\s*/, '').trim().toUpperCase()) // strip "1." "2、" etc
-              .filter(l => l.length >= MIN_LEN && /^[A-Z0-9\-]{4,}$/.test(l)) // valid track codes (letters+digits or pure numeric 4+)
+              .map(l => cleanTrackCode(l.replace(/^\s*\d+[.、)]\s*/, ''))) // strip "1." "2、" etc
+              .filter(isTrackCode)
             if (codes.length === 0) return
             setRows(prev => {
               const existing = new Set(prev.map(r => r.trackCode))

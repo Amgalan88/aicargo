@@ -1102,15 +1102,17 @@ textarea.input { resize: vertical; }
 }
 
 /* Админы хайлт / Эрээний жагсаалтын мөр (import/ShipmentResults) */
-.sr-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; border-bottom: 1px solid var(--border); }
+.sr-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-bottom: 1px solid var(--border); }
 .sr-row:last-child { border-bottom: none; }
-.sr-main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.6rem; align-items: center; padding: 0.6rem 0.9rem; min-width: 0; }
-.sr-code { font-family: monospace; font-weight: 700; font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sr-meta { grid-column: 1 / -1; font-size: 0.74rem; color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
+.sr-main { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.5rem 0.75rem; min-width: 0; }
+.sr-code { font-family: monospace; font-weight: 700; font-size: 0.86rem; letter-spacing: 0.01em; overflow-wrap: anywhere; line-height: 1.3; }
+.sr-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem 0.45rem; font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+.sr-meta > span + span:not(.sr-label)::before { content: '·'; margin-right: 0.45rem; }
 .sr-contact { color: var(--muted); }
 /* Каргоны өөрийн төлвийн нэр — өмнөх хэлбэрээрээ */
-.sr-label { font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 100px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
-.sr-del { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 0.85rem; padding: 0.7rem 0.8rem 0 0.2rem; line-height: 1; }
+.sr-label { font-size: 0.66rem; font-weight: 600; padding: 0.05rem 0.45rem; border-radius: 100px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; max-width: 11rem; overflow: hidden; text-overflow: ellipsis; }
+.sr-del { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 0.8rem; width: 36px; height: 36px; margin-right: 0.3rem; border-radius: 8px; line-height: 1; }
+.sr-del:active { background: var(--surface2); }
 .sr-del:hover { color: var(--danger); }
 
 /* Вэбсайтын төлбөр (admin) — сануулга, хаагдсан цонх, /admin/billing */

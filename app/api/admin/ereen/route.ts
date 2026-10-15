@@ -4,6 +4,7 @@ import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { recordDeletions, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
 import { notifyEreenForCargo } from '@/lib/push'
 import { auditLater } from '@/lib/audit'
+import { parseTrackCode } from '@/lib/track-code'
 
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -15,7 +16,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
   }
 
-  const code = trackCode.trim().toUpperCase()
+  // Сканнерын угтвар, Монгол гарын үсэг, QR текстийг цэвэрлэнэ; трак код биш бол татгалзана
+  const code = parseTrackCode(trackCode)
+  if (!code) return NextResponse.json({ error: `Трак код биш байна: "${String(trackCode).slice(0, 40)}"` }, { status: 400 })
 
   const existing = await prisma.shipment.findUnique({
     where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },

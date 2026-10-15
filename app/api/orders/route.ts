@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized } from '@/lib/auth'
+import { parseTrackCode } from '@/lib/track-code'
 import { logAdminAction } from '@/lib/audit'
 
 export async function GET(req: NextRequest) {
@@ -89,7 +90,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
   }
 
-  const code = trackCode.trim().toUpperCase()
+  const code = parseTrackCode(trackCode)
+  if (!code) return NextResponse.json({ error: 'Трак код буруу байна. Латин үсэг, тоогоор оруулна уу' }, { status: 400 })
 
   // Fetch user's phone and cargoId (cargoId may be missing in old tokens)
   const userRecord = await prisma.user.findUnique({

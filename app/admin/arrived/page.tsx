@@ -4,6 +4,7 @@ import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
+import { cleanTrackCode, isTrackCode } from '@/lib/track-code'
 
 function fmtDT(iso: string) {
   const d = new Date(iso)
@@ -138,17 +139,24 @@ export default function ArrivedPage() {
             const phoneRaw = String(row[1] ?? '').trim()
             const priceRaw = Number(row[2])
             return {
-              trackCode: String(row[0] ?? '').trim().toUpperCase(),
+              raw: String(row[0] ?? '').trim(),
+              trackCode: cleanTrackCode(row[0]),
               phoneRaw,
               phone: /^\d{8}$/.test(phoneRaw) ? phoneRaw : undefined,
               price: !isNaN(priceRaw) && priceRaw > 0 ? priceRaw : undefined,
             }
           })
-          .filter(r => r.trackCode.length >= 4)
-        if (parsedAll.length === 0) { setXlsxMsg('Трак код олдсонгүй'); return }
+          .filter(r => r.raw)
+        const notCodes = parsedAll.filter(r => !isTrackCode(r.trackCode))
+        if (parsedAll.length === notCodes.length) { setXlsxMsg(`Трак код олдсонгүй${notCodes.length ? ` — эхний баганад: "${notCodes[0].raw.slice(0, 30)}"…` : ''}`); return }
+        if (notCodes.length > 0) {
+          const ex = notCodes.slice(0, 5).map(r => `"${r.raw.slice(0, 40)}"`).join('\n')
+          const proceed = await confirmAsync(`⚠ ${notCodes.length} мөр трак код биш тул алгасна:\n\n${ex}${notCodes.length > 5 ? '\n...' : ''}\n\nҮлдсэн ${parsedAll.length - notCodes.length} трак кодыг оруулах уу?`)
+          if (!proceed) return
+        }
 
         // B баганад 8 оронтой тоо биш утга (жш нэр) орсон бол баганын дараалал буруу байж магадгүй
-        const badPhoneRows = parsedAll.filter(r => r.phoneRaw && !r.phone)
+        const badPhoneRows = parsedAll.filter(r => isTrackCode(r.trackCode) && r.phoneRaw && !r.phone)
         if (badPhoneRows.length > 0) {
           const examples = badPhoneRows.slice(0, 5).map(r => `${r.trackCode} → "${r.phoneRaw}"`).join('\n')
           const proceed = await confirmAsync(
@@ -157,7 +165,7 @@ export default function ArrivedPage() {
           if (!proceed) return
         }
 
-        const rows = parsedAll.map(({ trackCode, phone, price }) => ({ trackCode, phone, price }))
+        const rows = parsedAll.filter(r => isTrackCode(r.trackCode)).map(({ trackCode, phone, price }) => ({ trackCode, phone, price }))
         if (!await confirmAsync(`${rows.length} бараа Ирсэн статустай болгох уу?`)) return
         setXlsxLoading(true)
         const res = await fetch('/api/admin/arrived', {
@@ -272,7 +280,7 @@ export default function ArrivedPage() {
   }
 
   async function lookupCode(code: string) {
-    const c = code.trim().toUpperCase()
+    const c = cleanTrackCode(code)
     if (!c) return
     try {
       const res = await fetch(`/api/track/${encodeURIComponent(c)}`)

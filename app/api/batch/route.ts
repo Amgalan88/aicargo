@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden, JwtPayload } from '@/lib/auth'
 import { notifyArrivedForCargo } from '@/lib/push'
+import { cleanTrackCode } from '@/lib/track-code'
 
 // Том багц (олон трак код) DB руу мөр мөрөөр upsert хийвэл round-tripихдэж
 // Vercel-ийн function timeout-д мөргөж "Connection error" гардаг байсан тул нэмэв.
@@ -29,7 +30,7 @@ async function requireBatchAccess(req: NextRequest): Promise<{ user?: JwtPayload
 function normCodes(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   const codes = raw
-    .map(c => String(c).trim().toUpperCase())
+    .map(c => cleanTrackCode(c))
     .filter(c => c.length > 0)
   return Array.from(new Set(codes))
 }

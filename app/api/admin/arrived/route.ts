@@ -4,6 +4,7 @@ import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { logAdminAction, auditLater } from '@/lib/audit'
 import { notifyArrivedForCargo } from '@/lib/push'
+import { parseTrackCode } from '@/lib/track-code'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -24,8 +25,14 @@ export async function PUT(req: NextRequest) {
   // Нэг импортод ижил код давхар орвол сүүлийнх нь дийлдэнэ (bulk upsert нэг
   // conflict target-ийг хоёр удаа хөндөж чадахгүй тул урьдчилан dedupe хийнэ)
   const rowByCode = new Map<string, { trackCode: string; phone?: string; price?: number }>()
-  for (const r of rows) rowByCode.set(r.trackCode.trim().toUpperCase(), r)
+  const notCodes: string[] = []
+  for (const r of rows) {
+    const c = parseTrackCode(r.trackCode)
+    if (c) rowByCode.set(c, { ...r, trackCode: c })
+    else notCodes.push(String(r.trackCode ?? '').slice(0, 40))
+  }
   const codes = Array.from(rowByCode.keys())
+  if (!codes.length) return NextResponse.json({ error: 'Трак код олдсонгүй', notCodes: notCodes.slice(0, 10) }, { status: 400 })
 
   const existingRows = await prisma.shipment.findMany({
     where: { cargoId, trackCode: { in: codes } },
@@ -76,7 +83,7 @@ export async function PUT(req: NextRequest) {
   `
 
   checkCrossCargoOnImport(
-    rows.map(r => ({ trackCode: r.trackCode.trim().toUpperCase(), phone: r.phone?.trim() || null, status: 'ARRIVED' })),
+    [...rowByCode.values()].map(r => ({ trackCode: r.trackCode, phone: r.phone?.trim() || null, status: 'ARRIVED' })),
     cargoId
   ).catch(console.error)
 
@@ -95,7 +102,7 @@ export async function PUT(req: NextRequest) {
     action: 'shipment:import-arrived',
     detail: `${codes.length - skipped} ачаа${skipped ? ` (${skipped} олгогдсон тул алгассан)` : ''}`,
   })
-  return NextResponse.json({ count: codes.length - skipped })
+  return NextResponse.json({ count: codes.length - skipped, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length })
 }
 
 export async function POST(req: NextRequest) {
@@ -108,7 +115,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
   }
 
-  const code = trackCode.trim().toUpperCase()
+  const code = parseTrackCode(trackCode)
+  if (!code) return NextResponse.json({ error: `Трак код биш байна: "${String(trackCode).slice(0, 40)}"` }, { status: 400 })
 
   // Try to find existing shipment to get user's phone
   const existing = await prisma.shipment.findUnique({

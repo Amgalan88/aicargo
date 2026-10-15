@@ -14,6 +14,7 @@ import AnnouncementModal from '../components/AnnouncementModal'
 import SuperAnnouncementModal from '../components/SuperAnnouncementModal'
 import UserAIWidget from '../components/UserAIWidget'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
+import { cleanTrackCode, looksLikeOrderNumber } from '@/lib/track-code'
 import ThemeToggle from '../components/ThemeToggle'
 import { PushPrompt, AppSettingsRows } from '../components/AppNotify'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -749,6 +750,10 @@ export default function OrdersClient({
                 <input ref={addInputRef} className="input" placeholder={t.trackCodePh} required
                   value={addForm.trackCode}
                   onChange={e => setAddForm({ ...addForm, trackCode: e.target.value })} />
+                {/* Захиалгын дугаар (260926-…) оруулбал Эрээнд хэзээ ч таарахгүй — сануулна */}
+                {looksLikeOrderNumber(cleanTrackCode(addForm.trackCode)) && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--orange)', lineHeight: 1.45, margin: '0.35rem 0 0' }}>⚠ {t.orderNoWarn}</p>
+                )}
               </div>
               <div className="form-group">
                 <label>{t.description}</label>

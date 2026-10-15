@@ -25,12 +25,13 @@ export function ResultRow({ s, label, showContact, onDelete }: {
   const contact = showContact ? [s.user?.phone ?? s.phone, s.user?.name].filter(Boolean).join(' · ') : ''
   return (
     <div className="sr-row">
+      {/* Трак код бүтэн өргөнөөр (урт бол дараагийн мөрөнд шилжинэ); төлөв, огноо, эзэн доод мөрөнд */}
       <div className="sr-main">
         <span className="sr-code">{s.trackCode}</span>
-        <span className="sr-label">{label}</span>
         <span className="sr-meta">
-          {s.ereenArrivedAt ? `Эрээнд ${ubDate(s.ereenArrivedAt)} бүртгэгдсэн` : 'Эрээнд бүртгэгдсэн огноо тодорхойгүй'}
-          {contact && <span className="sr-contact"> · {contact}</span>}
+          <span className="sr-label">{label}</span>
+          <span>{s.ereenArrivedAt ? ubDate(s.ereenArrivedAt) : 'огноо тодорхойгүй'}</span>
+          {contact && <span className="sr-contact">{contact}</span>}
         </span>
       </div>
       {onDelete && (
