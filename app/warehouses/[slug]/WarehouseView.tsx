@@ -57,7 +57,6 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
   const tabs = WAREHOUSE_IMAGE_CATEGORIES.filter(c => photos.some(p => p.category === c.value))
   const shown = filter === 'ALL' ? photos : photos.filter(p => p.category === filter)
   const services = (wh.services ?? '').split('\n').map(s => s.trim()).filter(Boolean)
-  const hasTariff = wh.pricePerTonCny != null || wh.pricePerM3Cny != null || wh.pricePerKgMnt != null
 
   return (
     <>
@@ -142,24 +141,6 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
               <PartnerContactButton className="whv-cta">Холбогдох</PartnerContactButton>
               <p className="whv-note">{PARTNER_PHONES.join(' · ')} · WeChat</p>
             </div>
-
-            {hasTariff && (
-              <div className="whv-card">
-                <div className="whv-card-title">Тээврийн тариф</div>
-                <div className="whv-tariff">
-                  {wh.pricePerTonCny != null && (
-                    <div><span>1 тонн</span><b>¥{Number(wh.pricePerTonCny).toLocaleString('en-US')}</b></div>
-                  )}
-                  {wh.pricePerM3Cny != null && (
-                    <div><span>1 м³</span><b>¥{Number(wh.pricePerM3Cny).toLocaleString('en-US')}</b></div>
-                  )}
-                  {wh.pricePerKgMnt != null && (
-                    <div><span>1 кг</span><b>{formatMnt(wh.pricePerKgMnt)}</b></div>
-                  )}
-                </div>
-                <p className="whv-note">Тухайн өдрийн ханшаар төгрөгт хөрвүүлнэ.</p>
-              </div>
-            )}
 
             {(wh.address || wh.phone || wh.wechat) && (
               <div className="whv-card">
