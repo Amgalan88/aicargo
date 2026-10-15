@@ -91,23 +91,23 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <>
-        <div style={{ display: 'grid', gap: '0.6rem' }}>
+        <div style={{ display: 'grid', gap: '0.45rem' }}>
           {paged.map(n => (
             <div key={n.id} className="card" style={{
-              padding: '1rem 1.2rem',
+              padding: '0.7rem 0.9rem',
               borderLeft: `3px solid ${n.type === 'CROSS_CARGO' ? 'var(--orange)' : 'var(--accent)'}`,
               opacity: n.read ? 0.7 : 1,
             }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
                     <span style={{
                       fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.5rem',
                       borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em',
                       background: n.type === 'CROSS_CARGO' ? 'rgba(249,115,22,0.12)' : 'var(--accent-light)',
                       color: n.type === 'CROSS_CARGO' ? 'var(--orange)' : 'var(--accent)',
                     }}>
-                      {n.type === 'CROSS_CARGO' ? <><TriangleAlert size={12} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Cargo зөрүү</> : <><Package size={12} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Шинэ ачаа</>}
+                      {n.type === 'CROSS_CARGO' ? <><TriangleAlert size={12} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Өөр каргод</> : <><Package size={12} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />Шинэ ачаа</>}
                     </span>
                     {!n.read && (
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
@@ -116,8 +116,8 @@ export default function NotificationsPage() {
                       {new Date(n.createdAt).toLocaleString('mn-MN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <p style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.2rem' }}>{n.title}</p>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.5 }}>{n.body}</p>
+                  <p style={{ fontWeight: 600, fontSize: '0.84rem', marginBottom: '0.1rem' }}>{n.title}</p>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.45, overflowWrap: 'anywhere' }}>{n.body}</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
                   {!n.read && !showArchived && (

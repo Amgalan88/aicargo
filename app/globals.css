@@ -2059,3 +2059,27 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
 .pc-qr { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
 .pc-qr img { width: 180px; height: 180px; object-fit: contain; border-radius: 12px; background: #fff; padding: 6px; border: 1px solid var(--border); }
 .pc-qr span { display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-xs); color: var(--muted); }
+
+/* ═══ Super: холилдсон ачаа ═══ */
+.xc { max-width: 820px; }
+.xc-sub { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; margin: 0.35rem 0 1rem; }
+.xc-table { overflow: hidden; margin-bottom: 1.5rem; }
+.xc-tr { display: grid; grid-template-columns: minmax(0, 1fr) 64px 80px 80px; gap: 0.5rem; align-items: center; padding: 0.5rem 0.9rem; border-top: 1px solid var(--border); font-size: var(--fs-sm); }
+.xc-tr > span:not(.xc-name) { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.xc-tr.xc-th > span:first-child { text-align: left; }
+.xc-th { border-top: none; background: var(--surface2); font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+.xc-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xc-tr .xc-hot { color: var(--accent); font-weight: 700; }
+.xc-tr .xc-warn { color: var(--danger); font-weight: 700; }
+.xc-h2 { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.5rem; }
+.xc-list { overflow: hidden; }
+.xc-item { display: grid; grid-template-columns: 72px 120px minmax(0, 1fr); gap: 0.6rem; align-items: baseline; padding: 0.5rem 0.9rem; border-top: 1px solid var(--border); font-size: 0.8rem; }
+.xc-item:first-child { border-top: none; }
+.xc-item.unread { box-shadow: inset 3px 0 0 var(--danger); }
+.xc-time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); }
+.xc-item b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xc-body { color: var(--text); opacity: 0.85; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .xc-tr { grid-template-columns: minmax(0, 1fr) 44px 60px 60px; padding: 0.5rem 0.7rem; }
+  .xc-item { grid-template-columns: 1fr; gap: 0.1rem; }
+}

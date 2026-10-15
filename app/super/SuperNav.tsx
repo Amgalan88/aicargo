@@ -8,10 +8,9 @@ import NavLogo from '@/app/components/NavLogo'
 const links = [
   { href: '/super', label: 'Карго жагсаалт' },
   { href: '/super/groups', label: 'Группүүд' },
-  { href: '/super/cross-cargo', label: 'Карго зөрүү' },
+  { href: '/super/cross-cargo', label: 'Холилдсон ачаа' },
   { href: '/super/announce', label: 'Мэдэгдэл' },
   { href: '/super/warehouses', label: 'Агуулахууд' },
-  { href: '/super/ai-config', label: 'AI Тохиргоо' },
   { href: '/super/cargo/new', label: '+ Шинэ карго' },
 ]
 

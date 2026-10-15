@@ -82,16 +82,16 @@ export async function checkCrossCargoOnImport(rows: ImportRow[], adminCargoId: n
         toCreate.push({
           cargoId: s.cargoId,
           type: 'CROSS_CARGO',
-          title: 'Таны хэрэглэгчийн ачаа өөр cargo-д орлоо',
-          body: `${userName} (${userPhone})-ийн бүртгүүлсэн ${s.trackCode} ачаа ${thisCargo.name}-д${statusText} орсон байна. Яаралтай холбогдож барааг авна уу.`,
+          title: 'Таны хэрэглэгчийн ачаа өөр каргод орсон',
+          body: `${s.trackCode} · ${userName} ${userPhone} → ${thisCargo.name}${statusText}. Холбогдож ачааг авна уу.`,
         })
       }
       if (thisCargo.notificationsEnabled && !isDupe(adminCargoId, s.trackCode)) {
         toCreate.push({
           cargoId: adminCargoId,
           type: 'CROSS_CARGO',
-          title: 'Өөр cargo-ийн хэрэглэгчийн ачаа орлоо',
-          body: `${s.trackCode} нь ${(s.cargo as any).name}-ийн ${userName} (${userPhone})-ийн бүртгэлтэй ачаа байна${statusText}.`,
+          title: 'Өөр каргоны хэрэглэгчийн ачаа танайд орсон',
+          body: `${s.trackCode} · ${(s.cargo as any).name}-ийн хэрэглэгч ${userName} ${userPhone}${statusText}`,
         })
       }
     }
@@ -124,16 +124,16 @@ export async function checkCrossCargoOnImport(rows: ImportRow[], adminCargoId: n
             toCreate.push({
               cargoId: u.cargoId,
               type: 'CROSS_CARGO',
-              title: 'Таны хэрэглэгчийн ачаа өөр cargo-д орлоо',
-              body: `${u.name} (${u.phone})-ийн ${code} ачаа ${thisCargo.name}-д${statusText} орсон байна. Яаралтай холбогдож барааг авна уу.`,
+              title: 'Таны хэрэглэгчийн ачаа өөр каргод орсон',
+              body: `${code} · ${u.name} ${u.phone} → ${thisCargo.name}${statusText}. Холбогдож ачааг авна уу.`,
             })
           }
           if (thisCargo.notificationsEnabled && !isDupe(adminCargoId, code)) {
             toCreate.push({
               cargoId: adminCargoId,
               type: 'CROSS_CARGO',
-              title: 'Өөр cargo-ийн хэрэглэгчийн ачаа орлоо',
-              body: `${code} нь ${(u.cargo as any).name}-ийн ${u.name} (${u.phone})-ийн бүртгэлтэй хэрэглэгчийн ачаа байна${statusText}.`,
+              title: 'Өөр каргоны хэрэглэгчийн ачаа танайд орсон',
+              body: `${code} · ${(u.cargo as any).name}-ийн хэрэглэгч ${u.name} ${u.phone}${statusText}`,
             })
           }
         }
