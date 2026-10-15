@@ -1124,7 +1124,9 @@ textarea.input { resize: vertical; }
 .op-head b { font-size: 0.92rem; }
 .op-head small { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); }
 .op-opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
-.op-opt { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.5rem 0.25rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
+.op-gift { position: absolute; top: -0.55rem; left: 50%; transform: translateX(-50%); padding: 0.05rem 0.4rem; border-radius: 100px; background: var(--green); color: #fff; font-size: 0.6rem; font-weight: 700; font-style: normal; white-space: nowrap; }
+.op-note b { color: var(--green); }
+.op-opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.6rem 0.25rem 0.5rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
 .op-opt b { font-size: 0.85rem; }
 .op-opt span { font-size: 0.7rem; color: var(--muted); }
 .op-opt.on { border-color: var(--accent); background: var(--accent-light); }

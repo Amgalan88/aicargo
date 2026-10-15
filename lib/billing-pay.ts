@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getInvoice } from '@/lib/byl'
-import { renewedUntil, formatBillingDate, PERIOD_DAYS, PRICE_PER_PERIOD } from '@/lib/billing'
+import { renewedUntil, formatBillingDate, PERIOD_DAYS } from '@/lib/billing'
 
 // Byl-ийн нэхэмжлэх төлөгдсөн бол каргогийн хугацааг НЭГ л удаа сунгана.
 // Webhook, "Төлбөр шалгах" хоёулаа энийг дуудна — аль нь түрүүлсэн нь сунгаж, нөгөө нь юу ч хийхгүй.
@@ -36,7 +36,7 @@ export async function settleBylInvoice(invoiceId: number): Promise<SettleResult>
         userId: payment.createdById ?? 0,
         userName: payment.createdByName ?? 'Byl',
         action: 'billing:renewed',
-        detail: `Byl #${invoiceId} · ${(payment.periods * PRICE_PER_PERIOD).toLocaleString('en-US')}₮ · ${payment.periods * PERIOD_DAYS} хоног · ${cargo?.paidUntil ? formatBillingDate(cargo.paidUntil) : '—'} → ${formatBillingDate(until)}`,
+        detail: `Byl #${invoiceId} · ${Math.round(Number(payment.amount)).toLocaleString('en-US')}₮ · ${payment.periods * PERIOD_DAYS} хоног · ${cargo?.paidUntil ? formatBillingDate(cargo.paidUntil) : '—'} → ${formatBillingDate(until)}`,
       },
     })
     return 'renewed' as const

@@ -11,6 +11,15 @@ export const PRICE_PER_PERIOD = 50_000
 export const PERIOD_DAYS = 30
 export const GRACE_DAYS = 10
 
+// Онлайн төлбөрийн багц — урт хугацаагаар төлбөл урамшуулалтай: months сар ашиглана, paid сарын үнэ төлнө
+export const BILLING_PLANS = [
+  { months: 1, paid: 1 },
+  { months: 4, paid: 3 },
+  { months: 8, paid: 6 },
+  { months: 12, paid: 9 },
+] as const
+export const planFor = (months: number) => BILLING_PLANS.find(p => p.months === months) ?? null
+
 export const BILLING_BANK = { name: 'Хаан банк', account: '5119007473', holder: 'Энхамгалан' }
 export const BILLING_PHONE = '85205258'
 

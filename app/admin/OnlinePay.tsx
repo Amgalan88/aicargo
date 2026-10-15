@@ -3,12 +3,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Loader2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { renewedUntil, formatBillingDate, PRICE_PER_PERIOD } from '@/lib/billing'
+import { renewedUntil, formatBillingDate, PRICE_PER_PERIOD, BILLING_PLANS, planFor } from '@/lib/billing'
 
 // Byl-ээр (QPay, SocialPay, карт…) онлайн төлөх: сарын тоо сонгоод төлбөрийн хуудас руу шилжинэ.
 // Буцаж ирэхэд (эсвэл таб руу эргэж ороход) төлбөр орсон эсэхийг шалгаж, орсон бол хуудсыг сэргээнэ.
-
-const OPTIONS = [1, 3, 6, 12]
 
 interface Payment { id: number; periods: number; amount: string; status: string; createdAt: string; paidAt: string | null; paidUntilAfter: string | null; createdByName: string | null }
 
@@ -41,6 +39,7 @@ export default function OnlinePay({ paidUntil }: { paidUntil: string | null }) {
   const [busy, setBusy] = useState(false)
   if (online === false) return null
   const until = renewedUntil(paidUntil, periods)
+  const price = (planFor(periods)?.paid ?? periods) * PRICE_PER_PERIOD
 
   async function pay() {
     setBusy(true)
@@ -54,18 +53,19 @@ export default function OnlinePay({ paidUntil }: { paidUntil: string | null }) {
     <div className="op">
       <div className="op-head"><CreditCard size={16} /><b>Онлайн төлөх</b><small>QPay · SocialPay · карт</small></div>
       <div className="op-opts" role="radiogroup" aria-label="Хугацаа">
-        {OPTIONS.map(n => (
-          <button key={n} type="button" role="radio" aria-checked={periods === n} className={`op-opt${periods === n ? ' on' : ''}`} onClick={() => setPeriods(n)}>
-            <b>{n} сар</b>
-            <span>{(n * PRICE_PER_PERIOD).toLocaleString('en-US')}₮</span>
+        {BILLING_PLANS.map(p => (
+          <button key={p.months} type="button" role="radio" aria-checked={periods === p.months} className={`op-opt${periods === p.months ? ' on' : ''}`} onClick={() => setPeriods(p.months)}>
+            {p.months > p.paid && <em className="op-gift">+{p.months - p.paid} сар</em>}
+            <b>{p.months} сар</b>
+            <span>{(p.paid * PRICE_PER_PERIOD).toLocaleString('en-US')}₮</span>
           </button>
         ))}
       </div>
       <button type="button" className="btn op-pay" disabled={busy || online === null} onClick={pay}>
         {busy ? <Loader2 size={16} className="op-spin" /> : <CheckCircle2 size={16} />}
-        {(periods * PRICE_PER_PERIOD).toLocaleString('en-US')}₮ төлөх · {formatBillingDate(until)} хүртэл
+        {price.toLocaleString('en-US')}₮ төлөх · {formatBillingDate(until)} хүртэл
       </button>
-      <p className="op-note">Төлбөр ормогц хугацаа автоматаар сунгагдана.</p>
+      <p className="op-note">{(planFor(periods)?.paid ?? 1) < periods ? <><b>{planFor(periods)!.paid} сарын үнээр {periods} сар</b> ашиглана. </> : null}Төлбөр ормогц хугацаа автоматаар сунгагдана.</p>
     </div>
   )
 }

@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { createInvoice, bylConfigured } from '@/lib/byl'
-import { PRICE_PER_PERIOD, PERIOD_DAYS } from '@/lib/billing'
+import { PRICE_PER_PERIOD, PERIOD_DAYS, planFor } from '@/lib/billing'
 
-const PERIODS = [1, 3, 6, 12]
-
-// POST /api/admin/billing/pay { periods } — Byl-д нэхэмжлэх үүсгээд төлбөрийн хуудасны холбоосыг буцаана.
+// POST /api/admin/billing/pay { periods } — periods нь ашиглах сарын тоо (1, 4, 8, 12; урамшуулалтай багц). Byl-д нэхэмжлэх үүсгээд төлбөрийн хуудасны холбоосыг буцаана.
 // Хаагдсан карго ч дуудаж болно (хаалтын цонхноос шууд төлнө)
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -15,8 +13,9 @@ export async function POST(req: NextRequest) {
   if (!bylConfigured()) return NextResponse.json({ error: 'Онлайн төлбөр түр ажиллахгүй байна. Дансаар шилжүүлнэ үү' }, { status: 503 })
 
   const body = await req.json().catch(() => ({}))
-  const periods = Number(body.periods)
-  if (!PERIODS.includes(periods)) return NextResponse.json({ error: 'Сарын тоо буруу' }, { status: 400 })
+  const plan = planFor(Number(body.periods))
+  if (!plan) return NextResponse.json({ error: 'Сарын тоо буруу' }, { status: 400 })
+  const periods = plan.months
 
   const cargo = await prisma.cargo.findUnique({ where: { id: admin.cargoId }, select: { name: true, slug: true } })
   if (!cargo) return NextResponse.json({ error: 'Карго олдсонгүй' }, { status: 404 })
@@ -28,14 +27,14 @@ export async function POST(req: NextRequest) {
   })
   if (recent?.url) return NextResponse.json({ url: recent.url, id: recent.id })
 
-  const amount = periods * PRICE_PER_PERIOD
+  const amount = plan.paid * PRICE_PER_PERIOD
   const row = await prisma.billingPayment.create({
     data: { cargoId: admin.cargoId, periods, amount, createdById: admin.userId, createdByName: admin.name },
   })
   try {
     const inv = await createInvoice({
       amount,
-      description: `AiCargo вэбсайт · ${cargo.name} (${cargo.slug}.aicargo.mn) · ${periods} сар (${periods * PERIOD_DAYS} хоног)`,
+      description: `AiCargo вэбсайт · ${cargo.name} (${cargo.slug}.aicargo.mn) · ${periods} сар (${periods * PERIOD_DAYS} хоног)${plan.paid < periods ? ` — ${plan.paid} сарын үнээр` : ''}`,
       clientReferenceId: `aicargo-bp-${row.id}`,
       dueDate: new Date(Date.now() + 2 * 86_400_000),
     })
