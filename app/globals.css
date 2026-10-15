@@ -1117,6 +1117,28 @@ textarea.input { resize: vertical; }
 
 /* Вэбсайтын төлбөр (admin) — сануулга, хаагдсан цонх, /admin/billing */
 .bp { text-align: left; }
+/* Онлайн төлбөр (Byl) */
+.op { padding: 0.9rem 1rem; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 0.9rem; display: grid; gap: 0.65rem; }
+.op-head { display: flex; align-items: center; gap: 0.4rem; }
+.op-head svg { color: var(--accent); }
+.op-head b { font-size: 0.92rem; }
+.op-head small { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); }
+.op-opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+.op-opt { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; padding: 0.5rem 0.25rem; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
+.op-opt b { font-size: 0.85rem; }
+.op-opt span { font-size: 0.7rem; color: var(--muted); }
+.op-opt.on { border-color: var(--accent); background: var(--accent-light); }
+.op-opt.on b, .op-opt.on span { color: var(--accent); }
+.op-pay { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; }
+.op-spin { animation: op-spin 0.8s linear infinite; }
+@keyframes op-spin { to { transform: rotate(360deg); } }
+.op-note { font-size: var(--fs-xs); color: var(--muted); margin: 0; text-align: center; }
+.bp-alt { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0.2rem 0 0.4rem; }
+.op-hist { margin-top: 1rem; padding: 0.9rem 1.1rem; display: grid; gap: 0.1rem; }
+.op-hist > b { font-size: 0.9rem; margin-bottom: 0.4rem; }
+.op-hrow { display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem; align-items: center; padding: 0.45rem 0; border-top: 1px solid var(--border); font-size: var(--fs-sm); }
+.op-hrow span:first-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.op-hrow small { color: var(--green); font-weight: 600; font-size: var(--fs-xs); }
 .bp-offer { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.85rem 1rem; border-radius: 12px; margin-bottom: 0.8rem; background: var(--accent-light); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); }
 .bp-offer span { font-size: var(--fs-sm); color: var(--muted); }
 .bp-offer b { font-size: 1.25rem; font-weight: 800; color: var(--accent); letter-spacing: -0.01em; }

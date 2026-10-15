@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { billingState, formatBillingDate, GRACE_DAYS } from '@/lib/billing'
 import BillingPanel from '../BillingPanel'
+import { BillingHistory } from '../OnlinePay'
 
 export const metadata = { title: 'Вэбсайтын төлбөр — Aicargo' }
 
@@ -29,6 +30,7 @@ export default async function BillingPage() {
         <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, color: status.color }}>{status.text}</div>
       </div>
       <BillingPanel cargoName={cargo.name} paidUntil={paidUntil} explainOpen />
+      <BillingHistory />
     </div>
   )
 }

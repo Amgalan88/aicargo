@@ -5,6 +5,7 @@ import {
   billingState, renewedUntil, daysFrom, formatBillingDate,
   PRICE_PER_PERIOD, PERIOD_DAYS, GRACE_DAYS, BILLING_BANK, BILLING_PHONE,
 } from '@/lib/billing'
+import OnlinePay from './OnlinePay'
 
 // Вэбсайтын сунгалт — өнөөдөр төлбөл хэдий хүртэл сунгагдах, данс, төлбөр хэрхэн тооцогддог.
 // Сануулга, хаагдсан цонх болон /admin/billing хуудас бүгд энэ нэг хэсгийг харуулна.
@@ -33,6 +34,10 @@ export default function BillingPanel({ cargoName, paidUntil, explainOpen = false
         </small>
       </div>
 
+      {/* QPay, SocialPay, картаар — төлбөр ормогц автоматаар сунгагдана */}
+      <OnlinePay paidUntil={paidUntil} />
+
+      <p className="bp-alt">Эсвэл дансаар шилжүүлэх</p>
       <div className="bp-bank">
         <Row label="Банк" value={BILLING_BANK.name} />
         <Row label="Дансны дугаар" value={BILLING_BANK.account} mono copyable />

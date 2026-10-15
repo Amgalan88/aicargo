@@ -53,6 +53,7 @@ model Cargo {
   shipments     Shipment[]
   linkOrders    LinkOrder[]
   pushSubscriptions PushSubscription[]
+  billingPayments BillingPayment[]
   faqs          Faq[]
   notifications Notification[]
   banners       Banner[]
@@ -504,4 +505,25 @@ model PushSubscription {
 
   @@index([userId])
   @@index([cargoId])
+}
+
+// Вэбсайтын төлбөр Byl-ээр (QPay, SocialPay…). Нэхэмжлэх бүр нэг мөр — нэг төлбөрөөр давхар сунгахгүй
+model BillingPayment {
+  id              Int       @id @default(autoincrement())
+  cargoId         Int
+  cargo           Cargo     @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  periods         Int
+  amount          Decimal   @db.Decimal(12, 2)
+  status          String    @default("PENDING") // PENDING → PAID
+  bylInvoiceId    Int?      @unique
+  url             String?
+  createdById     Int?
+  createdByName   String?
+  paidAt          DateTime?
+  paidUntilBefore DateTime?
+  paidUntilAfter  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@index([cargoId, createdAt])
 }
