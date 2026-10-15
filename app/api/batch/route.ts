@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden, JwtPayload } from '@/lib/auth'
 import { notifyArrivedForCargo } from '@/lib/push'
 import { cleanTrackCode } from '@/lib/track-code'
+import { staffBillingState } from '@/lib/billing'
 
 // Том багц (олон трак код) DB руу мөр мөрөөр upsert хийвэл round-tripихдэж
 // Vercel-ийн function timeout-д мөргөж "Connection error" гардаг байсан тул нэмэв.
@@ -10,17 +11,21 @@ export const maxDuration = 60
 
 // Багц бүртгэл: EREEN ажилтан болон ADMIN хоёулаа хандана.
 // Карго нь batchEnabled байх ёстой.
-async function requireBatchAccess(req: NextRequest): Promise<{ user?: JwtPayload & { name: string }; error?: NextResponse }> {
+// Төлбөрийн хугацаа хэтэрч хаагдсан бол бичих үйлдлийг хаана (жагсаалт харахыг зөвшөөрнө) — lib/billing staffBillingState
+async function requireBatchAccess(req: NextRequest, write = true): Promise<{ user?: JwtPayload & { name: string }; error?: NextResponse }> {
   const user = await getVerifiedUserFromRequest(req)
   if (!user) return { error: unauthorized() }
   if (user.role !== 'EREEN' && user.role !== 'ADMIN') return { error: forbidden() }
   if (!user.cargoId) return { error: forbidden() }
   const cargo = await (prisma.cargo as any).findUnique({
     where: { id: user.cargoId },
-    select: { batchEnabled: true },
+    select: { batchEnabled: true, paidUntil: true },
   })
   if (!cargo?.batchEnabled) {
     return { error: NextResponse.json({ error: 'Багц бүртгэл энэ каргод идэвхжээгүй байна' }, { status: 403 }) }
+  }
+  if (write && staffBillingState(cargo.paidUntil)?.blocked) {
+    return { error: NextResponse.json({ error: 'Каргоны үйлчилгээний хугацаа дууссан · 服务已到期' }, { status: 402 }) }
   }
   const rec = await prisma.user.findUnique({ where: { id: user.userId }, select: { name: true } })
   return { user: { ...user, name: rec?.name ?? '' } }
@@ -36,7 +41,7 @@ function normCodes(raw: unknown): string[] {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireBatchAccess(req)
+  const auth = await requireBatchAccess(req, false)
   if (auth.error) return auth.error
 
   const phone = req.nextUrl.searchParams.get('phone')?.trim()

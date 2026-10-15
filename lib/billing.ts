@@ -54,6 +54,18 @@ export function billingState(paidUntil: Date | string | null | undefined, now = 
   }
 }
 
+// Эрээний ажилтны багц бүртгэл (/batch) өмнө нь төлбөрөөр хаагддаггүй байсан (манай алдаа).
+// Тиймээс аль хэдийн хугацаа хэтэрсэн каргонд хаалт энэ өдрөөс тоологдож, GRACE_DAYS хоног сануулгатай ажиллана.
+export const STAFF_GATE_START = '2026-10-15T16:00:00.000Z' // УБ 2026.10.16 00:00
+
+export function staffBillingState(paidUntil: Date | string | null | undefined, now = new Date()) {
+  if (!paidUntil) return null
+  const from = Math.max(new Date(paidUntil).getTime(), new Date(STAFF_GATE_START).getTime())
+  const state = billingState(new Date(from), now)!
+  // Хэдий хүртэл ажиллах вэ — paidUntil-тэй ижил хэлбэрээр (УБ-ын шөнө дунд, formatBillingDate-ээр харуулна)
+  return { ...state, expired: now.getTime() >= new Date(paidUntil).getTime(), worksUntil: new Date(from + (GRACE_DAYS + 1) * DAY) }
+}
+
 // Төлбөр хүлээн авахад шинэ дуусах огноо
 export function renewedUntil(paidUntil: Date | string | null | undefined, periods: number, paidOn = new Date()): Date {
   const pay = dayStart(paidOn)

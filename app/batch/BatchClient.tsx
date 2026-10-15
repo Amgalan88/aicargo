@@ -1,5 +1,6 @@
 'use client'
-import { MessageSquare, CircleHelp } from 'lucide-react'
+import { MessageSquare, CircleHelp, Lock, TriangleAlert } from 'lucide-react'
+import { staffBillingState, formatBillingDate } from '@/lib/billing'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -90,12 +91,14 @@ export default function BatchClient() {
   const [editBusy, setEditBusy] = useState(false)
   const [logOpen, setLogOpen] = useState<number | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [paidUntil, setPaidUntil] = useState<string | null>(null)
   const codesRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     load()
     // Админ орж ирсэн бол буцах линк харуулна (settings API зөвхөн админд нээлттэй)
     fetch('/api/admin/settings').then(r => { if (r.ok) setIsAdmin(true) }).catch(() => {})
+    fetch('/api/batch/billing').then(r => r.ok ? r.json() : null).then(d => setPaidUntil(d?.paidUntil ?? null)).catch(() => {})
   }, [])
 
   function load() {
@@ -189,6 +192,9 @@ export default function BatchClient() {
     router.push('/login')
   }
 
+  // Каргоны төлбөр дууссан бол сануулна, GRACE_DAYS хоногийн дараа хаана (админ панелтай ижил дүрэм)
+  const bill = staffBillingState(paidUntil)
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
@@ -209,6 +215,32 @@ export default function BatchClient() {
           }}>{T.logout}</button>
         )}
       </div>
+
+      {bill?.expired && !bill.blocked && (
+        <div className="bt-bill">
+          <TriangleAlert size={16} strokeWidth={2.2} />
+          <div>
+            <b>Каргоны үйлчилгээний хугацаа дууссан · 服务已到期</b>
+            <span>{formatBillingDate(bill.worksUntil)} хүртэл ажиллана. Админ төлбөрөө төлнө үү.</span>
+            <span>{formatBillingDate(bill.worksUntil)} 之后此页面将关闭，请管理员付款。</span>
+            {isAdmin && <a href="/admin/billing">Төлбөр төлөх →</a>}
+          </div>
+        </div>
+      )}
+      {bill?.blocked && (
+        <div className="bt-lock">
+          <div className="bt-lock-card">
+            <div className="bt-lock-ic"><Lock size={26} strokeWidth={2} /></div>
+            <h2>Үйлчилгээний хугацаа дууссан</h2>
+            <h3>服务已到期</h3>
+            <p>Каргоны системийн төлбөр төлөгдөөгүй тул багц бүртгэл хаагдсан. Админ төлбөрөө төлсний дараа дахин нээгдэнэ.</p>
+            <p>货运系统费用未支付，批量登记已关闭。管理员付款后将重新开放。</p>
+            {isAdmin
+              ? <a className="btn" href="/admin/billing">Төлбөр төлөх</a>
+              : <button className="btn-ghost" onClick={logout}>{T.logout}</button>}
+          </div>
+        </div>
+      )}
 
       <div className="page" style={{ maxWidth: 560 }}>
         {/* Заавар — хоёр хэлээр тусдаа */}

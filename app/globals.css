@@ -2083,3 +2083,17 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
   .xc-tr { grid-template-columns: minmax(0, 1fr) 44px 60px 60px; padding: 0.5rem 0.7rem; }
   .xc-item { grid-template-columns: 1fr; gap: 0.1rem; }
 }
+
+/* ═══ Багц бүртгэл: төлбөрийн сануулга / хаалт ═══ */
+.bt-bill { display: flex; gap: 0.6rem; align-items: flex-start; max-width: 560px; margin: 0.9rem auto 0; padding: 0.75rem 0.9rem; width: calc(100% - 2rem); box-sizing: border-box; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--yellow) 40%, transparent); background: color-mix(in srgb, var(--yellow) 10%, var(--surface)); color: var(--text); font-size: 0.8rem; line-height: 1.5; }
+.bt-bill > svg { color: var(--yellow); flex-shrink: 0; margin-top: 2px; }
+.bt-bill div { display: flex; flex-direction: column; gap: 0.1rem; }
+.bt-bill span { color: var(--muted); }
+.bt-bill a { color: var(--accent); font-weight: 700; margin-top: 0.25rem; }
+.bt-lock { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.82); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.bt-lock-card { background: var(--bg); border: 1px solid var(--border); border-radius: 16px; padding: 1.75rem 1.5rem; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
+.bt-lock-ic { width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 0.75rem; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.bt-lock-card h2 { font-size: 1.1rem; font-weight: 800; margin: 0; }
+.bt-lock-card h3 { font-size: 0.9rem; font-weight: 600; color: var(--muted); margin: 0.15rem 0 0.9rem; }
+.bt-lock-card p { font-size: 0.82rem; color: var(--muted); line-height: 1.6; margin: 0 0 0.6rem; }
+.bt-lock-card .btn, .bt-lock-card .btn-ghost { margin-top: 0.6rem; display: inline-flex; justify-content: center; min-width: 160px; }
