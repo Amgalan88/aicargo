@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Loader2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { renewedUntil, formatBillingDate, PRICE_PER_PERIOD, BILLING_PLANS, planFor } from '@/lib/billing'
+import { renewedUntil, formatBillingDate, PRICE_PER_PERIOD, BILLING_PLANS, planFor, BILLING_PHONE } from '@/lib/billing'
 
 // Byl-ээр (QPay, SocialPay, карт…) онлайн төлөх: сарын тоо сонгоод төлбөрийн хуудас руу шилжинэ.
 // Буцаж ирэхэд (эсвэл таб руу эргэж ороход) төлбөр орсон эсэхийг шалгаж, орсон бол хуудсыг сэргээнэ.
@@ -37,7 +37,8 @@ export default function OnlinePay({ paidUntil }: { paidUntil: string | null }) {
   const { online } = useBillingPayments()
   const [periods, setPeriods] = useState(1)
   const [busy, setBusy] = useState(false)
-  if (online === false) return null
+  // Онлайн төлбөр тохируулагдаагүй/түр ажиллахгүй үед — дансны мэдээлэл биш, холбогдох утас
+  if (online === false) return <p className="op op-off">Онлайн төлбөр түр ажиллахгүй байна. <b>{BILLING_PHONE}</b> дугаарт холбогдоно уу.</p>
   const until = renewedUntil(paidUntil, periods)
   const price = (planFor(periods)?.paid ?? periods) * PRICE_PER_PERIOD
 

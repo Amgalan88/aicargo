@@ -1,9 +1,8 @@
 'use client'
-import { useState } from 'react'
-import { Copy, Check, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import {
   billingState, renewedUntil, daysFrom, formatBillingDate,
-  PRICE_PER_PERIOD, PERIOD_DAYS, GRACE_DAYS, BILLING_BANK, BILLING_PHONE,
+  PRICE_PER_PERIOD, PERIOD_DAYS, GRACE_DAYS,
 } from '@/lib/billing'
 import OnlinePay from './OnlinePay'
 
@@ -34,18 +33,8 @@ export default function BillingPanel({ cargoName, paidUntil, explainOpen = false
         </small>
       </div>
 
-      {/* QPay, SocialPay, картаар — төлбөр ормогц автоматаар сунгагдана */}
+      {/* Зөвхөн онлайнаар (QPay, SocialPay, карт) — төлбөр ормогц автоматаар сунгагдана. Гараар дансаар төлөх боломжгүй */}
       <OnlinePay paidUntil={paidUntil} />
-
-      <p className="bp-alt">Эсвэл дансаар шилжүүлэх</p>
-      <div className="bp-bank">
-        <Row label="Банк" value={BILLING_BANK.name} />
-        <Row label="Дансны дугаар" value={BILLING_BANK.account} mono copyable />
-        <Row label="Хүлээн авагч" value={BILLING_BANK.holder} />
-        <Row label="Гүйлгээний утга" value={cargoName} highlight copyable />
-        <Row label="Дүн" value={`${PRICE_PER_PERIOD.toLocaleString('en-US')} ₮`} highlight />
-      </div>
-      <p className="bp-note">Төлбөр хийсний дараа <b>{BILLING_PHONE}</b> дугаарт мэдэгдэнэ үү. Олон сараар төлж болно.</p>
 
       <details className="bp-how" open={explainOpen}>
         <summary>Төлбөр хэрхэн тооцогддог вэ?<ChevronDown size={16} /></summary>
@@ -64,22 +53,3 @@ export default function BillingPanel({ cargoName, paidUntil, explainOpen = false
   )
 }
 
-function Row({ label, value, mono, copyable, highlight }: { label: string; value: string; mono?: boolean; copyable?: boolean; highlight?: boolean }) {
-  const [copied, setCopied] = useState(false)
-  function copy() {
-    navigator.clipboard.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }).catch(() => {})
-  }
-  return (
-    <div className="bp-row">
-      <span>{label}</span>
-      <div>
-        <b className={`${mono ? 'bp-mono' : ''}${highlight ? ' bp-hl' : ''}`}>{value}</b>
-        {copyable && (
-          <button onClick={copy} title="Хуулах" aria-label="Хуулах" className={copied ? 'ok' : ''}>
-            {copied ? <Check size={14} strokeWidth={2.4} /> : <Copy size={14} strokeWidth={2} />}
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
