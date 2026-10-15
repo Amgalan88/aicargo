@@ -2,13 +2,14 @@ import { Factory, Camera, MapPin } from 'lucide-react'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import NavLogo from '@/app/components/NavLogo'
-import { cloudinaryThumb, formatMnt, warehousePath } from '@/lib/warehouse'
+import { cloudinaryThumb, warehousePath } from '@/lib/warehouse'
+import { PartnerContactButton } from '@/app/components/PartnerContact'
 
 export const revalidate = 0
 
 export const metadata = {
   title: 'Эрээний түншлэгч агуулахууд — Aicargo',
-  description: 'Эрээн хот дахь найдвартай агуулахууд — зураг, үйлчилгээ, тариф. Карго компаниуд хамтран ажиллах гэрээ байгуулна.',
+  description: 'Эрээн хот дахь найдвартай түнш агуулахууд — зураг, үйлчилгээ, тариф.',
 }
 
 export default async function WarehousesPage() {
@@ -17,7 +18,6 @@ export default async function WarehousesPage() {
     orderBy: [{ order: 'asc' }, { id: 'asc' }],
     select: {
       id: true, slug: true, name: true, description: true, address: true, imageUrl: true,
-      contractFee: true, acceptingContracts: true,
       _count: { select: { images: true } },
     },
   })
@@ -32,8 +32,8 @@ export default async function WarehousesPage() {
           Эрээний түншлэгч агуулахууд
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.88rem', margin: '0 0 1.75rem', lineHeight: 1.6 }}>
-          Агуулахын зураг, үйлчилгээ, тарифтай танилцаж, хамтран ажиллах гэрээ байгуулаарай.
-          Гэрээ байгуулсан каргод агуулах тусгай зай талбай гаргаж, ачааг хүлээн авч, баглаж савлана.
+          Эрээн дэх түнш агуулахуудын зураг, үйлчилгээ, тарифтай танилцаарай.
+          Агуулахтай болох, түншлэх талаар <PartnerContactButton className="whl-contact">бидэнтэй холбогдоно уу</PartnerContactButton>.
         </p>
 
         {warehouses.length === 0 ? (
@@ -46,6 +46,7 @@ export default async function WarehousesPage() {
                 border-radius: var(--radius); overflow: hidden; color: inherit; text-decoration: none;
                 transition: border-color 0.12s, transform 0.12s; }
               .wh-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+              .whl-contact { background: none; border: none; padding: 0; font: inherit; color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; }
             `}</style>
             <div className="wh-list">
               {warehouses.map(w => (
@@ -78,10 +79,7 @@ export default async function WarehousesPage() {
                       }}>{w.description}</div>
                     )}
                     <div style={{ marginTop: 'auto', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem' }}>
-                      <span>
-                        Гэрээ: <b>{formatMnt(w.contractFee.toString())}</b>
-                        {!w.acceptingContracts && <span style={{ color: 'var(--muted)' }}> · түр хаалттай</span>}
-                      </span>
+                      <span />
                       <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Үзэх →</span>
                     </div>
                   </div>

@@ -7,8 +7,6 @@ export default function WarehouseTabs({ id }: { id: number }) {
   const base = `/super/warehouses/${id}`
   const tabs = [
     { href: base, label: 'Тохиргоо, зураг' },
-    { href: `${base}/template`, label: 'Гэрээний загвар' },
-    { href: `/super/contracts?warehouseId=${id}`, label: 'Гэрээнүүд' },
     { href: `${base}/history`, label: 'Өөрчлөлтийн түүх' },
   ]
   return (

@@ -2,8 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Check, Copy, Images, MapPin, Phone, MessageCircle, ChevronLeft, ChevronRight, X, FileSignature, Factory } from 'lucide-react'
-import { WAREHOUSE_IMAGE_CATEGORIES, categoryLabel, cloudinaryThumb, formatMnt, warehousePath } from '@/lib/warehouse'
+import { Check, Copy, Images, MapPin, Phone, MessageCircle, ChevronLeft, ChevronRight, X, Factory } from 'lucide-react'
+import { WAREHOUSE_IMAGE_CATEGORIES, categoryLabel, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
+import { PartnerContactButton, PARTNER_PHONES } from '@/app/components/PartnerContact'
 
 export interface PublicImage {
   id: number
@@ -27,18 +28,14 @@ export interface PublicWarehouse {
   pricePerTonCny: string | null
   pricePerM3Cny: string | null
   pricePerKgMnt: string | null
-  contractFee: string
-  acceptingContracts: boolean
   images: PublicImage[]
 }
 
-const CONTRACT_POINTS = [
-  'Нэг удаагийн төлбөр — жил бүр төлөхгүй',
-  'Байнгын гэрээ, хугацаагүй',
+const PARTNER_POINTS = [
   'Агуулахад танай каргод тусгай зай талбай',
   'Ачаа хүлээн авах, ангилах, баглаж савлах',
-  'Монгол, хятад хэлээр цахим гэрээ',
-  'Бэлэг: aicargo карго вэбсайт 60 хоног үнэгүй',
+  'Гааль хүртэл хүргэнэ',
+  'Хувь хүн ч болно — карго нээх шаардлагагүй',
 ]
 
 // Нүүр зургийг эхэнд нь; хуучин (галерейд ороогүй) нүүр зураг байвал нэмнэ
@@ -76,9 +73,6 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
           <div className="whv-facts">
             {wh.address && <span><MapPin size={14} /> Эрээн хот</span>}
             {photos.length > 0 && <span><Images size={14} /> {photos.length} зураг</span>}
-            <span className={wh.acceptingContracts ? 'whv-ok' : ''}>
-              <FileSignature size={14} /> {wh.acceptingContracts ? 'Гэрээ хүлээн авч байна' : 'Шинэ гэрээ түр хаалттай'}
-            </span>
           </div>
         </header>
 
@@ -139,21 +133,14 @@ export default function WarehouseView({ wh }: { wh: PublicWarehouse }) {
 
           <aside className="whv-side">
             <div className="whv-card whv-contract">
-              <div className="whv-label">Хамтран ажиллах гэрээ</div>
-              <div className="whv-price">{formatMnt(wh.contractFee)}</div>
-              <div className="whv-sub">нэг удаа төлнө</div>
+              <div className="whv-label">Эрээнд агуулахтай болох</div>
               <ul className="whv-points">
-                {CONTRACT_POINTS.map(p => (
+                {PARTNER_POINTS.map(p => (
                   <li key={p}><Check size={14} strokeWidth={2.6} />{p}</li>
                 ))}
               </ul>
-              {wh.acceptingContracts ? (
-                <Link className="whv-cta" href={`${warehousePath(wh)}/contract`}>Гэрээ байгуулах хүсэлт илгээх</Link>
-              ) : (
-                <button className="whv-cta" disabled>Шинэ гэрээ түр хаалттай</button>
-              )}
-              <p className="whv-note">Хувь хүн ч байгуулна — карго нээх шаардлагагүй, 3 минут.</p>
-              <p className="whv-note">Төлбөр гэрээ цуцлагдсан ч буцаагдахгүй.</p>
+              <PartnerContactButton className="whv-cta">Холбогдох</PartnerContactButton>
+              <p className="whv-note">{PARTNER_PHONES.join(' · ')} · WeChat</p>
             </div>
 
             {hasTariff && (

@@ -32,23 +32,12 @@ type Form = {
   aiEnabled: boolean; searchByPhone: boolean; notificationsEnabled: boolean
 }
 
-export interface ContractOffer {
-  token: string
-  contractNo: string
-  warehouseName: string
-  email: string
-  cargoName: string
-  adminName: string
-  phone: string
-  days: number
-}
-
-export default function SignupCargoClient({ offer = null, offerInvalid = false, warehouse = null }: { offer?: ContractOffer | null; offerInvalid?: boolean; warehouse?: { id: number; name: string } | null }) {
+export default function SignupCargoClient() {
   const [step, setStep] = useState<'form' | 'otp' | 'done'>('form')
-  const [trialDays, setTrialDays] = useState(offer?.days ?? 30)
+  const [trialDays, setTrialDays] = useState(30)
   const [form, setForm] = useState<Form>({
-    cargoName: offer?.cargoName ?? '', slug: '', adminName: offer?.adminName ?? '', phone: offer?.phone ?? '',
-    email: offer?.email ?? '', password: '',
+    cargoName: '', slug: '', adminName: '', phone: '',
+    email: '', password: '',
     aiEnabled: AI_SUPPORT_ENABLED, searchByPhone: true, notificationsEnabled: true,
   })
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'ok' | 'taken'>('idle')
@@ -125,7 +114,7 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false, 
       const res = await fetch('/api/signup-cargo/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, code: otp, logoBase64, contractToken: offer?.token }),
+        body: JSON.stringify({ ...form, code: otp, logoBase64 }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
@@ -150,34 +139,9 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false, 
         {step === 'form' && (
           <>
             <h1 className="section-title" style={{ marginBottom: '0.3rem' }}>Шинэ карго нээх</h1>
-            {offer ? (
-              <div style={{
-                background: 'var(--accent-light)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)',
-                padding: '0.85rem 1rem', margin: '0.4rem 0 1.25rem', fontSize: '0.84rem', lineHeight: 1.55,
-              }}>
-                <b><Gift size={14} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{offer.days} хоног үнэгүй</b> — "{offer.warehouseName}" агуулахтай байгуулсан {offer.contractNo} гэрээний бэлэг.
-                <div style={{ color: 'var(--muted)', fontSize: '0.78rem', marginTop: 2 }}>
-                  Гэрээ тань шинэ каргод автоматаар холбогдоно. Гэрээний и-мэйлээр ({offer.email}) бүртгүүлнэ.
-                </div>
-              </div>
-            ) : (
-              <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-                Эхний 30 хоног үнэгүй, цаашид сарын ₮50,000. Хэдхэн минутад өөрийн карго хянах системтэй болно.
-              </p>
-            )}
-            {warehouse && !offer && (
-              <div style={{
-                background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: 'var(--radius)',
-                padding: '0.75rem 1rem', margin: '0 0 1.25rem', fontSize: '0.83rem', lineHeight: 1.55,
-              }}>
-                Карго нээсний дараа <b>"{warehouse.name}"</b> агуулахтай цахим гэрээгээ шууд байгуулна.
-              </div>
-            )}
-            {offerInvalid && (
-              <p className="msg-error" style={{ marginBottom: '1rem' }}>
-                Гэрээний холбоос хүчингүй эсвэл аль хэдийн ашиглагдсан байна. Ердийн 30 хоногийн туршилтаар нээгдэнэ.
-              </p>
-            )}
+            <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              Эхний 30 хоног үнэгүй, цаашид сарын ₮50,000. Хэдхэн минутад өөрийн карго хянах системтэй болно.
+            </p>
 
             <div className="form-group">
               <label>Каргоны нэр <span style={{ color: 'var(--danger)' }}>*</span></label>
@@ -243,7 +207,7 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false, 
 
             <div className="form-group">
               <label>И-мэйл <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input className="input" type="email" placeholder="tanii@mail.com" readOnly={!!offer}
+              <input className="input" type="email" placeholder="tanii@mail.com"
                 value={form.email} onChange={e => set('email', e.target.value)} />
               <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.3rem' }}>
                 Энэ хаяг руу баталгаажуулах код очно
@@ -343,21 +307,9 @@ export default function SignupCargoClient({ offer = null, offerInvalid = false, 
               {trialDays} хоногийн үнэгүй хугацаа эхэллээ.<br />
               Тохиргоо хэсгээс Эрээний хаяг, тариф, банкны мэдээллээ бөглөөрэй.
             </p>
-            {warehouse && !offer ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', alignItems: 'center' }}>
-                {/* Нэвтрэлтийн cookie энэ домэйн дээр тавигдсан тул харьцангуй холбоосоор үргэлжлүүлнэ */}
-                <a href={`/admin/warehouse?new=${warehouse.id}`} className="btn" style={{ textDecoration: 'none' }}>
-                  "{warehouse.name}" агуулахтай гэрээ байгуулах →
-                </a>
-                <a href={`https://${doneSlug}.aicargo.mn/admin/settings`} style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
-                  Эсвэл тохиргоо хийх
-                </a>
-              </div>
-            ) : (
-              <a href={`https://${doneSlug}.aicargo.mn/admin/settings`} className="btn" style={{ textDecoration: 'none' }}>
-                Тохиргоо хийх →
-              </a>
-            )}
+            <a href={`https://${doneSlug}.aicargo.mn/admin/settings`} className="btn" style={{ textDecoration: 'none' }}>
+              Тохиргоо хийх →
+            </a>
           </div>
         )}
       </div>

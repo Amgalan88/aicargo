@@ -1,38 +1,8 @@
-import SignupCargoClient, { ContractOffer } from './SignupCargoClient'
-import { findSignupContract, safeValues } from '@/lib/contract-server'
-import { WEBSITE_BONUS_DAYS } from '@/lib/contract'
-import { prisma } from '@/lib/prisma'
+import SignupCargoClient from './SignupCargoClient'
 
 export const revalidate = 0
 export const metadata = { title: 'Шинэ карго нээх — Aicargo', robots: { index: true } }
 
-// ?contract=<token> — Эрээний агуулахтай гэрээ байгуулсан хүнд 60 хоногийн үнэгүй санал
-export default async function SignupCargoPage({ searchParams }: { searchParams: Promise<{ contract?: string; warehouse?: string }> }) {
-  const sp = await searchParams
-  const token = sp.contract
-  // Агуулахын хуудаснаас ирсэн бол карго нээсний дараа шууд гэрээ эхлүүлэх товч гаргана
-  const whId = Number(sp.warehouse) || 0
-  const wh = whId ? await prisma.partnerWarehouse.findFirst({ where: { id: whId, active: true }, select: { id: true, name: true } }) : null
-  let offer: ContractOffer | null = null
-  let offerInvalid = false
-  if (token) {
-    const c = await findSignupContract(token)
-    if (c?.guestEmail) {
-      const v = safeValues(c.values)
-      offer = {
-        token,
-        contractNo: c.contractNo,
-        warehouseName: c.warehouse.name,
-        email: c.guestEmail,
-        // Гэрээг хувь хүн байгуулдаг тул каргоны нэрийг хэрэглэгч өөрөө бичнэ (хуучин гэрээнд байгууллагын нэр)
-        cargoName: (v.cargoLegalName && !v.repFirstName ? v.cargoLegalName : '').replace(/\s*(ХХК|LLC)$/i, ''),
-        adminName: [v.repLastName, v.repFirstName].filter(Boolean).join(' '),
-        phone: (v.repPhone ?? '').replace(/\D/g, '').slice(-8),
-        days: WEBSITE_BONUS_DAYS,
-      }
-    } else {
-      offerInvalid = true
-    }
-  }
-  return <SignupCargoClient offer={offer} offerInvalid={offerInvalid} warehouse={wh} />
+export default function SignupCargoPage() {
+  return <SignupCargoClient />
 }

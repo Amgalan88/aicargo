@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import LandingClient from './LandingClient'
 import MarketingLanding from './MarketingLanding'
-import { WAREHOUSE_CONTRACT_SELECT, LATEST_TEMPLATE_INCLUDE, warehouseReadiness } from '@/lib/contract-server'
 
 export const revalidate = 0
 
@@ -44,18 +43,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
     prisma.partnerWarehouse.findMany({
       where: { active: true },
       orderBy: [{ order: 'asc' }, { id: 'asc' }],
-      select: { ...WAREHOUSE_CONTRACT_SELECT, imageUrl: true, ...LATEST_TEMPLATE_INCLUDE },
+      select: { id: true, slug: true, name: true, imageUrl: true },
     }),
   ])
-  // Данс зэрэг нууц талбар client руу гарахгүйн тулд картад хэрэгтэйг нь л дамжуулна
-  const warehouseCards = warehouses.map(w => ({
-    id: w.id,
-    slug: w.slug,
-    name: w.name,
-    imageUrl: w.imageUrl,
-    contractFee: w.contractFee.toString(),
-    acceptsContracts: w.acceptingContracts && warehouseReadiness(w, w.templates[0]).length === 0,
-  }))
+  const warehouseCards = warehouses
 
   return (
     <MarketingLanding

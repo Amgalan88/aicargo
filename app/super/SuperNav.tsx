@@ -11,7 +11,6 @@ const links = [
   { href: '/super/cross-cargo', label: 'Карго зөрүү' },
   { href: '/super/announce', label: 'Мэдэгдэл' },
   { href: '/super/warehouses', label: 'Агуулахууд' },
-  { href: '/super/contracts', label: 'Агуулахын гэрээ' },
   { href: '/super/ai-config', label: 'AI Тохиргоо' },
   { href: '/super/cargo/new', label: '+ Шинэ карго' },
 ]
@@ -19,15 +18,6 @@ const links = [
 export default function SuperNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const [pendingContracts, setPendingContracts] = useState(0)
-
-  useEffect(() => {
-    fetch('/api/super/warehouse-contracts?count=pending')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setPendingContracts(d?.count ?? 0))
-      .catch(() => {})
-  }, [pathname])
-
   useEffect(() => {
     const orig = window.fetch
     window.fetch = async (...args) => {
@@ -63,11 +53,8 @@ export default function SuperNav() {
       </div>
       <nav className="admin-nav">
         {links.map(l => (
-          <Link key={l.href} href={l.href} className={`admin-nav-link${pathname === l.href || ((l.href === '/super/warehouses' || l.href === '/super/contracts') && pathname.startsWith(l.href + '/')) ? ' active' : ''}`}>
+          <Link key={l.href} href={l.href} className={`admin-nav-link${pathname === l.href || ((l.href === '/super/warehouses') && pathname.startsWith(l.href + '/')) ? ' active' : ''}`}>
             {l.label}
-            {l.href === '/super/contracts' && pendingContracts > 0 && (
-              <span style={{ marginLeft: 5, background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: 100, fontSize: '0.65rem', fontWeight: 700, padding: '0.05rem 0.4rem' }}>{pendingContracts}</span>
-            )}
           </Link>
         ))}
       </nav>

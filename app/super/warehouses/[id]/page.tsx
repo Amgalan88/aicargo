@@ -219,31 +219,10 @@ export default function WarehouseSettingsPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <div className="card" style={{ ...cardStyle, borderColor: 'var(--accent)' }}>
-        <h2 style={h2}>Гэрээний төлбөр хүлээн авах данс</h2>
-        <p style={{ ...hint, marginTop: 0, marginBottom: '0.9rem' }}>
-          Карго гэрээ байгуулахдаа төлбөрөө шууд энэ данс руу шилжүүлнэ. Агуулах өөрөө засах боломжгүй,
-          нийтийн хуудсанд харагдахгүй.
-        </p>
-        <div className="admin-form-2col">
-          <Field label="Банк" placeholder="Хаан банк" value={form.bankName} onChange={v => set('bankName', v)} />
-          <Field label="Дансны дугаар" placeholder="5925056082" value={form.bankAccount} onChange={v => set('bankAccount', v)} />
-          <Field label="Данс эзэмшигч" placeholder="Т. Алтантуяа" value={form.bankHolder} onChange={v => set('bankHolder', v)} />
-          <Field label="Гэрээний төлбөр (₮, нэг удаагийн)" placeholder="1200000" inputMode="numeric"
-            value={form.contractFee} onChange={v => set('contractFee', v.replace(/[^\d]/g, ''))}
-            hint={form.contractFee ? formatMnt(form.contractFee) + ' · буцаагдахгүй' : undefined} />
-        </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', marginTop: '0.9rem', cursor: 'pointer' }}>
-          <input type="checkbox" checked={form.acceptingContracts}
-            onChange={e => set('acceptingContracts', e.target.checked)} />
-          Шинэ гэрээ хүлээн авч байна
-        </label>
-      </div>
-
       <div className="card" style={cardStyle}>
-        <h2 style={h2}>Ачаа хүлээн авах хаяг <span style={subtle}>(гэрээтэй каргод олгоно)</span></h2>
+        <h2 style={h2}>Ачаа хүлээн авах хаяг</h2>
         <p style={{ ...hint, marginTop: 0, marginBottom: '0.9rem' }}>
-          Гэрээ батлагдахад карго энэ хаягийг өөрийн тэмдэгтэйгээр (жш: B88) авч, вэбсайтдаа нэг товчоор тохируулна.
+          Түнш каргод энэ хаягийг өөрийн тэмдэгтэйгээр (жш: B88) олгоно.
         </p>
         <div className="admin-form-2col">
           <Field label="Бүс (地区)" placeholder="内蒙古自治区 · 锡林郭勒盟 · 二连浩特市"

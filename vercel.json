@@ -8,10 +8,6 @@
       "schedule": "0 20 * * *"
     },
     {
-      "path": "/api/cron/warehouse-contracts",
-      "schedule": "0 1 * * *"
-    },
-    {
       "path": "/api/cron/push-flush",
       "schedule": "0 0 * * *"
     }

@@ -2044,3 +2044,18 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
 .tu-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .tu-desc { font-size: var(--fs-sm); color: var(--muted); margin: 0.6rem 0 0; }
 .aps-tutor { display: flex; align-items: center; gap: 0.35rem; width: 100%; margin-top: 0.45rem; padding: 0.45rem 0; border: none; border-top: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: left; }
+
+/* ═══ Эрээнд агуулахтай болох — холбогдох цонх ═══ */
+.pc-bg { position: fixed; inset: 0; z-index: 10070; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.pc { position: relative; width: 100%; max-width: 380px; background: var(--surface); border-radius: 18px; padding: 1.5rem 1.25rem 1.25rem; box-shadow: var(--shadow-lg); text-align: center; animation: an-up 0.22s cubic-bezier(.22,1,.36,1); }
+.pc h3 { font-size: 1.1rem; font-weight: 800; margin: 0 0 0.35rem; }
+.pc-sub { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; margin: 0 0 1rem; }
+.pc-x { position: absolute; top: 0.7rem; right: 0.7rem; width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--surface2); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.pc-phones { display: grid; gap: 0.5rem; margin-bottom: 1rem; }
+.pc-phone { display: flex; align-items: center; gap: 0.4rem; }
+.pc-phone a { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem; border-radius: 12px; background: var(--accent); color: var(--on-accent); text-decoration: none; font-size: 1.05rem; }
+.pc-phone a b { letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.pc-phone button { width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.pc-qr { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+.pc-qr img { width: 180px; height: 180px; object-fit: contain; border-radius: 12px; background: #fff; padding: 6px; border: 1px solid var(--border); }
+.pc-qr span { display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-xs); color: var(--muted); }

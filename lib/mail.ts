@@ -39,19 +39,6 @@ export async function sendCargoSignupOtpEmail(email: string, code: string, cargo
   })
 }
 
-export async function sendContractOtpEmail(email: string, code: string, warehouseName: string) {
-  await send({
-    from: FROM,
-    to: email,
-    subject: `"${warehouseName}" агуулахтай гэрээ — баталгаажуулах код`,
-    text: `"${warehouseName}" агуулахтай гэрээ байгуулах хүсэлтийн баталгаажуулах код: ${code}\n\nЭнэ код 10 минутын дараа хүчингүй болно.\n\nТа өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлоно уу.\n\n— Aicargo`,
-    html: `<p><strong>"${escapeHtml(warehouseName)}"</strong> агуулахтай гэрээ байгуулах хүсэлтийн баталгаажуулах код:</p>
-<p style="font-size:2rem;font-weight:800;letter-spacing:6px;">${code}</p>
-<p style="color:#888;font-size:0.85rem;">Энэ код <strong>10 минутын</strong> дараа хүчингүй болно.</p>
-<p style="color:#888;font-size:0.8rem;">Та өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлоно уу.</p>`,
-  })
-}
-
 export async function sendMoveOtpEmail(email: string, code: string, cargoName: string) {
   await send({
     from: FROM,
@@ -96,46 +83,4 @@ ${cargoName} өнөөдөр ${closingTime} цаг хүртэл ажиллаж б
   })
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
-}
 
-export async function sendContractEmail(to: string[], subject: string, lines: string[]) {
-  await send({
-    from: FROM,
-    to,
-    subject,
-    text: `${lines.join('\n')}\n\n— Aicargo`,
-    html: `${lines.map(l => /^https?:\/\//.test(l)
-      ? `<p><a href="${escapeHtml(l)}">${escapeHtml(l)}</a></p>`
-      : `<p>${escapeHtml(l)}</p>`).join('')}<p style="color:#888;font-size:0.8rem;">— Aicargo</p>`,
-  })
-}
-
-const STATUS_MN: Record<string, string> = {
-  DRAFT: 'Ноорог', AWAITING_PAYMENT: 'Төлбөр хүлээгдэж байна', PAYMENT_REVIEW: 'Төлбөр шалгаж байна',
-  ACTIVE: 'Хүчинтэй', TERMINATION_PENDING: 'Цуцлагдаж байна',
-}
-
-// Нэвтрэлтгүй гэрээний нууц холбоос(ууд)
-export async function sendGuestContractLinks(email: string, items: { warehouseName: string; contractNo: string; status: string; link: string }[]) {
-  const text = items.map(i => `• ${i.warehouseName} — ${i.contractNo} (${STATUS_MN[i.status] ?? i.status})\n  ${i.link}`).join('\n\n')
-  await send({
-    from: FROM,
-    to: email,
-    subject: items.length === 1 ? `"${items[0].warehouseName}" агуулахтай байгуулах гэрээ` : 'Таны агуулахын гэрээнүүд',
-    text: `Сайн байна уу,
-
-Эрээний агуулахтай байгуулах цахим гэрээгээ доорх холбоосоор нээнэ үү:
-
-${text}
-
-Энэ холбоос зөвхөн танд зориулагдсан тул бусадтай хуваалцахгүй байна уу. Та өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлоно уу.
-
-— Aicargo`,
-    html: `<p>Сайн байна уу,</p><p>Эрээний агуулахтай байгуулах цахим гэрээгээ доорх холбоосоор нээнэ үү:</p>${items.map(i => `
-<p style="margin:14px 0;"><strong>${escapeHtml(i.warehouseName)}</strong> — ${escapeHtml(i.contractNo)} <span style="color:#888;">(${escapeHtml(STATUS_MN[i.status] ?? i.status)})</span><br>
-<a href="${escapeHtml(i.link)}" style="display:inline-block;margin-top:6px;background:#c96442;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;">Гэрээ нээх</a></p>`).join('')}
-<p style="color:#888;font-size:0.8rem;">Энэ холбоос зөвхөн танд зориулагдсан тул бусадтай хуваалцахгүй байна уу. Та өөрөө хүсэлт гаргаагүй бол энэ имэйлийг үл тоомсорлоно уу.</p>`,
-  })
-}

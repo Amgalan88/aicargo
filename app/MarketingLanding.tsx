@@ -13,6 +13,7 @@ import { warehousePath, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
 import HeroMockup from './components/HeroMockup'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import PartnerMarquee from './components/PartnerMarquee'
+import { PartnerContactModal } from './components/PartnerContact'
 
 const STATUS_LABEL: Record<string, string> = {
   REGISTERED: 'Бүртгүүлсэн',
@@ -63,10 +64,7 @@ const PLAN_FEATURES = [
 ]
 
 interface PartnerCargo { id: number; name: string; logoUrl: string | null }
-interface Warehouse {
-  id: number; slug: string | null; name: string; imageUrl: string | null
-  contractFee: string; acceptsContracts: boolean
-}
+interface Warehouse { id: number; slug: string | null; name: string; imageUrl: string | null }
 
 function SectionHead({ eyebrow, title, sub }: { eyebrow?: string; title: ReactNode; sub?: ReactNode }) {
   return (
@@ -99,7 +97,9 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [demoOpen, setDemoOpen] = useState(false)
   const [showSticky, setShowSticky] = useState(false)
   const heroCta = useRef<HTMLDivElement>(null)
-  const featuredWh = warehouses.find(w => w.acceptsContracts && w.imageUrl) ?? warehouses.find(w => w.acceptsContracts) ?? warehouses[0]
+  const featuredWh = warehouses.find(w => w.imageUrl) ?? warehouses[0]
+  // Эрээнд агуулахтай болох — цахим гэрээний оронд шууд холбогдоно (утас, WeChat)
+  const [contactOpen, setContactOpen] = useState(false)
 
   // Утсанд: hero-гийн CTA дэлгэцээс гарахад доод талд CTA зурвас гарна
   useEffect(() => {
@@ -229,11 +229,11 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 <span className="lp-offer-txt"><b>Каргогоо үнэгүй нээх</b><small>Вэбсайт + систем · 30 хоног үнэгүй</small></span>
                 <ArrowRight size={18} className="lp-offer-go" />
               </Link>
-              <a href={featuredWh ? '#warehouse' : '/warehouses'} className="lp-offer">
+              <button type="button" onClick={() => setContactOpen(true)} className="lp-offer">
                 <span className="lp-offer-ic"><WarehouseIcon size={20} /></span>
-                <span className="lp-offer-txt"><b>Эрээнд агуулахтай болох</b><small>Хувь хүн ч болно · 3 минутад</small></span>
+                <span className="lp-offer-txt"><b>Эрээнд агуулахтай болох</b><small>Хувь хүн ч болно · шууд холбогдоно</small></span>
                 <ArrowRight size={18} className="lp-offer-go" />
-              </a>
+              </button>
             </div>
             <ul className="lp-assure">
               <li><Check size={14} strokeWidth={3} />Карт шаардлагагүй</li>
@@ -338,14 +338,13 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 <Reveal y={20} delay={0.08} className="lp-plan">
                   <span className="lp-plan-tag lp-plan-tag-alt">Нэмэлт</span>
                   <h3>Эрээнд ачаа хүлээн авах хаяг</h3>
-                  <div className="lp-plan-price"><b>{formatMnt(featuredWh.contractFee)}</b><span>нэг удаа</span></div>
-                  <div className="lp-plan-free"><Gift size={14} />Бэлэг: вэбсайт +60 хоног үнэгүй</div>
+                  <div className="lp-plan-price"><b>Түнш агуулах</b></div>
                   <ul>
                     <li><Check size={15} strokeWidth={3} />Өөрийн тэмдэгтэй хаяг (жш: B88)</li>
                     <li><Check size={15} strokeWidth={3} />Хүлээн авч, баглаад Гааль хүртэл</li>
                     <li><Check size={15} strokeWidth={3} />Хувь хүн ч болно</li>
                   </ul>
-                  <a href="#warehouse" className="btn-ghost btn-lg">Дэлгэрэнгүй <ArrowRight size={17} /></a>
+                  <button type="button" onClick={() => setContactOpen(true)} className="btn-ghost btn-lg">Холбогдох <ArrowRight size={17} /></button>
                 </Reveal>
               )}
             </div>
@@ -355,21 +354,14 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
 
         {/* ── ЭРЭЭНИЙ АГУУЛАХ ── */}
         {featuredWh && (() => {
-          const featured = featuredWh
-          const ctaHref = featured.acceptsContracts ? `${warehousePath(featured)}/contract` : '/warehouses'
           return (
             <section id="warehouse" className="lp-wh">
               <div className="lp-wh-inner lp-wh-grid">
                 <Reveal y={20}>
                   <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><WarehouseIcon size={15} strokeWidth={2.2} /> Нэмэлт үйлчилгээ · Эрээн</div>
-                  <h2 className="lp-wh-title">Эрээнд ачаа хүлээн авах өөрийн хаягтай бол</h2>
-                  <p className="lp-wh-lead">Хувь хүн ч болно, карго нээх шаардлагагүй.</p>
-                  <ol className="lp-wh-flow">
-                    {['Хүсэлт', 'Төлбөр', 'Хаягаа тохир'].map((t, i) => (
-                      <li key={t}><b>{i + 1}</b>{t}</li>
-                    ))}
-                  </ol>
-                  <Link href={ctaHref} className="btn lp-wh-cta">Эрээнд хаяг авах <ArrowRight size={16} /></Link>
+                  <h2 className="lp-wh-title">Эрээн дэх түнш агуулахууд</h2>
+                  <p className="lp-wh-lead">Ачаа хүлээн авч, баглаад Гааль хүртэл хүргэнэ. Хувь хүн ч болно, карго нээх шаардлагагүй.</p>
+                  <button type="button" onClick={() => setContactOpen(true)} className="btn lp-wh-cta">Холбогдох <ArrowRight size={16} /></button>
                 </Reveal>
 
                 {/* Агуулах бүр — зураг, үнэ; дарахад дэлгэрэнгүй хуудас */}
@@ -384,10 +376,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                       </span>
                       <span className="lp-wh-card-body">
                         <span className="lp-wh-card-name">{w.name}</span>
-                        <span className="lp-wh-card-fee"><b>{formatMnt(w.contractFee)}</b> нэг удаа</span>
-                        {w.acceptsContracts
-                          ? <span className="lp-wh-card-tag on">Гэрээ хийж байна</span>
-                          : <span className="lp-wh-card-tag">Удахгүй</span>}
+                        <span className="lp-wh-card-fee">Зураг, үйлчилгээтэй танилцах</span>
                       </span>
                       <ArrowRight size={17} className="lp-wh-card-go" />
                     </Link>
@@ -478,6 +467,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
       </main>
+      {contactOpen && <PartnerContactModal onClose={() => setContactOpen(false)} />}
 
       {/* ── FOOTER ── */}
       <footer className="lp-footer">
