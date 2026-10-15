@@ -5,12 +5,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Truck,
   Users, Megaphone, CircleHelp, Settings, Sparkles, ScrollText, SearchCheck,
-  Bell, LogOut, Link2, Check, ShoppingCart, CalendarClock, Ellipsis, ChevronDown, X,
+  Bell, LogOut, Link2, Check, ShoppingCart, PlayCircle, CalendarClock, Ellipsis, ChevronDown, X,
   type LucideIcon,
 } from 'lucide-react'
 import NavLogo from '@/app/components/NavLogo'
 import ThemeToggle from '@/app/components/ThemeToggle'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
+import { ADMIN_TUTORIALS, withVideo } from '@/lib/tutorials'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 
 type NavLink = { href: string; label: string; short?: string; icon: LucideIcon; count?: number }
@@ -137,6 +138,8 @@ export default function AdminNav({
     ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт', icon: SearchCheck }] : []),
     ...(AI_SUPPORT_ENABLED ? [{ href: '/admin/ai', label: 'AI туслах', icon: Sparkles }] : []),
     { href: '/admin/faq', label: 'FAQ', icon: CircleHelp },
+    // Видео нэмэгдсэн үед л харагдана (lib/tutorials)
+    ...(withVideo(ADMIN_TUTORIALS).length ? [{ href: '/admin/help', label: 'Заавар видео', icon: PlayCircle }] : []),
     { href: '/admin/settings', label: 'Тохиргоо', icon: Settings },
     ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог', icon: ScrollText }] : []),
   ]

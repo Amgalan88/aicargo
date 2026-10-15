@@ -17,6 +17,8 @@ import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import { cleanTrackCode, looksLikeOrderNumber } from '@/lib/track-code'
 import ThemeToggle from '../components/ThemeToggle'
 import { PushPrompt, AppSettingsRows } from '../components/AppNotify'
+import { TutorialSheet } from '../components/Tutorials'
+import { USER_TUTORIALS, withVideo } from '@/lib/tutorials'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useUserLang } from '../components/useUserLang'
 import { StaggerItem } from '../components/motion'
@@ -315,6 +317,8 @@ export default function OrdersClient({
   const [shipments, setShipments] = useState(initialShipments)
   // Линк захиалга: карго асаасан + хэрэглэгч өөрөө асаасан үед л дээд цэсэнд гарна
   const [linkOn, setLinkOn] = useState(linkOrdersOn)
+  const [tutorialsOpen, setTutorialsOpen] = useState(false)
+  const hasTutorials = withVideo(USER_TUTORIALS).length > 0
   async function toggleLinkOrders() {
     const on = !linkOn
     setLinkOn(on)
@@ -616,6 +620,11 @@ export default function OrdersClient({
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.navTheme}</span>
                     <ThemeToggle />
                   </div>
+                  {hasTutorials && (
+                    <button type="button" className="aps-tutor" onClick={() => { setNavPopup(null); setTutorialsOpen(true) }}>
+                      ▶ {t.tutorials}
+                    </button>
+                  )}
                   {/* Push мэдэгдэл + апп суулгах */}
                   <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.45rem', marginTop: '0.1rem' }}>
                     <AppSettingsRows t={t} />
@@ -649,6 +658,7 @@ export default function OrdersClient({
           </NavItem>
         </div>
       </nav>
+      {tutorialsOpen && <TutorialSheet list={USER_TUTORIALS} title={t.tutorials} onClose={() => setTutorialsOpen(false)} />}
       <ChatWidget open={navPopup === 'faq'} onClose={() => setNavPopup(null)} />
       <NamelessSearch open={navPopup === 'nameless'} onClose={() => setNavPopup(null)} t={t} />
       {aiEnabled && AI_SUPPORT_ENABLED && <UserAIWidget userName={userName} cargoName={cargoName} suggestions={aiSuggestions} />}

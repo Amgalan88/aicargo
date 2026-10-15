@@ -1992,3 +1992,30 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
 .al-detail { font-size: 0.8rem; color: var(--text); opacity: 0.85; margin: 0.15rem 0 0; overflow-wrap: anywhere; line-height: 1.45; }
 .al-who { display: flex; align-items: center; gap: 0.35rem; font-size: var(--fs-xs); color: var(--muted); margin-top: 0.2rem; }
 .al-more { display: flex; margin: 0.5rem auto 0; }
+
+/* ═══ Заавар видео ═══ */
+.tu-page { max-width: 760px; }
+.tu-sub { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 1rem; }
+.tu-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+.tu-item { display: flex; flex-direction: column; text-align: left; padding: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); cursor: pointer; font: inherit; color: var(--text); }
+.tu-item:hover { border-color: var(--accent); }
+.tu-thumb { position: relative; aspect-ratio: 16 / 9; background: var(--surface2); display: grid; place-items: center; }
+.tu-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tu-thumb svg { position: relative; color: #fff; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)); }
+.tu-txt { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.6rem 0.75rem 0.7rem; }
+.tu-txt b { font-size: 0.88rem; }
+.tu-txt small { font-size: var(--fs-xs); color: var(--muted); line-height: 1.4; }
+.tu-bg { position: fixed; inset: 0; z-index: 10060; background: rgba(0,0,0,0.55); display: flex; align-items: flex-end; justify-content: center; }
+.tu-sheet { width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto; background: var(--surface); border-radius: 18px 18px 0 0; padding: 0.9rem 1rem calc(1.1rem + env(safe-area-inset-bottom)); box-shadow: var(--shadow-lg); animation: an-up 0.22s cubic-bezier(.22,1,.36,1); }
+.tu-sheet .tu-list { grid-template-columns: 1fr; }
+.tu-sheet .tu-item { flex-direction: row; align-items: center; }
+.tu-sheet .tu-thumb { width: 120px; flex-shrink: 0; }
+.tu-wide { max-width: 860px; }
+@media (min-width: 640px) { .tu-bg { align-items: center; } .tu-sheet { border-radius: 18px; } }
+.tu-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+.tu-head b { flex: 1; min-width: 0; font-size: var(--fs-md); }
+.tu-x { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--surface2); color: var(--muted); display: grid; place-items: center; cursor: pointer; flex-shrink: 0; }
+.tu-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; }
+.tu-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.tu-desc { font-size: var(--fs-sm); color: var(--muted); margin: 0.6rem 0 0; }
+.aps-tutor { display: flex; align-items: center; gap: 0.35rem; width: 100%; margin-top: 0.45rem; padding: 0.45rem 0; border: none; border-top: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: left; }
