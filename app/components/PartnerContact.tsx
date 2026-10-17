@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react'
 import { Phone, X, Copy, Check, MessageCircle } from 'lucide-react'
 
 // Эрээнд агуулахтай болох / агуулахтай түншлэх — цахим гэрээний оронд шууд холбогдоно.
-// Утас 2, WeChat QR (public/wechat-qr.png)
+// Утас, WeChat QR (public/wechat-qr.png)
 
-export const PARTNER_PHONES = ['88988900', '85205258']
+export const PARTNER_PHONES = ['85205258']
 
 export function PartnerContactModal({ onClose, title = 'Эрээнд агуулахтай болох' }: { onClose: () => void; title?: string }) {
   const [copied, setCopied] = useState('')
