@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import { cleanTrackCode, parseArrivedCode } from '@/lib/track-code'
+import OwnerChangesNote, { type OwnerChange } from '../OwnerChangesNote'
 
 function fmtDT(iso: string) {
   const d = new Date(iso)
@@ -18,6 +19,7 @@ interface SearchResult {
   id: number; trackCode: string; phone: string | null; adminPrice: number | null
   adminNote: string | null; createdAt: string; updatedAt?: string; description?: string | null
   user?: { name: string; phone: string } | null
+  ereenArrivedAt?: string | null
 }
 
 interface TodayEntry { display: string; isPhone: boolean; description: string }
@@ -73,6 +75,7 @@ export default function ArrivedPage() {
   const xlsxRef = useRef<HTMLInputElement>(null)
   const [xlsxMsg, setXlsxMsg] = useState('')
   const [xlsxLoading, setXlsxLoading] = useState(false)
+  const [ownerChanges, setOwnerChanges] = useState<{ list: OwnerChange[]; count: number }>({ list: [], count: 0 })
 
   // Огноогоор bulk буцаах
   const [revertModal, setRevertModal] = useState(false)
@@ -166,7 +169,15 @@ export default function ArrivedPage() {
         }
 
         const rows = parsedAll.filter(r => !!r.trackCode).map(({ trackCode, phone, price }) => ({ trackCode, phone, price }))
-        if (!await confirmAsync(`${rows.length} бараа Ирсэн статустай болгох уу?`)) return
+        const byCode = new Map<string, typeof rows>()
+        for (const r of rows) byCode.set(r.trackCode, [...(byCode.get(r.trackCode) ?? []), r])
+        const dupes = [...byCode.entries()].filter(([, rs]) => rs.length > 1)
+        if (dupes.length > 0) {
+          const ex = dupes.slice(0, 5).map(([c, rs]) => `${c}: ${rs.map(r => r.phone ?? 'утасгүй').join(' / ')}`).join('\n')
+          const proceed = await confirmAsync(`⚠ ${dupes.length} трак код Excel-д давхардсан байна — СҮҮЛИЙН мөр нь орно:\n\n${ex}${dupes.length > 5 ? '\n...' : ''}\n\nҮргэлжлүүлэх үү?`)
+          if (!proceed) return
+        }
+        if (!await confirmAsync(`${byCode.size} бараа Ирсэн статустай болгох уу?`)) return
         setXlsxLoading(true)
         const res = await fetch('/api/admin/arrived', {
           method: 'PUT',
@@ -177,6 +188,7 @@ export default function ArrivedPage() {
         if (res.ok) {
           const d = await res.json()
           setXlsxMsg(`✓ ${d.count} бараа Ирсэн статустай болсон`)
+          setOwnerChanges({ list: d.ownerChanges ?? [], count: d.ownerChangeCount ?? 0 })
           loadToday()
         } else {
           setXlsxMsg('Алдаа гарлаа')
@@ -213,7 +225,7 @@ export default function ArrivedPage() {
   }
 
   async function revert(id: number) {
-    if (!await confirmAsync('Энэ барааг Эрээнд ирсэн төлөвт буцаах уу?')) return
+    if (!await confirmAsync('Энэ барааг өмнөх төлөвт нь буцаах уу? (Эрээнд уншуулж байсан бол Эрээнд ирсэн, үгүй бол Бүртгүүлсэн)')) return
     const res = await fetch('/api/admin/arrived', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -244,7 +256,7 @@ export default function ArrivedPage() {
   }
 
   async function revertByDate() {
-    if (revertConfirm !== 'УСТГАХ' || !revertDate || revertLoading) return
+    if (revertConfirm !== 'БУЦААХ' || !revertDate || revertLoading) return
     setRevertLoading(true)
     try {
       const res = await fetch('/api/admin/arrived', {
@@ -254,7 +266,7 @@ export default function ArrivedPage() {
       })
       const data = await res.json()
       if (!res.ok) { setRevertMsg(data.error || 'Алдаа гарлаа'); return }
-      setRevertMsg(`✓ ${data.count} бараа Эрээнд буцлаа`)
+      setRevertMsg(`✓ ${data.count} бараа буцлаа — Эрээнд ${data.toEreen ?? 0}, Бүртгүүлсэн ${data.toRegistered ?? 0}`)
       setRevertModal(false)
       loadToday()
       setSearchResults(null)
@@ -386,6 +398,7 @@ export default function ArrivedPage() {
           {xlsxLoading ? 'Оруулж байна...' : 'Excel-ээр bulk оруулах'}
         </button>
         {xlsxMsg && <span style={{ fontSize: '0.8rem', color: xlsxMsg.startsWith('✓') ? 'var(--accent)' : 'var(--danger)' }}>{xlsxMsg}</span>}
+        <OwnerChangesNote changes={ownerChanges.list} count={ownerChanges.count} />
 
         <button onClick={openRevertModal} style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -449,7 +462,7 @@ export default function ArrivedPage() {
                                     <span style={{ fontFamily: 'monospace', fontWeight: 700, flex: 1 }}>{s.trackCode}</span>
                                     {s.adminPrice && <span style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>₮{Number(s.adminPrice).toLocaleString()}</span>}
                                     <button onClick={() => openEdit(s)} title="Засах" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
-                                    <button onClick={() => revert(s.id)} title="Эрээнд буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
+                                    <button onClick={() => revert(s.id)} title="Буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
                                   </div>
                                   {s.adminNote && <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.1rem' }}>{s.adminNote}</div>}
                                 </div>
@@ -471,7 +484,7 @@ export default function ArrivedPage() {
                         <span style={{ fontFamily: 'monospace', fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.trackCode}</span>
                         {s.adminPrice && <span style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>₮{Number(s.adminPrice).toLocaleString()}</span>}
                         <button onClick={() => openEdit(s)} title="Засах" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
-                        <button onClick={() => revert(s.id)} title="Эрээнд буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
+                        <button onClick={() => revert(s.id)} title="Буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.1rem', color: 'var(--muted)', fontSize: '0.78rem' }}>
                         <span style={{ flexShrink: 0 }}>
@@ -683,9 +696,9 @@ export default function ArrivedPage() {
       {revertModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}>
           <div className="card" style={{ width: '100%', maxWidth: 420, padding: '1.5rem' }}>
-            <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 700, color: 'var(--danger)' }}>⚠ Огноогоор Эрээнд буцаах</h3>
+            <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 700, color: 'var(--danger)' }}>⚠ Огноогоор буцаах</h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem', lineHeight: 1.6 }}>
-              Сонгосон өдөр <strong style={{ color: 'var(--text)' }}>Ирсэн</strong> болсон бүх бараа <strong style={{ color: 'var(--text)' }}>Эрээнд ирсэн</strong> төлөвт буцаж, үнэ нь цэвэрлэгдэнэ. Энэ үйлдлийг буцааж болохгүй.
+              Сонгосон өдөр <strong style={{ color: 'var(--text)' }}>Ирсэн</strong> болсон бараа өмнөх төлөвтөө буцна: Эрээнд уншуулж байсан нь <strong style={{ color: 'var(--text)' }}>Эрээнд ирсэн</strong>, бусад нь <strong style={{ color: 'var(--text)' }}>Бүртгүүлсэн</strong>. Үнэ нь цэвэрлэгдэнэ.
             </p>
             <div className="form-group">
               <label>Огноо</label>
@@ -698,23 +711,23 @@ export default function ArrivedPage() {
                 {revertPreviewLoading ? 'Шалгаж байна...' :
                   revertPreview === null ? '' :
                   revertPreview.length === 0 ? 'Энэ өдөр Ирсэн бараа алга.' :
-                  <>Тохирох: <strong style={{ color: 'var(--text)' }}>{revertPreview.length} бараа</strong></>}
+                  <>Тохирох: <strong style={{ color: 'var(--text)' }}>{revertPreview.length} бараа</strong> — Эрээнд {revertPreview.filter(x => x.ereenArrivedAt).length}, Бүртгүүлсэн {revertPreview.filter(x => !x.ereenArrivedAt).length}</>}
               </p>
             )}
             {revertDate && revertPreview && revertPreview.length > 0 && (
               <>
                 <p style={{ fontSize: '0.82rem', marginBottom: '0.5rem' }}>
-                  Үргэлжлүүлэхийн тулд <strong>УСТГАХ</strong> гэж бичнэ үү:
+                  Үргэлжлүүлэхийн тулд <strong>БУЦААХ</strong> гэж бичнэ үү:
                 </p>
-                <input className="input" placeholder="УСТГАХ" value={revertConfirm}
+                <input className="input" placeholder="БУЦААХ" value={revertConfirm}
                   onChange={e => setRevertConfirm(e.target.value)}
-                  style={{ marginBottom: '1rem', borderColor: revertConfirm === 'УСТГАХ' ? 'var(--danger)' : undefined }} />
+                  style={{ marginBottom: '1rem', borderColor: revertConfirm === 'БУЦААХ' ? 'var(--danger)' : undefined }} />
               </>
             )}
             <div style={{ display: 'flex', gap: '0.6rem' }}>
               <button className="btn" onClick={revertByDate}
-                disabled={revertConfirm !== 'УСТГАХ' || !revertPreview?.length || revertLoading}
-                style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', opacity: revertConfirm === 'УСТГАХ' ? 1 : 0.4 }}>
+                disabled={revertConfirm !== 'БУЦААХ' || !revertPreview?.length || revertLoading}
+                style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', opacity: revertConfirm === 'БУЦААХ' ? 1 : 0.4 }}>
                 {revertLoading ? 'Буцааж байна...' : 'Буцаах'}
               </button>
               <button onClick={() => setRevertModal(false)} style={{ flex: 1, padding: '0.6rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Болих</button>

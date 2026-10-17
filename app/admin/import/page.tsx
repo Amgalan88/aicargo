@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx'
 import StaleEreen from './StaleEreen'
 import { ResultRow, type ResultShipment } from './ShipmentResults'
 import { cleanTrackCode, isTrackCode, parseTrackCode } from '@/lib/track-code'
+import OwnerChangesNote, { type OwnerChange } from '../OwnerChangesNote'
 
 interface Row { trackCode: string; phone?: string }
 type SearchResult = ResultShipment
@@ -47,6 +48,7 @@ export default function ImportPage() {
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState<number | null>(null)
   const [duplicates, setDuplicates] = useState<string[]>([])
+  const [ownerChanges, setOwnerChanges] = useState<{ list: OwnerChange[]; count: number }>({ list: [], count: 0 })
   const [error, setError] = useState('')
   const [lastAdded, setLastAdded] = useState('')
 
@@ -264,6 +266,7 @@ export default function ImportPage() {
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
       setDone(data.count)
       setDuplicates(data.duplicates ?? [])
+      setOwnerChanges({ list: data.ownerChanges ?? [], count: data.ownerChangeCount ?? 0 })
       setRows([])
       setLastAdded('')
       setPage(1)
@@ -516,6 +519,7 @@ export default function ImportPage() {
               </span>
             </div>
           )}
+          <OwnerChangesNote changes={ownerChanges.list} count={ownerChanges.count} />
         </div>
       )}
 

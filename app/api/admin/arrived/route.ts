@@ -5,6 +5,8 @@ import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { logAdminAction, auditLater } from '@/lib/audit'
 import { notifyArrivedForCargo } from '@/lib/push'
 import { parseArrivedCode } from '@/lib/track-code'
+import { resolveImportOwners } from '@/lib/import-owner'
+import { ubDayRange } from '@/lib/ub-date'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -40,32 +42,14 @@ export async function PUT(req: NextRequest) {
   })
   const existingByCode = new Map(existingRows.map(s => [s.trackCode, s]))
 
-  const resolvedPhoneByCode = new Map<string, string | null>()
-  const phonesNeedingLookup = new Set<string>()
-  for (const code of codes) {
-    const existing = existingByCode.get(code)
-    const manualPhone = rowByCode.get(code)!.phone?.trim() || null
-    const resolvedPhone = existing?.user?.phone || existing?.phone || manualPhone || null
-    resolvedPhoneByCode.set(code, resolvedPhone)
-    if (!existing?.userId && resolvedPhone) phonesNeedingLookup.add(resolvedPhone)
-  }
-  const matchedUsers = phonesNeedingLookup.size > 0
-    ? await prisma.user.findMany({ where: { cargoId, phone: { in: Array.from(phonesNeedingLookup) } }, select: { id: true, phone: true } })
-    : []
-  const userIdByPhone = new Map(matchedUsers.map(u => [u.phone, u.id]))
-
-  const prices: (number | null)[] = []
-  const phones: (string | null)[] = []
-  const userIds: (number | null)[] = []
-  for (const code of codes) {
-    const existing = existingByCode.get(code)
-    const resolvedPhone = resolvedPhoneByCode.get(code) ?? null
-    const resolvedUserId = existing?.userId ?? (resolvedPhone ? userIdByPhone.get(resolvedPhone) ?? null : null)
-    const price = rowByCode.get(code)!.price
-    prices.push(typeof price === 'number' ? price : null)
-    phones.push(resolvedPhone)
-    userIds.push(resolvedUserId)
-  }
+  // Эзэн: Excel-ийн утас давуу (lib/import-owner)
+  const { phones, userIds, changes } = await resolveImportOwners(
+    cargoId, codes, new Map(codes.map(c => [c, rowByCode.get(c)!.phone])), existingByCode,
+  )
+  const prices = codes.map(c => { const p = rowByCode.get(c)!.price; return typeof p === 'number' ? p : null })
+  // Олгогдсон ачааг хөндөхгүй тул эзэн нь ч солигдохгүй
+  const ownerChanges = changes.filter(x => existingByCode.get(x.trackCode)?.status !== 'PICKED_UP')
+  const duplicateRows = rows.length - notCodes.length - codes.length
 
   const now = new Date()
   await prisma.$executeRaw`
@@ -77,7 +61,7 @@ export async function PUT(req: NextRequest) {
       "arrivedAt" = ${now},
       "adminPrice" = EXCLUDED."adminPrice",
       phone = EXCLUDED.phone,
-      "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
+      "userId" = EXCLUDED."userId",
       "updatedAt" = ${now}
     WHERE "Shipment".status != 'PICKED_UP'
   `
@@ -100,9 +84,12 @@ export async function PUT(req: NextRequest) {
   auditLater({
     cargoId, userId: admin.userId, userName: admin.name,
     action: 'shipment:import-arrived',
-    detail: `${codes.length - skipped} ачаа${skipped ? ` (${skipped} олгогдсон тул алгассан)` : ''}`,
+    detail: `${codes.length - skipped} ачаа${skipped ? ` (${skipped} олгогдсон тул алгассан)` : ''}${ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''}`,
   })
-  return NextResponse.json({ count: codes.length - skipped, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length })
+  return NextResponse.json({
+    count: codes.length - skipped, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    duplicateRows, ownerChanges: ownerChanges.slice(0, 200), ownerChangeCount: ownerChanges.length,
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -128,14 +115,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Энэ бараа аль хэдийн олгогдсон байна' }, { status: 400 })
   }
 
-  const resolvedPhone = existing?.user?.phone || existing?.phone || manualPhone || null
-
-  // Auto-link userId only if user belongs to THIS cargo
-  let resolvedUserId = existing?.userId ?? null
-  if (!resolvedUserId && resolvedPhone) {
-    const matchedUser = await prisma.user.findFirst({ where: { phone: resolvedPhone, cargoId: admin.cargoId! } })
-    if (matchedUser) resolvedUserId = matchedUser.id
-  }
+  // Эзэн: админы бичсэн утас давуу (Excel импорттой ижил дүрэм — lib/import-owner)
+  const owners = await resolveImportOwners(
+    admin.cargoId!, [code], new Map([[code, manualPhone ? String(manualPhone) : null]]),
+    new Map(existing ? [[code, existing]] : []),
+  )
+  const resolvedPhone = owners.phones[0]
+  const resolvedUserId = owners.userIds[0]
 
   const shipment = await prisma.shipment.upsert({
     where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
@@ -145,7 +131,7 @@ export async function POST(req: NextRequest) {
       adminPrice: adminPrice ? Number(adminPrice) : null,
       adminNote: adminNote || null,
       phone: resolvedPhone,
-      ...(resolvedUserId ? { userId: resolvedUserId } : {}),
+      userId: resolvedUserId,
     },
     create: {
       trackCode: code,
@@ -222,27 +208,29 @@ export async function DELETE(req: NextRequest) {
 
   const body = await req.json()
 
-  // Огноогоор bulk буцаах — тухайн өдөр Ирсэн болгосон бүх барааг Эрээнд буцаана
+  // Огноогоор bulk буцаах — тухайн өдөр (УБ цагаар) Ирсэн болгосон барааг ӨМНӨХ төлөвт нь буцаана:
+  // Эрээнд уншуулж байсан бол Эрээнд ирсэн, үгүй бол Бүртгүүлсэн (revertTarget)
   if (body.date) {
-    if (body.confirm !== 'УСТГАХ') {
+    if (body.confirm !== 'БУЦААХ') {
       return NextResponse.json({ error: 'Баталгаажуулалт буруу' }, { status: 400 })
     }
-    const dayStart = new Date(`${body.date}T00:00:00`)
-    const dayEnd = new Date(`${body.date}T23:59:59.999`)
-    if (isNaN(dayStart.getTime())) {
+    const range = ubDayRange(body.date)
+    if (!range) {
       return NextResponse.json({ error: 'Огноо буруу байна' }, { status: 400 })
     }
-    const { count } = await prisma.shipment.updateMany({
-      where: { cargoId: admin.cargoId!, status: 'ARRIVED', arrivedAt: { gte: dayStart, lte: dayEnd } },
-      data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null },
-    })
+    const where = { cargoId: admin.cargoId!, status: 'ARRIVED' as const, arrivedAt: { gte: range.start, lte: range.end } }
+    const [toEreen, toRegistered] = await prisma.$transaction([
+      prisma.shipment.updateMany({ where: { ...where, ereenArrivedAt: { not: null } }, data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null } }),
+      prisma.shipment.updateMany({ where: { ...where, ereenArrivedAt: null }, data: { status: 'REGISTERED', adminPrice: null, arrivedAt: null } }),
+    ])
+    const count = toEreen.count + toRegistered.count
     if (count > 0) {
       await logAdminAction(prisma, {
         cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
-        action: 'shipment:revert-arrived', detail: `${body.date}: ${count} ачаа`,
+        action: 'shipment:revert-arrived', detail: `${body.date}: ${count} ачаа (Эрээнд ${toEreen.count}, Бүртгүүлсэн ${toRegistered.count})`,
       })
     }
-    return NextResponse.json({ count })
+    return NextResponse.json({ count, toEreen: toEreen.count, toRegistered: toRegistered.count })
   }
 
   const { id } = body
@@ -255,10 +243,13 @@ export async function DELETE(req: NextRequest) {
   if (target.status === 'PICKED_UP') {
     return NextResponse.json({ error: 'Аль хэдийн олгогдсон барааг буцааж болохгүй' }, { status: 400 })
   }
+  if (target.status !== 'ARRIVED') {
+    return NextResponse.json({ error: 'Зөвхөн Ирсэн барааг буцаана' }, { status: 400 })
+  }
 
   await prisma.shipment.update({
     where: { id: Number(id), cargoId: admin.cargoId! },
-    data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null },
+    data: { status: target.ereenArrivedAt ? 'EREEN_ARRIVED' : 'REGISTERED', adminPrice: null, arrivedAt: null },
   })
   await logAdminAction(prisma, {
     cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,

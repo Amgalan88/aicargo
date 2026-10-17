@@ -5,6 +5,7 @@ import { notifyEreenForCargo, notifyArrivedForCargo } from '@/lib/push'
 import { auditLater } from '@/lib/audit'
 import { parseTrackCode, parseArrivedCode } from '@/lib/track-code'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
+import { resolveImportOwners } from '@/lib/import-owner'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -67,34 +68,14 @@ export async function POST(req: NextRequest) {
   const existingByCode = new Map(existingRows.map(s => [s.trackCode, s]))
   const duplicates = existingRows.filter(s => s.status === 'EREEN_ARRIVED').map(s => s.trackCode)
 
-  // Утсаар эзнийг холбохын тулд шаардлагатай утаснуудыг НЭГ query-гээр татна
-  // (гар/Excel-ээр орсон утас одоо байгаа жинхэнэ утсыг дарж бичихгүй байхаар
-  // arrived route-той адил дараалалтай: эзний утас → одоогийн утас → гараар орсон утас)
-  const resolvedPhoneByCode = new Map<string, string | null>()
-  const phonesNeedingLookup = new Set<string>()
-  for (const code of codes) {
-    const existing = existingByCode.get(code)
-    const manualPhone = rowByCode.get(code)!.phone?.trim() || null
-    const resolvedPhone = existing?.user?.phone || existing?.phone || manualPhone || null
-    resolvedPhoneByCode.set(code, resolvedPhone)
-    if (!existing?.userId && resolvedPhone) phonesNeedingLookup.add(resolvedPhone)
-  }
-  const matchedUsers = phonesNeedingLookup.size > 0
-    ? await prisma.user.findMany({ where: { cargoId, phone: { in: Array.from(phonesNeedingLookup) } }, select: { id: true, phone: true } })
-    : []
-  const userIdByPhone = new Map(matchedUsers.map(u => [u.phone, u.id]))
-
-  const statuses: string[] = []
-  const phones: (string | null)[] = []
-  const userIds: (number | null)[] = []
-  for (const code of codes) {
-    const existing = existingByCode.get(code)
-    const resolvedPhone = resolvedPhoneByCode.get(code) ?? null
-    const resolvedUserId = existing?.userId ?? (resolvedPhone ? userIdByPhone.get(resolvedPhone) ?? null : null)
-    statuses.push(rowByCode.get(code)!.status)
-    phones.push(resolvedPhone)
-    userIds.push(resolvedUserId)
-  }
+  // Эзэн: Excel-ийн утас давуу, утасгүй бол бүртгүүлсэн хэрэглэгч хэвээр (lib/import-owner, arrived route-той ижил)
+  const { phones, userIds, changes } = await resolveImportOwners(
+    cargoId, codes, new Map(codes.map(c => [c, rowByCode.get(c)!.phone])), existingByCode,
+  )
+  const statuses = codes.map(c => rowByCode.get(c)!.status as string)
+  // Ирсэн, олгогдсон ачааг доорх upsert хөндөхгүй тул эзэн нь ч солигдохгүй
+  const ownerChanges = changes.filter(x => !['ARRIVED', 'PICKED_UP'].includes(existingByCode.get(x.trackCode)?.status ?? ''))
+  const duplicateRows = rows.length - notCodes.length - codes.length
 
   const now = new Date()
   await prisma.$executeRaw`
@@ -109,7 +90,7 @@ export async function POST(req: NextRequest) {
       "arrivedAt" = CASE WHEN EXCLUDED.status = 'ARRIVED' THEN EXCLUDED."arrivedAt" ELSE "Shipment"."arrivedAt" END,
       "ereenArrivedAt" = CASE WHEN EXCLUDED.status = 'EREEN_ARRIVED' THEN EXCLUDED."ereenArrivedAt" ELSE "Shipment"."ereenArrivedAt" END,
       phone = COALESCE(EXCLUDED.phone, "Shipment".phone),
-      "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
+      "userId" = EXCLUDED."userId",
       "updatedAt" = EXCLUDED."updatedAt"
     WHERE "Shipment".status NOT IN ('ARRIVED', 'PICKED_UP')
   `
@@ -136,8 +117,12 @@ export async function POST(req: NextRequest) {
   auditLater({
     cargoId, userId: admin.userId, userName: admin.name,
     action: 'shipment:import',
-    detail: [nEreen && `Эрээн ${nEreen}`, codes.length - nEreen && `Ирсэн ${codes.length - nEreen}`].filter(Boolean).join(' · ') + ' ачаа',
+    detail: [nEreen && `Эрээн ${nEreen}`, codes.length - nEreen && `Ирсэн ${codes.length - nEreen}`].filter(Boolean).join(' · ') + ' ачаа'
+      + (ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''),
   })
 
-  return NextResponse.json({ count: codes.length, duplicates, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length })
+  return NextResponse.json({
+    count: codes.length, duplicates, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    duplicateRows, ownerChanges: ownerChanges.slice(0, 200), ownerChangeCount: ownerChanges.length,
+  })
 }

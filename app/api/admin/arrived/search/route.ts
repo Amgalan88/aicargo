@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
+import { ubDayRange } from '@/lib/ub-date'
 
 export async function GET(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
@@ -30,15 +31,15 @@ export async function GET(req: NextRequest) {
 
   // Огноогоор bulk буцаах хэсэгт урьдчилан хэдэн бараа тохирохыг харуулна
   if (dateParam) {
-    const dayStart = new Date(`${dateParam}T00:00:00`)
-    const dayEnd = new Date(`${dateParam}T23:59:59.999`)
-    if (isNaN(dayStart.getTime())) return NextResponse.json({ error: 'Огноо буруу байна' }, { status: 400 })
+    // Буцаалттай ижил өдөр (УБ цагаар); ereenArrivedAt — хэд нь Эрээнд, хэд нь Бүртгүүлсэн рүү буцахыг харуулна
+    const range = ubDayRange(dateParam)
+    if (!range) return NextResponse.json({ error: 'Огноо буруу байна' }, { status: 400 })
     const shipments = await prisma.shipment.findMany({
-      where: { status: 'ARRIVED', cargoId: admin.cargoId!, arrivedAt: { gte: dayStart, lte: dayEnd } },
+      where: { status: 'ARRIVED', cargoId: admin.cargoId!, arrivedAt: { gte: range.start, lte: range.end } },
       orderBy: { arrivedAt: 'desc' },
       select: {
         id: true, trackCode: true, phone: true, adminPrice: true, adminNote: true,
-        createdAt: true, updatedAt: true, description: true,
+        createdAt: true, updatedAt: true, description: true, ereenArrivedAt: true,
         user: { select: { name: true, phone: true } },
       },
     })
