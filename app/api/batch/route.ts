@@ -46,12 +46,15 @@ export async function GET(req: NextRequest) {
 
   const phone = req.nextUrl.searchParams.get('phone')?.trim()
   const status = req.nextUrl.searchParams.get('status')?.trim()
+  // Трак кодоор: тухайн кодыг агуулсан багц (олголт дээр утсаа мэдэхгүй хүнд)
+  const code = cleanTrackCode(req.nextUrl.searchParams.get('code') ?? '')
 
   const batches = await (prisma as any).batch.findMany({
     where: {
       cargoId: auth.user!.cargoId,
       ...(phone ? { phone: { contains: phone } } : {}),
       ...(status ? { status } : {}),
+      ...(code.length >= 4 ? { shipments: { some: { trackCode: { contains: code } } } } : {}),
     },
     orderBy: { id: 'desc' },
     take: 500,

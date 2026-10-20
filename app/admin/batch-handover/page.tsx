@@ -2,6 +2,7 @@
 import { CircleHelp } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
+import { cleanTrackCode } from '@/lib/track-code'
 
 interface BatchShipment { id: number; trackCode: string }
 interface Batch {
@@ -30,6 +31,8 @@ export default function BatchHandoverPage() {
   const [busy, setBusy] = useState<number | null>(null)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [done, setDone] = useState('')
+  // Трак кодоор хайсан бол тэр код (багц дотор тодруулна)
+  const [matchCode, setMatchCode] = useState('')
 
   // Олгох боломжтой бүх багц (дугаараар бүлэглэж харуулна)
   const [overview, setOverview] = useState<Batch[]>([])
@@ -44,20 +47,38 @@ export default function BatchHandoverPage() {
   }
   useEffect(() => { loadOverview() }, [])
 
+  // 8 оронтой тоо бол утас (олдохгүй бол трак код гэж дахин хайна), бусад нь трак код
   async function search(p?: string) {
-    const ph = (p ?? phone).trim()
-    if (!ph) return
+    const q = (p ?? phone).trim()
+    if (!q) return
     if (p) setPhone(p)
     setLoading(true)
     setDone('')
-    const res = await fetch(`/api/batch?phone=${encodeURIComponent(ph)}&status=ARRIVED`)
+    const byCode = async () => {
+      const code = cleanTrackCode(q)
+      const res = await fetch(`/api/batch?code=${encodeURIComponent(code)}&status=ARRIVED`)
+      return { code, list: res.ok ? (await res.json()) as Batch[] : [] }
+    }
+    let list: Batch[] = []
+    let code = ''
+    if (/^\d{8}$/.test(q)) {
+      const res = await fetch(`/api/batch?phone=${encodeURIComponent(q)}&status=ARRIVED`)
+      list = res.ok ? await res.json() : []
+      if (!list.length && !p) ({ code, list } = await byCode())
+    } else if (cleanTrackCode(q).length >= 4) {
+      ({ code, list } = await byCode())
+    }
     setLoading(false)
-    if (res.ok) setBatches(await res.json())
+    setMatchCode(code)
+    setBatches(list)
+    // Трак кодоор олдсон багцыг дэлгэж, кодыг нь тодруулна
+    setExpanded(code && list.length === 1 ? list[0].id : null)
   }
 
   function backToList() {
     setBatches(null)
     setPhone('')
+    setMatchCode('')
     setDone('')
     loadOverview()
   }
@@ -99,7 +120,7 @@ export default function BatchHandoverPage() {
     <div className="page-wide" style={{ maxWidth: 680 }}>
       <h1 className="section-title">Ачаа олгох</h1>
       <p style={{ color: 'var(--muted)', fontSize: '0.83rem', marginBottom: '0.9rem' }}>
-        Утасны дугаараар хайж, УБ руу ачигдсан багцыг юанийн дүнгээр олгоно.
+        Утасны дугаар эсвэл трак кодоор хайж, УБ руу ачигдсан багцыг юанийн дүнгээр олгоно.
       </p>
 
       {/* Заавар */}
@@ -112,7 +133,7 @@ export default function BatchHandoverPage() {
         </summary>
         <ol style={{ margin: 0, padding: '0 1rem 0.9rem 2.2rem', fontSize: '0.8rem', color: 'var(--text)', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
           <li>Доорх жагсаалтад олгохоор хүлээгдэж буй бүх хэрэглэгч ачааны тоо, нийт ¥ дүнтэйгээ харагдана.</li>
-          <li>Хэрэглэгч ирэхэд утасны дугаарыг нь хайх эсвэл жагсаалтаас дарна.</li>
+          <li>Хэрэглэгч ирэхэд утасны дугаар эсвэл ачааных нь трак кодыг хайх, эсвэл жагсаалтаас дарна.</li>
           <li>Багц дээр дарж доторх кодуудыг ачаатай нь тулгаад, ¥ дүнг хүлээн авч &quot;Олгох&quot; дарна — багцын бүх ачаа зэрэг &quot;Олгосон&quot; болно.</li>
           <li>Андуурсан бол &quot;УБ руу ачигдсан&quot; хуудаснаас ↩ буцааж болно.</li>
         </ol>
@@ -121,9 +142,10 @@ export default function BatchHandoverPage() {
       <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem', maxWidth: 400 }}>
         <input
           className="input"
-          placeholder="Утасны дугаар"
+          placeholder="Утас эсвэл трак код"
+          aria-label="Утасны дугаар эсвэл трак код"
           value={phone}
-          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          onChange={e => setPhone(e.target.value.replace(/\s/g, '').slice(0, 60))}
           onKeyDown={e => e.key === 'Enter' && search()}
           autoFocus
         />
@@ -203,7 +225,9 @@ export default function BatchHandoverPage() {
           </button>
 
           {batches.length === 0 ? (
-            <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Энэ дугаарт олгохоор хүлээгдэж буй багц алга.</p>
+            <p style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+              {matchCode ? `${matchCode} кодтой, олгохоор хүлээгдэж буй багц алга.` : 'Энэ дугаарт олгохоор хүлээгдэж буй багц алга.'}
+            </p>
           ) : (
             <>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
@@ -226,6 +250,7 @@ export default function BatchHandoverPage() {
                         style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', flex: 1, minWidth: 0 }}
                       >
                         <strong style={{ fontSize: '0.9rem' }}>B-{b.id}</strong>
+                        {matchCode && <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 700 }}>{b.phone}</span>}
                         <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
                           {b.shipments.length} ачаа · {fmtDT(b.createdAt)}{b.note ? ` · 💬 ${b.note}` : ''}
                         </span>
@@ -246,16 +271,20 @@ export default function BatchHandoverPage() {
                     {expanded === b.id && (
                       <div style={{ borderTop: '1px solid var(--border)', padding: '0.6rem 1rem', background: 'var(--bg)' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.3rem' }}>
-                          {b.shipments.map(s => (
+                          {b.shipments.map(s => {
+                            const hit = !!matchCode && s.trackCode.includes(matchCode)
+                            return (
                             <div key={s.id} style={{
                               fontSize: '0.78rem', fontFamily: 'monospace',
-                              padding: '0.25rem 0.5rem', background: 'var(--surface)',
-                              border: '1px solid var(--border)', borderRadius: 6,
+                              padding: '0.25rem 0.5rem', background: hit ? 'var(--accent-light)' : 'var(--surface)',
+                              border: `1px solid ${hit ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 6,
+                              fontWeight: hit ? 700 : 400,
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
                               {s.trackCode}
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     )}
