@@ -2109,3 +2109,13 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
 .bt-lock-card h3 { font-size: 0.9rem; font-weight: 600; color: var(--muted); margin: 0.15rem 0 0.9rem; }
 .bt-lock-card p { font-size: 0.82rem; color: var(--muted); line-height: 1.6; margin: 0 0 0.6rem; }
 .bt-lock-card .btn, .bt-lock-card .btn-ghost { margin-top: 0.6rem; display: inline-flex; justify-content: center; min-width: 160px; }
+
+/* ═══ Нүүр: улирлын дэвсгэр (SeasonalBackdrop) — агуулгын ард, доошоо бүдгэрнэ ═══ */
+.lp { position: relative; }
+.lp-season { position: absolute; top: 0; left: 0; width: 100%; height: min(100vh, 900px); z-index: -1; pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent); mask-image: linear-gradient(to bottom, #000 65%, transparent); }
+/* Утсанд горим солих товч нэмэгдсэн тул логоны нэр таслагдахгүй байхаар зайг багасгана */
+@media (max-width: 420px) {
+  .lp .nav-links { gap: 0.5rem !important; }
+  .lp .nav-links button[aria-label="Харагдацын горим солих"] { width: 32px !important; height: 32px !important; }
+}

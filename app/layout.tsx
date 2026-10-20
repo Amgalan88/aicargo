@@ -107,11 +107,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="mn" className={inter.variable} suppressHydrationWarning>
       <body>
-        {/* Landing (/) нь нэвтрээгүй зочдод зориулсан танилцуулга тул хэрэглэгчийн
-            өмнө хадгалсан горим (шөнийн/нүдэнд ээлтэй) энд нөлөөлөхгүй — үргэлж нэг өнгөтэй */}
+        {/* Landing (/) нь нэвтрээгүй зочдод зориулсан танилцуулга тул апп-д хадгалсан горим
+            энд нөлөөлөхгүй — зөвхөн нүүр хуудасны өөрийн товчоор сонгосон горим ('landing-theme') */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(location.pathname!=='/'){var t=localStorage.getItem('theme');if(t==='night'||t==='comfort')document.documentElement.dataset.theme=t}}catch(e){}`,
+            __html: `try{var t=localStorage.getItem(location.pathname==='/'?'landing-theme':'theme');if(t==='night'||t==='comfort')document.documentElement.dataset.theme=t}catch(e){}`,
           }}
         />
         {/* Апп суулгах санал (Android) React ачаалагдахаас өмнө ирж болох тул эрт барина */}

@@ -16,24 +16,25 @@ function applyTheme(t: Theme) {
   else document.documentElement.dataset.theme = t
 }
 
-export default function ThemeToggle({ labeled = false }: { labeled?: boolean }) {
+// storageKey: нүүр хуудас ('landing-theme') апп-ын горимоос ('theme') тусдаа — layout-ийн эрт script-тэй ижил түлхүүр
+export default function ThemeToggle({ labeled = false, storageKey = 'theme' }: { labeled?: boolean; storageKey?: string }) {
   const [theme, setTheme] = useState<Theme | null>(null)
 
   useEffect(() => {
     let saved: Theme = 'day'
     try {
-      const t = localStorage.getItem('theme')
+      const t = localStorage.getItem(storageKey)
       if (t === 'night' || t === 'comfort') saved = t
     } catch {}
     setTheme(saved)
-  }, [])
+  }, [storageKey])
 
   function cycle() {
     if (!theme) return
     const next = ORDER[(ORDER.indexOf(theme) + 1) % ORDER.length]
     setTheme(next)
     applyTheme(next)
-    try { localStorage.setItem('theme', next) } catch {}
+    try { localStorage.setItem(storageKey, next) } catch {}
   }
 
   return (

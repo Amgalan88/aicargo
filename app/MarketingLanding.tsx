@@ -13,6 +13,8 @@ import { warehousePath, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
 import HeroMockup from './components/HeroMockup'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import PartnerMarquee from './components/PartnerMarquee'
+import ThemeToggle from './components/ThemeToggle'
+import SeasonalBackdrop from './components/SeasonalBackdrop'
 import { PartnerContactModal } from './components/PartnerContact'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -182,6 +184,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
 
   return (
     <div className="lp">
+      <SeasonalBackdrop />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* ── NAV ── */}
@@ -195,6 +198,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               <a href="#features" className="lp-nav-hide-sm">Боломжууд</a>
               <a href="#pricing" className="lp-nav-hide-sm">Үнэ</a>
               <a href="#track" className="lp-nav-hide-sm">Ачаа шалгах</a>
+              <ThemeToggle storageKey="landing-theme" />
               <Link href="/login">Нэвтрэх</Link>
               <Link href="/signup-cargo" className="btn btn-sm" style={{ whiteSpace: 'nowrap' }}>Карго нээх</Link>
             </>
