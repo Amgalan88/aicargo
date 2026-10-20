@@ -234,6 +234,12 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 <span className="lp-offer-txt"><b>Эрээнд агуулахтай болох</b><small>Хувь хүн ч болно · шууд холбогдоно</small></span>
                 <ArrowRight size={18} className="lp-offer-go" />
               </button>
+              {/* Карго бизнесийн сургалт (Cargo Hub) — /surgalt руу шилжинэ (next.config) */}
+              <a href="/surgalt" target="_blank" rel="noopener noreferrer" className="lp-offer">
+                <span className="lp-offer-ic"><GraduationCap size={20} /></span>
+                <span className="lp-offer-txt"><b>Карго бизнес сурах</b><small>Видео хичээл · 4 нь үнэгүй</small></span>
+                <ArrowUpRight size={18} className="lp-offer-go" />
+              </a>
             </div>
             <ul className="lp-assure">
               <li><Check size={14} strokeWidth={3} />Карт шаардлагагүй</li>
@@ -318,24 +324,6 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               ))}
             </Stagger>
           </div>
-        </section>
-
-        {/* ── СУРГАЛТ (Cargo Hub — /surgalt руу шилжинэ) ── */}
-        <section className="lp-learn-wrap">
-          <Reveal y={18} className="lp-learn">
-            <span className="lp-learn-ic"><GraduationCap size={26} strokeWidth={2} /></span>
-            <div className="lp-learn-txt">
-              <p className="eyebrow">Сургалт · Cargo Hub</p>
-              <h2>Карго бизнесийг анхнаас нь сур</h2>
-              <p>Захиалга авах, Эрээнээс УБ хүртэл тээвэрлэх, гарсан асуудлыг шийдэх — бодит жишээгээр, видео хичээлээр.</p>
-              <ul className="lp-learn-chips">
-                <li>8 курс</li><li>48 видео хичээл</li><li>4 хичээл үнэгүй</li>
-              </ul>
-            </div>
-            <a href="/surgalt" target="_blank" rel="noopener noreferrer" className="btn btn-lg lp-learn-cta">
-              Үнэгүй хичээл үзэх <ArrowUpRight size={18} />
-            </a>
-          </Reveal>
         </section>
 
         {/* ── ҮНЭ ── */}
