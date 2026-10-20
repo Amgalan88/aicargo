@@ -85,7 +85,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: ogTitle,
       description,
       url: baseUrl,
-      siteName: 'Ai cargohub',
+      siteName: 'AiCargo',
       locale: 'mn_MN',
       type: 'website',
       images: [{ url: ogImage, width: 1200, height: 630 }],

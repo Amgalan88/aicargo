@@ -24,7 +24,7 @@ export default function NavLogo({ name, logoUrl }: { name?: string; logoUrl?: st
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         color: 'var(--text)',
       }}>
-        {name ?? 'cargohub'}
+        {name ?? 'AiCargo'}
       </span>
     </span>
   )

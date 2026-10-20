@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
             >
               Ai
             </div>
-            <div style={{ fontSize: 34, fontWeight: 800, color: '#1c1917', display: 'flex' }}>cargohub</div>
+            <div style={{ fontSize: 34, fontWeight: 800, color: '#1c1917', display: 'flex' }}>AiCargo</div>
           </div>
 
           {/* Гарчиг */}

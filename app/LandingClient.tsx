@@ -135,7 +135,7 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
         {/* Search */}
         <div style={{ marginBottom: '1.5rem', marginTop: '1.2rem' }}>
           <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.4rem' }}>
-            {cargo ? cargo.name : 'Aicargohub'} — Ачаа хянах систем
+            {cargo ? cargo.name : 'AiCargo'} — Ачаа хянах систем
           </p>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.5px', marginBottom: '0.3rem' }}>
             Ачаа шалгах
@@ -449,7 +449,7 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
             <AIAvatar size={32} />
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text)' }}>AI Туслах</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{cargo?.name ?? 'Aicargohub'}</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>{cargo?.name ?? 'AiCargo'}</div>
             </div>
           </div>
 
