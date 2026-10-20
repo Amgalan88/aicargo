@@ -237,7 +237,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               {/* Карго бизнесийн сургалт (Cargo Hub) — /surgalt руу шилжинэ (next.config) */}
               <a href="/surgalt" target="_blank" rel="noopener noreferrer" className="lp-offer">
                 <span className="lp-offer-ic"><GraduationCap size={20} /></span>
-                <span className="lp-offer-txt"><b>Карго бизнес сурах</b><small>Видео хичээл · 4 нь үнэгүй</small></span>
+                <span className="lp-offer-txt"><b>Карго бизнес сурах</b><small>48 хичээл · ₮120,000 · <span style={{ whiteSpace: 'nowrap' }}>4 нь үнэгүй</span></small></span>
                 <ArrowUpRight size={18} className="lp-offer-go" />
               </a>
             </div>
