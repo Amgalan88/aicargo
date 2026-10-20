@@ -6,7 +6,7 @@ import { Reveal, Stagger, StaggerItem, AnimatedNumber } from './components/motio
 import {
   Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search, Check, Gift,
   Warehouse as WarehouseIcon, ArrowRight, Factory, Wrench, User, X, Smartphone, HandCoins,
-  MessageCircleQuestion, Clock, ShieldCheck, CreditCard, Phone,
+  MessageCircleQuestion, Clock, ShieldCheck, CreditCard, Phone, GraduationCap, ArrowUpRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { warehousePath, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
@@ -320,6 +320,24 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
+        {/* ── СУРГАЛТ (Cargo Hub — /surgalt руу шилжинэ) ── */}
+        <section className="lp-learn-wrap">
+          <Reveal y={18} className="lp-learn">
+            <span className="lp-learn-ic"><GraduationCap size={26} strokeWidth={2} /></span>
+            <div className="lp-learn-txt">
+              <p className="eyebrow">Сургалт · Cargo Hub</p>
+              <h2>Карго бизнесийг анхнаас нь сур</h2>
+              <p>Захиалга авах, Эрээнээс УБ хүртэл тээвэрлэх, гарсан асуудлыг шийдэх — бодит жишээгээр, видео хичээлээр.</p>
+              <ul className="lp-learn-chips">
+                <li>8 курс</li><li>48 видео хичээл</li><li>4 хичээл үнэгүй</li>
+              </ul>
+            </div>
+            <a href="/surgalt" target="_blank" rel="noopener noreferrer" className="btn btn-lg lp-learn-cta">
+              Үнэгүй хичээл үзэх <ArrowUpRight size={18} />
+            </a>
+          </Reveal>
+        </section>
+
         {/* ── ҮНЭ ── */}
         <section id="pricing" className="lp-sec">
           <div className="lp-wrap">
@@ -481,6 +499,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             <a href="#features">Боломжууд</a>
             <a href="#pricing">Үнэ</a>
             {featuredWh && <Link href="/warehouses">Эрээний агуулахууд</Link>}
+            <a href="/surgalt" target="_blank" rel="noopener noreferrer">Карго сургалт</a>
             <button onClick={() => setDemoOpen(true)}>Демо</button>
           </div>
           <div>
