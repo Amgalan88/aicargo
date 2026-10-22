@@ -3,10 +3,11 @@ import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { cloudinaryLogoH } from '@/lib/warehouse'
 
-// Хөндлөн лого (өргөн ≥ 2 × өндөр) — салбарын лого шиг нэр нь дотроо бичигдсэн байдаг тул
+// Тэгш өнцөгт лого (өргөн ≥ 1.3 × өндөр) — салбарын лого шиг нэр нь дотроо бичигдсэн байдаг тул
 // дөрвөлжин хайрцагт тайрахгүй, бүтнээр нь, нэрийн бичвэргүй харуулна.
-// Харьцааг зураг ачаалагдахад хэмжиж localStorage-д санана — дахин ороход шууд хөндлөнгөөр.
-const WIDE_RATIO = 2
+// Нэг мөр (≥ 2:1) — 40px өндөр; хоёр мөр (жш „MGL КАРГО / КИНО ҮЙЛДВЭР салбар“) — 44px, доод мөр уншигдана.
+// Харьцааг зураг ачаалагдахад хэмжиж localStorage-д санана — дахин ороход шууд.
+const WIDE_RATIO = 1.3
 const ratioKey = (url: string) => `logo-ratio:${url}`
 
 export default function NavLogo({ name, logoUrl }: { name?: string; logoUrl?: string }) {
@@ -33,8 +34,8 @@ export default function NavLogo({ name, logoUrl }: { name?: string; logoUrl?: st
       // Толгойн товчнуудтай давхцахгүй: байгаа зайд багтаж жижигэрнэ (flex shrink + max-width 100%)
       <span className="navlogo-wide" style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 1 auto', maxWidth: 320, marginRight: '0.75rem' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cloudinaryLogoH(logoUrl, 40)} alt={name ?? 'logo'}
-          style={{ height: 'auto', maxHeight: 40, width: '100%', maxWidth: '100%', minWidth: 0, objectFit: 'contain', objectPosition: 'left center', display: 'block' }} />
+        <img src={cloudinaryLogoH(logoUrl, 44)} alt={name ?? 'logo'}
+          style={{ height: ratio >= 2 ? 40 : 44, width: 'auto', maxWidth: '100%', minWidth: 0, objectFit: 'contain', objectPosition: 'left center', display: 'block' }} />
       </span>
     )
   }
