@@ -2,10 +2,10 @@ import { cache } from 'react'
 import { prisma } from '@/lib/prisma'
 
 // Субдомэйнээр карго хайх — layout болон metadata хоёулаа нэг хүсэлтэд дуудна (cache)
-export const hostCargoExists = cache(async (slug: string): Promise<boolean> => {
-  const c = await prisma.cargo.findUnique({ where: { slug }, select: { id: true } })
-  return !!c
-})
+export const hostCargo = cache(async (slug: string) =>
+  prisma.cargo.findUnique({ where: { slug }, select: { id: true, brandTheme: true } }))
+
+export const hostCargoExists = async (slug: string): Promise<boolean> => !!(await hostCargo(slug))
 
 function distance(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 import { Analytics } from '@vercel/analytics/next'
-import { Inter } from 'next/font/google'
+import { Inter, Geologica } from 'next/font/google'
 import { prisma } from '@/lib/prisma'
 import './globals.css'
 import PwaRegister from './components/PwaRegister'
@@ -9,18 +9,25 @@ import AppToaster from './components/AppToaster'
 import { ConfirmHost } from './components/ConfirmDialog'
 import DemoBanner from './components/DemoBanner'
 import { DEMO_SLUG } from '@/lib/demo'
-import { hostCargoExists } from '@/lib/cargo-host'
+import { hostCargo } from '@/lib/cargo-host'
 import UnknownCargo from './components/UnknownCargo'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 
-// Бүртгэлгүй субдомэйн уу (жш: 808cargo.aicargo.mn). DB алдаа гарвал сайтыг унагахгүй — байгаа гэж үзнэ
-async function unknownSlug(slug: string | null): Promise<string | null> {
-  if (!slug) return null
-  try { return (await hostCargoExists(slug)) ? null : slug } catch { return null }
+// Субдомэйны карго: бүртгэлгүй эсэх (жш: 808cargo.aicargo.mn) ба брэндбүүкийн загвар.
+// DB алдаа гарвал сайтыг унагахгүй — байгаа, брэндгүй гэж үзнэ
+async function hostInfo(slug: string | null): Promise<{ unknown: string | null; brand: string | null }> {
+  if (!slug) return { unknown: null, brand: null }
+  try {
+    const c = await hostCargo(slug)
+    return { unknown: c ? null : slug, brand: c?.brandTheme ?? null }
+  } catch { return { unknown: null, brand: null } }
 }
 
 // Кирилл үсэгтэй нэг фонт — Windows/Android/iOS дээр ижил харагдана
 const inter = Inter({ subsets: ['latin', 'cyrillic'], variable: '--font-sans', display: 'swap' })
+// Брэндбүүкийн фонт („Эрээнээс MGL карго“) — зөвхөн брэнд асаасан каргод ашиглагдана (файл нь тэр үед л татагдана).
+// SHRP тэнхлэг: гарчгийн хурц ирмэг (globals.css: font-variation-settings "SHRP" 100)
+const geologica = Geologica({ subsets: ['latin', 'cyrillic', 'cyrillic-ext'], variable: '--font-brand', display: 'swap', axes: ['SHRP'] })
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -102,10 +109,10 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const slug = (await headers()).get('x-cargo-slug')
   const isDemo = slug === DEMO_SLUG
-  const unknown = await unknownSlug(slug)
+  const { unknown, brand } = await hostInfo(slug)
 
   return (
-    <html lang="mn" className={inter.variable} suppressHydrationWarning>
+    <html lang="mn" className={brand ? `${inter.variable} ${geologica.variable}` : inter.variable} data-brand={brand ?? undefined} suppressHydrationWarning>
       <body>
         {/* Landing (/) нь нэвтрээгүй зочдод зориулсан танилцуулга тул апп-д хадгалсан горим
             энд нөлөөлөхгүй — зөвхөн нүүр хуудасны өөрийн товчоор сонгосон горим ('landing-theme') */}

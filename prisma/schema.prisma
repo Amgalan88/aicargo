@@ -31,6 +31,8 @@ model Cargo {
   batchEnabled      Boolean    @default(false)
   // Хэрэглэгчээс барааны линкээр захиалга авах (Taobao, Pinduoduo, 1688…)
   linkOrdersEnabled Boolean    @default(false)
+  // Брэндбүүкийн загвар (жш "mgl" — Эрээнээс MGL карго): өнгө, фонт, толгойн маршрутын шугам. null = aicargo-ийн энгийн загвар
+  brandTheme        String?
   tariff            String?
   priceCubic        Decimal?   @db.Decimal(12, 2)
   priceWeight       Decimal?   @db.Decimal(12, 2)

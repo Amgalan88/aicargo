@@ -2119,3 +2119,80 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
   .lp .nav-links { gap: 0.5rem !important; }
   .lp .nav-links button[aria-label="Харагдацын горим солих"] { width: 32px !important; height: 32px !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Брэнд: „Эрээнээс MGL карго“ — брэндбүүк 2.0 (Cargo.brandTheme = 'mgl', lib/brand-theme)
+   Тэнгэр хөх #002D72 (60%) · Хул шар #FF8200 (20%) · Сүүн цагаан #F6EFE3 (12%) · Geologica
+   Контраст (брэндбүүк 03): цайвар дээр жижиг бичгийг хул шараар бичихгүй — хөх эсвэл гүн хул #A84C00;
+   хул шар товч дээр тэнгэр хөх бичиг (5.2:1).
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-brand="mgl"],
+html[data-brand="mgl"][data-theme="comfort"] {
+  --font-sans: var(--font-brand), 'Segoe UI', system-ui, sans-serif;
+  --bg:       #F6EFE3;
+  --surface:  #FFFFFF;
+  --surface2: #EDE3D1;
+  --border:   #E2D5BF;
+  --border-strong: #CDBDA2;
+  --accent:   #002D72;
+  --accent-hover: #041E42;
+  --accent-light: #E7EEF9;
+  --accent-ring: rgba(0,45,114,0.18);
+  --on-accent: #F6EFE3;
+  --text:     #002D72;
+  --muted:    #4E6189;
+  --placeholder: #8593AE;
+  --orange:   #FF8200;
+  --nav-bg:   rgba(246,239,227,0.94);
+  --brand-hi: #FF8200;
+  --brand-hi-ink: #002D72;
+  --brand-hi-text: #A84C00;
+}
+/* Шөнө — шөнийн хөх дэвсгэр, хул шар онцлол (брэндбүүк: шөнийн хөх дээр хул шар 6.7:1) */
+html[data-brand="mgl"][data-theme="night"] {
+  --font-sans: var(--font-brand), 'Segoe UI', system-ui, sans-serif;
+  --bg:       #041E42;
+  --surface:  #002D72;
+  --surface2: #0A3A85;
+  --border:   #1D4B92;
+  --border-strong: #2D5DA6;
+  --accent:   #FF8200;
+  --accent-hover: #FF9A33;
+  --accent-light: #12346E;
+  --accent-ring: rgba(255,130,0,0.25);
+  --on-accent: #002D72;
+  --text:     #F6EFE3;
+  --muted:    #BCD0F0;
+  --placeholder: #7F98C4;
+  --nav-bg:   rgba(4,30,66,0.94);
+  --brand-hi: #FF8200;
+  --brand-hi-ink: #002D72;
+  --brand-hi-text: #FF8200;
+}
+
+/* Үндсэн товч — хул шар дэвсгэр, тэнгэр хөх бичиг (брэндбүүкийн „Мессеж илгээгээрэй“ товч шиг) */
+html[data-brand="mgl"] .btn { background: var(--brand-hi); color: var(--brand-hi-ink); font-weight: 700; }
+html[data-brand="mgl"] .btn:hover:not(:disabled) { background: #F57A00; }
+
+/* Гарчиг — Geologica Black, хурц ирмэг (SHRP 100); нүүрний гарчиг том үсгээр */
+html[data-brand="mgl"] h1 { font-weight: 900 !important; font-variation-settings: "SHRP" 100; text-transform: uppercase; letter-spacing: 0 !important; }
+html[data-brand="mgl"] .section-title, html[data-brand="mgl"] h2 { font-variation-settings: "SHRP" 100; }
+html[data-brand="mgl"] .eyebrow { color: var(--brand-hi-text); }
+
+/* Толгой: дээд зурвас хул шар, доор нь маршрутын шугам — цагираг (Эрээн) → шугам (зам) */
+html[data-brand="mgl"] .nav, html[data-brand="mgl"] .header-accent { border-top-color: var(--brand-hi); }
+html[data-brand="mgl"] .nav { border-bottom-color: transparent; }
+html[data-brand="mgl"] .nav::after {
+  content: ''; position: absolute; left: 5%; right: 5%; bottom: -1px; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, var(--brand-hi), var(--brand-hi) 70%, color-mix(in srgb, var(--brand-hi) 0%, transparent));
+}
+html[data-brand="mgl"] .nav::before {
+  content: ''; position: absolute; left: calc(5% - 4px); bottom: -5px; width: 6px; height: 6px; pointer-events: none;
+  border: 2px solid var(--brand-hi); border-radius: 50%; background: var(--bg);
+}
+
+/* Ачааны төлөв — брэндбүүкийн мэдээллийн өнгөний код: „Ачаа ирлээ“ = хул шар, явц = хөх */
+html[data-brand="mgl"] .badge-EREEN_ARRIVED { background: #E7EEF9; color: #002D72; border-color: #BCD0F0; }
+html[data-brand="mgl"] .badge-ARRIVED { background: #FFE3C4; color: #A84C00; border-color: #FFC48A; }
+html[data-brand="mgl"][data-theme="night"] .badge-EREEN_ARRIVED { background: #12346E; color: #BCD0F0; border-color: #2D5DA6; }
+html[data-brand="mgl"][data-theme="night"] .badge-ARRIVED { background: #FF8200; color: #002D72; border-color: #FF8200; }

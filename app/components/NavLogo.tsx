@@ -1,7 +1,44 @@
+'use client'
 import Image from 'next/image'
-import { cloudinaryLogo } from '@/lib/warehouse'
+import { useEffect, useRef, useState } from 'react'
+import { cloudinaryLogoH } from '@/lib/warehouse'
+
+// Хөндлөн лого (өргөн ≥ 2 × өндөр) — салбарын лого шиг нэр нь дотроо бичигдсэн байдаг тул
+// дөрвөлжин хайрцагт тайрахгүй, бүтнээр нь, нэрийн бичвэргүй харуулна.
+// Харьцааг зураг ачаалагдахад хэмжиж localStorage-д санана — дахин ороход шууд хөндлөнгөөр.
+const WIDE_RATIO = 2
+const ratioKey = (url: string) => `logo-ratio:${url}`
 
 export default function NavLogo({ name, logoUrl }: { name?: string; logoUrl?: string }) {
+  const [ratio, setRatio] = useState<number | null>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  const measure = (img: HTMLImageElement | null) => {
+    if (!img || !logoUrl || !img.naturalWidth || !img.naturalHeight) return
+    const r = Math.round((img.naturalWidth / img.naturalHeight) * 100) / 100
+    setRatio(r)
+    try { localStorage.setItem(ratioKey(logoUrl), String(r)) } catch {}
+  }
+
+  useEffect(() => {
+    if (!logoUrl) return
+    try { const v = Number(localStorage.getItem(ratioKey(logoUrl))); if (v > 0) setRatio(v) } catch {}
+    // Hydration-аас өмнө (кэшээс) ачаалагдсан бол onLoad дуудагдахгүй
+    if (imgRef.current?.complete) measure(imgRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logoUrl])
+
+  if (logoUrl && ratio !== null && ratio >= WIDE_RATIO) {
+    return (
+      // Толгойн товчнуудтай давхцахгүй: байгаа зайд багтаж жижигэрнэ (flex shrink + max-width 100%)
+      <span className="navlogo-wide" style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 1 auto', maxWidth: 320, marginRight: '0.75rem' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={cloudinaryLogoH(logoUrl, 40)} alt={name ?? 'logo'}
+          style={{ height: 'auto', maxHeight: 40, width: '100%', maxWidth: '100%', minWidth: 0, objectFit: 'contain', objectPosition: 'left center', display: 'block' }} />
+      </span>
+    )
+  }
+
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, overflow: 'hidden' }}>
       <span style={{
@@ -11,8 +48,10 @@ export default function NavLogo({ name, logoUrl }: { name?: string; logoUrl?: st
         flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box',
       }}>
         {logoUrl ? (
+          // Харьцааг хэмжихийн тулд тайралгүй (c_limit) татаж, хайрцагт cover-оор багтаана
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cloudinaryLogo(logoUrl, 34)} alt="logo" width={34} height={34}
+          <img ref={imgRef} src={cloudinaryLogoH(logoUrl, 34)} alt="logo" width={34} height={34}
+            onLoad={e => measure(e.currentTarget)}
             style={{ objectFit: 'cover', width: '100%', height: '100%', display: 'block' }} />
         ) : (
           <Image src="/logo.svg" alt="logo" width={22} height={22} priority style={{ display: 'block' }} />

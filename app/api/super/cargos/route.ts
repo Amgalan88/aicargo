@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       searchByPhone: (c as any).searchByPhone ?? false,
       batchEnabled: (c as any).batchEnabled ?? false,
       aiEnabled: (c as any).aiEnabled ?? false,
+      brandTheme: c.brandTheme ?? null,
       paidUntil: (c as any).paidUntil ?? null,
       createdAt: c.createdAt,
       totalUsers: c._count.users,

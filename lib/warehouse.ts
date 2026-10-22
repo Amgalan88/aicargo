@@ -49,6 +49,14 @@ export function cloudinaryLogo(url: string, size: number, crop: 'fill' | 'limit'
     : url
 }
 
+// Лого — өндрөөр нь хязгаарлаж, харьцааг нь хадгална (хөндлөн логог тайрахгүй)
+export function cloudinaryLogoH(url: string, height: number): string {
+  const h = height * 2
+  return url.includes('res.cloudinary.com') && url.includes('/upload/')
+    ? url.replace('/upload/', `/upload/c_limit,h_${h},w_${h * 10},q_auto,f_auto/`)
+    : url
+}
+
 export function formatMnt(v: number | string): string {
   return `${Math.round(Number(v)).toLocaleString('en-US')}₮`
 }
