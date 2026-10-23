@@ -115,14 +115,18 @@ export async function POST(req: NextRequest) {
     if (existing.userId === authUser.userId) {
       return NextResponse.json({ error: 'Энэ трак код таны бүртгэлд аль хэдийн байна' }, { status: 409 })
     }
-    const updated = await prisma.shipment.update({
-      where: { trackCode_cargoId: { trackCode: code, cargoId } },
-      data: {
-        userId: authUser.userId,
-        description: description || existing.description,
-        phone: existing.phone || userRecord?.phone,
-      },
-    })
+    // Хэрэглэгч жагсаалтаасаа хассан (эсвэл карго утсаар бүртгэсэн) барааг дахин холбоно.
+    // updatedAt-ыг хөдөлгөхгүй (raw SQL) — олгосон бараанд энэ нь олгосон огноо тул
+    // дахин бүртгэхэд админы олголт, тайлан дээр „өнөөдөр олгосон“ болж хувирдаг байсан
+    const linked = await prisma.$executeRaw`
+      UPDATE "Shipment" SET "userId" = ${authUser.userId},
+        "description" = ${description || existing.description},
+        "phone" = ${existing.phone || userRecord?.phone || null}
+      WHERE "id" = ${existing.id} AND "userId" IS NULL`
+    if (!linked) {
+      return NextResponse.json({ error: 'Энэ трак код өөр хэрэглэгчид бүртгэлтэй байна' }, { status: 409 })
+    }
+    const updated = await prisma.shipment.findUnique({ where: { id: existing.id } })
     return NextResponse.json(updated)
   }
 
