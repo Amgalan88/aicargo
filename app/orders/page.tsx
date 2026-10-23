@@ -16,7 +16,7 @@ export default async function OrdersPage() {
     }),
     prisma.user.findUnique({
       where: { id: user.userId },
-      select: { name: true, email: true, phone: true, cargoId: true, linkOrdersOn: true },
+      select: { name: true, email: true, phone: true, phoneVerifiedAt: true, cargoId: true, linkOrdersOn: true },
     }),
     // AI сургалтын санал болгох асуултууд (AI астай каргод виджетэд chip болж гарна)
     (prisma as any).aiTraining
@@ -54,6 +54,7 @@ export default async function OrdersPage() {
       userName={userRecord?.name ?? ''}
       userEmail={userRecord?.email ?? null}
       userPhone={userRecord?.phone ?? ''}
+      phoneVerified={!!userRecord?.phoneVerifiedAt}
       cargoName={cargo?.name ?? ''}
       logoUrl={cargo?.logoUrl ?? ''}
       ereemReceiver={cargo?.ereemReceiver ?? ''}

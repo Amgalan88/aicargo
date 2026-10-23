@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Smartphone } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole } from 'lucide-react'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
@@ -248,6 +248,7 @@ export default function OrdersClient({
   userName,
   userEmail,
   userPhone,
+  phoneVerified = false,
   cargoName,
   logoUrl,
   ereemReceiver,
@@ -279,6 +280,7 @@ export default function OrdersClient({
   userName: string
   userEmail: string | null
   userPhone: string
+  phoneVerified?: boolean
   cargoName: string
   logoUrl?: string
   ereemReceiver: string
@@ -584,9 +586,23 @@ export default function OrdersClient({
                   </div>
                   <div>
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.phone}</span>
-                    <p style={{ fontSize: '0.85rem', fontFamily: 'monospace', marginTop: '0.1rem' }}>{userPhone}</p>
+                    {/* Дугаарын ард: баталгаажсан бол ✓ (+ солих), үгүй бол баталгаажуулах товч */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.1rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}>{userPhone}</span>
+                      {phoneVerified ? (
+                        <>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--green)', fontWeight: 700 }}>✓ {t.phoneOk}</span>
+                          <button type="button" className="pv-link" style={{ fontSize: '0.72rem', color: 'var(--muted)' }}
+                            onClick={() => { setNavPopup(null); setPhoneOpen(true) }}>{t.phoneChange}</button>
+                        </>
+                      ) : (
+                        <button type="button" className="btn btn-sm" style={{ padding: '0.2rem 0.6rem', fontSize: '0.72rem', minHeight: 0 }}
+                          onClick={() => { setNavPopup(null); setPhoneOpen(true) }}>{t.phoneVerifyBtn}</button>
+                      )}
+                    </div>
                   </div>
-                  {userEmail && (
+                  {/* Утсаа баталгаажуулсан бол нууц үгээ утсаар сэргээнэ — и-мэйл харуулах шаардлагагүй */}
+                  {userEmail && !phoneVerified && (
                     <div>
                       <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.email}</span>
                       <p style={{ fontSize: '0.85rem', marginTop: '0.1rem' }}>{userEmail}</p>
@@ -629,9 +645,6 @@ export default function OrdersClient({
                       ▶ {t.tutorials}
                     </button>
                   )}
-                  <button type="button" className="aps-tutor" onClick={() => { setNavPopup(null); setPhoneOpen(true) }}>
-                    <Smartphone size={13} /> {t.myPhone}
-                  </button>
                   <button type="button" className="aps-tutor" onClick={() => { setNavPopup(null); setPwOpen(true) }}>
                     <LockKeyhole size={13} /> {t.pwChange}
                   </button>
