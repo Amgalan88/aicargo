@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole } from 'lucide-react'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
@@ -20,6 +20,7 @@ import { PushPrompt, AppSettingsRows } from '../components/AppNotify'
 import { TutorialSheet } from '../components/Tutorials'
 import { USER_TUTORIALS, withVideo } from '@/lib/tutorials'
 import ConfirmDialog from '../components/ConfirmDialog'
+import ChangePassword from '../components/ChangePassword'
 import { useUserLang } from '../components/useUserLang'
 import { StaggerItem } from '../components/motion'
 import { motion } from 'framer-motion'
@@ -318,6 +319,7 @@ export default function OrdersClient({
   // Линк захиалга: карго асаасан + хэрэглэгч өөрөө асаасан үед л дээд цэсэнд гарна
   const [linkOn, setLinkOn] = useState(linkOrdersOn)
   const [tutorialsOpen, setTutorialsOpen] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
   const hasTutorials = withVideo(USER_TUTORIALS).length > 0
   async function toggleLinkOrders() {
     const on = !linkOn
@@ -625,6 +627,9 @@ export default function OrdersClient({
                       ▶ {t.tutorials}
                     </button>
                   )}
+                  <button type="button" className="aps-tutor" onClick={() => { setNavPopup(null); setPwOpen(true) }}>
+                    <LockKeyhole size={13} /> {t.pwChange}
+                  </button>
                   {/* Push мэдэгдэл + апп суулгах */}
                   <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.45rem', marginTop: '0.1rem' }}>
                     <AppSettingsRows t={t} />
@@ -659,6 +664,17 @@ export default function OrdersClient({
         </div>
       </nav>
       {tutorialsOpen && <TutorialSheet list={USER_TUTORIALS} title={t.tutorials} onClose={() => setTutorialsOpen(false)} />}
+      {pwOpen && (
+        <div className="ins-bg" onClick={() => setPwOpen(false)}>
+          <div className="ins" role="dialog" aria-modal="true" aria-label={t.pwChange} onClick={e => e.stopPropagation()}>
+            <div className="ins-head">
+              <b>{t.pwChange}</b>
+              <button type="button" className="ins-x" aria-label="Хаах" onClick={() => setPwOpen(false)}><X size={18} /></button>
+            </div>
+            <ChangePassword onDone={() => setPwOpen(false)} labels={{ current: t.pwCurrent, next: t.pwNew, min: t.pwMin, submit: t.pwChange, saving: t.pwSaving, done: t.pwDone, hint: t.pwHint }} />
+          </div>
+        </div>
+      )}
       <ChatWidget open={navPopup === 'faq'} onClose={() => setNavPopup(null)} />
       <NamelessSearch open={navPopup === 'nameless'} onClose={() => setNavPopup(null)} t={t} />
       {aiEnabled && AI_SUPPORT_ENABLED && <UserAIWidget userName={userName} cargoName={cargoName} suggestions={aiSuggestions} />}

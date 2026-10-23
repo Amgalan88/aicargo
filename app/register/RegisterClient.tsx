@@ -4,6 +4,7 @@ import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
 import { cloudinaryLogo } from '@/lib/warehouse'
 import PhoneVerify from '@/app/components/PhoneVerify'
+import PasswordInput from '@/app/components/PasswordInput'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Cargo { id: number; name: string; logoUrl?: string | null; phoneVerify?: boolean }
@@ -292,7 +293,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                 </div>
                 <div className="form-group">
                   <label>Нууц үг</label>
-                  <input className="input" type="password" placeholder="Хамгийн багадаа 6 тэмдэгт" required
+                  <PasswordInput placeholder="Хамгийн багадаа 6 тэмдэгт" required autoComplete="new-password"
                     value={form.password} onChange={e => set('password', e.target.value)} />
                 </div>
                 {error && <p className="msg-error">{error}</p>}

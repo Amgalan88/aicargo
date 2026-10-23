@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
 import PhoneVerify from '@/app/components/PhoneVerify'
+import PasswordInput from '@/app/components/PasswordInput'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -76,7 +77,7 @@ export default function ForgotPasswordClient({ cargoName, logoUrl }: { cargoName
             {verificationId && (
               <div className="form-group">
                 <label>Шинэ нууц үг</label>
-                <input className="input" type="password" placeholder="Хамгийн багадаа 6 тэмдэгт" required minLength={6} autoFocus
+                <PasswordInput placeholder="Хамгийн багадаа 6 тэмдэгт" required minLength={6} autoFocus autoComplete="new-password"
                   value={password} onChange={e => setPassword(e.target.value)} />
               </div>
             )}

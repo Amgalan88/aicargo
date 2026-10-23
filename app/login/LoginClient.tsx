@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
+import PasswordInput from '@/app/components/PasswordInput'
 import { useRouter } from 'next/navigation'
 
 export default function LoginClient({ cargoName, logoUrl, adminNext }: { cargoName?: string; logoUrl?: string; adminNext?: string }) {
@@ -47,7 +48,7 @@ export default function LoginClient({ cargoName, logoUrl, adminNext }: { cargoNa
           </div>
           <div className="form-group">
             <label>Нууц үг</label>
-            <input className="input" type="password" placeholder="••••••" required
+            <PasswordInput placeholder="••••••" required autoComplete="current-password"
               value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
           </div>
           {error && <p className="msg-error">{error}</p>}

@@ -2,6 +2,7 @@
 import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
+import PasswordInput from '@/app/components/PasswordInput'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 function ResetForm({ cargoName, logoUrl }: { cargoName?: string; logoUrl?: string }) {
@@ -37,7 +38,7 @@ function ResetForm({ cargoName, logoUrl }: { cargoName?: string; logoUrl?: strin
         <form onSubmit={submit}>
           <div className="form-group">
             <label>Шинэ нууц үг</label>
-            <input className="input" type="password" placeholder="Хамгийн багадаа 6 тэмдэгт" required
+            <PasswordInput placeholder="Хамгийн багадаа 6 тэмдэгт" required autoComplete="new-password"
               value={password} onChange={e => setPassword(e.target.value)} />
           </div>
           {error && <p className="msg-error">{error}</p>}

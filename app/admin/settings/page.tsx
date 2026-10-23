@@ -1,8 +1,9 @@
 'use client'
-import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, ShieldCheck } from 'lucide-react'
+import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, ShieldCheck, LockKeyhole } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
+import ChangePassword from '@/app/components/ChangePassword'
 import { parseExtraAddresses, type EreenAddress } from '@/lib/ereen-address'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -20,6 +21,7 @@ const SECTIONS = [
   { id: 'st-links', label: 'Линк захиалга' },
   { id: 'st-verify', label: 'Утас баталгаажуулалт' },
   { id: 'st-staff', label: 'Ажилтан' },
+  { id: 'st-password', label: 'Нууц үг' },
 ]
 
 function Section({ id, icon: Icon, title, desc, locked, children }: {
@@ -347,6 +349,11 @@ export default function SettingsPage() {
           {cargo?.batchEnabled && <EreenStaffSection />}
         </Section>
       )}
+
+      {/* Өөрийн нууц үг — эзэмшигч, ажилтан бүр өөрөө солино (одоогийн нууц үгээр) */}
+      <Section id="st-password" icon={LockKeyhole} title="Миний нууц үг" desc="Нууц үгээ өөрийнхөөрөө солиорой — дараа нь зөвхөн та мэднэ. Мартвал нэвтрэх хуудасны «Нууц үг мартсан?» → Утсаар сэргээнэ.">
+        <div style={{ maxWidth: 380 }}><ChangePassword /></div>
+      </Section>
 
       {/* Хадгалах самбар — өөрчлөлт орох үед доор гарна */}
       <div className={`st-savebar${dirty || saveError ? ' show' : ''}`} role="region" aria-label="Хадгалах">
