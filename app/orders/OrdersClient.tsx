@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
@@ -586,14 +586,15 @@ export default function OrdersClient({
                   </div>
                   <div>
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.phone}</span>
-                    {/* Дугаарын ард: баталгаажсан бол ✓ (+ солих), үгүй бол баталгаажуулах товч */}
+                    {/* Дугаарын ард: баталгаажсан бол ✓ (+ харандаа — солих), үгүй бол баталгаажуулах товч */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.1rem', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}>{userPhone}</span>
                       {phoneVerified ? (
                         <>
                           <span style={{ fontSize: '0.72rem', color: 'var(--green)', fontWeight: 700 }}>✓ {t.phoneOk}</span>
-                          <button type="button" className="pv-link" style={{ fontSize: '0.72rem', color: 'var(--muted)' }}
-                            onClick={() => { setNavPopup(null); setPhoneOpen(true) }}>{t.phoneChange}</button>
+                          <button type="button" aria-label={t.phoneChange} title={t.phoneChange}
+                            style={{ display: 'inline-flex', padding: 4, border: 0, background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                            onClick={() => { setNavPopup(null); setPhoneOpen(true) }}><Pencil size={13} /></button>
                         </>
                       ) : (
                         <button type="button" className="btn btn-sm" style={{ padding: '0.2rem 0.6rem', fontSize: '0.72rem', minHeight: 0 }}
