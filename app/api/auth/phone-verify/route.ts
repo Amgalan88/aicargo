@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { prisma } from '@/lib/prisma'
+import { getVerifiedUserFromRequest, unauthorized } from '@/lib/auth'
 import { refreshVerification, startVerification, type Purpose, type StartResult } from '@/lib/phone-verification'
 
 // Нэг IP-ээс олон дугаарт session нээж Verify.MN-ийг дүүргэхээс хамгаална
@@ -21,17 +22,20 @@ const MESSAGES: Record<Extract<StartResult, { ok: false }>['error'], string> = {
   tooMany: 'Хэт олон оролдлого хийлээ. 10 минутын дараа дахин оролдоно уу',
 }
 
-const PURPOSES: Purpose[] = ['signup', 'reset', 'move']
+const PURPOSES: Purpose[] = ['signup', 'reset', 'move', 'phone']
 
 // POST { phone, cargoId?, purpose? } — баталгаажуулалт эхлүүлнэ: код, богино дугаар, хугацааг буцаана (sessionId хэзээ ч биш)
-//   signup — тухайн карго асаасан байх ёстой; reset — бүх каргод (карго хамаарахгүй); move — очих карго
+//   signup — тухайн карго асаасан байх ёстой; reset — бүх каргод (карго хамаарахгүй); move — очих карго;
+//   phone — нэвтэрсэн хүн өөрийн дугаараа баталгаажуулна эсвэл шинэ дугаар руу солино
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const purpose: Purpose = PURPOSES.includes(body.purpose) ? body.purpose : 'signup'
+  const self = purpose === 'phone' ? await getVerifiedUserFromRequest(req) : null
+  if (purpose === 'phone' && !self) return unauthorized()
   const cargo = body.cargoId
     ? await prisma.cargo.findUnique({ where: { id: Number(body.cargoId) }, select: { id: true, phoneVerify: true } })
     : null
-  if (purpose !== 'reset' && !cargo) return NextResponse.json({ error: 'Карго олдсонгүй' }, { status: 400 })
+  if ((purpose === 'signup' || purpose === 'move') && !cargo) return NextResponse.json({ error: 'Карго олдсонгүй' }, { status: 400 })
   if (purpose === 'signup' && !cargo?.phoneVerify) {
     return NextResponse.json({ error: 'Энэ каргод утас баталгаажуулалт асаагүй байна' }, { status: 400 })
   }
@@ -40,11 +44,12 @@ export async function POST(req: NextRequest) {
   const { success } = await ipRatelimit.limit(ip)
   if (!success) return NextResponse.json({ error: MESSAGES.tooMany }, { status: 429 })
 
-  const res = await startVerification(String(body.phone ?? ''), cargo?.id ?? null, purpose)
+  const res = await startVerification(String(body.phone ?? ''), cargo?.id ?? null, purpose, self?.userId)
   if (res.ok) return NextResponse.json(res)
   // Өөр каргод бүртгэлтэй — хэрэглэгч шилжих урсгал руу орно
   if (res.error === 'needsMove') return NextResponse.json({ ok: false, code: 'NEEDS_MOVE' }, { status: 409 })
-  return NextResponse.json({ ok: false, error: MESSAGES[res.error] }, { status: res.error === 'tooMany' ? 429 : 400 })
+  const error = purpose === 'phone' && res.error === 'phoneTaken' ? 'Энэ дугаар өөр бүртгэлд байна' : MESSAGES[res.error]
+  return NextResponse.json({ ok: false, error }, { status: res.error === 'tooMany' ? 429 : 400 })
 }
 
 // GET ?id= — төлөв (PENDING | VERIFIED | EXPIRED); хөтөч 3 секунд тутам асууна

@@ -34,6 +34,8 @@ export const AUDIT_ACTIONS: Record<string, { label: string; routine?: boolean; t
   'link-order:reopen': { label: 'Линк захиалга сэргээсэн', tone: 'yellow' },
   'banner:create': { label: 'Мэдэгдэл (баннер) нийтэлсэн', tone: 'blue' },
   'banner:delete': { label: 'Мэдэгдэл (баннер) устгасан', tone: 'muted' },
+  'user:phone-verified': { label: 'Утсаа баталгаажуулсан', routine: true, tone: 'green' },
+  'user:phone-changed': { label: 'Утасны дугаараа сольсон', tone: 'yellow' },
   'billing:renewed': { label: 'Вэбсайтын төлбөр сунгагдсан', tone: 'green' },
 }
 

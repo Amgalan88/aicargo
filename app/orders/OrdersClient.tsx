@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Smartphone } from 'lucide-react'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
@@ -21,6 +21,7 @@ import { TutorialSheet } from '../components/Tutorials'
 import { USER_TUTORIALS, withVideo } from '@/lib/tutorials'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ChangePassword from '../components/ChangePassword'
+import MyPhone from '../components/MyPhone'
 import { useUserLang } from '../components/useUserLang'
 import { StaggerItem } from '../components/motion'
 import { motion } from 'framer-motion'
@@ -320,6 +321,7 @@ export default function OrdersClient({
   const [linkOn, setLinkOn] = useState(linkOrdersOn)
   const [tutorialsOpen, setTutorialsOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
+  const [phoneOpen, setPhoneOpen] = useState(false)
   const hasTutorials = withVideo(USER_TUTORIALS).length > 0
   async function toggleLinkOrders() {
     const on = !linkOn
@@ -627,6 +629,9 @@ export default function OrdersClient({
                       ▶ {t.tutorials}
                     </button>
                   )}
+                  <button type="button" className="aps-tutor" onClick={() => { setNavPopup(null); setPhoneOpen(true) }}>
+                    <Smartphone size={13} /> {t.myPhone}
+                  </button>
                   <button type="button" className="aps-tutor" onClick={() => { setNavPopup(null); setPwOpen(true) }}>
                     <LockKeyhole size={13} /> {t.pwChange}
                   </button>
@@ -664,6 +669,17 @@ export default function OrdersClient({
         </div>
       </nav>
       {tutorialsOpen && <TutorialSheet list={USER_TUTORIALS} title={t.tutorials} onClose={() => setTutorialsOpen(false)} />}
+      {phoneOpen && (
+        <div className="ins-bg" onClick={() => setPhoneOpen(false)}>
+          <div className="ins" role="dialog" aria-modal="true" aria-label={t.myPhone} onClick={e => e.stopPropagation()}>
+            <div className="ins-head">
+              <b>{t.myPhone}</b>
+              <button type="button" className="ins-x" aria-label="Хаах" onClick={() => setPhoneOpen(false)}><X size={18} /></button>
+            </div>
+            <MyPhone onDone={() => router.refresh()} />
+          </div>
+        </div>
+      )}
       {pwOpen && (
         <div className="ins-bg" onClick={() => setPwOpen(false)}>
           <div className="ins" role="dialog" aria-modal="true" aria-label={t.pwChange} onClick={e => e.stopPropagation()}>

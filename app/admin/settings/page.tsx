@@ -1,9 +1,10 @@
 'use client'
-import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, ShieldCheck, LockKeyhole } from 'lucide-react'
+import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, ShieldCheck, LockKeyhole, Smartphone } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
 import ChangePassword from '@/app/components/ChangePassword'
+import MyPhone from '@/app/components/MyPhone'
 import { parseExtraAddresses, type EreenAddress } from '@/lib/ereen-address'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -21,6 +22,7 @@ const SECTIONS = [
   { id: 'st-links', label: 'Линк захиалга' },
   { id: 'st-verify', label: 'Утас баталгаажуулалт' },
   { id: 'st-staff', label: 'Ажилтан' },
+  { id: 'st-phone', label: 'Миний утас' },
   { id: 'st-password', label: 'Нууц үг' },
 ]
 
@@ -349,6 +351,11 @@ export default function SettingsPage() {
           {cargo?.batchEnabled && <EreenStaffSection />}
         </Section>
       )}
+
+      {/* Өөрийн утас — SMS-ээр баталгаажуулах / солих (нэвтрэх дугаар; нууц үгээ утсаар сэргээнэ) */}
+      <Section id="st-phone" icon={Smartphone} title="Миний утас" desc="Нэвтрэх дугаараа баталгаажуулбал нууц үгээ мартсан үед утсаараа сэргээнэ — и-мэйл шаардлагагүй.">
+        <div style={{ maxWidth: 420 }}><MyPhone /></div>
+      </Section>
 
       {/* Өөрийн нууц үг — эзэмшигч, ажилтан бүр өөрөө солино (одоогийн нууц үгээр) */}
       <Section id="st-password" icon={LockKeyhole} title="Миний нууц үг" desc="Нууц үгээ өөрийнхөөрөө солиорой — дараа нь зөвхөн та мэднэ. Мартвал нэвтрэх хуудасны «Нууц үг мартсан?» → Утсаар сэргээнэ.">
