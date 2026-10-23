@@ -46,11 +46,11 @@ export async function POST(req: NextRequest) {
     data: { name, phone, email, password: hashed, cargoId: cargo.id },
   })
 
-  // Auto-link any existing shipments with this phone in this cargo
-  await prisma.shipment.updateMany({
-    where: { phone, userId: null, cargoId: cargo.id },
-    data: { userId: user.id },
-  })
+  // Auto-link any existing shipments with this phone in this cargo.
+  // updatedAt-ыг хөдөлгөхгүй (raw SQL) — олгосон ачаанд энэ нь олгосон огноо
+  await prisma.$executeRaw`
+    UPDATE "Shipment" SET "userId" = ${user.id}
+    WHERE "phone" = ${phone} AND "userId" IS NULL AND "cargoId" = ${cargo.id}`
 
   const token = signToken({ userId: user.id, role: user.role, cargoId: user.cargoId })
   const res = NextResponse.json({ ok: true })

@@ -25,6 +25,11 @@ export async function POST(req: NextRequest) {
     select: { phone: true, userId: true, status: true },
   })
 
+  // Ирсэн/олгосон ачааг дахин уншуулбал Эрээнд буцааж, олгосон огноог нь арилгах байсан
+  if (existing?.status === 'ARRIVED' || existing?.status === 'PICKED_UP') {
+    return NextResponse.json({ error: existing.status === 'PICKED_UP' ? 'Энэ бараа аль хэдийн олгогдсон байна' : 'Энэ бараа аль хэдийн ирсэн байна' }, { status: 400 })
+  }
+
   let userId: number | null = existing?.userId ?? null
   if (!userId && existing?.phone) {
     const user = await prisma.user.findFirst({ where: { phone: existing.phone, cargoId: admin.cargoId! } })

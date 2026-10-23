@@ -40,6 +40,19 @@ function normCodes(raw: unknown): string[] {
   return Array.from(new Set(codes))
 }
 
+// Олгогдсон ачааг багцад оруулбал upsert нь түүнийг дахин „Ирсэн“ болгож, эзэн, олгосон огноог нь
+// солих байсан — хуучин шошго дахин уншуулах алдаа. Ийм код байвал багцыг бүртгэхгүй.
+async function pickedUpCodes(cargoId: number, codes: string[]) {
+  if (codes.length === 0) return null
+  const rows = await prisma.shipment.findMany({
+    where: { cargoId, trackCode: { in: codes }, status: 'PICKED_UP' },
+    select: { trackCode: true },
+  })
+  if (rows.length === 0) return null
+  const list = rows.map(r => r.trackCode).join(', ')
+  return NextResponse.json({ error: `Аль хэдийн олгогдсон ачаа · 已取件: ${list}` }, { status: 409 })
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireBatchAccess(req, false)
   if (auth.error) return auth.error
@@ -84,6 +97,9 @@ export async function POST(req: NextRequest) {
   if (!/^\d{8}$/.test(phone)) return NextResponse.json({ error: 'Утасны дугаар 8 оронтой байна · 电话号码需8位' }, { status: 400 })
   if (!isFinite(price) || price < 0) return NextResponse.json({ error: 'Үнэ буруу байна · 价格无效' }, { status: 400 })
 
+  const picked = await pickedUpCodes(cargoId, codes)
+  if (picked) return picked
+
   // Утсаар хэрэглэгч холбоно
   const owner = await prisma.user.findFirst({ where: { phone, cargoId }, select: { id: true } })
 
@@ -108,6 +124,7 @@ export async function POST(req: NextRequest) {
         phone = EXCLUDED.phone,
         "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
         "updatedAt" = EXCLUDED."updatedAt"
+      WHERE "Shipment".status <> 'PICKED_UP'
     `
     await (tx as any).batchLog.create({
       data: {
@@ -142,6 +159,9 @@ export async function PATCH(req: NextRequest) {
     include: { shipments: { select: { id: true, trackCode: true } } },
   })
   if (!batch) return NextResponse.json({ error: 'Багц олдсонгүй' }, { status: 404 })
+
+  const picked = await pickedUpCodes(cargoId, normCodes(body.addCodes))
+  if (picked) return picked
 
   const changes: string[] = []
   const data: any = {}
@@ -210,6 +230,7 @@ export async function PATCH(req: NextRequest) {
             phone = EXCLUDED.phone,
             "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
             "updatedAt" = EXCLUDED."updatedAt"
+          WHERE "Shipment".status <> 'PICKED_UP'
         `
       } else {
         await tx.$executeRaw`
@@ -223,6 +244,7 @@ export async function PATCH(req: NextRequest) {
             phone = EXCLUDED.phone,
             "userId" = COALESCE(EXCLUDED."userId", "Shipment"."userId"),
             "updatedAt" = EXCLUDED."updatedAt"
+          WHERE "Shipment".status <> 'PICKED_UP'
         `
       }
       changes.push(`нэмсэн: ${addCodes.join(', ')}`)

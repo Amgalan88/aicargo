@@ -57,7 +57,10 @@ async function attachShipment(cargoId: number, x: Row, trackCode: string): Promi
   const existing = await prisma.shipment.findUnique({ where: { trackCode_cargoId: { trackCode, cargoId } } })
   if (existing) {
     if (!existing.userId) {
-      await prisma.shipment.update({ where: { id: existing.id }, data: { userId: x.userId, phone: existing.phone ?? x.phone } })
+      // updatedAt-ыг хөдөлгөхгүй (raw SQL) — олгосон ачаанд энэ нь олгосон огноо
+      await prisma.$executeRaw`
+        UPDATE "Shipment" SET "userId" = ${x.userId}, "phone" = ${existing.phone ?? x.phone}
+        WHERE "id" = ${existing.id} AND "userId" IS NULL`
       return null
     }
     return existing.userId === x.userId ? null : 'Энэ трак код өөр хэрэглэгчид бүртгэлтэй байна — хэрэглэгчийн ачаанд нэмэгдээгүй'

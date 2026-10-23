@@ -173,11 +173,13 @@ export async function PATCH(req: NextRequest) {
 
   const before = await prisma.shipment.findFirst({
     where: { id: Number(id), cargoId: admin.cargoId! },
-    select: { trackCode: true, adminPrice: true, phone: true, adminNote: true },
+    select: { trackCode: true, adminPrice: true, phone: true, adminNote: true, status: true, updatedAt: true },
   })
   const shipment = await prisma.shipment.update({
     where: { id: Number(id), cargoId: admin.cargoId! },
     data: {
+      // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
+      ...(before?.status === 'PICKED_UP' ? { updatedAt: before.updatedAt } : {}),
       adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
       adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
       phone: phone !== undefined ? (phone || null) : undefined,

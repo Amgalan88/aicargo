@@ -53,10 +53,10 @@ export async function POST(req: NextRequest) {
       where: { id: user.id },
       data: { name, password: hashed, cargoId: cargo.id, tokenVersion: { increment: 1 } },
     })
-    await tx.shipment.updateMany({
-      where: { phone, userId: null, cargoId: cargo.id },
-      data: { userId: updated.id },
-    })
+    // updatedAt-ыг хөдөлгөхгүй (raw SQL) — олгосон ачаанд энэ нь олгосон огноо
+    await tx.$executeRaw`
+      UPDATE "Shipment" SET "userId" = ${updated.id}
+      WHERE "phone" = ${phone} AND "userId" IS NULL AND "cargoId" = ${cargo.id}`
     return updated
   })
 
