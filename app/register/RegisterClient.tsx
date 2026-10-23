@@ -80,6 +80,21 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
     setMoveStep('otp')
   }
 
+  async function moveByPhone(verificationId: string) {
+    if (!selectedCargo) return
+    setLoading(true)
+    setError('')
+    const res = await fetch('/api/auth/register/move/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.name, phone: form.phone, password: form.password, cargoId: selectedCargo.id, verificationId }),
+    })
+    const data = await res.json()
+    setLoading(false)
+    if (!res.ok) { setError(data.error); return }
+    router.push('/orders')
+  }
+
   async function verifyMove(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedCargo) return
@@ -204,14 +219,19 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
               /* ── Өөр каргод байгаа бүртгэлийг шилжүүлэх баталгаажуулалт ── */
               <div>
                 <p style={{ fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '1rem' }}>
-                  Энэ утасны дугаар өөр карго компанид бүртгэлтэй байна.
-                  {maskedEmail && <> Танай <strong>{maskedEmail}</strong> и-мэйл рүү баталгаажуулах код илгээж,</> } бүртгэлийг <strong>{selectedCargo.name}</strong> компанид шилжүүлж болно.
+                  Энэ утасны дугаар өөр карго компанид бүртгэлтэй байна. Дугаар таных гэдгийг баталгаажуулаад
+                  бүртгэлээ <strong>{selectedCargo.name}</strong> компанид шилжүүлж болно.
                 </p>
+                {/* Утсаар (144773 руу SMS) — баталгаажмагц шууд шилжинэ */}
+                <PhoneVerify purpose="move" cargoId={selectedCargo.id} phone={form.phone} lockPhone
+                  onVerified={id => { if (id) moveByPhone(id) }} />
                 {error && <p className="msg-error">{error}</p>}
                 <div className="form-actions" style={{ marginTop: '1rem', display: 'flex', gap: '0.6rem' }}>
-                  <button type="button" className="btn" disabled={loading} onClick={requestMoveOtp} style={{ flex: 1 }}>
-                    {loading ? 'Түр хүлээнэ үү...' : 'Код илгээх'}
-                  </button>
+                  {maskedEmail && (
+                    <button type="button" className="btn btn-ghost" disabled={loading} onClick={requestMoveOtp} style={{ flex: 1 }}>
+                      {loading ? 'Түр хүлээнэ үү...' : `✉️ И-мэйлээр код авах (${maskedEmail})`}
+                    </button>
+                  )}
                   <button type="button" onClick={() => { setMoveStep(null); setError('') }} style={{
                     background: 'none', border: '1px solid var(--border)', color: 'var(--muted)',
                     borderRadius: 'var(--radius)', padding: '0 1rem', cursor: 'pointer', fontFamily: 'inherit',
@@ -265,8 +285,9 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                   </div>
                 )}
                 <div className="form-group">
-                  <label>И-мэйл</label>
-                  <input className="input" type="email" placeholder="example@gmail.com" required
+                  {/* Утсаа баталгаажуулдаг каргод нууц үгээ утсаар сэргээнэ — и-мэйл заавал биш */}
+                  <label>И-мэйл{selectedCargo.phoneVerify && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> (заавал биш)</span>}</label>
+                  <input className="input" type="email" placeholder="example@gmail.com" required={!selectedCargo.phoneVerify}
                     value={form.email} onChange={e => set('email', e.target.value)} />
                 </div>
                 <div className="form-group">

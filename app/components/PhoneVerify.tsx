@@ -1,6 +1,6 @@
 'use client'
 // Утасны талбар + Verify.MN урсгал: хэрэглэгч кодоо өөрийн утаснаасаа 144773 руу SMS-ээр илгээнэ.
-// Баталгаажвал onVerified(id) — бүртгүүлэх хүсэлтэд verificationId болгон илгээнэ.
+// Баталгаажвал onVerified(id) — дараагийн хүсэлтэд (бүртгүүлэх / нууц үг / шилжих) verificationId болгон илгээнэ.
 import { useEffect, useRef, useState } from 'react'
 
 type Session = { id: string; code: string; shortcode: string; expiresAt: string; mock: boolean }
@@ -8,12 +8,14 @@ type Stage = 'idle' | 'starting' | 'pending' | 'verified' | 'expired'
 
 const POLL_MS = 3000
 
-export default function PhoneVerify({ cargoId, phone, onPhone, onVerified, onNeedsMove }: {
-  cargoId: number
+export default function PhoneVerify({ cargoId, phone, onPhone, onVerified, onNeedsMove, purpose = 'signup', lockPhone = false }: {
+  cargoId?: number
   phone: string
-  onPhone: (v: string) => void
+  onPhone?: (v: string) => void
   onVerified: (id: string | null) => void
-  onNeedsMove: () => void
+  onNeedsMove?: () => void
+  purpose?: 'signup' | 'reset' | 'move'
+  lockPhone?: boolean // шилжих үед дугаар аль хэдийн тодорхой — солих боломжгүй
 }) {
   const [stage, setStage] = useState<Stage>('idle')
   const [session, setSession] = useState<Session | null>(null)
@@ -66,10 +68,10 @@ export default function PhoneVerify({ cargoId, phone, onPhone, onVerified, onNee
     try {
       const r = await fetch('/api/auth/phone-verify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, cargoId }),
+        body: JSON.stringify({ phone, cargoId, purpose }),
       })
       const d = await r.json()
-      if (d.code === 'NEEDS_MOVE') { setStage('idle'); onNeedsMove(); return }
+      if (d.code === 'NEEDS_MOVE') { setStage('idle'); onNeedsMove?.(); return }
       if (!r.ok || !d.ok) { setError(d.error || 'Алдаа гарлаа'); setStage('idle'); return }
       setSession(d)
       setLeft(Math.floor((new Date(d.expiresAt).getTime() - Date.now()) / 1000))
@@ -97,15 +99,15 @@ export default function PhoneVerify({ cargoId, phone, onPhone, onVerified, onNee
       <label htmlFor="phone">Утасны дугаар</label>
       <div className="pv-row">
         <input id="phone" className="input" type="tel" inputMode="numeric" autoComplete="tel" placeholder="99000000"
-          required maxLength={8} value={phone} readOnly={locked}
-          onChange={e => onPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          required maxLength={8} value={phone} readOnly={locked || lockPhone}
+          onChange={e => onPhone?.(e.target.value.replace(/\D/g, '').slice(0, 8))}
           onKeyDown={e => { if (e.key === 'Enter' && stage === 'idle') { e.preventDefault(); start() } }} />
         {stage === 'idle' || stage === 'starting' ? (
           <button type="button" className="btn" onClick={start} disabled={stage === 'starting' || phone.length !== 8}>
             {stage === 'starting' ? '...' : 'Баталгаажуулах'}
           </button>
-        ) : (
-          <button type="button" className="btn btn-ghost" onClick={reset}>Солих</button>
+        ) : stage === 'verified' && lockPhone ? null : (
+          <button type="button" className="btn btn-ghost" onClick={reset}>{lockPhone ? 'Цуцлах' : 'Солих'}</button>
         )}
       </div>
       {error && <p className="msg-error" role="alert">{error}</p>}

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   // И-мэйлийг жижиг үсгээр хадгална — нууц үг сэргээхэд олдохгүй байхаас сэргийлнэ
   const email = normEmail(body.email)
 
-  if (!name || !phone || !email || !password || !cargoId) {
+  if (!name || !phone || !password || !cargoId) {
     return NextResponse.json({ error: 'Бүх талбарыг бөглөнө үү' }, { status: 400 })
   }
 
@@ -19,10 +19,14 @@ export async function POST(req: NextRequest) {
   if (!cargo) {
     return NextResponse.json({ error: 'Карго олдсонгүй' }, { status: 400 })
   }
+  // Утсаа баталгаажуулдаг каргод нууц үгээ утсаар сэргээнэ — и-мэйл заавал биш
+  if (!email && !cargo.phoneVerify) {
+    return NextResponse.json({ error: 'Бүх талбарыг бөглөнө үү' }, { status: 400 })
+  }
 
   const [byPhone, byEmail] = await Promise.all([
     prisma.user.findUnique({ where: { phone } }),
-    findUserByEmail(email),
+    email ? findUserByEmail(email) : null,
   ])
 
   if (byEmail && byEmail.id !== byPhone?.id) {
@@ -56,7 +60,7 @@ export async function POST(req: NextRequest) {
 
   const hashed = await bcrypt.hash(password, 10)
   const user = await prisma.user.create({
-    data: { name, phone, email, password: hashed, cargoId: cargo.id, phoneVerifiedAt },
+    data: { name, phone, email: email || null, password: hashed, cargoId: cargo.id, phoneVerifiedAt },
   })
 
   // Auto-link any existing shipments with this phone in this cargo.

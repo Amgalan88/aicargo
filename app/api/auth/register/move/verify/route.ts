@@ -4,6 +4,7 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
+import { consumeVerification } from '@/lib/phone-verification'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -13,8 +14,9 @@ const ipRatelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, 
 const phoneRatelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(8, '10 m'), prefix: 'register-move-verify-phone' })
 
 export async function POST(req: NextRequest) {
-  const { name, phone, password, cargoId, code } = await req.json()
-  if (!name || !phone || !password || !cargoId || !code) {
+  // Эзэн гэдгээ и-мэйлийн кодоор (code) эсвэл утсаа SMS-ээр (verificationId, зорилго "move") батална
+  const { name, phone, password, cargoId, code, verificationId } = await req.json()
+  if (!name || !phone || !password || !cargoId || (!code && !verificationId)) {
     return NextResponse.json({ error: 'Мэдээлэл дутуу байна' }, { status: 400 })
   }
 
@@ -33,25 +35,35 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await prisma.user.findUnique({ where: { phone } })
-  if (!user || user.role !== 'USER' || user.cargoId === cargo.id || !user.email) {
+  if (!user || user.role !== 'USER' || user.cargoId === cargo.id || (!verificationId && !user.email)) {
     return NextResponse.json({ error: 'Шилжүүлэх боломжгүй байна' }, { status: 400 })
   }
+  if (String(password).length < 6) {
+    return NextResponse.json({ error: 'Нууц үг хамгийн багадаа 6 тэмдэгт байна' }, { status: 400 })
+  }
 
-  const otp = await prisma.otp.findFirst({
-    where: { email: user.email, code, used: false, expiresAt: { gt: new Date() } },
-    orderBy: { id: 'desc' },
-  })
-  if (!otp) {
-    return NextResponse.json({ error: 'Код буруу эсвэл хугацаа дууссан байна' }, { status: 400 })
+  let otp: { id: number } | null = null
+  if (verificationId) {
+    if (!(await consumeVerification(String(verificationId), String(phone), 'move'))) {
+      return NextResponse.json({ error: 'Баталгаажуулалт хүчингүй эсвэл хугацаа дууссан. Дахин баталгаажуулна уу' }, { status: 400 })
+    }
+  } else {
+    otp = await prisma.otp.findFirst({
+      where: { email: user.email!, code, used: false, expiresAt: { gt: new Date() } },
+      orderBy: { id: 'desc' },
+    })
+    if (!otp) {
+      return NextResponse.json({ error: 'Код буруу эсвэл хугацаа дууссан байна' }, { status: 400 })
+    }
   }
 
   const hashed = await bcrypt.hash(password, 10)
 
   const moved = await prisma.$transaction(async tx => {
-    await tx.otp.update({ where: { id: otp.id }, data: { used: true } })
+    if (otp) await tx.otp.update({ where: { id: otp.id }, data: { used: true } })
     const updated = await tx.user.update({
       where: { id: user.id },
-      data: { name, password: hashed, cargoId: cargo.id, tokenVersion: { increment: 1 } },
+      data: { name, password: hashed, cargoId: cargo.id, tokenVersion: { increment: 1 }, ...(verificationId ? { phoneVerifiedAt: new Date() } : {}) },
     })
     // updatedAt-ыг хөдөлгөхгүй (raw SQL) — олгосон ачаанд энэ нь олгосон огноо
     await tx.$executeRaw`

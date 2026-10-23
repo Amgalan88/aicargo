@@ -7,11 +7,12 @@ export const VERIFICATION_VALID_MINUTES = 60 // баталгаажсанаас �
 export const MAX_ATTEMPTS = 3 // нэг дугаарт 10 минутад
 const ATTEMPT_WINDOW_MS = 10 * 60_000
 
-export type Purpose = 'signup'
+// signup — шинэ бүртгэл, reset — нууц үг сэргээх, move — өөр каргогийн бүртгэлийг шилжүүлэх
+export type Purpose = 'signup' | 'reset' | 'move'
 
 export type StartResult =
   | { ok: true; id: string; code: string; shortcode: string; expiresAt: string; mock: boolean }
-  | { ok: false; error: 'badPhone' | 'phoneTaken' | 'needsMove' | 'unavailable' | 'tooMany' }
+  | { ok: false; error: 'badPhone' | 'phoneTaken' | 'needsMove' | 'noAccount' | 'cantMove' | 'unavailable' | 'tooMany' }
 
 // Монгол дугаар 8 оронтой; зай, зураас, +976-г хасна
 export function normalizePhone(raw: string) {
@@ -19,14 +20,20 @@ export function normalizePhone(raw: string) {
 }
 
 // SMS илгээхээс өмнө бүх шалгалтыг хийнэ — хэрэглэгч 150₮-өө дэмий төлөхгүй
-export async function startVerification(rawPhone: string, cargoId: number, purpose: Purpose = 'signup'): Promise<StartResult> {
+export async function startVerification(rawPhone: string, cargoId: number | null, purpose: Purpose = 'signup'): Promise<StartResult> {
   const phone = normalizePhone(rawPhone)
   if (!/^\d{8}$/.test(phone)) return { ok: false, error: 'badPhone' }
 
+  const existing = await prisma.user.findUnique({ where: { phone }, select: { cargoId: true, role: true } })
   if (purpose === 'signup') {
-    const existing = await prisma.user.findUnique({ where: { phone }, select: { cargoId: true } })
-    // Өөр каргод бүртгэлтэй бол шилжих урсгал (одоогоор и-мэйлээр) — SMS шаардахгүй
+    // Өөр каргод бүртгэлтэй бол шилжих урсгал руу — энд SMS шаардахгүй
     if (existing) return { ok: false, error: existing.cargoId === cargoId ? 'phoneTaken' : 'needsMove' }
+  } else if (purpose === 'reset') {
+    // Бүртгэлгүй дугаарт хэрэглэгч 150₮ дэмий төлөхгүйн тулд эрт хэлнэ
+    if (!existing) return { ok: false, error: 'noAccount' }
+  } else if (!existing || existing.role !== 'USER' || existing.cargoId === cargoId) {
+    // Шилжүүлэхэд зөвхөн өөр каргогийн энгийн хэрэглэгч (админ эрхийг энд шилжүүлэхгүй)
+    return { ok: false, error: 'cantMove' }
   }
 
   const mode = verifyMode()
