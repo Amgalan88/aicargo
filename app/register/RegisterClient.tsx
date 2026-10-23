@@ -7,7 +7,7 @@ import PhoneVerify from '@/app/components/PhoneVerify'
 import PasswordInput from '@/app/components/PasswordInput'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-interface Cargo { id: number; name: string; logoUrl?: string | null; phoneVerify?: boolean }
+interface Cargo { id: number; name: string; logoUrl?: string | null }
 
 export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Cargo[]; lockedCargoId?: number }) {
   const router = useRouter()
@@ -24,16 +24,16 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
       if (found) setSelectedCargo(found)
     }
   }, [cargos, searchParams, locked])
-  const [form, setForm] = useState({ name: '', phone: '', email: '', password: '' })
+  const [form, setForm] = useState({ name: '', phone: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [moveStep, setMoveStep] = useState<'confirm' | 'otp' | null>(null)
   const [maskedEmail, setMaskedEmail] = useState('')
   const [otpCode, setOtpCode] = useState('')
-  // Утас баталгаажуулалт асаалттай каргод: баталгаажсан id, эсвэл өөр каргод бүртгэлтэй (шилжих урсгал)
+  // Утсаа заавал баталгаажуулна: баталгаажсан id, эсвэл өөр каргод бүртгэлтэй (шилжих урсгал)
   const [verificationId, setVerificationId] = useState<string | null>(null)
   const [moveOk, setMoveOk] = useState(false)
-  const needVerify = !!selectedCargo?.phoneVerify && !verificationId && !moveOk
+  const needVerify = !verificationId && !moveOk
 
   const filteredCargos = cargoSearch.trim()
     ? cargos.filter(c => c.name.toLowerCase().includes(cargoSearch.toLowerCase()))
@@ -264,33 +264,15 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                   <input className="input" placeholder="Нэр" required
                     value={form.name} onChange={e => set('name', e.target.value)} />
                 </div>
-                {selectedCargo.phoneVerify ? (
-                  <>
-                    <PhoneVerify cargoId={selectedCargo.id} phone={form.phone}
-                      onPhone={v => { set('phone', v); setMoveOk(false) }}
-                      onVerified={setVerificationId}
-                      onNeedsMove={() => setMoveOk(true)} />
-                    {moveOk && (
-                      <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '-0.4rem 0 0.8rem' }}>
-                        Энэ дугаар өөр каргод бүртгэлтэй байна. Мэдээллээ бөглөөд «Бүртгүүлэх» дарвал бүртгэлээ шилжүүлэх алхам гарна.
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div className="form-group">
-                    <label>Утасны дугаар</label>
-                    <input className="input" type="tel" placeholder="99000000" required
-                      maxLength={8} pattern="\d{8}"
-                      value={form.phone}
-                      onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 8))} />
-                  </div>
+                <PhoneVerify cargoId={selectedCargo.id} phone={form.phone}
+                  onPhone={v => { set('phone', v); setMoveOk(false) }}
+                  onVerified={setVerificationId}
+                  onNeedsMove={() => setMoveOk(true)} />
+                {moveOk && (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '-0.4rem 0 0.8rem' }}>
+                    Энэ дугаар өөр каргод бүртгэлтэй байна. Мэдээллээ бөглөөд «Бүртгүүлэх» дарвал бүртгэлээ шилжүүлэх алхам гарна.
+                  </p>
                 )}
-                <div className="form-group">
-                  {/* Утсаа баталгаажуулдаг каргод нууц үгээ утсаар сэргээнэ — и-мэйл заавал биш */}
-                  <label>И-мэйл{selectedCargo.phoneVerify && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> (заавал биш)</span>}</label>
-                  <input className="input" type="email" placeholder="example@gmail.com" required={!selectedCargo.phoneVerify}
-                    value={form.email} onChange={e => set('email', e.target.value)} />
-                </div>
                 <div className="form-group">
                   <label>Нууц үг</label>
                   <PasswordInput placeholder="Хамгийн багадаа 6 тэмдэгт" required autoComplete="new-password"

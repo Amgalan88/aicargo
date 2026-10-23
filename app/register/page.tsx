@@ -12,7 +12,7 @@ export default async function RegisterPage() {
   }
 
   const cargos = await (prisma.cargo.findMany as any)({
-    select: { id: true, name: true, logoUrl: true, phoneVerify: true },
+    select: { id: true, name: true, logoUrl: true },
     orderBy: { name: 'asc' },
   })
 

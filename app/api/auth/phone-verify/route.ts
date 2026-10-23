@@ -25,7 +25,7 @@ const MESSAGES: Record<Extract<StartResult, { ok: false }>['error'], string> = {
 const PURPOSES: Purpose[] = ['signup', 'reset', 'move', 'phone']
 
 // POST { phone, cargoId?, purpose? } — баталгаажуулалт эхлүүлнэ: код, богино дугаар, хугацааг буцаана (sessionId хэзээ ч биш)
-//   signup — тухайн карго асаасан байх ёстой; reset — бүх каргод (карго хамаарахгүй); move — очих карго;
+//   signup — шинэ бүртгэл (бүх каргод заавал); reset — бүх каргод (карго хамаарахгүй); move — очих карго;
 //   phone — нэвтэрсэн хүн өөрийн дугаараа баталгаажуулна эсвэл шинэ дугаар руу солино
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
@@ -33,12 +33,9 @@ export async function POST(req: NextRequest) {
   const self = purpose === 'phone' ? await getVerifiedUserFromRequest(req) : null
   if (purpose === 'phone' && !self) return unauthorized()
   const cargo = body.cargoId
-    ? await prisma.cargo.findUnique({ where: { id: Number(body.cargoId) }, select: { id: true, phoneVerify: true } })
+    ? await prisma.cargo.findUnique({ where: { id: Number(body.cargoId) }, select: { id: true } })
     : null
   if ((purpose === 'signup' || purpose === 'move') && !cargo) return NextResponse.json({ error: 'Карго олдсонгүй' }, { status: 400 })
-  if (purpose === 'signup' && !cargo?.phoneVerify) {
-    return NextResponse.json({ error: 'Энэ каргод утас баталгаажуулалт асаагүй байна' }, { status: 400 })
-  }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'anonymous'
   const { success } = await ipRatelimit.limit(ip)
