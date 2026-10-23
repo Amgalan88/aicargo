@@ -21,6 +21,7 @@ export interface CargoInfo {
   arrivedLabel: string | null
   ereemLabel: string | null
   searchByPhone: boolean
+  phoneVerify: boolean
 }
 
 export async function getCargoFromSubdomain(): Promise<CargoInfo | null> {
@@ -49,6 +50,7 @@ export async function getCargoFromSubdomain(): Promise<CargoInfo | null> {
       arrivedLabel: true,
       ereemLabel: true,
       searchByPhone: true,
+      phoneVerify: true,
     },
   })
 }

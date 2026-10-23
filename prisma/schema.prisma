@@ -31,6 +31,7 @@ model Cargo {
   batchEnabled      Boolean    @default(false)
   // Хэрэглэгчээс барааны линкээр захиалга авах (Taobao, Pinduoduo, 1688…)
   linkOrdersEnabled Boolean    @default(false)
+  phoneVerify       Boolean    @default(false) // шинэ хэрэглэгч утсаа Verify.MN-ээр баталгаажуулж бүртгүүлнэ (админ асаана)
   // Брэндбүүкийн загвар (жш "mgl" — Эрээнээс MGL карго): өнгө, фонт, толгойн маршрутын шугам. null = aicargo-ийн энгийн загвар
   brandTheme        String?
   tariff            String?
@@ -80,6 +81,7 @@ model User {
   canEditAddress Boolean  @default(false)
   canEditLogo    Boolean  @default(false)
   linkOrdersOn   Boolean  @default(false) // хэрэглэгч линк захиалгаа өөрөө асаасан эсэх (карго асаасан байх ёстой)
+  phoneVerifiedAt DateTime? // Verify.MN-ээр утсаа баталгаажуулсан цаг
   createdAt    DateTime   @default(now())
   shipments    Shipment[]
   linkOrders   LinkOrder[]
@@ -528,4 +530,19 @@ model BillingPayment {
   updatedAt       DateTime  @default(now()) @updatedAt
 
   @@index([cargoId, createdAt])
+}
+
+// Verify.MN утас баталгаажуулалт (хэрэглэгч 144773 руу кодоо SMS-ээр илгээнэ)
+model PhoneVerification {
+  id         String    @id
+  phone      String
+  purpose    String    @default("signup") // нэг баталгаажуулалт нэг зорилгод л хэрэглэгдэнэ
+  code       String
+  sessionId  String    @unique // Verify.MN-ийн session id — нууц, хөтөч рүү хэзээ ч илгээхгүй
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  usedAt     DateTime? // нэг баталгаажуулалт = нэг бүртгэл
+
+  @@index([phone, createdAt])
 }

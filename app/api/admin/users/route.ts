@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
         name: true,
         phone: true,
         email: true,
+        phoneVerifiedAt: true,
         createdAt: true,
         _count: { select: { shipments: true } },
       },

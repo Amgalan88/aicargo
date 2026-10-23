@@ -1,5 +1,5 @@
 'use client'
-import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2 } from 'lucide-react'
+import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, ShieldCheck } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
@@ -18,6 +18,7 @@ const SECTIONS = [
   { id: 'st-ereen', label: 'Эрээний хаяг' },
   { id: 'st-labels', label: 'Төлөвийн нэр' },
   { id: 'st-links', label: 'Линк захиалга' },
+  { id: 'st-verify', label: 'Утас баталгаажуулалт' },
   { id: 'st-staff', label: 'Ажилтан' },
 ]
 
@@ -56,6 +57,21 @@ export default function SettingsPage() {
     setLinkOn(next)
     toast.success(next ? 'Линк захиалга нээгдлээ' : 'Линк захиалга хаагдлаа')
     router.refresh()
+  }
+  // Шинэ хэрэглэгчийн утас баталгаажуулалт (Verify.MN) — мөн дармагц хадгалагдана
+  const [verifyOn, setVerifyOn] = useState(false)
+  const [verifyBusy, setVerifyBusy] = useState(false)
+  async function toggleVerify() {
+    if (verifyBusy) return
+    const next = !verifyOn
+    setVerifyBusy(true)
+    const res = await fetch('/api/admin/settings', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phoneVerify: next }),
+    }).catch(() => null)
+    setVerifyBusy(false)
+    if (!res?.ok) { toast.error('Хадгалахад алдаа гарлаа'); return }
+    setVerifyOn(next)
+    toast.success(next ? 'Утас баталгаажуулалт асаалаа' : 'Утас баталгаажуулалт унтарлаа')
   }
   const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '', ereemTitle: '', ereemAddresses: [] as EreenAddress[] })
   const [tiers, setTiers] = useState<Tier[]>([])
@@ -99,6 +115,7 @@ export default function SettingsPage() {
         } catch {}
         setForm(loadedForm)
         setLinkOn(!!d.linkOrdersEnabled)
+        setVerifyOn(!!d.phoneVerify)
         setTiers(loadedTiers)
         setLoaded({ form: loadedForm, tiers: loadedTiers })
         setBaseline(snapshotOf(loadedForm, loadedTiers, null))
@@ -301,6 +318,22 @@ export default function SettingsPage() {
           </p>
           <button type="button" role="switch" aria-checked={linkOn} aria-labelledby="link-orders-label"
             className={`switch${linkOn ? ' on' : ''}`} disabled={me.isStaffAdmin || linkBusy} onClick={toggleLinks}>
+            <span />
+          </button>
+        </div>
+        {me.isStaffAdmin && <p className="st-locked">Зөвхөн каргогийн эзэмшигч өөрчилнө.</p>}
+      </Section>
+
+      <Section id="st-verify" icon={ShieldCheck} title="Шинэ хэрэглэгчийн утас баталгаажуулалт">
+        <div className="st-toggle">
+          <p id="phone-verify-label">
+            {verifyOn
+              ? 'Асаалттай — шинээр бүртгүүлэх хүн дугаараасаа 144773 руу код илгээж утсаа баталгаажуулна. Бусдын дугаараар бүртгүүлж ачааг нь авах боломжгүй.'
+              : 'Унтраалттай — асаавал шинэ хэрэглэгч утсаа SMS-ээр (150₮, хэрэглэгч төлнө) баталгаажуулж бүртгүүлнэ. Одоо байгаа хэрэглэгчдэд нөлөөлөхгүй.'}
+            <small>Дармагц шууд хадгалагдана. SMS баталгаажуулалт саатвал түр унтраана уу.</small>
+          </p>
+          <button type="button" role="switch" aria-checked={verifyOn} aria-labelledby="phone-verify-label"
+            className={`switch${verifyOn ? ' on' : ''}`} disabled={me.isStaffAdmin || verifyBusy} onClick={toggleVerify}>
             <span />
           </button>
         </div>

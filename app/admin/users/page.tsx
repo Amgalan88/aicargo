@@ -8,6 +8,7 @@ interface User {
   name: string
   phone: string
   email: string | null
+  phoneVerifiedAt: string | null
   createdAt: string
   _count: { shipments: number }
 }
@@ -86,7 +87,10 @@ export default function UsersPage() {
               {sorted.map(u => (
                 <tr key={u.id}>
                   <td className="st-title" style={{ fontWeight: 600, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</td>
-                  <td data-label="Утас" style={{ whiteSpace: 'nowrap' }}><CopyCell value={u.phone} /></td>
+                  <td data-label="Утас" style={{ whiteSpace: 'nowrap' }}>
+                    <CopyCell value={u.phone} />
+                    {u.phoneVerifiedAt && <span title="Утсаа SMS-ээр баталгаажуулсан" style={{ marginLeft: 6, color: 'var(--green)', fontSize: '0.75rem', fontWeight: 700 }}>✓</span>}
+                  </td>
                   <td data-label="Ачаа" className="num">{u._count.shipments > 0 ? u._count.shipments : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
                   <td data-label="Бүртгүүлсэн" className="num" style={{ color: 'var(--muted)' }}>{fmtDate(u.createdAt)}</td>
                 </tr>

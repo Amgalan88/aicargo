@@ -2196,3 +2196,21 @@ html[data-brand="mgl"] .badge-EREEN_ARRIVED { background: #E7EEF9; color: #002D7
 html[data-brand="mgl"] .badge-ARRIVED { background: #FFE3C4; color: #A84C00; border-color: #FFC48A; }
 html[data-brand="mgl"][data-theme="night"] .badge-EREEN_ARRIVED { background: #12346E; color: #BCD0F0; border-color: #2D5DA6; }
 html[data-brand="mgl"][data-theme="night"] .badge-ARRIVED { background: #FF8200; color: #002D72; border-color: #FF8200; }
+
+/* Утас баталгаажуулалт (Verify.MN) — бүртгүүлэх маягт */
+.pv-row { display: flex; gap: 0.5rem; }
+.pv-row .input { flex: 1; min-width: 0; }
+.pv-row .btn, .pv-row .btn-ghost { flex-shrink: 0; white-space: nowrap; }
+.pv-box { margin-top: 0.6rem; padding: 0.9rem; border-radius: var(--radius); border: 1px solid var(--accent); background: var(--accent-light); font-size: 0.88rem; line-height: 1.45; overflow-wrap: anywhere; }
+.pv-mock { margin: 0 0 0.6rem; padding: 0.35rem 0.6rem; border-radius: 8px; background: var(--surface2); color: var(--muted); font-size: 0.78rem; font-weight: 600; }
+.pv-code { display: flex; align-items: baseline; justify-content: center; gap: 0.9rem; margin: 0.75rem 0; padding: 0.6rem; border-radius: 10px; background: var(--surface); }
+.pv-digits { font-weight: 800; font-size: 2rem; letter-spacing: 0.18em; font-variant-numeric: tabular-nums; color: var(--text); }
+.pv-to { color: var(--muted); font-weight: 700; }
+.pv-block { width: 100%; text-decoration: none; }
+.pv-meta { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.6rem; font-size: 0.82rem; color: var(--muted); }
+.pv-note { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.pv-ok { font-size: 0.85rem; color: var(--green); font-weight: 600; margin-top: 0.5rem; }
+.pv-link { border: 0; background: none; color: inherit; text-decoration: underline; font: inherit; cursor: pointer; padding: 0; }
+.pv-spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--accent); animation: pv-spin 0.8s linear infinite; display: inline-block; vertical-align: -1px; }
+@keyframes pv-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pv-spinner { animation: none; } }

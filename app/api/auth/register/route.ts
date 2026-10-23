@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
 import { normEmail, findUserByEmail } from '@/lib/email'
+import { consumeVerification } from '@/lib/phone-verification'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -41,9 +42,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'NEEDS_MOVE', code: 'NEEDS_MOVE', maskedEmail: masked }, { status: 409 })
   }
 
+  // Админ асаасан каргод шинэ хэрэглэгч утсаа Verify.MN-ээр баталгаажуулсан байх ёстой — эс тэгвэл
+  // бусдын дугаараар бүртгүүлж тэр дугаарын ачааг авах боломжтой. Бусад шалгалт давсны дараа хэрэглэнэ
+  // (өөр талбарын алдаанаас болж хэрэглэгчийн төлсөн SMS шатахгүй).
+  let phoneVerifiedAt: Date | null = null
+  if (cargo.phoneVerify) {
+    const verificationId = String(body.verificationId ?? '')
+    if (!(await consumeVerification(verificationId, String(phone)))) {
+      return NextResponse.json({ error: 'Утасны дугаараа баталгаажуулна уу' }, { status: 400 })
+    }
+    phoneVerifiedAt = new Date()
+  }
+
   const hashed = await bcrypt.hash(password, 10)
   const user = await prisma.user.create({
-    data: { name, phone, email, password: hashed, cargoId: cargo.id },
+    data: { name, phone, email, password: hashed, cargoId: cargo.id, phoneVerifiedAt },
   })
 
   // Auto-link any existing shipments with this phone in this cargo.

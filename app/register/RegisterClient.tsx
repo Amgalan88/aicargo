@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import NavLogo from '@/app/components/NavLogo'
 import { cloudinaryLogo } from '@/lib/warehouse'
+import PhoneVerify from '@/app/components/PhoneVerify'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-interface Cargo { id: number; name: string; logoUrl?: string | null }
+interface Cargo { id: number; name: string; logoUrl?: string | null; phoneVerify?: boolean }
 
 export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Cargo[]; lockedCargoId?: number }) {
   const router = useRouter()
@@ -28,6 +29,10 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
   const [moveStep, setMoveStep] = useState<'confirm' | 'otp' | null>(null)
   const [maskedEmail, setMaskedEmail] = useState('')
   const [otpCode, setOtpCode] = useState('')
+  // Утас баталгаажуулалт асаалттай каргод: баталгаажсан id, эсвэл өөр каргод бүртгэлтэй (шилжих урсгал)
+  const [verificationId, setVerificationId] = useState<string | null>(null)
+  const [moveOk, setMoveOk] = useState(false)
+  const needVerify = !!selectedCargo?.phoneVerify && !verificationId && !moveOk
 
   const filteredCargos = cargoSearch.trim()
     ? cargos.filter(c => c.name.toLowerCase().includes(cargoSearch.toLowerCase()))
@@ -43,7 +48,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, cargoId: selectedCargo.id }),
+      body: JSON.stringify({ ...form, cargoId: selectedCargo.id, verificationId }),
     })
     const data = await res.json()
     setLoading(false)
@@ -238,13 +243,27 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                   <input className="input" placeholder="Нэр" required
                     value={form.name} onChange={e => set('name', e.target.value)} />
                 </div>
-                <div className="form-group">
-                  <label>Утасны дугаар</label>
-                  <input className="input" type="tel" placeholder="99000000" required
-                    maxLength={8} pattern="\d{8}"
-                    value={form.phone}
-                    onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 8))} />
-                </div>
+                {selectedCargo.phoneVerify ? (
+                  <>
+                    <PhoneVerify cargoId={selectedCargo.id} phone={form.phone}
+                      onPhone={v => { set('phone', v); setMoveOk(false) }}
+                      onVerified={setVerificationId}
+                      onNeedsMove={() => setMoveOk(true)} />
+                    {moveOk && (
+                      <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '-0.4rem 0 0.8rem' }}>
+                        Энэ дугаар өөр каргод бүртгэлтэй байна. Мэдээллээ бөглөөд «Бүртгүүлэх» дарвал бүртгэлээ шилжүүлэх алхам гарна.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="form-group">
+                    <label>Утасны дугаар</label>
+                    <input className="input" type="tel" placeholder="99000000" required
+                      maxLength={8} pattern="\d{8}"
+                      value={form.phone}
+                      onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 8))} />
+                  </div>
+                )}
                 <div className="form-group">
                   <label>И-мэйл</label>
                   <input className="input" type="email" placeholder="example@gmail.com" required
@@ -257,8 +276,8 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                 </div>
                 {error && <p className="msg-error">{error}</p>}
                 <div className="form-actions" style={{ marginTop: '1rem' }}>
-                  <button className="btn" type="submit" disabled={loading} style={{ width: '100%' }}>
-                    {loading ? 'Түр хүлээнэ үү...' : 'Бүртгүүлэх'}
+                  <button className="btn" type="submit" disabled={loading || needVerify} style={{ width: '100%' }}>
+                    {loading ? 'Түр хүлээнэ үү...' : needVerify ? 'Эхлээд утсаа баталгаажуулна уу' : 'Бүртгүүлэх'}
                   </button>
                 </div>
               </form>
