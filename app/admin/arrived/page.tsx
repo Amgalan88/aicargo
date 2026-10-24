@@ -140,7 +140,8 @@ export default function ArrivedPage() {
         const parsedAll = data
           .map(row => {
             const phoneRaw = String(row[1] ?? '').trim()
-            const priceRaw = Number(row[2])
+            // "5,500", "5 500₮" гэх мэт текстээр бичсэн үнийг ч уншина (өмнө нь үнэгүй болдог байсан)
+            const priceRaw = typeof row[2] === 'number' ? row[2] : Number(String(row[2] ?? '').replace(/[^\d.]/g, ''))
             return {
               raw: String(row[0] ?? '').trim(),
               trackCode: parseArrivedCode(row[0]) ?? '',
@@ -177,7 +178,12 @@ export default function ArrivedPage() {
           const proceed = await confirmAsync(`⚠ ${dupes.length} трак код Excel-д давхардсан байна — СҮҮЛИЙН мөр нь орно:\n\n${ex}${dupes.length > 5 ? '\n...' : ''}\n\nҮргэлжлүүлэх үү?`)
           if (!proceed) return
         }
-        if (!await confirmAsync(`${byCode.size} бараа Ирсэн статустай болгох уу?`)) return
+        // Үнэгүй мөр: бүгд үнэгүй бол Эрээний жагсаалтыг андуурч оруулж байж магадгүй — тусад нь асууна
+        const unpriced = [...byCode.values()].filter(rs => !rs[rs.length - 1].price).length
+        if (unpriced === byCode.size) {
+          const proceed = await confirmAsync(`⚠ Энэ файлын ${byCode.size} ачаа БҮГД ҮНЭГҮЙ байна (C баганад үнэ алга).\n\nЭрээний жагсаалт бол «Эрээн» хуудсаар оруулна уу — энд оруулбал ачаа Монголд ирсэн мэт олголт дээр гарч, хэрэглэгчид «ирсэн» мэдэгдэл очно.\n\nҮнэгүйгээр «Ирсэн» болгох уу?`)
+          if (!proceed) return
+        } else if (!await confirmAsync(`${byCode.size} бараа Ирсэн статустай болгох уу?${unpriced ? `\n\n⚠ ${unpriced} ачаа үнэгүй орно.` : ''}`)) return
         setXlsxLoading(true)
         const res = await fetch('/api/admin/arrived', {
           method: 'PUT',
