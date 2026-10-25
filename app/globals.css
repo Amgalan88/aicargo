@@ -1578,6 +1578,7 @@ button.lp-offer { text-align: left; font: inherit; cursor: pointer; width: 100%;
   .data-table.stack tbody td[data-label=""]::before, .data-table.stack tbody td:not([data-label])::before { content: none; }
   .data-table.stack td.num { justify-content: space-between; }
   .data-table.stack .st-hide { display: none; }
+  .data-table.stack .st-show { display: inline-block; }
   .data-table.stack .st-title { order: -1; font-size: var(--fs-base); font-weight: 700; justify-content: flex-start; text-align: left; padding-right: 2.5rem; }
   .data-table.stack .st-action { position: absolute; top: 0.45rem; right: 0.45rem; }
 }
@@ -2220,3 +2221,6 @@ html[data-brand="mgl"][data-theme="night"] .badge-ARRIVED { background: #FF8200;
 .pw-wrap .input { padding-right: 2.8rem; }
 .pw-eye { position: absolute; top: 0; right: 0; bottom: 0; width: 2.6rem; display: flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 0 var(--radius) var(--radius) 0; }
 .pw-eye:hover { color: var(--text); }
+
+/* Зөвхөн утасны (stack) хүснэгтэд харагдах элемент — эхний багана нуугдахад */
+.data-table .st-show { display: none; }

@@ -25,6 +25,11 @@ function getStatusLabel(arrivedLabel?: string | null, ereemLabel?: string | null
   }
 }
 
+// Улаанбаатарын өнөөдөр / N хоногийн өмнөх огноо (YYYY-MM-DD) — date input-ийн min/max
+const ubDate = (ms: number) => new Date(ms + 8 * 3600_000).toISOString().slice(0, 10)
+const todayUB = () => ubDate(Date.now())
+const daysAgoUB = (n: number) => ubDate(Date.now() - n * 86400_000)
+
 export default function ImportPage() {
   const router = useRouter()
 
@@ -46,6 +51,8 @@ export default function ImportPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [page, setPage] = useState(1)
   const [saving, setSaving] = useState(false)
+  // Эрээнд ирсэн огноо ('' = өнөөдөр)
+  const [ereenDate, setEreenDate] = useState('')
   const [done, setDone] = useState<number | null>(null)
   const [duplicates, setDuplicates] = useState<string[]>([])
   const [ownerChanges, setOwnerChanges] = useState<{ list: OwnerChange[]; count: number }>({ list: [], count: 0 })
@@ -260,11 +267,15 @@ export default function ImportPage() {
       const res = await fetch('/api/admin/bulk-import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: rows.map(r => ({ trackCode: r.trackCode, status: 'EREEN_ARRIVED', phone: r.phone })) }),
+        body: JSON.stringify({
+          rows: rows.map(r => ({ trackCode: r.trackCode, status: 'EREEN_ARRIVED', phone: r.phone })),
+          ...(ereenDate && ereenDate !== todayUB() ? { ereenDate } : {}),
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
       setDone(data.count)
+      setEreenDate('')
       setDuplicates(data.duplicates ?? [])
       setOwnerChanges({ list: data.ownerChanges ?? [], count: data.ownerChangeCount ?? 0 })
       setRows([])
@@ -525,8 +536,15 @@ export default function ImportPage() {
 
       {rows.length > 0 && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Нийт {rows.length} бараа</span>
+            {/* Эрээнд ирсэн огноо — жш 23-нд ирснийг 25-нд оруулбал 23 гэж сонгоно (30 хоногийн дотор) */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+              Эрээнд ирсэн огноо
+              <input type="date" className="input" value={ereenDate || todayUB()} min={daysAgoUB(30)} max={todayUB()}
+                onChange={e => setEreenDate(e.target.value)}
+                style={{ width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.82rem' }} />
+            </label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={() => { setRows([]); setPage(1); inputRef.current?.focus() }} style={{
                 background: 'none', border: '1px solid var(--border)', borderRadius: '8px',

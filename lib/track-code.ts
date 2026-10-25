@@ -68,7 +68,8 @@ export function parseArrivedCode(raw: unknown): string | null {
   return text && text.length <= 60 ? text : null
 }
 
-// Pinduoduo, Taobao захиалгын дугаар (трак код биш) — хэрэглэгчид сануулахад
+// Pinduoduo захиалгын дугаар (трак код биш): ОНСАРӨДӨР-15 орон, жш 260928-554654789241184 — зураасгүй ч бичигддэг.
+// 18–22 оронтой зөвхөн тоон трак код жинхэнэ байдаг (жш 71010497204500010001) тул огноогоор эхэлсэн 21 оронтойг л тооно.
 export function looksLikeOrderNumber(code: string): boolean {
-  return /^\d{6}-\d{10,}$/.test(code) || /^\d{18,20}$/.test(code)
+  return /^\d{6}-\d{10,}$/.test(code) || /^2\d(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{15}$/.test(code)
 }

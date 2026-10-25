@@ -365,6 +365,8 @@ export default function OrdersClient({
     e.preventDefault()
     if (!addForm.trackCode.trim()) return
     if (!/\d/.test(addForm.trackCode)) { setAddError('Трак код дор хаяж нэг тоо агуулсан байх ёстой'); return }
+    // Захиалгын дугаар Эрээнд бараг таарахгүй — бүртгэхийн өмнө заавал асууна (ховор тохиолдолд агуулах ийм кодоор бүртгэдэг тул хаахгүй)
+    if (looksLikeOrderNumber(cleanTrackCode(addForm.trackCode)) && !await confirmAsync(t.orderNoConfirm)) return
     setAddLoading(true)
     setAddError('')
     const res = await fetch('/api/orders', {

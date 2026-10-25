@@ -1,11 +1,12 @@
 import type { Prisma } from '@prisma/client'
 
-export type DeletionSource = 'ereen-single' | 'ereen-by-day' | 'ereen-all'
+export type DeletionSource = 'ereen-single' | 'ereen-by-day' | 'ereen-all' | 'registered'
 
 export const DELETION_SOURCE_LABELS: Record<string, string> = {
   'ereen-single': 'Эрээний жагсаалтаас ганцаар устгасан',
   'ereen-by-day': 'Эрээний ачааг өдрөөр сонгож устгасан',
   'ereen-all': '"Бүгдийг устгах" товчоор устгасан',
+  'registered': 'Хэрэглэгчийн бүртгүүлсэн ачааг админ устгасан',
 }
 
 // Устгахын өмнө хадгалах талбарууд — findMany-д ашиглана

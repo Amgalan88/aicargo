@@ -176,7 +176,7 @@ model ShipmentDeletion {
   status            Status
   ereenArrivedAt    DateTime?
   shipmentCreatedAt DateTime?
-  // ereen-single | ereen-by-day | ereen-all
+  // ereen-single | ereen-by-day | ereen-all | registered
   source            String
   note              String?
   deletedById       Int

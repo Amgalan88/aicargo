@@ -16,6 +16,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; routine?: boolean; t
   'shipment:user-removed': { label: 'Хэрэглэгч ачаагаа жагсаалтаасаа хассан', tone: 'muted' },
   'shipment:ereen-deleted': { label: 'Эрээний ачаа устгасан', tone: 'red' },
   'shipment:ereen-stale-deleted': { label: 'Удаж байгаа Эрээний ачаа устгасан', tone: 'red' },
+  'shipment:registered-deleted': { label: 'Бүртгүүлсэн ачаа устгасан', tone: 'red' },
   'shipment:ereen-all-deleted': { label: 'Эрээний БҮХ ачаа устгасан', tone: 'red' },
   'settings:update': { label: 'Тохиргоо өөрчилсөн', tone: 'purple' },
   'settings:permission-denied': { label: 'Эрхгүй тохиргоо засах гэж оролдсон', tone: 'red' },

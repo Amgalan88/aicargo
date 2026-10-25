@@ -12,6 +12,17 @@ import { resolveImportOwners } from '@/lib/import-owner'
 // доор бүх мөрийг НЭГ bulk upsert query-гээр бичнэ.
 export const maxDuration = 60
 
+// "YYYY-MM-DD" (УБ) → тэр өдрийн 12:00 УБ; өнөөдөр эсвэл хоосон бол одоо. Ирээдүй, 30 хоногоос хуучин бол null
+function ereenArrivedAtFrom(date: unknown, now: Date): Date | null {
+  if (!date) return now
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  const todayUB = new Date(now.getTime() + 8 * 3600_000).toISOString().slice(0, 10)
+  if (date === todayUB) return now
+  const at = new Date(`${date}T12:00:00+08:00`)
+  if (isNaN(at.getTime()) || date > todayUB || now.getTime() - at.getTime() > 31 * 86400_000) return null
+  return at
+}
+
 interface ImportRow {
   trackCode: string
   status: 'EREEN_ARRIVED' | 'ARRIVED'
@@ -78,11 +89,14 @@ export async function POST(req: NextRequest) {
   const duplicateRows = rows.length - notCodes.length - codes.length
 
   const now = new Date()
+  // Эрээнд ирсэн огноо: админ сонговол тэр өдөр (жш 23-нд ирснийг 25-нд оруулах), үгүй бол одоо
+  const ereenAt = ereenArrivedAtFrom(body.ereenDate, now)
+  if (!ereenAt) return NextResponse.json({ error: 'Огноо буруу — өнөөдрөөс 30 хоногийн дотор сонгоно уу' }, { status: 400 })
   await prisma.$executeRaw`
     INSERT INTO "Shipment" ("trackCode", status, "arrivedAt", "ereenArrivedAt", phone, "cargoId", "userId", "createdAt", "updatedAt")
     SELECT t.code, t.status::"Status",
       CASE WHEN t.status = 'ARRIVED' THEN ${now}::timestamp ELSE NULL END,
-      CASE WHEN t.status = 'EREEN_ARRIVED' THEN ${now}::timestamp ELSE NULL END,
+      CASE WHEN t.status = 'EREEN_ARRIVED' THEN ${ereenAt}::timestamp ELSE NULL END,
       t.phone, ${cargoId}, t.userId, ${now}, ${now}
     FROM unnest(${codes}::text[], ${statuses}::text[], ${phones}::text[], ${userIds}::int[]) AS t(code, status, phone, userId)
     ON CONFLICT ("trackCode", "cargoId") DO UPDATE SET
