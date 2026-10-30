@@ -22,11 +22,11 @@ const MESSAGES: Record<Extract<StartResult, { ok: false }>['error'], string> = {
   tooMany: 'Хэт олон оролдлого хийлээ. 10 минутын дараа дахин оролдоно уу',
 }
 
-const PURPOSES: Purpose[] = ['signup', 'reset', 'move', 'phone']
+const PURPOSES: Purpose[] = ['signup', 'reset', 'move', 'phone', 'cargo']
 
 // POST { phone, cargoId?, purpose? } — баталгаажуулалт эхлүүлнэ: код, богино дугаар, хугацааг буцаана (sessionId хэзээ ч биш)
 //   signup — шинэ бүртгэл (бүх каргод заавал); reset — бүх каргод (карго хамаарахгүй); move — очих карго;
-//   phone — нэвтэрсэн хүн өөрийн дугаараа баталгаажуулна эсвэл шинэ дугаар руу солино
+//   phone — нэвтэрсэн хүн өөрийн дугаараа баталгаажуулна эсвэл шинэ дугаар руу солино; cargo — шинэ карго нээх
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const purpose: Purpose = PURPOSES.includes(body.purpose) ? body.purpose : 'signup'
@@ -45,7 +45,9 @@ export async function POST(req: NextRequest) {
   if (res.ok) return NextResponse.json(res)
   // Өөр каргод бүртгэлтэй — хэрэглэгч шилжих урсгал руу орно
   if (res.error === 'needsMove') return NextResponse.json({ ok: false, code: 'NEEDS_MOVE' }, { status: 409 })
-  const error = purpose === 'phone' && res.error === 'phoneTaken' ? 'Энэ дугаар өөр бүртгэлд байна' : MESSAGES[res.error]
+  const error = res.error === 'phoneTaken' && purpose === 'phone' ? 'Энэ дугаар өөр бүртгэлд байна'
+    : res.error === 'phoneTaken' && purpose === 'cargo' ? 'Энэ утасны дугаар бүртгэлтэй байна. Өөр дугаар ашиглана уу'
+    : MESSAGES[res.error]
   return NextResponse.json({ ok: false, error }, { status: res.error === 'tooMany' ? 429 : 400 })
 }
 

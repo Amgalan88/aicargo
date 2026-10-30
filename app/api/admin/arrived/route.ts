@@ -7,6 +7,7 @@ import { notifyArrivedForCargo } from '@/lib/push'
 import { parseArrivedCode } from '@/lib/track-code'
 import { resolveImportOwners } from '@/lib/import-owner'
 import { ubDayRange } from '@/lib/ub-date'
+import { importLimitError } from '@/lib/import-limits'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -41,6 +42,8 @@ export async function PUT(req: NextRequest) {
     include: { user: { select: { phone: true } } },
   })
   const existingByCode = new Map(existingRows.map(s => [s.trackCode, s]))
+  const limitError = await importLimitError(cargoId, rows.length, codes.length - existingRows.length)
+  if (limitError) return NextResponse.json({ error: limitError }, { status: 429 })
 
   // Эзэн: Excel-ийн утас давуу (lib/import-owner)
   const { phones, userIds, changes } = await resolveImportOwners(

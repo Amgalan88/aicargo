@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
       batchEnabled: (c as any).batchEnabled ?? false,
       aiEnabled: (c as any).aiEnabled ?? false,
       brandTheme: c.brandTheme ?? null,
+      phoneVerify: c.phoneVerify ?? false,
       paidUntil: (c as any).paidUntil ?? null,
       createdAt: c.createdAt,
       totalUsers: c._count.users,

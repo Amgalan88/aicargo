@@ -21,6 +21,9 @@ export interface VerifiedUser extends JwtPayload {
   canEditBank: boolean
   canEditAddress: boolean
   canEditLogo: boolean
+  // Супер админ сэжигтэй каргод асаасан (Cargo.phoneVerify): админ утсаа SMS-ээр баталгаажуулах хүртэл
+  // админы хуудас, /api/admin/* хаалттай — зөвхөн утас баталгаажуулах цонх нээгдэнэ
+  phoneGate: boolean
 }
 
 export function signToken(payload: JwtPayload, expiresIn = '90d'): string {
@@ -51,7 +54,9 @@ export function clearAuthCookie(res: NextResponse) {
 
 const VERIFY_SELECT = {
   tokenVersion: true,
-  cargo: { select: { slug: true } },
+  role: true,
+  phoneVerifiedAt: true,
+  cargo: { select: { slug: true, phoneVerify: true } },
   name: true,
   isStaffAdmin: true,
   canEditBank: true,
@@ -86,6 +91,7 @@ export async function getAuthUser(): Promise<VerifiedUser | null> {
     canEditBank: user.canEditBank,
     canEditAddress: user.canEditAddress,
     canEditLogo: user.canEditLogo,
+    phoneGate: needsPhoneGate(user),
   }
 }
 
@@ -93,6 +99,10 @@ export function getAuthUserFromRequest(req: NextRequest): JwtPayload | null {
   const token = req.cookies.get(COOKIE_NAME)?.value
   if (!token) return null
   return verifyToken(token)
+}
+
+function needsPhoneGate(user: { role: string; phoneVerifiedAt: Date | null; cargo: { phoneVerify: boolean } | null }): boolean {
+  return user.role === 'ADMIN' && !!user.cargo?.phoneVerify && !user.phoneVerifiedAt
 }
 
 export async function getVerifiedUserFromRequest(req: NextRequest): Promise<VerifiedUser | null> {
@@ -104,6 +114,8 @@ export async function getVerifiedUserFromRequest(req: NextRequest): Promise<Veri
   })
   if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) return null
   if (wrongCargo(payload.role, user.cargo?.slug, req.headers.get('x-cargo-slug'))) return null
+  // Утас баталгаажуулаагүй (хаалттай) админ — админы бүх API хаалттай; /api/auth/* (утас баталгаажуулах) нээлттэй
+  if (needsPhoneGate(user) && req.nextUrl.pathname.startsWith('/api/admin')) return null
   return {
     ...payload,
     name: user.name,
@@ -111,6 +123,7 @@ export async function getVerifiedUserFromRequest(req: NextRequest): Promise<Veri
     canEditBank: user.canEditBank,
     canEditAddress: user.canEditAddress,
     canEditLogo: user.canEditLogo,
+    phoneGate: needsPhoneGate(user),
   }
 }
 

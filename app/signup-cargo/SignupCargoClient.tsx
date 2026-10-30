@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import NavLogo from '@/app/components/NavLogo'
+import PhoneVerify from '@/app/components/PhoneVerify'
+import PasswordInput from '@/app/components/PasswordInput'
 
 const FEATURES = [
   {
@@ -28,23 +30,23 @@ const FEATURES = [
 
 type Form = {
   cargoName: string; slug: string
-  adminName: string; phone: string; email: string; password: string
+  adminName: string; phone: string; password: string
   aiEnabled: boolean; searchByPhone: boolean; notificationsEnabled: boolean
 }
 
 export default function SignupCargoClient() {
-  const [step, setStep] = useState<'form' | 'otp' | 'done'>('form')
+  const [step, setStep] = useState<'form' | 'done'>('form')
   const [trialDays, setTrialDays] = useState(30)
   const [form, setForm] = useState<Form>({
-    cargoName: '', slug: '', adminName: '', phone: '',
-    email: '', password: '',
+    cargoName: '', slug: '', adminName: '', phone: '', password: '',
     aiEnabled: AI_SUPPORT_ENABLED, searchByPhone: true, notificationsEnabled: true,
   })
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'ok' | 'taken'>('idle')
   const [slugMsg, setSlugMsg] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [otp, setOtp] = useState('')
+  // Эзэмшигчийн утас SMS-ээр баталгаажсан id
+  const [verificationId, setVerificationId] = useState<string | null>(null)
   const [doneSlug, setDoneSlug] = useState('')
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const slugTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -86,35 +88,19 @@ export default function SignupCargoClient() {
     !!logoBase64 &&
     form.adminName.trim().length >= 2 &&
     /^\d{8}$/.test(form.phone) &&
-    /^\S+@\S+\.\S+$/.test(form.email) &&
+    !!verificationId &&
     form.password.length >= 6
 
-  async function requestOtp() {
-    if (!canSubmit || loading) return
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch('/api/signup-cargo/request-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
-      setStep('otp')
-    } catch { setError('Холболтын алдаа гарлаа') }
-    finally { setLoading(false) }
-  }
-
+  // Утас SMS-ээр баталгаажсан бол шууд карго нээнэ (и-мэйлийн код шаардахгүй)
   async function verify() {
-    if (otp.length !== 6 || loading) return
+    if (!canSubmit || loading) return
     setLoading(true)
     setError('')
     try {
       const res = await fetch('/api/signup-cargo/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, code: otp, logoBase64 }),
+        body: JSON.stringify({ ...form, verificationId, logoBase64 }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
@@ -198,25 +184,13 @@ export default function SignupCargoClient() {
                 value={form.adminName} onChange={e => set('adminName', e.target.value)} />
             </div>
 
-            <div className="form-group">
-              <label>Утасны дугаар <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input className="input" type="tel" placeholder="99000000" maxLength={8}
-                value={form.phone}
-                onChange={e => set('phone', e.target.value.replace(/\D/g, '').slice(0, 8))} />
-            </div>
-
-            <div className="form-group">
-              <label>И-мэйл <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input className="input" type="email" placeholder="tanii@mail.com"
-                value={form.email} onChange={e => set('email', e.target.value)} />
-              <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '0.3rem' }}>
-                Энэ хаяг руу баталгаажуулах код очно
-              </p>
-            </div>
+            {/* Эзэмшигчийн жинхэнэ утас — 144773 руу SMS илгээж баталгаажуулна (нэвтрэх, нууц үг сэргээх дугаар) */}
+            <PhoneVerify purpose="cargo" phone={form.phone}
+              onPhone={v => set('phone', v)} onVerified={setVerificationId} />
 
             <div className="form-group">
               <label>Нууц үг <span style={{ color: 'var(--danger)' }}>*</span></label>
-              <input className="input" type="password" placeholder="6-аас дээш тэмдэгт"
+              <PasswordInput placeholder="6-аас дээш тэмдэгт" autoComplete="new-password"
                 value={form.password} onChange={e => set('password', e.target.value)} />
             </div>
 
@@ -251,41 +225,13 @@ export default function SignupCargoClient() {
 
             {error && <p className="msg-error" style={{ marginBottom: '0.75rem' }}>{error}</p>}
 
-            <button className="btn" onClick={requestOtp} disabled={!canSubmit || loading} style={{ width: '100%' }}>
-              {loading ? 'Илгээж байна...' : 'Үргэлжлүүлэх'}
+            <button className="btn" onClick={verify} disabled={!canSubmit || loading} style={{ width: '100%' }}>
+              {loading ? 'Карго нээж байна...' : !verificationId ? 'Эхлээд утсаа баталгаажуулна уу' : 'Карго нээх'}
             </button>
             <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.75rem' }}>
-              Үргэлжлүүлснээр таны и-мэйл рүү баталгаажуулах код очих бөгөөд{' '}
+              Карго нээснээр{' '}
               <Link href="/terms" style={{ color: 'var(--accent)' }}>Үйлчилгээний нөхцөлийг</Link> зөвшөөрсөнд тооцно
             </p>
-          </>
-        )}
-
-        {step === 'otp' && (
-          <>
-            <h1 className="section-title" style={{ marginBottom: '0.3rem' }}>И-мэйл баталгаажуулах</h1>
-            <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-              <strong style={{ color: 'var(--text)' }}>{form.email}</strong> хаяг руу 6 оронтой код илгээлээ.
-            </p>
-            <div className="form-group">
-              <label>Баталгаажуулах код</label>
-              <input className="input" inputMode="numeric" placeholder="000000" maxLength={6}
-                value={otp}
-                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                onKeyDown={e => { if (e.key === 'Enter') verify() }}
-                style={{ fontSize: '1.3rem', letterSpacing: '8px', textAlign: 'center', fontFamily: 'monospace' }} />
-            </div>
-            {error && <p className="msg-error" style={{ marginBottom: '0.75rem' }}>{error}</p>}
-            <button className="btn" onClick={verify} disabled={otp.length !== 6 || loading} style={{ width: '100%' }}>
-              {loading ? 'Шалгаж байна...' : 'Баталгаажуулж карго нээх'}
-            </button>
-            <button onClick={() => { setStep('form'); setOtp(''); setError('') }} style={{
-              width: '100%', marginTop: '0.6rem', padding: '0.6rem',
-              background: 'none', border: 'none', color: 'var(--muted)',
-              cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit',
-            }}>
-              ← Буцаж засах
-            </button>
           </>
         )}
 

@@ -2,10 +2,15 @@ import { getAuthUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import AdminShell from './AdminShell'
+import PhoneGate from './PhoneGate'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthUser()
   if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) redirect('/login')
+  if (user.phoneGate) {
+    const c = user.cargoId ? await prisma.cargo.findUnique({ where: { id: user.cargoId }, select: { name: true } }) : null
+    return <PhoneGate cargoName={c?.name ?? ''} />
+  }
 
   let cargoName = ''
   let logoUrl = ''

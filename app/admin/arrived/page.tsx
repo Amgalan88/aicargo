@@ -197,7 +197,8 @@ export default function ArrivedPage() {
           setOwnerChanges({ list: d.ownerChanges ?? [], count: d.ownerChangeCount ?? 0 })
           loadToday()
         } else {
-          setXlsxMsg('Алдаа гарлаа')
+          const d = await res.json().catch(() => ({}))
+          setXlsxMsg(d.error || 'Алдаа гарлаа')
         }
       } catch { setXlsxMsg('Файл уншихад алдаа гарлаа') }
     }

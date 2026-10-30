@@ -8,8 +8,8 @@ export const MAX_ATTEMPTS = 3 // нэг дугаарт 10 минутад
 const ATTEMPT_WINDOW_MS = 10 * 60_000
 
 // signup — шинэ бүртгэл, reset — нууц үг сэргээх, move — өөр каргогийн бүртгэлийг шилжүүлэх,
-// phone — нэвтэрсэн хүн өөрийн дугаараа баталгаажуулах / шинэ дугаар руу солих
-export type Purpose = 'signup' | 'reset' | 'move' | 'phone'
+// phone — нэвтэрсэн хүн өөрийн дугаараа баталгаажуулах / шинэ дугаар руу солих, cargo — шинэ карго нээх эзэмшигч
+export type Purpose = 'signup' | 'reset' | 'move' | 'phone' | 'cargo'
 
 export type StartResult =
   | { ok: true; id: string; code: string; shortcode: string; expiresAt: string; mock: boolean }
@@ -26,7 +26,9 @@ export async function startVerification(rawPhone: string, cargoId: number | null
   if (!/^\d{8}$/.test(phone)) return { ok: false, error: 'badPhone' }
 
   const existing = await prisma.user.findUnique({ where: { phone }, select: { id: true, cargoId: true, role: true } })
-  if (purpose === 'phone') {
+  if (purpose === 'cargo') {
+    if (existing) return { ok: false, error: 'phoneTaken' }
+  } else if (purpose === 'phone') {
     // Өөрийн дугаар (баталгаажуулах) эсвэл хэнд ч бүртгэлгүй шинэ дугаар (солих)
     if (!selfUserId) return { ok: false, error: 'unavailable' }
     if (existing && existing.id !== selfUserId) return { ok: false, error: 'phoneTaken' }

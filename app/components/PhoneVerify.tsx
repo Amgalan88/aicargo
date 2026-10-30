@@ -14,7 +14,7 @@ export default function PhoneVerify({ cargoId, phone, onPhone, onVerified, onNee
   onPhone?: (v: string) => void
   onVerified: (id: string | null) => void
   onNeedsMove?: () => void
-  purpose?: 'signup' | 'reset' | 'move' | 'phone'
+  purpose?: 'signup' | 'reset' | 'move' | 'phone' | 'cargo'
   lockPhone?: boolean // шилжих үед дугаар аль хэдийн тодорхой — солих боломжгүй
 }) {
   const [stage, setStage] = useState<Stage>('idle')

@@ -31,7 +31,7 @@ model Cargo {
   batchEnabled      Boolean    @default(false)
   // Хэрэглэгчээс барааны линкээр захиалга авах (Taobao, Pinduoduo, 1688…)
   linkOrdersEnabled Boolean    @default(false)
-  phoneVerify       Boolean    @default(false) // шинэ хэрэглэгч утсаа Verify.MN-ээр баталгаажуулж бүртгүүлнэ (админ асаана)
+  phoneVerify       Boolean    @default(false) // супер админ асаана: каргоны админ утсаа Verify.MN-ээр баталгаажуулах хүртэл админ хэсэг хаалттай (спамын эсрэг)
   // Брэндбүүкийн загвар (жш "mgl" — Эрээнээс MGL карго): өнгө, фонт, толгойн маршрутын шугам. null = aicargo-ийн энгийн загвар
   brandTheme        String?
   tariff            String?

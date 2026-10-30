@@ -4,12 +4,13 @@ import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
 import { uploadLogo } from '@/lib/cloudinary'
 import { validateSlug, TRIAL_DAYS } from '@/lib/cargo-signup'
+import { consumeVerification } from '@/lib/phone-verification'
 
 export async function POST(req: NextRequest) {
   let body: {
     cargoName?: string; slug?: string
-    adminName?: string; phone?: string; email?: string; password?: string
-    code?: string
+    adminName?: string; phone?: string; password?: string
+    verificationId?: string
     aiEnabled?: boolean; searchByPhone?: boolean; notificationsEnabled?: boolean
     logoBase64?: string
   }
@@ -19,12 +20,12 @@ export async function POST(req: NextRequest) {
   const slug = body.slug?.trim().toLowerCase() ?? ''
   const adminName = body.adminName?.trim() ?? ''
   const phone = body.phone?.trim() ?? ''
-  const email = body.email?.trim().toLowerCase() ?? ''
   const password = body.password ?? ''
-  const code = body.code?.trim() ?? ''
+  const verificationId = String(body.verificationId ?? '')
 
+  // Эзэмшигч жинхэнэ утсаа Verify.MN-ээр баталгаажуулна (и-мэйл шаардахгүй) — хуурамч дугаартай спам карго нээгдэхгүй
   if (cargoName.length < 2 || adminName.length < 2 || !/^\d{8}$/.test(phone) ||
-      !/^\S+@\S+\.\S+$/.test(email) || password.length < 6 || !/^\d{6}$/.test(code)) {
+      password.length < 6 || !verificationId) {
     return NextResponse.json({ error: 'Мэдээлэл дутуу эсвэл буруу байна' }, { status: 400 })
   }
   if (!body.logoBase64) {
@@ -33,22 +34,16 @@ export async function POST(req: NextRequest) {
   const slugErr = validateSlug(slug)
   if (slugErr) return NextResponse.json({ error: slugErr }, { status: 400 })
 
-  // OTP шалгах
-  const otp = await prisma.otp.findFirst({
-    where: { email, code, used: false, expiresAt: { gt: new Date() } },
-    orderBy: { id: 'desc' },
-  })
-  if (!otp) return NextResponse.json({ error: 'Код буруу эсвэл хугацаа дууссан байна' }, { status: 400 })
-
-  // Давхардал дахин шалгах (OTP хүлээх хооронд өөр хүн авсан байж болно)
-  const [slugTaken, phoneTaken, emailTaken] = await Promise.all([
+  // Давхардал шалгах (баталгаажуулалт хүлээх хооронд өөр хүн авсан байж болно) — SMS-ийг хэрэглэхээс өмнө
+  const [slugTaken, phoneTaken] = await Promise.all([
     prisma.cargo.findUnique({ where: { slug }, select: { id: true } }),
     prisma.user.findUnique({ where: { phone }, select: { id: true } }),
-    prisma.user.findUnique({ where: { email }, select: { id: true } }),
   ])
   if (slugTaken) return NextResponse.json({ error: 'Энэ subdomain аль хэдийн эзэмшигдсэн байна' }, { status: 409 })
   if (phoneTaken) return NextResponse.json({ error: 'Энэ утасны дугаар бүртгэлтэй байна' }, { status: 409 })
-  if (emailTaken) return NextResponse.json({ error: 'Энэ и-мэйл бүртгэлтэй байна' }, { status: 409 })
+  if (!(await consumeVerification(verificationId, phone, 'cargo'))) {
+    return NextResponse.json({ error: 'Утасны дугаараа баталгаажуулна уу' }, { status: 400 })
+  }
 
   const trialDays = TRIAL_DAYS
 
@@ -75,7 +70,7 @@ export async function POST(req: NextRequest) {
       data: {
         name: adminName,
         phone,
-        email,
+        phoneVerifiedAt: new Date(),
         password: hashed,
         role: 'ADMIN',
         cargoId: cargo.id,
@@ -83,8 +78,6 @@ export async function POST(req: NextRequest) {
     })
     return { cargo, admin }
   })
-
-  await prisma.otp.update({ where: { id: otp.id }, data: { used: true } })
 
   // Лого оруулсан бол Cloudinary-д байршуулна — бүтэлгүйтвэл бүртгэлийг унагахгүй
   if (body.logoBase64) {

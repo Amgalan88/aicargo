@@ -6,6 +6,7 @@ import { auditLater } from '@/lib/audit'
 import { parseTrackCode, parseArrivedCode } from '@/lib/track-code'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { resolveImportOwners } from '@/lib/import-owner'
+import { importLimitError } from '@/lib/import-limits'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest) {
     include: { user: { select: { phone: true } } },
   })
   const existingByCode = new Map(existingRows.map(s => [s.trackCode, s]))
+  const limitError = await importLimitError(cargoId, rows.length, codes.length - existingRows.length)
+  if (limitError) return NextResponse.json({ error: limitError }, { status: 429 })
   const duplicates = existingRows.filter(s => s.status === 'EREEN_ARRIVED').map(s => s.trackCode)
 
   // Эзэн: Excel-ийн утас давуу, утасгүй бол бүртгүүлсэн хэрэглэгч хэвээр (lib/import-owner, arrived route-той ижил)
