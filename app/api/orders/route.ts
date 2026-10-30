@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized } from '@/lib/auth'
 import { parseTrackCode } from '@/lib/track-code'
 import { logAdminAction } from '@/lib/audit'
+import { userRegistrationLimitError } from '@/lib/import-limits'
 
 export async function GET(req: NextRequest) {
   const user = await getVerifiedUserFromRequest(req)
@@ -103,6 +104,10 @@ export async function POST(req: NextRequest) {
   if (!cargoId) {
     return NextResponse.json({ error: 'Та гараад дахин нэвтэрнэ үү' }, { status: 403 })
   }
+
+  // Нэг хэрэглэгч скриптээр мянга мянган код бүртгэхээс хамгаална
+  const limitError = await userRegistrationLimitError(authUser.userId)
+  if (limitError) return NextResponse.json({ error: limitError }, { status: 429 })
 
   const existing = await prisma.shipment.findUnique({
     where: { trackCode_cargoId: { trackCode: code, cargoId } },

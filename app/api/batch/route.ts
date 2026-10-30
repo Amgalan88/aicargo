@@ -4,6 +4,7 @@ import { getVerifiedUserFromRequest, unauthorized, forbidden, JwtPayload } from 
 import { notifyArrivedForCargo } from '@/lib/push'
 import { cleanTrackCode } from '@/lib/track-code'
 import { staffBillingState } from '@/lib/billing'
+import { importLimitError, MAX_BATCH_CODES } from '@/lib/import-limits'
 
 // Том багц (олон трак код) DB руу мөр мөрөөр upsert хийвэл round-tripихдэж
 // Vercel-ийн function timeout-д мөргөж "Connection error" гардаг байсан тул нэмэв.
@@ -94,6 +95,9 @@ export async function POST(req: NextRequest) {
   const currency = 'CNY'
 
   if (codes.length === 0) return NextResponse.json({ error: 'Трак код оруулна уу · 请输入单号' }, { status: 400 })
+  if (codes.length > MAX_BATCH_CODES) return NextResponse.json({ error: `Нэг багцад ${MAX_BATCH_CODES} хүртэл код · 每批最多${MAX_BATCH_CODES}个单号` }, { status: 400 })
+  const limitError = await importLimitError(cargoId, codes.length, codes.length)
+  if (limitError) return NextResponse.json({ error: limitError }, { status: 429 })
   if (!/^\d{8}$/.test(phone)) return NextResponse.json({ error: 'Утасны дугаар 8 оронтой байна · 电话号码需8位' }, { status: 400 })
   if (!isFinite(price) || price < 0) return NextResponse.json({ error: 'Үнэ буруу байна · 价格无效' }, { status: 400 })
 
@@ -160,6 +164,7 @@ export async function PATCH(req: NextRequest) {
   })
   if (!batch) return NextResponse.json({ error: 'Багц олдсонгүй' }, { status: 404 })
 
+  if (normCodes(body.addCodes).length > MAX_BATCH_CODES) return NextResponse.json({ error: `Нэг багцад ${MAX_BATCH_CODES} хүртэл код · 每批最多${MAX_BATCH_CODES}个单号` }, { status: 400 })
   const picked = await pickedUpCodes(cargoId, normCodes(body.addCodes))
   if (picked) return picked
 
