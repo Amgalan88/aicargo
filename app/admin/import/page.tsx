@@ -452,10 +452,22 @@ export default function ImportPage() {
             if (!text.includes('\n')) return // single line — let default paste handle
             e.preventDefault()
             const lines = text.split(/\r?\n/)
-            const codes = lines
-              .map(l => cleanTrackCode(l.replace(/^\s*\d+[.、)]\s*/, ''))) // strip "1." "2、" etc
-              .filter(isTrackCode)
-            if (codes.length === 0) return
+            // Эрээний агуулахын жагсаалт (WPS тэмдэглэл гэх мэт): "帅帅，11月1号" толгой, "1. JT…" дугаарласан мөрүүд
+            const stripped = lines.map(l => l.replace(/^\s*\d+[.、)]\s*/, '').trim()).filter(Boolean) // strip "1." "2、" etc
+            const codes = stripped.map(l => cleanTrackCode(l)).filter(isTrackCode)
+            // Код биш мөр (огнооны толгойгоос бусад) — чимээгүй хаяхгүй, админд харуулж гараар засуулна
+            const dateLine = /(\d{1,2})\s*月\s*(\d{1,2})\s*[号號日]/
+            const skipped = stripped.filter(l => !isTrackCode(cleanTrackCode(l)) && !dateLine.test(l))
+            // "11月1号" → Эрээнд ирсэн огноо (30 хоногийн дотор бол)
+            const dm = text.match(dateLine)
+            let pastedDate = ''
+            if (dm) {
+              const today = todayUB()
+              let d = `${today.slice(0, 4)}-${dm[1].padStart(2, '0')}-${dm[2].padStart(2, '0')}`
+              if (d > today) d = `${Number(today.slice(0, 4)) - 1}${d.slice(4)}`
+              if (d >= daysAgoUB(30) && d <= today) { pastedDate = d; setEreenDate(d) }
+            }
+            if (codes.length === 0) { if (skipped.length) setLastAdded(`⚠ Трак код олдсонгүй — ${skipped.slice(0, 3).join(', ')}`); return }
             setRows(prev => {
               const existing = new Set(prev.map(r => r.trackCode))
               const newRows = codes
@@ -463,7 +475,9 @@ export default function ImportPage() {
                 .map(c => ({ trackCode: c }))
               const next = [...prev, ...newRows]
               setPage(Math.ceil(next.length / PAGE_SIZE))
-              setLastAdded(`✓ ${newRows.length} трак код нэмэгдлээ`)
+              setLastAdded(`✓ ${newRows.length} трак код нэмэгдлээ`
+                + (pastedDate ? ` · огноо ${pastedDate}` : '')
+                + (skipped.length ? ` · ⚠ ${skipped.length} мөр код биш тул алгассан: ${skipped.slice(0, 5).join(', ')}${skipped.length > 5 ? '…' : ''} — гараар засаж нэмнэ үү` : ''))
               return next
             })
             setInput('')
@@ -509,8 +523,9 @@ export default function ImportPage() {
         </button>
       </div>
 
-      <p style={{ fontSize: '0.78rem', minHeight: '1.2em', marginBottom: '1rem', color: lastAdded.startsWith('⚠') ? 'var(--danger)' : 'var(--muted)' }}>
-        {lastAdded && !lastAdded.startsWith('⚠') ? `✓ Нэмэгдлээ: ${lastAdded}` : lastAdded}
+      {/* Алгассан мөртэй бол (⚠ агуулсан) улаанаар — админ гараар засаж нэмнэ */}
+      <p style={{ fontSize: '0.78rem', minHeight: '1.2em', marginBottom: '1rem', overflowWrap: 'anywhere', color: lastAdded.includes('⚠') ? 'var(--danger)' : 'var(--muted)' }}>
+        {lastAdded && !lastAdded.startsWith('⚠') && !lastAdded.startsWith('✓') ? `✓ Нэмэгдлээ: ${lastAdded}` : lastAdded}
       </p>
 
       {error && <p className="msg-error" style={{ marginBottom: '1rem' }}>{error}</p>}
