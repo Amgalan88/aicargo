@@ -13,18 +13,31 @@ type EreenRow = { id: number; trackCode: string; phone: string | null; name: str
 function Picker({ onClose, onPicked }: { onClose: () => void; onPicked: (id: number) => void }) {
   const [rows, setRows] = useState<EreenRow[] | null>(null)
   const [picked, setPicked] = useState<Set<number>>(new Set())
-  const [openDay, setOpenDay] = useState<string | null>(null)
+  const [openKey, setOpenKey] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   useEffect(() => { fetch('/api/admin/dispatch/ereen').then(r => r.json()).then(setRows).catch(() => setRows([])) }, [])
 
-  // Эрээнд ирсэн өдрөөр бүлэглэнэ
+  // Эрээнд ирсэн өдрөөр, өдөр дотроо оруулсан удаагаар (нэг Excel/жагсаалт = нэг цаг; уншуулсан нь
+  // 10 минутаас бага зайтай бол нэг удаа) бүлэглэнэ — зарим карго өдөрт 2–3 удаа оруулдаг
   const days = useMemo(() => {
     const m = new Map<string, EreenRow[]>()
     for (const r of rows ?? []) {
       const k = r.ereenArrivedAt ? ubDate(new Date(r.ereenArrivedAt).getTime()) : 'Огноогүй'
       m.set(k, [...(m.get(k) ?? []), r])
     }
-    return [...m.entries()]
+    return [...m.entries()].map(([day, items]) => {
+      const batches: { time: string; items: EreenRow[] }[] = []
+      let last = Infinity
+      for (const r of items) { // API аль хэдийн шинэ нь эхэнд эрэмбэлсэн
+        const t = r.ereenArrivedAt ? new Date(r.ereenArrivedAt).getTime() : 0
+        if (!batches.length || last - t > 10 * 60_000) {
+          batches.push({ time: r.ereenArrivedAt ? new Date(t + 8 * 3600_000).toISOString().slice(11, 16) : '', items: [] })
+        }
+        batches[batches.length - 1].items.push(r)
+        last = t
+      }
+      return { day, items, batches }
+    })
   }, [rows])
 
   function toggleDay(items: EreenRow[]) {
@@ -49,30 +62,49 @@ function Picker({ onClose, onPicked }: { onClose: () => void; onPicked: (id: num
           <b>Эрээнээс сонгох</b>
           <button type="button" className="ins-x" aria-label="Хаах" onClick={onClose}><X size={18} /></button>
         </div>
-        <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '0 0 0.6rem' }}>Энэ удаа ирэх ёстой ачааг сонгоно. Өдрийг бүхэлд нь эсвэл нэг бүрчлэн.</p>
+        <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '0 0 0.6rem' }}>Энэ удаа ирэх ёстой ачааг сонгоно — өдрөөр, тухайн өдрийн аль удаагийн оруулгаар, эсвэл нэг бүрчлэн.</p>
         <div style={{ overflowY: 'auto', flex: 1, display: 'grid', gap: '0.4rem', alignContent: 'start' }}>
-          {rows === null ? <p className="empty">…</p> : days.length === 0 ? <p className="empty">«Эрээнд ирсэн» ачаа алга.</p> : days.map(([day, items]) => {
+          {rows === null ? <p className="empty">…</p> : days.length === 0 ? <p className="empty">«Эрээнд ирсэн» ачаа алга.</p> : days.map(({ day, items, batches }) => {
             const n = items.filter(i => picked.has(i.id)).length
+            const dayLabel = day === 'Огноогүй' ? day : day.slice(5).replace('-', '/')
             return (
               <div key={day} style={{ border: '1px solid var(--border)', borderRadius: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.55rem 0.75rem' }}>
-                  <input type="checkbox" aria-label={`${day} бүгдийг сонгох`} checked={n === items.length} ref={el => { if (el) el.indeterminate = n > 0 && n < items.length }}
+                  <input type="checkbox" aria-label={`${dayLabel} бүгдийг сонгох`} checked={n === items.length} ref={el => { if (el) el.indeterminate = n > 0 && n < items.length }}
                     onChange={() => toggleDay(items)} style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
-                  <button type="button" onClick={() => setOpenDay(openDay === day ? null : day)} style={{ flex: 1, textAlign: 'left', border: 0, background: 'none', font: 'inherit', color: 'inherit', cursor: 'pointer', padding: 0 }}>
-                    <b>{day === 'Огноогүй' ? day : day.slice(5).replace('-', '/')}</b> · {items.length} ачаа{n ? <span style={{ color: 'var(--accent)' }}> · {n} сонгосон</span> : ''}
-                  </button>
+                  <span style={{ flex: 1 }}>
+                    <b>{dayLabel}</b> · {items.length} ачаа{batches.length > 1 ? <span style={{ color: 'var(--muted)' }}> · {batches.length} удаа</span> : ''}{n ? <span style={{ color: 'var(--accent)' }}> · {n} сонгосон</span> : ''}
+                  </span>
                 </div>
-                {openDay === day && (
-                  <div style={{ borderTop: '1px solid var(--border)', maxHeight: 240, overflowY: 'auto' }}>
-                    {items.map(i => (
-                      <label key={i.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.35rem 0.75rem', fontSize: '0.84rem', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={picked.has(i.id)} onChange={() => toggle(i.id)} style={{ accentColor: 'var(--accent)' }} />
-                        <span className="mono" style={{ flex: 1 }}>{i.trackCode}</span>
-                        <span style={{ color: 'var(--muted)' }}>{i.phone ?? ''}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
+                {batches.map((bt, bi) => {
+                  const key = `${day}#${bi}`
+                  const bn = bt.items.filter(i => picked.has(i.id)).length
+                  return (
+                    <div key={key} style={{ borderTop: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.45rem 0.75rem 0.45rem 1.6rem' }}>
+                        {batches.length > 1 && (
+                          <input type="checkbox" aria-label={`${dayLabel} ${bt.time} сонгох`} checked={bn === bt.items.length} ref={el => { if (el) el.indeterminate = bn > 0 && bn < bt.items.length }}
+                            onChange={() => toggleDay(bt.items)} style={{ width: 16, height: 16, accentColor: 'var(--accent)' }} />
+                        )}
+                        <button type="button" onClick={() => setOpenKey(openKey === key ? null : key)} style={{ flex: 1, textAlign: 'left', border: 0, background: 'none', font: 'inherit', fontSize: '0.86rem', color: 'inherit', cursor: 'pointer', padding: 0 }}>
+                          {batches.length > 1 ? <><b>{bt.time || '—'}</b>-д оруулсан · {bt.items.length} ачаа</> : <span style={{ color: 'var(--muted)' }}>{bt.time ? `${bt.time}-д оруулсан · ` : ''}ачаануудыг харах</span>}
+                          {bn && batches.length > 1 ? <span style={{ color: 'var(--accent)' }}> · {bn} сонгосон</span> : ''} <span style={{ color: 'var(--muted)' }}>{openKey === key ? '▴' : '▾'}</span>
+                        </button>
+                      </div>
+                      {openKey === key && (
+                        <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                          {bt.items.map(i => (
+                            <label key={i.id} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.3rem 0.75rem 0.3rem 2.6rem', fontSize: '0.84rem', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={picked.has(i.id)} onChange={() => toggle(i.id)} style={{ accentColor: 'var(--accent)' }} />
+                              <span className="mono" style={{ flex: 1 }}>{i.trackCode}</span>
+                              <span style={{ color: 'var(--muted)' }}>{i.phone ?? ''}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )
           })}
