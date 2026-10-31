@@ -1,5 +1,5 @@
 'use client'
-import { Bell, BellOff, Smartphone, Boxes, Sparkles, Palette, ShieldAlert } from 'lucide-react'
+import { Bell, BellOff, Smartphone, Boxes, Sparkles, Palette } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
@@ -27,7 +27,6 @@ interface CargoStat {
   batchEnabled: boolean
   aiEnabled: boolean
   brandTheme: string | null
-  phoneVerify: boolean
   paidUntil: string | null
   createdAt: string
   admins: Admin[]
@@ -471,27 +470,6 @@ export default function SuperPage() {
                         }}
                       >
                         <><Palette size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.brandTheme ? 'Брэнд: MGL' : 'Брэнд: Үгүй'}</>
-                      </button>
-                      {/* Сэжигтэй карго: админ жинхэнэ утсаа баталгаажуулах хүртэл админ хэсэг хаалттай */}
-                      <button
-                        title="Асаавал энэ каргоны админ утсаа SMS-ээр баталгаажуулах хүртэл админ хэсэг хаалттай"
-                        onClick={async () => {
-                          await fetch(`/api/super/cargo/${c.id}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ phoneVerify: !c.phoneVerify }),
-                          })
-                          load()
-                        }}
-                        style={{
-                          background: c.phoneVerify ? 'rgba(220,38,38,0.10)' : 'none',
-                          border: `1px solid ${c.phoneVerify ? 'var(--danger)' : 'var(--border)'}`,
-                          color: c.phoneVerify ? 'var(--danger)' : 'var(--muted)',
-                          borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem',
-                          cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
-                        }}
-                      >
-                        <><ShieldAlert size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.phoneVerify ? 'Админ утас: Шаардана' : 'Админ утас: Үгүй'}</>
                       </button>
                       <button
                         onClick={async () => {
