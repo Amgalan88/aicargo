@@ -133,7 +133,7 @@ export default function AdminNav({
 
   // Хоёрдогч — өдөр тутам бага хэрэглэгдэх хэсгүүд
   const primaryExtra: NavLink[] = [
-    ...(dispatchEnabled && !batchEnabled ? [{ href: '/admin/dispatch', label: 'Ачилт', icon: Truck }] : []),
+    ...(dispatchEnabled && !batchEnabled ? [{ href: '/admin/dispatch', label: 'Тулгалт', icon: Truck }] : []),
     { href: '/admin/users', label: 'Хэрэглэгчид', icon: Users },
     ...(linkOrders ? [{ href: '/admin/link-orders', label: 'Линк захиалга', icon: ShoppingCart, count: counts?.linkNew }] : []),
     { href: '/admin/notify', label: 'Мэдэгдэл', icon: Megaphone },

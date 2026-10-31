@@ -474,7 +474,7 @@ export default function SuperPage() {
                       </button>
                       {/* Ачилтын тулгалт — туршилт: асаасан каргод «Ачилт» цэс, «Ирсэн» дээр ачилт сонгох */}
                       <button
-                        title="Эрээнээс ачигдсан бөөн кодоор «Ирсэн»-ийг тулгах (туршилт)"
+                        title="«Ирсэн» бүртгэлийг Эрээнээс сонгосон ачаатай тулгаж тайлан гаргах (туршилт)"
                         onClick={async () => {
                           await fetch(`/api/super/cargo/${c.id}`, {
                             method: 'PATCH',
@@ -491,7 +491,7 @@ export default function SuperPage() {
                           cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
                         }}
                       >
-                        <><Truck size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.dispatchEnabled ? 'Ачилт: Тийм' : 'Ачилт: Үгүй'}</>
+                        <><Truck size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.dispatchEnabled ? 'Тулгалт: Тийм' : 'Тулгалт: Үгүй'}</>
                       </button>
                       <button
                         onClick={async () => {

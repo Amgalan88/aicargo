@@ -1,7 +1,8 @@
 'use client'
 import { Pencil, CircleHelp } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import ArrivalCheck from '../dispatch/ArrivalCheck'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
 import { cleanTrackCode, parseArrivedCode } from '@/lib/track-code'
@@ -53,13 +54,10 @@ export default function ArrivedPage() {
 
   const [form, setForm] = useState<Form>(EMPTY)
   const [result, setResult] = useState<any>(null)
-  // Ачилт (туршилт): нээлттэй ачилтууд — карго асаагаагүй бол 403 тул сонголт харагдахгүй
-  const [dispatches, setDispatches] = useState<{ id: number; date: string; name: string | null; stats: { loaded: number; arrived: number; extra: number } }[] | null>(null)
+  // Тулгалт (туршилт): ArrivalCheck идэвхтэй тулгалтын id-г өгнө; бүртгэл бүрийн дараа тоог шинэчилнэ
   const [dispatchId, setDispatchId] = useState<number | ''>('')
-  function loadDispatches() {
-    fetch('/api/admin/dispatch?open=1').then(r => (r.ok ? r.json() : null)).then(d => { if (d) setDispatches(d) }).catch(() => {})
-  }
-  useEffect(() => { loadDispatches() }, [])
+  const [checkTick, setCheckTick] = useState(0)
+  const onActiveDispatch = useCallback((id: number | null) => setDispatchId(id ?? ''), [])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [phoneLocked, setPhoneLocked] = useState(false)
@@ -201,8 +199,8 @@ export default function ArrivedPage() {
         if (res.ok) {
           const d = await res.json()
           setXlsxMsg(`✓ ${d.count} бараа Ирсэн статустай болсон`
-            + (d.dispatch ? ` · Ачилт: ${d.dispatch.inCount} ачилтад байсан${d.dispatch.extraCount ? ` · ⚠ ${d.dispatch.extraCount} ачилтад байгаагүй: ${d.dispatch.extra.slice(0, 5).join(', ')}${d.dispatch.extraCount > 5 ? '…' : ''}` : ''}` : ''))
-          if (d.dispatch) loadDispatches()
+            + (d.dispatch ? ` · Тулгалт: ${d.dispatch.inCount} сонгосонд байсан${d.dispatch.extraCount ? ` · ⚠ ${d.dispatch.extraCount} сонгосонд байгаагүй: ${d.dispatch.extra.slice(0, 5).join(', ')}${d.dispatch.extraCount > 5 ? '…' : ''}` : ''}` : ''))
+          if (d.dispatch) setCheckTick(t => t + 1)
           setOwnerChanges({ list: d.ownerChanges ?? [], count: d.ownerChangeCount ?? 0 })
           loadToday()
         } else {
@@ -355,7 +353,7 @@ export default function ArrivedPage() {
     setLoading(false)
     if (!res.ok) { setError(data.error); return }
     setResult(data)
-    if (dispatchId) loadDispatches()
+    if (dispatchId) setCheckTick(t => t + 1)
     setForm(keepPhone ? { ...EMPTY, phone: form.phone } : EMPTY)
     setTouched({})
     setPhoneLocked(false)
@@ -369,21 +367,8 @@ export default function ArrivedPage() {
     <div className="page-wide">
       <h1 className="section-title">Ирсэн</h1>
 
-      {/* Ачилт сонгох (туршилт) — сонгосон бол код бүр ачилтад байсан эсэх тэр дор нь харагдана */}
-      {dispatches && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.75rem', padding: '0.6rem 0.8rem', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: dispatchId ? 'var(--accent-light)' : 'var(--surface)' }}>
-          <label htmlFor="arrived-dispatch" style={{ fontSize: '0.82rem', fontWeight: 700 }}>🚚 Ачилт</label>
-          <select id="arrived-dispatch" className="input" value={dispatchId} onChange={e => setDispatchId(e.target.value ? Number(e.target.value) : '')} style={{ width: 'auto', minWidth: 220, padding: '0.35rem 0.6rem' }}>
-            <option value="">Сонгоогүй (ердийн бүртгэл)</option>
-            {dispatches.map(d => (
-              <option key={d.id} value={d.id}>
-                {new Date(new Date(d.date).getTime() + 8 * 3600_000).toISOString().slice(5, 10).replace('-', '/')}{d.name ? ` · ${d.name}` : ''} — {d.stats.arrived}/{d.stats.loaded} ирсэн{d.stats.extra ? ` · +${d.stats.extra}` : ''}
-              </option>
-            ))}
-          </select>
-          {dispatches.length === 0 && <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Нээлттэй ачилт алга — «Ачилт» хуудаснаас үүсгэнэ</span>}
-        </div>
-      )}
+      {/* Тулгалт (туршилт): Эрээнээс ирэх ёстойг сонгоод бүртгэх, төгсгөлд тайлан */}
+      <ArrivalCheck refreshKey={checkTick} onActive={onActiveDispatch} />
 
       {/* Excel формат — жишээ */}
       <details style={{
@@ -675,8 +660,8 @@ export default function ArrivedPage() {
             <div className="card" style={{ marginTop: '1.2rem' }}>
               {result.inDispatch !== undefined && (
                 <div className="card-row">
-                  <span className="label">Ачилт</span>
-                  <strong style={{ color: result.inDispatch ? 'var(--green)' : 'var(--danger)' }}>{result.inDispatch ? '✓ Ачилтад байсан' : '⚠ Ачилтад байгаагүй (илүү)'}</strong>
+                  <span className="label">Тулгалт</span>
+                  <strong style={{ color: result.inDispatch ? 'var(--green)' : 'var(--danger)' }}>{result.inDispatch ? '✓ Сонгосон ачаанд байсан' : '⚠ Сонгосонд байгаагүй (илүү)'}</strong>
                 </div>
               )}
               {(result.phone || result.user?.phone) && (
