@@ -31,7 +31,7 @@ model Cargo {
   batchEnabled      Boolean    @default(false)
   // Хэрэглэгчээс барааны линкээр захиалга авах (Taobao, Pinduoduo, 1688…)
   linkOrdersEnabled Boolean    @default(false)
-  dispatchEnabled   Boolean    @default(false) // супер админ асаана: «Ачилт» — Эрээнээс ачигдсан бөөн кодоор «Ирсэн»-ийг тулгах (туршилт)
+  dispatchEnabled   Boolean    @default(true) // «Тулгалт»: «Ирсэн»-ийг Эрээнээс сонгосон ачаатай тулгах — эзэмшигч тохиргооноос унтраана
   phoneVerify       Boolean    @default(false) // ашиглагдахгүй (хуучин: шинэ хэрэглэгч/админы утас шаардах асаалт) — одоо бүртгэл, карго нээлт бүгд утас заавал
   // Брэндбүүкийн загвар (жш "mgl" — Эрээнээс MGL карго): өнгө, фонт, толгойн маршрутын шугам. null = aicargo-ийн энгийн загвар
   brandTheme        String?

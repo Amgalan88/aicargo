@@ -1,5 +1,5 @@
 'use client'
-// Тулгалтын түүх (туршилт): «Ирсэн» бүртгэлийн өмнө Эрээнээс сонгосон ачааг бүртгэлтэй тулгасан тайлангууд.
+// Тулгалтын түүх: «Ирсэн» бүртгэлийн өмнө Эрээнээс сонгосон ачааг бүртгэлтэй тулгасан тайлангууд.
 // Шинэ тулгалтыг «Ирсэн» хуудаснаас «Эрээнээс сонгох»-оор эхлүүлнэ.
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -32,7 +32,7 @@ export default function DispatchHistoryPage() {
   }
   useEffect(() => { load() }, [])
 
-  if (denied) return <div className="page-wide"><PageHeader title="Тулгалт" /><p className="empty">Тулгалт энэ каргод идэвхжээгүй байна.</p></div>
+  if (denied) return <div className="page-wide"><PageHeader title="Тулгалт" /><p className="empty">Тулгалт унтраалттай байна — Тохиргоо → «Тулгалт»-аас асаана.</p></div>
 
   return (
     <div className="page-wide">

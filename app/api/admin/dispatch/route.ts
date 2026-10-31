@@ -10,7 +10,7 @@ async function guard(req: NextRequest) {
   if (!admin) return { error: unauthorized() }
   if (admin.role !== 'ADMIN' || !admin.cargoId) return { error: forbidden() }
   if (!(await dispatchEnabledFor(admin.cargoId))) {
-    return { error: NextResponse.json({ error: 'Тулгалт энэ каргод идэвхжээгүй байна' }, { status: 403 }) }
+    return { error: NextResponse.json({ error: 'Тулгалт унтраалттай байна — Тохиргоо → «Тулгалт»-аас асаана' }, { status: 403 }) }
   }
   return { admin }
 }

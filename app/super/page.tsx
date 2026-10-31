@@ -1,5 +1,5 @@
 'use client'
-import { Bell, BellOff, Smartphone, Boxes, Sparkles, Palette, Truck } from 'lucide-react'
+import { Bell, BellOff, Smartphone, Boxes, Sparkles, Palette } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
@@ -27,7 +27,6 @@ interface CargoStat {
   batchEnabled: boolean
   aiEnabled: boolean
   brandTheme: string | null
-  dispatchEnabled: boolean
   paidUntil: string | null
   createdAt: string
   admins: Admin[]
@@ -471,27 +470,6 @@ export default function SuperPage() {
                         }}
                       >
                         <><Palette size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.brandTheme ? 'Брэнд: MGL' : 'Брэнд: Үгүй'}</>
-                      </button>
-                      {/* Ачилтын тулгалт — туршилт: асаасан каргод «Ачилт» цэс, «Ирсэн» дээр ачилт сонгох */}
-                      <button
-                        title="«Ирсэн» бүртгэлийг Эрээнээс сонгосон ачаатай тулгаж тайлан гаргах (туршилт)"
-                        onClick={async () => {
-                          await fetch(`/api/super/cargo/${c.id}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ dispatchEnabled: !c.dispatchEnabled }),
-                          })
-                          load()
-                        }}
-                        style={{
-                          background: c.dispatchEnabled ? 'rgba(47,93,124,0.12)' : 'none',
-                          border: `1px solid ${c.dispatchEnabled ? '#2f5d7c' : 'var(--border)'}`,
-                          color: c.dispatchEnabled ? '#2f5d7c' : 'var(--muted)',
-                          borderRadius: 'var(--radius)', padding: '0.3rem 0.8rem',
-                          cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap', fontFamily: 'inherit',
-                        }}
-                      >
-                        <><Truck size={13} strokeWidth={2.2} style={{ verticalAlign: '-2px', marginRight: 5, flexShrink: 0 }} />{c.dispatchEnabled ? 'Тулгалт: Тийм' : 'Тулгалт: Үгүй'}</>
                       </button>
                       <button
                         onClick={async () => {

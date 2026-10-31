@@ -1,5 +1,5 @@
 'use client'
-import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, LockKeyhole, Smartphone } from 'lucide-react'
+import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, LockKeyhole, Smartphone, Truck } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
@@ -20,6 +20,7 @@ const SECTIONS = [
   { id: 'st-ereen', label: 'Эрээний хаяг' },
   { id: 'st-labels', label: 'Төлөвийн нэр' },
   { id: 'st-links', label: 'Линк захиалга' },
+  { id: 'st-dispatch', label: 'Тулгалт' },
   { id: 'st-staff', label: 'Ажилтан' },
   { id: 'st-phone', label: 'Миний утас' },
   { id: 'st-password', label: 'Нууц үг' },
@@ -59,6 +60,22 @@ export default function SettingsPage() {
     if (!res?.ok) { toast.error('Хадгалахад алдаа гарлаа'); return }
     setLinkOn(next)
     toast.success(next ? 'Линк захиалга нээгдлээ' : 'Линк захиалга хаагдлаа')
+    router.refresh()
+  }
+  // Тулгалт — «Ирсэн» бүртгэлийг Эрээнээс сонгосон ачаатай тулгах (дармагц хадгалагдана)
+  const [dispatchOn, setDispatchOn] = useState(true)
+  const [dispatchBusy, setDispatchBusy] = useState(false)
+  async function toggleDispatch() {
+    if (dispatchBusy) return
+    const next = !dispatchOn
+    setDispatchBusy(true)
+    const res = await fetch('/api/admin/settings', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dispatchEnabled: next }),
+    }).catch(() => null)
+    setDispatchBusy(false)
+    if (!res?.ok) { toast.error('Хадгалахад алдаа гарлаа'); return }
+    setDispatchOn(next)
+    toast.success(next ? 'Тулгалт асаалаа' : 'Тулгалт унтарлаа')
     router.refresh()
   }
   const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '', ereemTitle: '', ereemAddresses: [] as EreenAddress[] })
@@ -103,6 +120,7 @@ export default function SettingsPage() {
         } catch {}
         setForm(loadedForm)
         setLinkOn(!!d.linkOrdersEnabled)
+        setDispatchOn(!!d.dispatchEnabled)
         setTiers(loadedTiers)
         setLoaded({ form: loadedForm, tiers: loadedTiers })
         setBaseline(snapshotOf(loadedForm, loadedTiers, null))
@@ -305,6 +323,22 @@ export default function SettingsPage() {
           </p>
           <button type="button" role="switch" aria-checked={linkOn} aria-labelledby="link-orders-label"
             className={`switch${linkOn ? ' on' : ''}`} disabled={me.isStaffAdmin || linkBusy} onClick={toggleLinks}>
+            <span />
+          </button>
+        </div>
+        {me.isStaffAdmin && <p className="st-locked">Зөвхөн каргогийн эзэмшигч өөрчилнө.</p>}
+      </Section>
+
+      <Section id="st-dispatch" icon={Truck} title="Тулгалт (Эрээн → Ирсэн)">
+        <div className="st-toggle">
+          <p id="dispatch-label">
+            {dispatchOn
+              ? 'Асаалттай — «Ирсэн» хуудсанд «Эрээнээс сонгох» товч гарна. Ирэх ёстой ачааг сонгоод бүртгэхэд төгсгөлд ирсэн / ирээгүй / илүү тайлан гарна.'
+              : 'Унтраалттай — асаавал «Ирсэн» бүртгэлийг Эрээнээс сонгосон ачаатай тулгаж, дутууг тэр дор нь харна.'}
+            <small>Дармагц шууд хадгалагдана. Сонгохгүй бол «Ирсэн» бүртгэл урьдын адил.</small>
+          </p>
+          <button type="button" role="switch" aria-checked={dispatchOn} aria-labelledby="dispatch-label"
+            className={`switch${dispatchOn ? ' on' : ''}`} disabled={me.isStaffAdmin || dispatchBusy} onClick={toggleDispatch}>
             <span />
           </button>
         </div>
