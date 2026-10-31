@@ -8,6 +8,7 @@ import { parseArrivedCode } from '@/lib/track-code'
 import { resolveImportOwners } from '@/lib/import-owner'
 import { ubDayRange } from '@/lib/ub-date'
 import { importLimitError } from '@/lib/import-limits'
+import { openDispatchId, markArrivals } from '@/lib/dispatch'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -19,7 +20,8 @@ export async function PUT(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { rows }: { rows: { trackCode: string; phone?: string; price?: number }[] } = await req.json()
+  const body = await req.json()
+  const rows: { trackCode: string; phone?: string; price?: number }[] = body.rows
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: 'Өгөгдөл хоосон' }, { status: 400 })
   }
@@ -89,9 +91,13 @@ export async function PUT(req: NextRequest) {
     action: 'shipment:import-arrived',
     detail: `${codes.length - skipped} ачаа${skipped ? ` (${skipped} олгогдсон тул алгассан)` : ''}${ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''}`,
   })
+  // Ачилт сонгосон бол (туршилт): ачилтад байсныг ✓, байгаагүйг «илүү» болгоно
+  const dispatchId = body.dispatchId ? await openDispatchId(cargoId, body.dispatchId) : null
+  const dispatch = dispatchId ? await markArrivals(dispatchId, codes) : null
   return NextResponse.json({
     count: codes.length - skipped, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
     duplicateRows, ownerChanges: ownerChanges.slice(0, 200), ownerChangeCount: ownerChanges.length,
+    ...(dispatch ? { dispatch: { inCount: dispatch.inDispatch.length, extra: dispatch.extra.slice(0, 200), extraCount: dispatch.extra.length } } : {}),
   })
 }
 
@@ -100,7 +106,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { trackCode, adminPrice, adminNote, phone: manualPhone } = await req.json()
+  const { trackCode, adminPrice, adminNote, phone: manualPhone, dispatchId: dispatchRaw } = await req.json()
   if (!trackCode) {
     return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
   }
@@ -163,6 +169,12 @@ export async function POST(req: NextRequest) {
     detail: `${code}${resolvedPhone ? ' · ' + resolvedPhone : ''}${adminPrice ? ' · ' + Number(adminPrice).toLocaleString() + '₮' : ''}`,
   })
 
+  // Ачилт сонгосон бол (туршилт): энэ код ачилтад байсан эсэх
+  const dispatchId = dispatchRaw ? await openDispatchId(admin.cargoId!, dispatchRaw) : null
+  if (dispatchId) {
+    const m = await markArrivals(dispatchId, [shipment.trackCode])
+    return NextResponse.json({ ...shipment, inDispatch: m.inDispatch.length === 1 })
+  }
   return NextResponse.json(shipment)
 }
 

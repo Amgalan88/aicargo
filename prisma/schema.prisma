@@ -31,6 +31,7 @@ model Cargo {
   batchEnabled      Boolean    @default(false)
   // Хэрэглэгчээс барааны линкээр захиалга авах (Taobao, Pinduoduo, 1688…)
   linkOrdersEnabled Boolean    @default(false)
+  dispatchEnabled   Boolean    @default(false) // супер админ асаана: «Ачилт» — Эрээнээс ачигдсан бөөн кодоор «Ирсэн»-ийг тулгах (туршилт)
   phoneVerify       Boolean    @default(false) // ашиглагдахгүй (хуучин: шинэ хэрэглэгч/админы утас шаардах асаалт) — одоо бүртгэл, карго нээлт бүгд утас заавал
   // Брэндбүүкийн загвар (жш "mgl" — Эрээнээс MGL карго): өнгө, фонт, толгойн маршрутын шугам. null = aicargo-ийн энгийн загвар
   brandTheme        String?
@@ -64,6 +65,7 @@ model Cargo {
   auditLogs     AdminAuditLog[]
   shipmentDeletions ShipmentDeletion[]
   warehouseContracts WarehouseContract[]
+  dispatches         Dispatch[]
 }
 
 model User {
@@ -545,4 +547,34 @@ model PhoneVerification {
   usedAt     DateTime? // нэг баталгаажуулалт = нэг бүртгэл
 
   @@index([phone, createdAt])
+}
+
+// Ачилт — Эрээнээс нэг машинд ачигдсан бөөн код (агуулахын жагсаалт, жш «11月1号» 96 код).
+// «Ирсэн» бүртгэлийг ачилтаар нь хийж ирсэн / ирээгүй / илүүг тулгана. Ачааны хүснэгтэд хүрэхгүй — код + төлөвөөр тооцно.
+model Dispatch {
+  id            Int            @id @default(autoincrement())
+  cargoId       Int
+  cargo         Cargo          @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  date          DateTime       // ачигдсан өдөр (УБ 12:00)
+  name          String?
+  closedAt      DateTime?
+  createdById   Int
+  createdByName String
+  createdAt     DateTime       @default(now())
+  items         DispatchItem[]
+
+  @@index([cargoId, date])
+}
+
+model DispatchItem {
+  id         Int      @id @default(autoincrement())
+  dispatchId Int
+  dispatch   Dispatch @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  trackCode  String
+  // true — ачилтын жагсаалтад байгаагүй атлаа энэ ачилтаар «Ирсэн» бүртгэгдсэн (илүү)
+  extra      Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@unique([dispatchId, trackCode])
+  @@index([trackCode])
 }

@@ -18,7 +18,7 @@ export async function PATCH(
   if (!cargoId) return NextResponse.json({ error: 'ID буруу' }, { status: 400 })
 
   const { name, slug, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, logoUrl,
-    bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, notificationsEnabled, searchByPhone, paidUntil, batchEnabled, aiEnabled, ereemTitle, ereemAddresses, brandTheme } = await req.json()
+    bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, notificationsEnabled, searchByPhone, paidUntil, batchEnabled, aiEnabled, ereemTitle, ereemAddresses, brandTheme, dispatchEnabled } = await req.json()
 
   // Нэмэлт Эрээний хаягууд — нэр, хүлээн авагч, хаяг заавал
   const extra = ereemAddresses !== undefined ? sanitizeExtraAddresses(ereemAddresses) : null
@@ -49,6 +49,8 @@ export async function PATCH(
       ...(aiEnabled !== undefined ? { aiEnabled: Boolean(aiEnabled) } : {}),
       // Брэндбүүкийн загвар — зөвхөн мэдэгдэж буй утга (lib/brand-theme), бусад нь null
       ...(brandTheme !== undefined ? { brandTheme: isBrandTheme(brandTheme) ? brandTheme : null } : {}),
+      // Ачилтын тулгалт — туршилт, супер админ хэдэн каргод асаана
+      ...(dispatchEnabled !== undefined ? { dispatchEnabled: Boolean(dispatchEnabled) } : {}),
       ...(paidUntil !== undefined ? { paidUntil: paidUntil ? new Date(paidUntil) : null } : {}),
       ...(ereemTitle !== undefined ? { ereemTitle: String(ereemTitle ?? '').trim().slice(0, 40) || null } : {}),
       ...(extra ? { ereemAddresses: extra.value } : {}),

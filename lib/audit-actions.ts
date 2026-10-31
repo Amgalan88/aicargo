@@ -37,6 +37,10 @@ export const AUDIT_ACTIONS: Record<string, { label: string; routine?: boolean; t
   'banner:delete': { label: 'Мэдэгдэл (баннер) устгасан', tone: 'muted' },
   'user:phone-verified': { label: 'Утсаа баталгаажуулсан', routine: true, tone: 'green' },
   'user:phone-changed': { label: 'Утасны дугаараа сольсон', tone: 'yellow' },
+  'dispatch:create': { label: 'Ачилт үүсгэсэн', tone: 'blue' },
+  'dispatch:close': { label: 'Ачилт хаасан', tone: 'muted' },
+  'dispatch:reopen': { label: 'Ачилт дахин нээсэн', tone: 'yellow' },
+  'dispatch:delete': { label: 'Ачилт устгасан', tone: 'red' },
   'billing:renewed': { label: 'Вэбсайтын төлбөр сунгагдсан', tone: 'green' },
 }
 

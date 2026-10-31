@@ -40,6 +40,7 @@ export default function AdminNav({
   batchEnabled,
   isStaffAdmin,
   linkOrders,
+  dispatchEnabled,
 }: {
   cargoName?: string
   logoUrl?: string
@@ -50,6 +51,8 @@ export default function AdminNav({
   isStaffAdmin?: boolean
   // Линкээр захиалга авдаг карго
   linkOrders?: boolean
+  // Ачилтын тулгалт (супер админ асаасан, туршилт)
+  dispatchEnabled?: boolean
 }) {
   const pathname = usePathname()
   // Шинэ линк захиалга ирэхэд (LinkOrderAlert) цэсний тоог шинэчилнэ
@@ -130,6 +133,7 @@ export default function AdminNav({
 
   // Хоёрдогч — өдөр тутам бага хэрэглэгдэх хэсгүүд
   const primaryExtra: NavLink[] = [
+    ...(dispatchEnabled && !batchEnabled ? [{ href: '/admin/dispatch', label: 'Ачилт', icon: Truck }] : []),
     { href: '/admin/users', label: 'Хэрэглэгчид', icon: Users },
     ...(linkOrders ? [{ href: '/admin/link-orders', label: 'Линк захиалга', icon: ShoppingCart, count: counts?.linkNew }] : []),
     { href: '/admin/notify', label: 'Мэдэгдэл', icon: Megaphone },
