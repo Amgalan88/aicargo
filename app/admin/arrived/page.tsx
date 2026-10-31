@@ -21,6 +21,7 @@ interface SearchResult {
   adminNote: string | null; createdAt: string; updatedAt?: string; description?: string | null
   user?: { name: string; phone: string } | null
   ereenArrivedAt?: string | null
+  arrivedAt?: string | null
 }
 
 interface TodayEntry { display: string; isPhone: boolean; description: string }
@@ -40,6 +41,10 @@ function CopyPhone({ phone }: { phone: string }) {
     }}>{copied ? '✓ Хуулагдлаа' : phone}</span>
   )
 }
+
+// «Ирсэн» бүртгэлтэй зэрэг шинээр үүссэн (Эрээнээр дамжаагүй) — буцаахад устгагдана (lib/shipment-deletion createdWithArrival)
+const isNewAtArrival = (x: { ereenArrivedAt?: string | null; arrivedAt?: string | null; createdAt: string }) =>
+  !x.ereenArrivedAt && !!x.arrivedAt && new Date(x.createdAt).getTime() >= new Date(x.arrivedAt).getTime() - 5000
 
 export default function ArrivedPage() {
   const router = useRouter()
@@ -280,7 +285,7 @@ export default function ArrivedPage() {
       })
       const data = await res.json()
       if (!res.ok) { setRevertMsg(data.error || 'Алдаа гарлаа'); return }
-      setRevertMsg(`✓ ${data.count} бараа буцлаа — Эрээнд ${data.toEreen ?? 0}, Бүртгүүлсэн ${data.toRegistered ?? 0}`)
+      setRevertMsg(`✓ ${data.count} бараа буцлаа — Эрээнд ${data.toEreen ?? 0}, Бүртгүүлсэн ${data.toRegistered ?? 0}${data.deleted ? `, устгасан ${data.deleted}` : ''}`)
       setRevertModal(false)
       loadToday()
       setSearchResults(null)
@@ -735,7 +740,8 @@ export default function ArrivedPage() {
                 {revertPreviewLoading ? 'Шалгаж байна...' :
                   revertPreview === null ? '' :
                   revertPreview.length === 0 ? 'Энэ өдөр Ирсэн бараа алга.' :
-                  <>Тохирох: <strong style={{ color: 'var(--text)' }}>{revertPreview.length} бараа</strong> — Эрээнд {revertPreview.filter(x => x.ereenArrivedAt).length}, Бүртгүүлсэн {revertPreview.filter(x => !x.ereenArrivedAt).length}</>}
+                  <>Тохирох: <strong style={{ color: 'var(--text)' }}>{revertPreview.length} бараа</strong> — Эрээнд {revertPreview.filter(x => x.ereenArrivedAt).length}, Бүртгүүлсэн {revertPreview.filter(x => !x.ereenArrivedAt && !isNewAtArrival(x)).length}, устгагдана {revertPreview.filter(isNewAtArrival).length}
+                    {revertPreview.some(isNewAtArrival) && <><br /><span style={{ fontSize: '0.78rem' }}>«Устгагдана» — энэ бүртгэлээр шинээр үүссэн (хэрэглэгч бүртгээгүй, Эрээнээр дамжаагүй) ачаа; хэрэглэгчийн жагсаалтад хий бүртгэл үлдэхгүй.</span></>}</>}
               </p>
             )}
             {revertDate && revertPreview && revertPreview.length > 0 && (

@@ -1,12 +1,13 @@
 import type { Prisma } from '@prisma/client'
 
-export type DeletionSource = 'ereen-single' | 'ereen-by-day' | 'ereen-all' | 'registered'
+export type DeletionSource = 'ereen-single' | 'ereen-by-day' | 'ereen-all' | 'registered' | 'arrived-revert'
 
 export const DELETION_SOURCE_LABELS: Record<string, string> = {
   'ereen-single': 'Эрээний жагсаалтаас ганцаар устгасан',
   'ereen-by-day': 'Эрээний ачааг өдрөөр сонгож устгасан',
   'ereen-all': '"Бүгдийг устгах" товчоор устгасан',
   'registered': 'Хэрэглэгчийн бүртгүүлсэн ачааг админ устгасан',
+  'arrived-revert': '«Ирсэн»-ийг буцаахад устгасан (Excel/гараар шинээр үүссэн, Эрээнээр дамжаагүй)',
 }
 
 // Устгахын өмнө хадгалах талбарууд — findMany-д ашиглана
@@ -16,6 +17,12 @@ export const DELETION_SNAPSHOT_SELECT = {
 } as const
 
 type Snapshot = Prisma.ShipmentGetPayload<{ select: typeof DELETION_SNAPSHOT_SELECT }>
+
+// «Ирсэн» бүртгэлтэй ЗЭРЭГ шинээр үүссэн ачаа (Excel/гараар; хэрэглэгч бүртгээгүй, Эрээнээр дамжаагүй) —
+// буцаахад өмнөх төлөв гэж байхгүй тул «Бүртгүүлсэн» болгохгүй, устгана (эс бөгөөс хэрэглэгчийн жагсаалтад хий бүртгэл үлдэнэ)
+export function createdWithArrival(s: { createdAt: Date; arrivedAt: Date | null; ereenArrivedAt: Date | null }): boolean {
+  return !s.ereenArrivedAt && !!s.arrivedAt && s.createdAt.getTime() >= s.arrivedAt.getTime() - 5000
+}
 
 // Устгасан ачаа бүрийг түүхэнд бичнэ — устгалтай НЭГ transaction-д дуудна
 export async function recordDeletions(

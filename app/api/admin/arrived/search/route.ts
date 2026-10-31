@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       orderBy: { arrivedAt: 'desc' },
       select: {
         id: true, trackCode: true, phone: true, adminPrice: true, adminNote: true,
-        createdAt: true, updatedAt: true, description: true, ereenArrivedAt: true,
+        createdAt: true, updatedAt: true, description: true, ereenArrivedAt: true, arrivedAt: true,
         user: { select: { name: true, phone: true } },
       },
     })

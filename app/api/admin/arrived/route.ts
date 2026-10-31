@@ -9,6 +9,7 @@ import { resolveImportOwners } from '@/lib/import-owner'
 import { ubDayRange } from '@/lib/ub-date'
 import { importLimitError } from '@/lib/import-limits'
 import { openDispatchId, markArrivals } from '@/lib/dispatch'
+import { recordDeletions, DELETION_SNAPSHOT_SELECT, createdWithArrival } from '@/lib/shipment-deletion'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -236,18 +237,26 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Огноо буруу байна' }, { status: 400 })
     }
     const where = { cargoId: admin.cargoId!, status: 'ARRIVED' as const, arrivedAt: { gte: range.start, lte: range.end } }
-    const [toEreen, toRegistered] = await prisma.$transaction([
-      prisma.shipment.updateMany({ where: { ...where, ereenArrivedAt: { not: null } }, data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null } }),
-      prisma.shipment.updateMany({ where: { ...where, ereenArrivedAt: null }, data: { status: 'REGISTERED', adminPrice: null, arrivedAt: null } }),
-    ])
-    const count = toEreen.count + toRegistered.count
+    // Ирсэн бүртгэлтэй зэрэг шинээр үүссэн (Эрээнээр дамжаагүй, хэрэглэгч бүртгээгүй) ачааг устгана
+    const noEreen = await prisma.shipment.findMany({ where: { ...where, ereenArrivedAt: null }, select: { ...DELETION_SNAPSHOT_SELECT, arrivedAt: true } })
+    const phantom = noEreen.filter(createdWithArrival)
+    const { toEreen, toRegistered } = await prisma.$transaction(async tx => {
+      if (phantom.length) {
+        await recordDeletions(tx, admin.cargoId!, phantom, { id: admin.userId, name: admin.name }, 'arrived-revert', `${body.date} буцаалт`)
+        await tx.shipment.deleteMany({ where: { id: { in: phantom.map(p => p.id) }, status: 'ARRIVED' } })
+      }
+      const toEreen = await tx.shipment.updateMany({ where: { ...where, ereenArrivedAt: { not: null } }, data: { status: 'EREEN_ARRIVED', adminPrice: null, arrivedAt: null } })
+      const toRegistered = await tx.shipment.updateMany({ where: { ...where, ereenArrivedAt: null }, data: { status: 'REGISTERED', adminPrice: null, arrivedAt: null } })
+      return { toEreen: toEreen.count, toRegistered: toRegistered.count }
+    })
+    const count = toEreen + toRegistered + phantom.length
     if (count > 0) {
       await logAdminAction(prisma, {
         cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
-        action: 'shipment:revert-arrived', detail: `${body.date}: ${count} ачаа (Эрээнд ${toEreen.count}, Бүртгүүлсэн ${toRegistered.count})`,
+        action: 'shipment:revert-arrived', detail: `${body.date}: ${count} ачаа (Эрээнд ${toEreen}, Бүртгүүлсэн ${toRegistered}, устгасан ${phantom.length})`,
       })
     }
-    return NextResponse.json({ count, toEreen: toEreen.count, toRegistered: toRegistered.count })
+    return NextResponse.json({ count, toEreen, toRegistered, deleted: phantom.length })
   }
 
   const { id } = body
@@ -264,6 +273,19 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Зөвхөн Ирсэн барааг буцаана' }, { status: 400 })
   }
 
+  // Ирсэн бүртгэлтэй зэрэг шинээр үүссэн бол өмнөх төлөв алга — устгана
+  if (createdWithArrival(target)) {
+    const snap = await prisma.shipment.findUnique({ where: { id: target.id }, select: DELETION_SNAPSHOT_SELECT })
+    await prisma.$transaction(async tx => {
+      if (snap) await recordDeletions(tx, admin.cargoId!, [snap], { id: admin.userId, name: admin.name }, 'arrived-revert')
+      await tx.shipment.deleteMany({ where: { id: target.id, status: 'ARRIVED' } })
+    })
+    await logAdminAction(prisma, {
+      cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+      action: 'shipment:revert-arrived', detail: `${target.trackCode} (устгасан — Ирсэн бүртгэлээр үүссэн)`,
+    })
+    return NextResponse.json({ ok: true, deleted: true })
+  }
   await prisma.shipment.update({
     where: { id: Number(id), cargoId: admin.cargoId! },
     data: { status: target.ereenArrivedAt ? 'EREEN_ARRIVED' : 'REGISTERED', adminPrice: null, arrivedAt: null },

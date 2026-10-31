@@ -319,6 +319,24 @@ export default function OrdersClient({
     .filter(tab => !(batchMode && tab.key === 'EREEN_ARRIVED'))
     .map(tab => tab.key === 'ALL' ? { ...tab, label: allLabel } : { ...tab, label: STATUS_LABEL[tab.key] ?? tab.label })
   const [shipments, setShipments] = useState(initialShipments)
+  // Апп арын дэвсгэрт удаан байгаад буцаж нээгдэхэд жагсаалтыг шинэчилнэ — хуучин төлөв (жш буцаагдсан
+  // «Ирсэн») харагдахгүй. 1 минутаас дээш нуугдсан бол л, нэг удаагийн хүсэлт.
+  useEffect(() => {
+    let hiddenAt = 0
+    const refresh = async () => {
+      const r = await fetch('/api/orders', { cache: 'no-store' }).catch(() => null)
+      if (r?.ok) setShipments(await r.json())
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return }
+      if (hiddenAt && Date.now() - hiddenAt > 60_000) refresh()
+      hiddenAt = 0
+    }
+    const onShow = (e: PageTransitionEvent) => { if (e.persisted) refresh() }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pageshow', onShow)
+    return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pageshow', onShow) }
+  }, [])
   // Линк захиалга: карго асаасан + хэрэглэгч өөрөө асаасан үед л дээд цэсэнд гарна
   const [linkOn, setLinkOn] = useState(linkOrdersOn)
   const [tutorialsOpen, setTutorialsOpen] = useState(false)
