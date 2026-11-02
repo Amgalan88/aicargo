@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import ArrivalCheck from '../dispatch/ArrivalCheck'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
+import { parsePhone } from '@/lib/phone'
 import { cleanTrackCode, parseArrivedCode } from '@/lib/track-code'
 import OwnerChangesNote, { type OwnerChange } from '../OwnerChangesNote'
 
@@ -150,13 +151,14 @@ export default function ArrivedPage() {
         const parsedAll = data
           .map(row => {
             const phoneRaw = String(row[1] ?? '').trim()
+            const phoneParsed = parsePhone(phoneRaw)
             // "5,500", "5 500₮" гэх мэт текстээр бичсэн үнийг ч уншина (өмнө нь үнэгүй болдог байсан)
             const priceRaw = typeof row[2] === 'number' ? row[2] : Number(String(row[2] ?? '').replace(/[^\d.]/g, ''))
             return {
               raw: String(row[0] ?? '').trim(),
               trackCode: parseArrivedCode(row[0]) ?? '',
               phoneRaw,
-              phone: /^\d{8}$/.test(phoneRaw) ? phoneRaw : undefined,
+              phone: phoneParsed ?? undefined,
               price: !isNaN(priceRaw) && priceRaw > 0 ? priceRaw : undefined,
             }
           })

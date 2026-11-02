@@ -5,6 +5,7 @@ import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { logAdminAction, auditLater } from '@/lib/audit'
 import { notifyArrivedForCargo } from '@/lib/push'
 import { parseArrivedCode } from '@/lib/track-code'
+import { parsePhone } from '@/lib/phone'
 import { resolveImportOwners } from '@/lib/import-owner'
 import { ubDayRange } from '@/lib/ub-date'
 import { importLimitError } from '@/lib/import-limits'
@@ -64,8 +65,10 @@ export async function PUT(req: NextRequest) {
     FROM unnest(${codes}::text[], ${prices}::numeric[], ${phones}::text[], ${userIds}::int[]) AS t(code, price, phone, userId)
     ON CONFLICT ("trackCode", "cargoId") DO UPDATE SET
       status = 'ARRIVED',
-      "arrivedAt" = ${now},
-      "adminPrice" = EXCLUDED."adminPrice",
+      -- Аль хэдийн Ирсэн бол анхны ирсэн огноо хэвээр (огноогоор буцаахад өнөөдрийнх болж хутгагдахгүй)
+      "arrivedAt" = CASE WHEN "Shipment".status = 'ARRIVED' AND "Shipment"."arrivedAt" IS NOT NULL THEN "Shipment"."arrivedAt" ELSE ${now} END,
+      -- Excel-д үнэ байвал давуу, хоосон бол байсан үнэ хэвээр
+      "adminPrice" = COALESCE(EXCLUDED."adminPrice", "Shipment"."adminPrice"),
       phone = EXCLUDED.phone,
       "userId" = EXCLUDED."userId",
       "updatedAt" = ${now}
@@ -73,7 +76,7 @@ export async function PUT(req: NextRequest) {
   `
 
   checkCrossCargoOnImport(
-    [...rowByCode.values()].map(r => ({ trackCode: r.trackCode, phone: r.phone?.trim() || null, status: 'ARRIVED' })),
+    [...rowByCode.values()].map(r => ({ trackCode: r.trackCode, phone: parsePhone(r.phone), status: 'ARRIVED' })),
     cargoId
   ).catch(console.error)
 
@@ -189,8 +192,16 @@ export async function PATCH(req: NextRequest) {
 
   const before = await prisma.shipment.findFirst({
     where: { id: Number(id), cargoId: admin.cargoId! },
-    select: { trackCode: true, adminPrice: true, phone: true, adminNote: true, status: true, updatedAt: true },
+    select: { trackCode: true, adminPrice: true, phone: true, adminNote: true, status: true, updatedAt: true, userId: true, user: { select: { phone: true } } },
   })
+  // Утас солибол эзэн нь ч солигдоно (1 трак = 1 эзэн) — өмнө нь зөвхөн phone талбар солигдож
+  // хуучин хэрэглэгчид харагдсаар байв. Олгосон ачааны эзнийг хөндөхгүй.
+  let newUserId: number | null | undefined
+  let newPhone: string | null | undefined = phone !== undefined ? (phone || null) : undefined
+  if (before && phone && before.status !== 'PICKED_UP') {
+    const owners = await resolveImportOwners(admin.cargoId!, [before.trackCode], new Map([[before.trackCode, String(phone)]]), new Map([[before.trackCode, before]]))
+    if (parsePhone(phone)) { newPhone = owners.phones[0]; newUserId = owners.userIds[0] }
+  }
   const shipment = await prisma.shipment.update({
     where: { id: Number(id), cargoId: admin.cargoId! },
     data: {
@@ -198,7 +209,8 @@ export async function PATCH(req: NextRequest) {
       ...(before?.status === 'PICKED_UP' ? { updatedAt: before.updatedAt } : {}),
       adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
       adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
-      phone: phone !== undefined ? (phone || null) : undefined,
+      phone: newPhone,
+      ...(newUserId !== undefined ? { userId: newUserId } : {}),
     },
   })
 
@@ -209,6 +221,7 @@ export async function PATCH(req: NextRequest) {
     if (Number(before.adminPrice ?? 0) !== Number(shipment.adminPrice ?? 0)) changes.push(`үнэ ${tg(before.adminPrice)} → ${tg(shipment.adminPrice)}`)
     if ((before.phone ?? '') !== (shipment.phone ?? '')) changes.push(`утас ${before.phone || '—'} → ${shipment.phone || '—'}`)
     if ((before.adminNote ?? '') !== (shipment.adminNote ?? '')) changes.push('тэмдэглэл')
+    if ((before.userId ?? null) !== (shipment.userId ?? null)) changes.push(`эзэн ${before.user?.phone || '—'} → ${shipment.userId ? shipment.phone : 'бүртгэлгүй'}`)
     if (changes.length) {
       auditLater({
         cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
