@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
+import { parsePhone } from '@/lib/phone'
 import StaleEreen from './StaleEreen'
 import { ResultRow, type ResultShipment } from './ShipmentResults'
 import { cleanTrackCode, isTrackCode, parseTrackCode } from '@/lib/track-code'
@@ -118,12 +119,12 @@ export default function ImportPage() {
         const rawParsedAll = data
           .map(row => {
             const col1 = String(row[1] ?? '').trim()
-            const isPhone = /^\d{8}$/.test(col1)
+            const parsedPhone = parsePhone(col1)
             return {
               raw: String(row[0] ?? '').trim(),
               trackCode: parseTrackCode(row[0]) ?? cleanTrackCode(row[0]),
               phoneRaw: col1,
-              phone: isPhone ? col1 : undefined,
+              phone: parsedPhone ?? undefined,
             }
           })
           .filter(r => r.raw)
