@@ -82,6 +82,19 @@ export async function POST(req: NextRequest) {
   if (limitError) return NextResponse.json({ error: limitError }, { status: 429 })
   const duplicates = existingRows.filter(s => s.status === 'EREEN_ARRIVED').map(s => s.trackCode)
 
+  // Устгагдаад дахин орж буй ачаа: Excel-д утасгүй бол устгалын түүхэн дэх анхны эзний утсыг ашиглана
+  const missing = codes.filter(c => !existingByCode.has(c) && !rowByCode.get(c)!.phone)
+  if (missing.length) {
+    const dels = await prisma.shipmentDeletion.findMany({
+      where: { cargoId, trackCode: { in: missing }, phone: { not: null } },
+      orderBy: { deletedAt: 'desc' }, select: { trackCode: true, phone: true },
+    })
+    for (const d of dels) {
+      const r = rowByCode.get(d.trackCode)!
+      if (!r.phone && d.phone) rowByCode.set(d.trackCode, { ...r, phone: d.phone })
+    }
+  }
+
   // Эзэн: Excel-ийн утас давуу, утасгүй бол бүртгүүлсэн хэрэглэгч хэвээр (lib/import-owner, arrived route-той ижил)
   const { phones, userIds, changes } = await resolveImportOwners(
     cargoId, codes, new Map(codes.map(c => [c, rowByCode.get(c)!.phone])), existingByCode,
@@ -92,6 +105,10 @@ export async function POST(req: NextRequest) {
   const duplicateRows = rows.length - notCodes.length - codes.length
 
   const now = new Date()
+  // Эрээнд ирсэн огноо ЗААВАЛ — хоосон бол өнөөдрөөр чимээгүй хадгалахгүй
+  if (statuses.includes('EREEN_ARRIVED') && !body.ereenDate) {
+    return NextResponse.json({ error: 'Эрээнд ирсэн огноог сонгоно уу' }, { status: 400 })
+  }
   // Эрээнд ирсэн огноо: админ сонговол тэр өдөр (жш 23-нд ирснийг 25-нд оруулах), үгүй бол одоо
   const ereenAt = ereenArrivedAtFrom(body.ereenDate, now)
   if (!ereenAt) return NextResponse.json({ error: 'Огноо буруу — өнөөдрөөс 30 хоногийн дотор сонгоно уу' }, { status: 400 })
