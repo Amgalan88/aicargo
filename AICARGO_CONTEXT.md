@@ -193,8 +193,9 @@ api/
 │   ├── cross-cargo-recent/   Recent cross-cargo events
 │   └── cross-cargo-stats/    Cross-cargo statistics
 │
-├── track/[code]/route.ts     Public track code lookup
-├── phone-search/route.ts     Public search by phone
+├── track/[code]/route.ts     Public track code lookup (no auth)
+├── phone-search/route.ts     Phone search. Public only if cargo.searchByPhone; Bearer BOT_API_KEY bypasses the flag
+├── bot/orders/route.ts       Bot-only: GET list by phone, POST register trackCode (Bearer BOT_API_KEY)
 ├── faq/route.ts              Public FAQ list
 ├── cargos/route.ts           Public cargo info
 ├── cargo-icon/route.ts       Cargo logo endpoint
@@ -256,6 +257,7 @@ When ADMIN imports shipments or marks ARRIVED:
 - `userId` is set to `null` on user deletion (`onDelete: SetNull`)
 - `paidUntil` controls subscription access at cargo level
 - `tokenVersion` increments on logout — invalidates all existing tokens for that user
+- `BOT_API_KEY` (Vercel project `aicargo`, Production) authenticates the Cargo Supporter bot via `Authorization: Bearer`. It does not log in a browser session and does not unlock `/admin`. Phone search and bot writes stay on the host cargo (`x-cargo-slug`), not sibling cargos in a group. Do not commit the key.
 
 ---
 
