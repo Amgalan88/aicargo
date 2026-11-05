@@ -262,6 +262,8 @@ export default function ImportPage() {
 
   async function save() {
     if (rows.length === 0) return
+    // Эрээнд ирсэн огноо заавал — өнөөдрөөр чимээгүй хадгалахгүй (хадгалсны дараа буруу огноо засагдахгүй асуудал)
+    if (!ereenDate) { setError('Эрээнд ирсэн огноог сонгоно уу'); return }
     setSaving(true)
     setError('')
     try {
@@ -270,7 +272,7 @@ export default function ImportPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rows: rows.map(r => ({ trackCode: r.trackCode, status: 'EREEN_ARRIVED', phone: r.phone })),
-          ...(ereenDate && ereenDate !== todayUB() ? { ereenDate } : {}),
+          ereenDate,
         }),
       })
       const data = await res.json()
@@ -556,8 +558,8 @@ export default function ImportPage() {
             <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Нийт {rows.length} бараа</span>
             {/* Эрээнд ирсэн огноо — жш 23-нд ирснийг 25-нд оруулбал 23 гэж сонгоно (30 хоногийн дотор) */}
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-              Эрээнд ирсэн огноо
-              <input type="date" className="input" value={ereenDate || todayUB()} min={daysAgoUB(30)} max={todayUB()}
+              Эрээнд ирсэн огноо <span style={{ color: 'var(--danger)' }}>*</span>
+              <input type="date" className="input" value={ereenDate} required min={daysAgoUB(30)} max={todayUB()}
                 onChange={e => setEreenDate(e.target.value)}
                 style={{ width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.82rem' }} />
             </label>
@@ -569,8 +571,8 @@ export default function ImportPage() {
               }}>
                 Цэвэрлэх
               </button>
-              <button className="btn" onClick={save} disabled={saving} style={{ fontSize: '0.83rem', padding: '0.45rem 1.1rem' }}>
-                {saving ? '...' : `Хадгалах (${rows.length})`}
+              <button className="btn" onClick={save} disabled={saving || !ereenDate} title={!ereenDate ? 'Эрээнд ирсэн огноог сонгоно уу' : undefined} style={{ fontSize: '0.83rem', padding: '0.45rem 1.1rem' }}>
+                {saving ? '...' : !ereenDate ? 'Огноо сонгоно уу' : `Хадгалах (${rows.length})`}
               </button>
             </div>
           </div>

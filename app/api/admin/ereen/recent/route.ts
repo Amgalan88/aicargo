@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { recordDeletions, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
+import { removeEreenShipments, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
 
 
 export async function GET(req: NextRequest) {
@@ -62,14 +62,13 @@ export async function DELETE(req: NextRequest) {
 
   // Устгал, түүх, аудит нэг transaction-д; хооронд нь төлөв өөрчлөгдсөн бол устгахгүй
   const ok = await prisma.$transaction(async tx => {
-    const { count } = await tx.shipment.deleteMany({ where: { id: shipment.id, cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' } })
-    if (!count) return false
-    await recordDeletions(tx, admin.cargoId!, [shipment], { id: admin.userId, name: admin.name }, 'ereen-single')
+    const r = await removeEreenShipments(tx, admin.cargoId!, [shipment], { id: admin.userId, name: admin.name }, 'ereen-single')
+    if (!r.deleted && !r.reverted) throw new Error('STATE_CHANGED')
     await tx.adminAuditLog.create({
       data: { cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name, action: 'shipment:ereen-deleted', detail: shipment.trackCode },
     })
     return true
-  })
+  }).catch(e => { if (e instanceof Error && e.message === 'STATE_CHANGED') return false; throw e })
   if (!ok) return NextResponse.json({ error: 'Ачааны төлөв өөрчлөгдсөн байна' }, { status: 409 })
   return NextResponse.json({ ok: true })
 }

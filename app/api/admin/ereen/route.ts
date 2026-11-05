@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { recordDeletions, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
+import { removeEreenShipments, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
 import { notifyEreenForCargo } from '@/lib/push'
 import { auditLater } from '@/lib/audit'
 import { parseTrackCode } from '@/lib/track-code'
@@ -72,10 +72,10 @@ export async function DELETE(req: NextRequest) {
   const count = await prisma.$transaction(async tx => {
     const targets = await tx.shipment.findMany({ where: { cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' }, select: DELETION_SNAPSHOT_SELECT })
     if (!targets.length) return 0
-    await recordDeletions(tx, admin.cargoId!, targets, { id: admin.userId, name: admin.name }, 'ereen-all')
-    const { count } = await tx.shipment.deleteMany({ where: { id: { in: targets.map(t => t.id) }, status: 'EREEN_ARRIVED' } })
+    const r = await removeEreenShipments(tx, admin.cargoId!, targets, { id: admin.userId, name: admin.name }, 'ereen-all')
+    const count = r.deleted + r.reverted
     await tx.adminAuditLog.create({
-      data: { cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name, action: 'shipment:ereen-all-deleted', detail: `${count} ачаа` },
+      data: { cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name, action: 'shipment:ereen-all-deleted', detail: `${r.deleted} устгасан · ${r.reverted} «Бүртгүүлсэн» болгосон` },
     })
     return count
   }, { timeout: 30_000 })

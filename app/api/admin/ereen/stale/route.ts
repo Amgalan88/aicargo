@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { recordDeletions, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
+import { removeEreenShipments, DELETION_SNAPSHOT_SELECT } from '@/lib/shipment-deletion'
 
 const MAX = 2000
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
       trackCode: s.trackCode,
       phone: s.user?.phone ?? s.phone,
       name: s.user?.name ?? null,
+      userOwned: !!s.user,
       description: s.description,
       since,
       sinceApprox: !s.ereenArrivedAt,
@@ -92,17 +93,40 @@ export async function DELETE(req: NextRequest) {
   const count = await prisma.$transaction(async tx => {
     const targets = await tx.shipment.findMany({ where, select: DELETION_SNAPSHOT_SELECT })
     if (!targets.length) return 0
-    await recordDeletions(tx, admin.cargoId!, targets, { id: admin.userId, name: admin.name }, 'ereen-by-day', note)
-    const { count } = await tx.shipment.deleteMany({ where: { ...where, id: { in: targets.map(t => t.id) } } })
+    const r = await removeEreenShipments(tx, admin.cargoId!, targets, { id: admin.userId, name: admin.name }, 'ereen-by-day', note)
+    const count = r.deleted + r.reverted
     const codes = targets.map(t => t.trackCode)
     await tx.adminAuditLog.create({
       data: {
         cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
         action: 'shipment:ereen-stale-deleted',
-        detail: `${note ? `${note} · ` : ''}${count} ачаа: ${codes.slice(0, 50).join(', ')}${codes.length > 50 ? ` … +${codes.length - 50}` : ''}`,
+        detail: `${note ? `${note} · ` : ''}${count} ачаа (бүртгэлтэй нь «Бүртгүүлсэн» болсон): ${codes.slice(0, 50).join(', ')}${codes.length > 50 ? ` … +${codes.length - 50}` : ''}`,
       },
     })
     return count
   }, { timeout: 30_000 })
   return NextResponse.json({ count, skipped: ids.length - count })
+}
+
+// Эрээнд ирсэн огноог засах — сонгосон ачаа (ids) эсвэл тухайн өдрийн бүх ачаа (fromDate). Зөвхөн EREEN_ARRIVED
+export async function PATCH(req: NextRequest) {
+  const admin = await getVerifiedUserFromRequest(req)
+  if (!admin) return unauthorized()
+  if (admin.role !== 'ADMIN') return forbidden()
+  const body = await req.json().catch(() => null) as { ids?: unknown; date?: unknown } | null
+  const date = typeof body?.date === 'string' ? body.date : ''
+  const start = ubDayStart(date)
+  const todayUB = new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10)
+  if (!start || date > todayUB) return NextResponse.json({ error: 'Огноо буруу байна' }, { status: 400 })
+  const ids = Array.isArray(body?.ids) ? [...new Set(body.ids.map(Number).filter(n => Number.isInteger(n) && n > 0))] : []
+  if (!ids.length || ids.length > MAX) return NextResponse.json({ error: 'Ачаа сонгоно уу' }, { status: 400 })
+  const at = new Date(`${date}T12:00:00+08:00`)
+  const { count } = await prisma.shipment.updateMany({
+    where: { id: { in: ids }, cargoId: admin.cargoId!, status: 'EREEN_ARRIVED' },
+    data: { ereenArrivedAt: at },
+  })
+  await prisma.adminAuditLog.create({
+    data: { cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name, action: 'shipment:ereen-date-changed', detail: `${count} ачаа → ${date}` },
+  })
+  return NextResponse.json({ count })
 }
