@@ -258,6 +258,7 @@ When ADMIN imports shipments or marks ARRIVED:
 - `paidUntil` controls subscription access at cargo level
 - `tokenVersion` increments on logout — invalidates all existing tokens for that user
 - `BOT_API_KEY` (Vercel project `aicargo`, Production) authenticates the Cargo Supporter bot via `Authorization: Bearer`. It does not log in a browser session and does not unlock `/admin`. Phone search and bot writes stay on the host cargo (`x-cargo-slug`), not sibling cargos in a group. Do not commit the key.
+- ManyChat PRE-AI gateway (`/api/manychat/ingress`, `/api/manychat/wake`) is separate from `BOT_API_KEY`. It stays off unless `MANYCHAT_GATEWAY_ENABLED=true`. It does not create orders or change shipment status. Ledger tables are `ManychatSubscriberLock`, `ManychatBatch`, `ManychatAdmission`. The migration is applied only by an operator.
 
 ---
 
