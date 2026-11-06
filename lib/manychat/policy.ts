@@ -10,6 +10,7 @@ import {
   MAX_TEXT,
   PAGE_ID,
   PENDING_REPUBLISH_MS,
+  REPLY_GUARD_SECRET_ENV,
   TENANT,
   TEXT_DEDUPE_MS,
 } from '@/lib/manychat/constants'
@@ -27,6 +28,7 @@ export interface GatewayConfig {
   secret: string
   webhookUrl: string
   webhookKey: string
+  guardSecret: string
 }
 
 export function readConfig(env: NodeJS.ProcessEnv): GatewayConfig {
@@ -35,6 +37,7 @@ export function readConfig(env: NodeJS.ProcessEnv): GatewayConfig {
     secret: env.MANYCHAT_GATEWAY_SECRET?.trim() ?? '',
     webhookUrl: env.CARGO_SUPPORTER_WEBHOOK_URL?.trim() ?? '',
     webhookKey: env.CARGO_SUPPORTER_WEBHOOK_KEY?.trim() ?? '',
+    guardSecret: env[REPLY_GUARD_SECRET_ENV]?.trim() ?? '',
   }
 }
 

@@ -28,3 +28,7 @@ export const MAX_PUBLISH_ATTEMPTS = 5
 export const MAX_WAKE_DELIVERIES = 8
 export const MISSING_BATCH_DEFERS = 3
 export const PUBLISH_TIMEOUT_MS = 4_000
+// A reply reservation that is never finished stops authorizing a customer send.
+// Expiry is checked under the subscriber lock. It does not start a new grant.
+export const RESERVATION_TTL_MS = 120_000
+export const REPLY_GUARD_SECRET_ENV = 'MANYCHAT_REPLY_GUARD_SECRET'

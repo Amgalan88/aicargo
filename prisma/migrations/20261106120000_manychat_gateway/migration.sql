@@ -50,3 +50,23 @@ CREATE UNIQUE INDEX "ManychatAdmission_eventKey_key" ON "ManychatAdmission"("eve
 CREATE INDEX "ManychatAdmission_window_idx" ON "ManychatAdmission"("tenant", "pageId", "subscriberId", "admittedAt");
 CREATE INDEX "ManychatAdmission_text_idx" ON "ManychatAdmission"("textKey", "admittedAt");
 CREATE INDEX "ManychatBatch_open_idx" ON "ManychatBatch"("tenant", "pageId", "subscriberId", "state", "deliverAfter");
+
+CREATE TABLE "ManychatReplyReservation" (
+    "id" TEXT NOT NULL,
+    "tenant" TEXT NOT NULL,
+    "pageId" TEXT NOT NULL,
+    "subscriberId" TEXT NOT NULL,
+    "batchId" TEXT NOT NULL,
+    "revision" INTEGER NOT NULL,
+    "claimId" TEXT NOT NULL,
+    "state" TEXT NOT NULL,
+    "finishId" TEXT,
+    "reservedAt" TIMESTAMP(3) NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "finishedAt" TIMESTAMP(3),
+    CONSTRAINT "ManychatReplyReservation_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "ManychatReplyReservation_claimId_key" ON "ManychatReplyReservation"("claimId");
+CREATE UNIQUE INDEX "ManychatReplyReservation_revision_key" ON "ManychatReplyReservation"("tenant", "pageId", "subscriberId", "revision");
+CREATE INDEX "ManychatReplyReservation_batch_idx" ON "ManychatReplyReservation"("batchId");

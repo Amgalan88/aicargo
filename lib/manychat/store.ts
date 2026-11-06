@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { MAX_BURST_MS, MAX_PUBLISH_ATTEMPTS, SWEEP_GRACE_MS } from '@/lib/manychat/constants'
+import { MAX_BURST_MS, MAX_PUBLISH_ATTEMPTS, PAGE_ID, RESERVATION_TTL_MS, SWEEP_GRACE_MS, TENANT } from '@/lib/manychat/constants'
 import { PublishRejected, classifyPublishError } from '@/lib/manychat/errors'
 import {
   type ClaimBatch,
@@ -61,13 +61,114 @@ export interface GatewayStore {
   markPublishResult(batchId: string, schedule: ScheduleState, attempts: number, lastError: string | null, now: number): Promise<void>
   noteDiagnostic(batchId: string, code: string, now: number): Promise<void>
   confirmSend(batchId: string, now: number): Promise<{ ok: true; batch: ClaimBatch } | { ok: false }>
+  readReply(batchId: string, subscriberId: string | null, now: number): Promise<ReplyRead>
+  claimReply(input: ReplyClaimInput): Promise<ReplyClaim>
+  finishReply(input: ReplyFinishInput): Promise<ReplyFinish>
 }
+
+export type ReplyReservationState = 'reserved' | 'sent' | 'not_sent' | 'unknown' | 'expired' | 'superseded'
+export type ReplyFinishOutcome = 'sent' | 'not_sent' | 'unknown'
+
+export interface ReplyClaimInput {
+  batchId: string
+  revision: number
+  claimId: string
+  subscriberId: string | null
+  now: number
+}
+
+export interface ReplyFinishInput {
+  batchId: string
+  revision: number
+  reservationId: string
+  finishId: string
+  outcome: ReplyFinishOutcome
+  subscriberId: string | null
+  now: number
+}
+
+export type ReplyRead =
+  | { kind: 'missing' }
+  | { kind: 'forbidden_scope' }
+  | { kind: 'forbidden_subscriber' }
+  | {
+      kind: 'ok'
+      batchId: string
+      subscriberId: string
+      batchRevision: number
+      currentRevision: number
+      latestBatchId: string | null
+      current: boolean
+      reservationState: ReplyReservationState | 'none'
+      reservationId: string | null
+    }
+
+export type ReplyClaim =
+  | { kind: 'missing' }
+  | { kind: 'forbidden_scope' }
+  | { kind: 'forbidden_subscriber' }
+  | { kind: 'claim_id_mismatch' }
+  | {
+      kind: 'grant'
+      reservationId: string
+      subscriberId: string
+      batchId: string
+      revision: number
+      claimId: string
+      expiresAt: number
+    }
+  | {
+      kind: 'deny'
+      reason: 'stale_revision' | 'already_reserved' | 'already_finished' | 'unknown_outcome' | 'expired' | 'superseded' | 'wake_uncertain' | 'not_eligible'
+      replay: boolean
+      reservationId: string | null
+      subscriberId: string
+      batchId: string
+      revision: number
+      currentRevision: number
+      latestBatchId: string | null
+      expiresAt: number | null
+      outcome: ReplyFinishOutcome | null
+    }
+
+export type ReplyFinish =
+  | { kind: 'missing' }
+  | { kind: 'forbidden_scope' }
+  | { kind: 'forbidden_subscriber' }
+  | { kind: 'reservation_mismatch' }
+  | { kind: 'finish_mismatch'; outcome: ReplyFinishOutcome }
+  | { kind: 'closed'; error: 'expired' | 'superseded' }
+  | {
+      kind: 'finished'
+      replay: boolean
+      outcome: ReplyFinishOutcome
+      reservationId: string
+      finishId: string
+      subscriberId: string
+      batchId: string
+      revision: number
+    }
 
 interface AdmissionRow {
   eventKey: string | null
   textKey: string | null
   counted: boolean
   admittedAt: number
+}
+
+interface ReservationRow {
+  id: string
+  tenant: string
+  pageId: string
+  subscriberId: string
+  batchId: string
+  revision: number
+  claimId: string
+  state: ReplyReservationState
+  finishId: string | null
+  reservedAt: number
+  expiresAt: number
+  finishedAt: number | null
 }
 
 interface BatchRow extends ClaimBatch {
@@ -117,10 +218,29 @@ export class MemoryStore implements GatewayStore {
   private admissions: Array<AdmissionRow & { tenant: string; pageId: string; subscriberId: string }> = []
   private batches = new Map<string, BatchRow>()
   private cursors = new Map<string, { revision: number; latestBatchId: string }>()
+  private reservations = new Map<string, ReservationRow>()
   private chains = new Map<string, Promise<unknown>>()
 
   private contactKey(input: { tenant: string; pageId: string; subscriberId: string }): string {
     return `${input.tenant}|${input.pageId}|${input.subscriberId}`
+  }
+
+  private retireReservations(key: string, now: number) {
+    for (const row of this.reservations.values()) {
+      if (this.contactKey(row) === key && row.state === 'reserved') {
+        row.state = 'superseded'
+        row.finishedAt = now
+      }
+    }
+  }
+
+  private expireReservations(key: string, now: number) {
+    for (const row of this.reservations.values()) {
+      if (this.contactKey(row) === key && row.state === 'reserved' && now >= row.expiresAt) {
+        row.state = 'expired'
+        row.finishedAt = now
+      }
+    }
   }
 
   private bump(key: string, batchId: string): number {
@@ -183,6 +303,7 @@ export class MemoryStore implements GatewayStore {
       batch.messageCount = decision.messageCount
       batch.deliverAfter = decision.deliverAfter
       batch.revision = this.bump(this.contactKey(input), batch.id)
+      this.retireReservations(this.contactKey(input), input.now)
       const published = decision.publish ? await this.settle(batch, publish) : false
       this.admissions.push({
         tenant: input.tenant, pageId: input.pageId, subscriberId: input.subscriberId,
@@ -229,6 +350,7 @@ export class MemoryStore implements GatewayStore {
         previous.state = 'superseded'
       }
     }
+    this.retireReservations(cursorKey, input.now)
     this.batches.set(id, row)
     this.admissions.push({
       tenant: input.tenant, pageId: input.pageId, subscriberId: input.subscriberId,
@@ -354,6 +476,179 @@ export class MemoryStore implements GatewayStore {
     void now
   }
 
+  readReply(batchId: string, subscriberId: string | null, now: number): Promise<ReplyRead> {
+    const peeked = this.batches.get(batchId)
+    if (!peeked) return Promise.resolve({ kind: 'missing' })
+    if (peeked.tenant !== TENANT || peeked.pageId !== PAGE_ID) return Promise.resolve({ kind: 'forbidden_scope' })
+    if (subscriberId && subscriberId !== peeked.subscriberId) return Promise.resolve({ kind: 'forbidden_subscriber' })
+    return this.lock(this.contactKey(peeked), () => {
+      const batch = this.batches.get(batchId)
+      if (!batch) return { kind: 'missing' as const }
+      const key = this.contactKey(batch)
+      this.expireReservations(key, now)
+      const cursor = this.cursors.get(key)
+      const reservation = [...this.reservations.values()].find(row => row.batchId === batch.id && row.revision === batch.revision) ?? null
+      const currentRevision = cursor?.revision ?? 0
+      const latestBatchId = cursor?.latestBatchId ?? null
+      return {
+        kind: 'ok' as const,
+        batchId: batch.id,
+        subscriberId: batch.subscriberId,
+        batchRevision: batch.revision,
+        currentRevision,
+        latestBatchId,
+        current: currentRevision === batch.revision && latestBatchId === batch.id,
+        reservationState: reservation?.state ?? 'none',
+        reservationId: reservation?.id ?? null,
+      }
+    })
+  }
+
+  claimReply(input: ReplyClaimInput): Promise<ReplyClaim> {
+    const peeked = this.batches.get(input.batchId)
+    if (!peeked) return Promise.resolve({ kind: 'missing' })
+    if (peeked.tenant !== TENANT || peeked.pageId !== PAGE_ID) return Promise.resolve({ kind: 'forbidden_scope' })
+    if (input.subscriberId && input.subscriberId !== peeked.subscriberId) return Promise.resolve({ kind: 'forbidden_subscriber' })
+    return this.lock(this.contactKey(peeked), () => this.claimReplyLocked(input))
+  }
+
+  private claimReplyLocked(input: ReplyClaimInput): ReplyClaim {
+    const batch = this.batches.get(input.batchId)
+    if (!batch) return { kind: 'missing' }
+    const key = this.contactKey(batch)
+    this.expireReservations(key, input.now)
+    const cursor = this.cursors.get(key)
+    const currentRevision = cursor?.revision ?? 0
+    const latestBatchId = cursor?.latestBatchId ?? null
+    const byClaim = [...this.reservations.values()].find(row => row.claimId === input.claimId) ?? null
+    if (byClaim) {
+      if (byClaim.batchId !== batch.id || byClaim.revision !== input.revision || byClaim.subscriberId !== batch.subscriberId || byClaim.tenant !== batch.tenant || byClaim.pageId !== batch.pageId) {
+        return { kind: 'claim_id_mismatch' }
+      }
+      return denyReservation(byClaim, batch, currentRevision, latestBatchId, true)
+    }
+    const byRevision = [...this.reservations.values()].find(row => row.tenant === batch.tenant && row.pageId === batch.pageId && row.subscriberId === batch.subscriberId && row.revision === input.revision) ?? null
+    if (byRevision) return denyReservation(byRevision, batch, currentRevision, latestBatchId, false)
+    if (!cursor || cursor.revision !== input.revision || cursor.latestBatchId !== batch.id || batch.revision !== input.revision) {
+      return {
+        kind: 'deny',
+        reason: 'stale_revision',
+        replay: false,
+        reservationId: null,
+        subscriberId: batch.subscriberId,
+        batchId: batch.id,
+        revision: input.revision,
+        currentRevision,
+        latestBatchId,
+        expiresAt: null,
+        outcome: null,
+      }
+    }
+    if (batch.state === 'uncertain') {
+      return {
+        kind: 'deny',
+        reason: 'wake_uncertain',
+        replay: false,
+        reservationId: null,
+        subscriberId: batch.subscriberId,
+        batchId: batch.id,
+        revision: input.revision,
+        currentRevision,
+        latestBatchId,
+        expiresAt: null,
+        outcome: null,
+      }
+    }
+    if (batch.state !== 'sending' && batch.state !== 'delivered') {
+      return {
+        kind: 'deny',
+        reason: 'not_eligible',
+        replay: false,
+        reservationId: null,
+        subscriberId: batch.subscriberId,
+        batchId: batch.id,
+        revision: input.revision,
+        currentRevision,
+        latestBatchId,
+        expiresAt: null,
+        outcome: null,
+      }
+    }
+    const row: ReservationRow = {
+      id: randomUUID(),
+      tenant: batch.tenant,
+      pageId: batch.pageId,
+      subscriberId: batch.subscriberId,
+      batchId: batch.id,
+      revision: input.revision,
+      claimId: input.claimId,
+      state: 'reserved',
+      finishId: null,
+      reservedAt: input.now,
+      expiresAt: input.now + RESERVATION_TTL_MS,
+      finishedAt: null,
+    }
+    this.reservations.set(row.id, row)
+    return {
+      kind: 'grant',
+      reservationId: row.id,
+      subscriberId: batch.subscriberId,
+      batchId: batch.id,
+      revision: row.revision,
+      claimId: row.claimId,
+      expiresAt: row.expiresAt,
+    }
+  }
+
+  finishReply(input: ReplyFinishInput): Promise<ReplyFinish> {
+    const existing = this.reservations.get(input.reservationId)
+    if (!existing) return Promise.resolve({ kind: 'missing' })
+    if (existing.tenant !== TENANT || existing.pageId !== PAGE_ID) return Promise.resolve({ kind: 'forbidden_scope' })
+    if (input.subscriberId && input.subscriberId !== existing.subscriberId) return Promise.resolve({ kind: 'forbidden_subscriber' })
+    return this.lock(this.contactKey(existing), () => {
+      const row = this.reservations.get(input.reservationId)
+      if (!row) return { kind: 'missing' as const }
+      if (row.batchId !== input.batchId || row.revision !== input.revision) return { kind: 'reservation_mismatch' as const }
+      this.expireReservations(this.contactKey(row), input.now)
+      if (row.state === 'sent' || row.state === 'not_sent' || row.state === 'unknown') {
+        if (row.finishId === input.finishId && row.state === input.outcome) {
+          return {
+            kind: 'finished' as const,
+            replay: true,
+            outcome: input.outcome,
+            reservationId: row.id,
+            finishId: input.finishId,
+            subscriberId: row.subscriberId,
+            batchId: row.batchId,
+            revision: row.revision,
+          }
+        }
+        return { kind: 'finish_mismatch' as const, outcome: storedOutcome(row.state) }
+      }
+      if (row.state === 'expired') return { kind: 'closed' as const, error: 'expired' as const }
+      if (row.state === 'superseded') return { kind: 'closed' as const, error: 'superseded' as const }
+      const cursor = this.cursors.get(this.contactKey(row))
+      if (!cursor || cursor.revision !== row.revision || cursor.latestBatchId !== row.batchId) {
+        row.state = 'superseded'
+        row.finishedAt = input.now
+        return { kind: 'closed' as const, error: 'superseded' as const }
+      }
+      row.state = input.outcome
+      row.finishId = input.finishId
+      row.finishedAt = input.now
+      return {
+        kind: 'finished' as const,
+        replay: false,
+        outcome: input.outcome,
+        reservationId: row.id,
+        finishId: input.finishId,
+        subscriberId: row.subscriberId,
+        batchId: row.batchId,
+        revision: row.revision,
+      }
+    })
+  }
+
   batch(id: string): BatchRow | undefined {
     const row = this.batches.get(id)
     return row ? { ...row } : undefined
@@ -393,6 +688,9 @@ export function createSqlStore(db: Sql): GatewayStore {
     markSchedule: (batchId, schedule, now) => markScheduleSql(db, batchId, schedule, now),
     claim: (batchId, now) => db.transaction(tx => claimSql(tx, batchId, now)),
     confirmSend: (batchId, now) => db.transaction(tx => confirmSendSql(tx, batchId, now)),
+    readReply: (batchId, subscriberId, now) => db.transaction(tx => readReplySql(tx, batchId, subscriberId, now)),
+    claimReply: input => db.transaction(tx => claimReplySql(tx, input)),
+    finishReply: input => db.transaction(tx => finishReplySql(tx, input)),
     markOutcome: (batchId, state, now) => markOutcomeSql(db, batchId, state, now),
     listRecoverable: now => listRecoverableSql(db, now),
     markPublishResult: (batchId, schedule, attempts, lastError, now) => markPublishResultSql(db, batchId, schedule, attempts, lastError, now),
@@ -590,7 +888,49 @@ async function bumpSql(tx: Sql, input: AdmitInput, batchId: string): Promise<num
   )
   const revision = Number(rows[0]?.revision ?? 0)
   if (!revision) throw new Error('subscriber_lock_missing')
+  await tx.query(
+    `UPDATE "ManychatReplyReservation"
+     SET "state" = 'superseded', "finishedAt" = $4::timestamptz
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3 AND "state" = 'reserved'`,
+    [input.tenant, input.pageId, input.subscriberId, stamp(input.now)],
+  )
   return revision
+}
+
+function storedOutcome(state: string): ReplyFinishOutcome {
+  if (state === 'sent' || state === 'not_sent' || state === 'unknown') return state
+  return 'unknown'
+}
+
+function denyReservation(
+  row: ReservationRow,
+  batch: { id: string; subscriberId: string },
+  currentRevision: number,
+  latestBatchId: string | null,
+  replay: boolean,
+): ReplyClaim {
+  const reason = row.state === 'reserved'
+    ? 'already_reserved'
+    : row.state === 'unknown'
+      ? 'unknown_outcome'
+      : row.state === 'expired'
+        ? 'expired'
+        : row.state === 'superseded'
+          ? 'superseded'
+          : 'already_finished'
+  return {
+    kind: 'deny',
+    reason,
+    replay,
+    reservationId: replay ? row.id : null,
+    subscriberId: batch.subscriberId,
+    batchId: batch.id,
+    revision: row.revision,
+    currentRevision,
+    latestBatchId,
+    expiresAt: row.state === 'reserved' ? row.expiresAt : null,
+    outcome: row.state === 'sent' || row.state === 'not_sent' || row.state === 'unknown' ? row.state : null,
+  }
 }
 
 async function markScheduleSql(db: Sql, batchId: string, schedule: ScheduleState, now: number): Promise<void> {
@@ -761,4 +1101,255 @@ async function noteDiagnosticSql(db: Sql, batchId: string, code: string, now: nu
      WHERE "id" = $1 AND "state" IN ('open', 'queued')`,
     [batchId, code, stamp(now)],
   )
+}
+
+function reservationFromRow(row: Record<string, unknown>): ReservationRow {
+  const state = String(row.state)
+  return {
+    id: String(row.id),
+    tenant: String(row.tenant),
+    pageId: String(row.pageId),
+    subscriberId: String(row.subscriberId),
+    batchId: String(row.batchId),
+    revision: Number(row.revision),
+    claimId: String(row.claimId),
+    state: state === 'sent' || state === 'not_sent' || state === 'unknown' || state === 'expired' || state === 'superseded' || state === 'reserved' ? state : 'unknown',
+    finishId: row.finishId == null ? null : String(row.finishId),
+    reservedAt: millis(row.reservedAt),
+    expiresAt: millis(row.expiresAt),
+    finishedAt: row.finishedAt == null ? null : millis(row.finishedAt),
+  }
+}
+
+async function lockReplyContact(tx: Sql, tenant: string, pageId: string, subscriberId: string, now: number): Promise<{ revision: number; latestBatchId: string | null }> {
+  await tx.query(
+    `SELECT 1 FROM "ManychatSubscriberLock"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3
+     FOR UPDATE`,
+    [tenant, pageId, subscriberId],
+  )
+  await tx.query(
+    `UPDATE "ManychatReplyReservation"
+     SET "state" = 'expired', "finishedAt" = $4::timestamptz
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3
+       AND "state" = 'reserved' AND "expiresAt" <= $4::timestamptz`,
+    [tenant, pageId, subscriberId, stamp(now)],
+  )
+  const cursor = await tx.query(
+    `SELECT "revision", "latestBatchId" FROM "ManychatSubscriberLock"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3`,
+    [tenant, pageId, subscriberId],
+  )
+  return {
+    revision: Number(cursor[0]?.revision ?? 0),
+    latestBatchId: cursor[0]?.latestBatchId == null ? null : String(cursor[0].latestBatchId),
+  }
+}
+
+async function readReplySql(tx: Sql, batchId: string, subscriberId: string | null, now: number): Promise<ReplyRead> {
+  const peeked = await tx.query(
+    `SELECT "id", "tenant", "pageId", "subscriberId", "revision" FROM "ManychatBatch" WHERE "id" = $1`,
+    [batchId],
+  )
+  const row = peeked[0]
+  if (!row) return { kind: 'missing' }
+  if (String(row.tenant) !== TENANT || String(row.pageId) !== PAGE_ID) return { kind: 'forbidden_scope' }
+  if (subscriberId && subscriberId !== String(row.subscriberId)) return { kind: 'forbidden_subscriber' }
+  const cursor = await lockReplyContact(tx, String(row.tenant), String(row.pageId), String(row.subscriberId), now)
+  const fresh = await tx.query(
+    `SELECT "id", "subscriberId", "revision" FROM "ManychatBatch" WHERE "id" = $1 FOR UPDATE`,
+    [batchId],
+  )
+  const batch = fresh[0]
+  if (!batch) return { kind: 'missing' }
+  const revision = Number(batch.revision)
+  const held = await tx.query(
+    `SELECT "id", "state" FROM "ManychatReplyReservation"
+     WHERE "batchId" = $1 AND "revision" = $2`,
+    [batchId, revision],
+  )
+  const rawState = held[0] ? String(held[0].state) : 'none'
+  const reservationState = rawState === 'reserved' || rawState === 'sent' || rawState === 'not_sent' || rawState === 'unknown' || rawState === 'expired' || rawState === 'superseded' || rawState === 'none'
+    ? rawState
+    : 'none'
+  return {
+    kind: 'ok',
+    batchId,
+    subscriberId: String(batch.subscriberId),
+    batchRevision: revision,
+    currentRevision: cursor.revision,
+    latestBatchId: cursor.latestBatchId,
+    current: cursor.revision === revision && cursor.latestBatchId === batchId,
+    reservationState,
+    reservationId: held[0] ? String(held[0].id) : null,
+  }
+}
+
+async function claimReplySql(tx: Sql, input: ReplyClaimInput): Promise<ReplyClaim> {
+  const peeked = await tx.query(
+    `SELECT "id", "tenant", "pageId", "subscriberId", "state", "revision" FROM "ManychatBatch" WHERE "id" = $1`,
+    [input.batchId],
+  )
+  const row = peeked[0]
+  if (!row) return { kind: 'missing' }
+  if (String(row.tenant) !== TENANT || String(row.pageId) !== PAGE_ID) return { kind: 'forbidden_scope' }
+  if (input.subscriberId && input.subscriberId !== String(row.subscriberId)) return { kind: 'forbidden_subscriber' }
+  const cursor = await lockReplyContact(tx, String(row.tenant), String(row.pageId), String(row.subscriberId), input.now)
+  const freshRows = await tx.query(
+    `SELECT "id", "tenant", "pageId", "subscriberId", "state", "revision" FROM "ManychatBatch" WHERE "id" = $1 FOR UPDATE`,
+    [input.batchId],
+  )
+  const batch = freshRows[0]
+  if (!batch) return { kind: 'missing' }
+  const batchView = { id: String(batch.id), subscriberId: String(batch.subscriberId) }
+  const byClaimRows = await tx.query(`SELECT * FROM "ManychatReplyReservation" WHERE "claimId" = $1 FOR UPDATE`, [input.claimId])
+  if (byClaimRows[0]) {
+    const held = reservationFromRow(byClaimRows[0])
+    if (held.batchId !== batchView.id || held.revision !== input.revision || held.subscriberId !== batchView.subscriberId || held.tenant !== String(batch.tenant) || held.pageId !== String(batch.pageId)) {
+      return { kind: 'claim_id_mismatch' }
+    }
+    return denyReservation(held, batchView, cursor.revision, cursor.latestBatchId, true)
+  }
+  const byRevisionRows = await tx.query(
+    `SELECT * FROM "ManychatReplyReservation"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3 AND "revision" = $4
+     FOR UPDATE`,
+    [batch.tenant, batch.pageId, batch.subscriberId, input.revision],
+  )
+  if (byRevisionRows[0]) return denyReservation(reservationFromRow(byRevisionRows[0]), batchView, cursor.revision, cursor.latestBatchId, false)
+  if (cursor.revision !== input.revision || cursor.latestBatchId !== batchView.id || Number(batch.revision) !== input.revision) {
+    return {
+      kind: 'deny',
+      reason: 'stale_revision',
+      replay: false,
+      reservationId: null,
+      subscriberId: batchView.subscriberId,
+      batchId: batchView.id,
+      revision: input.revision,
+      currentRevision: cursor.revision,
+      latestBatchId: cursor.latestBatchId,
+      expiresAt: null,
+      outcome: null,
+    }
+  }
+  const state = String(batch.state)
+  if (state === 'uncertain') {
+    return {
+      kind: 'deny',
+      reason: 'wake_uncertain',
+      replay: false,
+      reservationId: null,
+      subscriberId: batchView.subscriberId,
+      batchId: batchView.id,
+      revision: input.revision,
+      currentRevision: cursor.revision,
+      latestBatchId: cursor.latestBatchId,
+      expiresAt: null,
+      outcome: null,
+    }
+  }
+  if (state !== 'sending' && state !== 'delivered') {
+    return {
+      kind: 'deny',
+      reason: 'not_eligible',
+      replay: false,
+      reservationId: null,
+      subscriberId: batchView.subscriberId,
+      batchId: batchView.id,
+      revision: input.revision,
+      currentRevision: cursor.revision,
+      latestBatchId: cursor.latestBatchId,
+      expiresAt: null,
+      outcome: null,
+    }
+  }
+  const reservationId = randomUUID()
+  const expiresAt = input.now + RESERVATION_TTL_MS
+  try {
+    await tx.query(
+      `INSERT INTO "ManychatReplyReservation"
+        ("id", "tenant", "pageId", "subscriberId", "batchId", "revision", "claimId", "state", "finishId", "reservedAt", "expiresAt", "finishedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'reserved', NULL, $8::timestamptz, $9::timestamptz, NULL)`,
+      [reservationId, batch.tenant, batch.pageId, batch.subscriberId, batch.id, input.revision, input.claimId, stamp(input.now), stamp(expiresAt)],
+    )
+  } catch (error) {
+    if (!isUnique(error)) throw error
+    const winner = await tx.query(
+      `SELECT * FROM "ManychatReplyReservation"
+       WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3 AND "revision" = $4`,
+      [batch.tenant, batch.pageId, batch.subscriberId, input.revision],
+    )
+    if (!winner[0]) throw error
+    return denyReservation(reservationFromRow(winner[0]), batchView, cursor.revision, cursor.latestBatchId, false)
+  }
+  return {
+    kind: 'grant',
+    reservationId,
+    subscriberId: batchView.subscriberId,
+    batchId: batchView.id,
+    revision: input.revision,
+    claimId: input.claimId,
+    expiresAt,
+  }
+}
+
+async function finishReplySql(tx: Sql, input: ReplyFinishInput): Promise<ReplyFinish> {
+  const peeked = await tx.query(`SELECT * FROM "ManychatReplyReservation" WHERE "id" = $1`, [input.reservationId])
+  const first = peeked[0]
+  if (!first) return { kind: 'missing' }
+  if (String(first.tenant) !== TENANT || String(first.pageId) !== PAGE_ID) return { kind: 'forbidden_scope' }
+  if (input.subscriberId && input.subscriberId !== String(first.subscriberId)) return { kind: 'forbidden_subscriber' }
+  await lockReplyContact(tx, String(first.tenant), String(first.pageId), String(first.subscriberId), input.now)
+  const rows = await tx.query(`SELECT * FROM "ManychatReplyReservation" WHERE "id" = $1 FOR UPDATE`, [input.reservationId])
+  const row = rows[0] ? reservationFromRow(rows[0]) : null
+  if (!row) return { kind: 'missing' }
+  if (row.batchId !== input.batchId || row.revision !== input.revision) return { kind: 'reservation_mismatch' }
+  if (row.state === 'sent' || row.state === 'not_sent' || row.state === 'unknown') {
+    if (row.finishId === input.finishId && row.state === input.outcome) {
+      return {
+        kind: 'finished',
+        replay: true,
+        outcome: input.outcome,
+        reservationId: row.id,
+        finishId: input.finishId,
+        subscriberId: row.subscriberId,
+        batchId: row.batchId,
+        revision: row.revision,
+      }
+    }
+    return { kind: 'finish_mismatch', outcome: storedOutcome(row.state) }
+  }
+  if (row.state === 'expired') return { kind: 'closed', error: 'expired' }
+  if (row.state === 'superseded') return { kind: 'closed', error: 'superseded' }
+  const cursor = await tx.query(
+    `SELECT "revision", "latestBatchId" FROM "ManychatSubscriberLock"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3`,
+    [row.tenant, row.pageId, row.subscriberId],
+  )
+  const currentRevision = Number(cursor[0]?.revision ?? 0)
+  const latestBatchId = cursor[0]?.latestBatchId == null ? null : String(cursor[0].latestBatchId)
+  if (currentRevision !== row.revision || latestBatchId !== row.batchId) {
+    await tx.query(
+      `UPDATE "ManychatReplyReservation" SET "state" = 'superseded', "finishedAt" = $2::timestamptz
+       WHERE "id" = $1 AND "state" = 'reserved'`,
+      [row.id, stamp(input.now)],
+    )
+    return { kind: 'closed', error: 'superseded' }
+  }
+  await tx.query(
+    `UPDATE "ManychatReplyReservation"
+     SET "state" = $2, "finishId" = $3, "finishedAt" = $4::timestamptz
+     WHERE "id" = $1 AND "state" = 'reserved'`,
+    [row.id, input.outcome, input.finishId, stamp(input.now)],
+  )
+  return {
+    kind: 'finished',
+    replay: false,
+    outcome: input.outcome,
+    reservationId: row.id,
+    finishId: input.finishId,
+    subscriberId: row.subscriberId,
+    batchId: row.batchId,
+    revision: row.revision,
+  }
 }

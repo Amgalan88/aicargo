@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
-import { PAGE_ID, TENANT, HOUR_MS, TEXT_DEDUPE_MS, MAX_PER_HOUR, MAX_PUBLISH_ATTEMPTS, MAX_WAKE_DELIVERIES, MISSING_BATCH_DEFERS, SWEEP_GRACE_MS, COALESCE_MS } from './constants'
+import { PAGE_ID, TENANT, HOUR_MS, TEXT_DEDUPE_MS, MAX_PER_HOUR, MAX_PUBLISH_ATTEMPTS, MAX_WAKE_DELIVERIES, MISSING_BATCH_DEFERS, SWEEP_GRACE_MS, COALESCE_MS, RESERVATION_TTL_MS } from './constants'
 import { PublishRejected, RetryableWake, TerminalWake } from './errors'
+import { handleReplyGuard } from './reply-guard'
 import { DeferWake, handleIngress, processQueueMessage, recoverUnpublished, wakeRetry, type WakeFetch } from './service'
 import { MemoryStore, createSqlStore, type GatewayStore, type PublishFn, type Sql } from './store'
 import { coalesceText, filterText, parseIngressBody, validateWebhookUrl } from './policy'
@@ -443,6 +444,9 @@ describe('wake failure semantics', () => {
       noteDiagnostic: store.noteDiagnostic.bind(store),
       markOutcome: store.markOutcome.bind(store),
       confirmSend: store.confirmSend.bind(store),
+      readReply: store.readReply.bind(store),
+      claimReply: store.claimReply.bind(store),
+      finishReply: store.finishReply.bind(store),
       claim: async (id, now) => {
         claims += 1
         if (claims < 3) throw new Error('connection reset')
@@ -468,6 +472,9 @@ describe('wake failure semantics', () => {
       noteDiagnostic: poisoned.noteDiagnostic.bind(poisoned),
       markOutcome: poisoned.markOutcome.bind(poisoned),
       confirmSend: poisoned.confirmSend.bind(poisoned),
+      readReply: poisoned.readReply.bind(poisoned),
+      claimReply: poisoned.claimReply.bind(poisoned),
+      finishReply: poisoned.finishReply.bind(poisoned),
       claim: async () => { throw new Error('still down') },
     }
     await assert.rejects(
@@ -497,6 +504,9 @@ describe('wake failure semantics', () => {
       claim: unrecorded.claim.bind(unrecorded),
       markOutcome: async () => { throw new Error('outcome write failed') },
       confirmSend: unrecorded.confirmSend.bind(unrecorded),
+      readReply: unrecorded.readReply.bind(unrecorded),
+      claimReply: unrecorded.claimReply.bind(unrecorded),
+      finishReply: unrecorded.finishReply.bind(unrecorded),
     }
     await assert.rejects(
       () => processQueueMessage({ batchId: unrecordedId }, { env: enabledEnv(), now: () => 5_000, db: dropOutcome, fetch }),
@@ -805,6 +815,315 @@ describe('postgres ledger', () => {
     const stale = await db.query<{ state: string }>(`SELECT "state" FROM "ManychatBatch" WHERE "id" = $1`, [published[0]])
     assert.equal(stale.rows[0].state, 'superseded')
     await db.close()
+  })
+
+  it('grants one reservation under the SQL lock and rejects a foreign row', async () => {
+    const db = new PGlite()
+    await db.exec(readFileSync(new URL('../../prisma/migrations/20261106120000_manychat_gateway/migration.sql', import.meta.url), 'utf8'))
+    const store = createSqlStore(pgliteSql(db))
+    const t0 = Date.parse('2026-11-06T00:00:00.000Z')
+    let batchId = ''
+    await handleIngress(message('sql guard?', { contact_id: '555009', event_id: 'pg-guard' }), AUTH, deps(store, t0, async id => { batchId = id }))
+    await processQueueMessage({ batchId }, {
+      env: enabledEnv(),
+      now: () => t0 + COALESCE_MS,
+      db: store,
+      fetch: async () => ({ status: 204 }),
+    })
+    const read = await handleReplyGuard('revision', { batch_id: batchId }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS))
+    assert.equal(read.body.current, true)
+    const raced = await Promise.all([0, 1].map(i => handleReplyGuard(
+      'claim',
+      { batch_id: batchId, revision: read.body.batch_revision, claim_id: `claim-sql-${i}1` },
+      GUARD_AUTH,
+      guardDeps(store, t0 + COALESCE_MS),
+    )))
+    assert.equal(raced.filter(result => result.body.grant === true).length, 1)
+    const winner = raced.find(result => result.body.grant === true)
+    await handleIngress(message('later?', { contact_id: '555009', event_id: 'pg-guard-2' }), AUTH, deps(store, t0 + COALESCE_MS + 1_000, async () => undefined))
+    const finished = await handleReplyGuard('finish', {
+      batch_id: batchId,
+      revision: read.body.batch_revision,
+      reservation_id: winner?.body.reservation_id,
+      finish_id: 'finish-sql01',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS + 1_000))
+    assert.equal(finished.status, 409)
+    assert.equal(finished.body.error, 'superseded')
+    const foreignId = '11111111-1111-4111-8111-111111111111'
+    await db.exec(`INSERT INTO "ManychatSubscriberLock" ("tenant", "pageId", "subscriberId", "revision", "latestBatchId") VALUES ('other', '${PAGE_ID}', '4444444444', 1, '${foreignId}')`)
+    await db.exec(`INSERT INTO "ManychatBatch" ("id", "tenant", "pageId", "subscriberId", "state", "scheduleState", "openedAt", "deliverAfter", "lastInputText", "messageCount", "updatedAt", "publishAttempts", "revision") VALUES ('${foreignId}', 'other', '${PAGE_ID}', '4444444444', 'delivered', 'enqueued', '2026-11-06T00:00:00.000Z', '2026-11-06T00:00:05.000Z', 'foreign', 1, '2026-11-06T00:00:00.000Z', 0, 1)`)
+    const foreign = await handleReplyGuard('claim', { batch_id: foreignId, revision: 1, claim_id: 'claim-foreign' }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS))
+    assert.equal(foreign.status, 403)
+    assert.equal(foreign.body.error, 'forbidden_scope')
+    const rows = await db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM "ManychatReplyReservation" WHERE "batchId" = '${foreignId}'`)
+    assert.equal(Number(rows.rows[0].count), 0)
+    await db.close()
+  })
+})
+
+const GUARD_SECRET = 'test-reply-guard-secret'
+const GUARD_AUTH = `Bearer ${GUARD_SECRET}`
+
+function guardEnv(extra: Record<string, string | undefined> = {}) {
+  return enabledEnv({ MANYCHAT_REPLY_GUARD_SECRET: GUARD_SECRET, ...extra })
+}
+
+function guardDeps(store: GatewayStore, now: number, env = guardEnv()) {
+  return { env, now: () => now, db: store, hostSlug: TENANT }
+}
+
+async function deliverBatch(store: MemoryStore, now: number, eventId: string, contact = '1234567890', text = 'where is the shelf?') {
+  let batchId = ''
+  await handleIngress(message(text, { event_id: eventId, contact_id: contact }), AUTH, deps(store, now, async id => { batchId = id }))
+  await processQueueMessage({ batchId }, {
+    env: enabledEnv(),
+    now: () => now + COALESCE_MS,
+    db: store,
+    fetch: async () => ({ status: 204 }),
+  })
+  return { batchId, revision: store.batch(batchId)?.revision ?? 0 }
+}
+
+describe('reply guard', () => {
+  it('fails closed when disabled and rejects the wrong credentials', async () => {
+    const store = new MemoryStore()
+    let hits = 0
+    store.readReply = async () => { hits += 1; throw new Error('db') }
+    store.claimReply = async () => { hits += 1; throw new Error('db') }
+    store.finishReply = async () => { hits += 1; throw new Error('db') }
+    const disabled = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, claim_id: 'claim-disabled' }, GUARD_AUTH, guardDeps(store, 0, guardEnv({ MANYCHAT_GATEWAY_ENABLED: 'false' })))
+    assert.equal(disabled.status, 403)
+    assert.equal(disabled.body.error, 'disabled')
+    assert.equal(disabled.body.grant, false)
+    const missing = await handleReplyGuard('revision', { batch_id: '00000000-0000-4000-8000-000000000001' }, GUARD_AUTH, guardDeps(store, 0, enabledEnv()))
+    assert.equal(missing.status, 503)
+    assert.equal(missing.body.error, 'not_configured')
+    const ingressSecret = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, claim_id: 'claim-ingress' }, AUTH, guardDeps(store, 0))
+    assert.equal(ingressSecret.status, 401)
+    const botKey = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, claim_id: 'claim-bot' }, 'Bearer bot-secret', guardDeps(store, 0, guardEnv({ BOT_API_KEY: 'bot-secret' })))
+    assert.equal(botKey.status, 401)
+    const webhookKey = await handleReplyGuard('finish', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, reservation_id: '00000000-0000-4000-8000-000000000002', finish_id: 'finish-webhook', outcome: 'sent' }, `Bearer ${WEBHOOK_KEY}`, guardDeps(store, 0))
+    assert.equal(webhookKey.status, 401)
+    const untrusted = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, claim_id: 'claim-scope', tenant: TENANT, page_id: PAGE_ID }, GUARD_AUTH, guardDeps(store, 0))
+    assert.equal(untrusted.status, 400)
+    assert.equal(untrusted.body.error, 'untrusted_field')
+    assert.equal(hits, 0)
+  })
+
+  it('reads the current revision and grants one reservation', async () => {
+    const store = new MemoryStore()
+    const base = 70_000
+    const handed = await deliverBatch(store, base, 'guard-read')
+    const read = await handleReplyGuard('revision', { batch_id: handed.batchId }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    assert.equal(read.status, 200)
+    assert.equal(read.body.grant, false)
+    assert.equal(read.body.current, true)
+    assert.equal(read.body.current_revision, handed.revision)
+    assert.equal(read.body.reservation_state, 'none')
+    const queued = new MemoryStore()
+    let early = ''
+    await handleIngress(message('not yet?', { event_id: 'guard-early' }), AUTH, deps(queued, base, async id => { early = id }))
+    const tooSoon = await handleReplyGuard('claim', { batch_id: early, revision: 1, claim_id: 'claim-early1' }, GUARD_AUTH, guardDeps(queued, base))
+    assert.equal(tooSoon.body.reason, 'not_eligible')
+    assert.equal(tooSoon.body.grant, false)
+    const first = await handleReplyGuard('claim', { batch_id: handed.batchId, revision: handed.revision, claim_id: 'claim-owner1' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    assert.equal(first.status, 200)
+    assert.equal(first.body.grant, true)
+    assert.equal(first.body.reason, 'reserved')
+    assert.equal(first.body.revision, handed.revision)
+    assert.equal(first.body.expires_at, new Date(base + COALESCE_MS + RESERVATION_TTL_MS).toISOString())
+    const replay = await handleReplyGuard('claim', { batch_id: handed.batchId, revision: handed.revision, claim_id: 'claim-owner1' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 1))
+    assert.equal(replay.status, 200)
+    assert.equal(replay.body.grant, false)
+    assert.equal(replay.body.reason, 'already_reserved')
+    assert.equal(replay.body.replay, true)
+    assert.equal(replay.body.reservation_id, first.body.reservation_id)
+    const other = await handleReplyGuard('claim', { batch_id: handed.batchId, revision: handed.revision, claim_id: 'claim-other1' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 2))
+    assert.equal(other.body.grant, false)
+    assert.equal(other.body.reason, 'already_reserved')
+    assert.equal(other.body.reservation_id, null)
+  })
+
+  it('lets only one simultaneous claim grant', async () => {
+    const store = new MemoryStore()
+    const base = 80_000
+    const handed = await deliverBatch(store, base, 'guard-race')
+    const results = await Promise.all([0, 1, 2, 3].map(i => handleReplyGuard(
+      'claim',
+      { batch_id: handed.batchId, revision: handed.revision, claim_id: `claim-race-${i}` },
+      GUARD_AUTH,
+      guardDeps(store, base + COALESCE_MS),
+    )))
+    assert.equal(results.filter(result => result.body.grant === true).length, 1)
+    assert.equal(results.filter(result => result.body.reason === 'already_reserved').length, 3)
+  })
+
+  it('rejects another subscriber, batch, or revision', async () => {
+    const store = new MemoryStore()
+    const base = 90_000
+    const first = await deliverBatch(store, base, 'guard-a', '1111111111', 'shelf A?')
+    const second = await deliverBatch(store, base, 'guard-b', '2222222222', 'shelf B?')
+    const crossSubscriber = await handleReplyGuard('claim', { batch_id: first.batchId, revision: first.revision, claim_id: 'claim-cross1', subscriber_id: '2222222222' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    assert.equal(crossSubscriber.status, 403)
+    assert.equal(crossSubscriber.body.error, 'forbidden_subscriber')
+    const stale = await handleReplyGuard('claim', { batch_id: first.batchId, revision: first.revision + 9, claim_id: 'claim-stale1' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    assert.equal(stale.body.grant, false)
+    assert.equal(stale.body.reason, 'stale_revision')
+    const owned = await handleReplyGuard('claim', { batch_id: first.batchId, revision: first.revision, claim_id: 'claim-owned1' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    assert.equal(owned.body.grant, true)
+    const reused = await handleReplyGuard('claim', { batch_id: second.batchId, revision: second.revision, claim_id: 'claim-owned1' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    assert.equal(reused.status, 409)
+    assert.equal(reused.body.error, 'claim_id_mismatch')
+    const secondGrant = await handleReplyGuard('claim', { batch_id: second.batchId, revision: second.revision, claim_id: 'claim-owned2' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    assert.equal(secondGrant.body.grant, true)
+  })
+
+  it('supersedes a reservation when a newer fragment arrives and finishes once', async () => {
+    const store = new MemoryStore()
+    const base = 100_000
+    const handed = await deliverBatch(store, base, 'guard-old', '3333333333')
+    const claim = await handleReplyGuard('claim', { batch_id: handed.batchId, revision: handed.revision, claim_id: 'claim-live01' }, GUARD_AUTH, guardDeps(store, base + 6_000))
+    assert.equal(claim.body.grant, true)
+    await handleIngress(message('Байршил', { event_id: 'guard-new', contact_id: '3333333333' }), AUTH, deps(store, base + 6_000, async () => undefined))
+    const finished = await handleReplyGuard('finish', {
+      batch_id: handed.batchId,
+      revision: handed.revision,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-live1',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, base + 6_000))
+    assert.equal(finished.status, 409)
+    assert.equal(finished.body.error, 'superseded')
+    assert.equal(finished.body.grant, false)
+    const again = await handleReplyGuard('claim', { batch_id: handed.batchId, revision: handed.revision, claim_id: 'claim-live02' }, GUARD_AUTH, guardDeps(store, base + 6_000))
+    assert.equal(again.body.grant, false)
+    assert.equal(again.body.reason, 'superseded')
+  })
+
+  it('treats replay, mismatch, expiry, and unknown as terminal', async () => {
+    const store = new MemoryStore()
+    const base = 110_000
+    const handed = await deliverBatch(store, base, 'guard-finish')
+    const claim = await handleReplyGuard('claim', { batch_id: handed.batchId, revision: handed.revision, claim_id: 'claim-fin001' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    const sent = await handleReplyGuard('finish', {
+      batch_id: handed.batchId,
+      revision: handed.revision,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-sent1',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 10))
+    assert.equal(sent.status, 200)
+    assert.equal(sent.body.grant, false)
+    assert.equal(sent.body.outcome, 'sent')
+    assert.equal(sent.body.replay, false)
+    const repeat = await handleReplyGuard('finish', {
+      batch_id: handed.batchId,
+      revision: handed.revision,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-sent1',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 11))
+    assert.equal(repeat.status, 200)
+    assert.equal(repeat.body.replay, true)
+    assert.equal(repeat.body.grant, false)
+    const flipped = await handleReplyGuard('finish', {
+      batch_id: handed.batchId,
+      revision: handed.revision,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-sent1',
+      outcome: 'not_sent',
+    }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 12))
+    assert.equal(flipped.status, 409)
+    assert.equal(flipped.body.error, 'finish_mismatch')
+    const otherFinish = await handleReplyGuard('finish', {
+      batch_id: handed.batchId,
+      revision: handed.revision,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-sent2',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 13))
+    assert.equal(otherFinish.status, 409)
+    const mismatch = await handleReplyGuard('finish', {
+      batch_id: handed.batchId,
+      revision: handed.revision + 1,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-sent1',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 14))
+    assert.equal(mismatch.status, 409)
+    assert.equal(mismatch.body.error, 'reservation_mismatch')
+    const retry = await handleReplyGuard('claim', { batch_id: handed.batchId, revision: handed.revision, claim_id: 'claim-fin002' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 15))
+    assert.equal(retry.body.grant, false)
+    assert.equal(retry.body.reason, 'already_finished')
+
+    const unknownStore = new MemoryStore()
+    const unknownHanded = await deliverBatch(unknownStore, base, 'guard-unknown')
+    const unknownClaim = await handleReplyGuard('claim', { batch_id: unknownHanded.batchId, revision: unknownHanded.revision, claim_id: 'claim-unk001' }, GUARD_AUTH, guardDeps(unknownStore, base + COALESCE_MS))
+    const unknown = await handleReplyGuard('finish', {
+      batch_id: unknownHanded.batchId,
+      revision: unknownHanded.revision,
+      reservation_id: unknownClaim.body.reservation_id,
+      finish_id: 'finish-unk01',
+      outcome: 'unknown',
+    }, GUARD_AUTH, guardDeps(unknownStore, base + COALESCE_MS))
+    assert.equal(unknown.body.outcome, 'unknown')
+    const unknownReplay = await handleReplyGuard('finish', {
+      batch_id: unknownHanded.batchId,
+      revision: unknownHanded.revision,
+      reservation_id: unknownClaim.body.reservation_id,
+      finish_id: 'finish-unk01',
+      outcome: 'unknown',
+    }, GUARD_AUTH, guardDeps(unknownStore, base + COALESCE_MS + 1))
+    assert.equal(unknownReplay.body.replay, true)
+    const afterUnknown = await handleReplyGuard('claim', { batch_id: unknownHanded.batchId, revision: unknownHanded.revision, claim_id: 'claim-unk002' }, GUARD_AUTH, guardDeps(unknownStore, base + COALESCE_MS + 2))
+    assert.equal(afterUnknown.body.grant, false)
+    assert.equal(afterUnknown.body.reason, 'unknown_outcome')
+
+    const expiryStore = new MemoryStore()
+    const expiryHanded = await deliverBatch(expiryStore, base, 'guard-expiry')
+    const expiryClaim = await handleReplyGuard('claim', { batch_id: expiryHanded.batchId, revision: expiryHanded.revision, claim_id: 'claim-exp001' }, GUARD_AUTH, guardDeps(expiryStore, base + COALESCE_MS))
+    const expired = await handleReplyGuard('claim', { batch_id: expiryHanded.batchId, revision: expiryHanded.revision, claim_id: 'claim-exp001' }, GUARD_AUTH, guardDeps(expiryStore, base + COALESCE_MS + RESERVATION_TTL_MS))
+    assert.equal(expired.body.grant, false)
+    assert.equal(expired.body.reason, 'expired')
+    const lateFinish = await handleReplyGuard('finish', {
+      batch_id: expiryHanded.batchId,
+      revision: expiryHanded.revision,
+      reservation_id: expiryClaim.body.reservation_id,
+      finish_id: 'finish-exp01',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(expiryStore, base + COALESCE_MS + RESERVATION_TTL_MS))
+    assert.equal(lateFinish.status, 409)
+    assert.equal(lateFinish.body.error, 'expired')
+  })
+
+  it('does not grant when the wake outcome is uncertain', async () => {
+    const store = new MemoryStore()
+    const base = 120_000
+    let batchId = ''
+    await handleIngress(message('timeout path?', { event_id: 'guard-timeout' }), AUTH, deps(store, base, async id => { batchId = id }))
+    await processQueueMessage({ batchId }, {
+      env: enabledEnv(),
+      now: () => base + COALESCE_MS,
+      db: store,
+      fetch: async () => { throw Object.assign(new Error('timeout'), { name: 'TimeoutError' }) },
+    })
+    assert.equal(store.batch(batchId)?.state, 'uncertain')
+    const claim = await handleReplyGuard('claim', { batch_id: batchId, revision: store.batch(batchId)?.revision, claim_id: 'claim-uncert1' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS))
+    assert.equal(claim.body.grant, false)
+    assert.equal(claim.body.reason, 'wake_uncertain')
+    const again = await handleReplyGuard('claim', { batch_id: batchId, revision: store.batch(batchId)?.revision, claim_id: 'claim-uncert2' }, GUARD_AUTH, guardDeps(store, base + COALESCE_MS + 1))
+    assert.equal(again.body.grant, false)
+    assert.equal(again.body.reason, 'wake_uncertain')
+  })
+
+  it('returns unavailable when the ledger throws and does not grant', async () => {
+    const store = new MemoryStore()
+    store.claimReply = async () => { throw new Error('connection reset') }
+    const result = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-0000000000aa', revision: 1, claim_id: 'claim-throw1' }, GUARD_AUTH, guardDeps(store, 0))
+    assert.equal(result.status, 503)
+    assert.equal(result.body.grant, false)
+    assert.equal(result.body.error, 'unavailable')
   })
 })
 

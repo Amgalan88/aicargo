@@ -628,3 +628,22 @@ model ManychatAdmission {
   @@index([tenant, pageId, subscriberId, admittedAt])
   @@index([textKey, admittedAt])
 }
+
+// One customer-send reservation per contact revision. Not applied with this pull request.
+model ManychatReplyReservation {
+  id           String    @id
+  tenant       String
+  pageId       String
+  subscriberId String
+  batchId      String
+  revision     Int
+  claimId      String    @unique
+  state        String
+  finishId     String?
+  reservedAt   DateTime
+  expiresAt    DateTime
+  finishedAt   DateTime?
+
+  @@unique([tenant, pageId, subscriberId, revision])
+  @@index([batchId])
+}
