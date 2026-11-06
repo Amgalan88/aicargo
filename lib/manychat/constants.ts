@@ -3,10 +3,11 @@ export const PAGE_ID = '413037705220679'
 export const TOPIC = 'manychat-gateway-wake'
 export const QUEUE_REGION = 'bom1' as const
 
-// Inside the required 3–8 second coalesce window. Anchored to the first
-// message of a burst; later messages do not extend it.
+// Quiet period after the latest fragment. A later fragment pushes the wake
+// forward, but never past MAX_BURST_MS from the first fragment of this burst.
 export const COALESCE_SECONDS = 5
 export const COALESCE_MS = COALESCE_SECONDS * 1000
+export const MAX_BURST_MS = 8_000
 export const MAX_PER_HOUR = 10
 export const HOUR_MS = 60 * 60 * 1000
 // Used only when ManyChat does not send a stable event_id. Identical trimmed

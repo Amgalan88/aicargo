@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { MAX_PUBLISH_ATTEMPTS, SWEEP_GRACE_MS } from '@/lib/manychat/constants'
+import { MAX_BURST_MS, MAX_PUBLISH_ATTEMPTS, SWEEP_GRACE_MS } from '@/lib/manychat/constants'
 import { PublishRejected, classifyPublishError } from '@/lib/manychat/errors'
 import {
   type ClaimBatch,
@@ -60,6 +60,7 @@ export interface GatewayStore {
   listRecoverable(now: number): Promise<RecoverableBatch[]>
   markPublishResult(batchId: string, schedule: ScheduleState, attempts: number, lastError: string | null, now: number): Promise<void>
   noteDiagnostic(batchId: string, code: string, now: number): Promise<void>
+  confirmSend(batchId: string, now: number): Promise<{ ok: true; batch: ClaimBatch } | { ok: false }>
 }
 
 interface AdmissionRow {
@@ -77,6 +78,7 @@ interface BatchRow extends ClaimBatch {
   eventId: string | null
   publishAttempts: number
   lastError: string | null
+  revision: number
 }
 
 function keysFor(input: AdmitInput): { eventKey: string | null; textKey: string | null; kind: 'event' | 'text' } {
@@ -85,31 +87,48 @@ function keysFor(input: AdmitInput): { eventKey: string | null; textKey: string 
   return { eventKey: null, textKey: textKey(input.pageId, input.subscriberId, input.text), kind: 'text' }
 }
 
+function toOpen(batch: BatchRow): OpenBatch {
+  return {
+    id: batch.id,
+    lastInputText: batch.lastInputText,
+    messageCount: batch.messageCount,
+    eventId: batch.eventId,
+    scheduleState: batch.scheduleState,
+    openedAt: batch.openedAt,
+    deliverAfter: batch.deliverAfter,
+  }
+}
+
 function summarize(input: AdmitInput, admissions: AdmissionRow[], batches: BatchRow[]) {
   const keys = keysFor(input)
   const eventSeen = keys.eventKey !== null && admissions.some(row => row.eventKey === keys.eventKey)
   const textSeen = keys.textKey !== null && admissions.some(row => row.textKey === keys.textKey && row.admittedAt > textWindowStart(input.now))
   const countedInWindow = admissions.filter(row => row.counted && row.admittedAt > windowStart(input.now)).length
-  const open = batches
-    .filter(batch => (batch.state === 'open' || batch.state === 'queued') && batch.deliverAfter > input.now && batch.scheduleState !== 'poisoned')
+  const latest = batches
+    .filter(batch => batch.scheduleState !== 'poisoned' && (batch.state === 'open' || batch.state === 'queued' || batch.state === 'sending'))
     .sort((a, b) => b.openedAt - a.openedAt)[0] ?? null
-  const openBatch: OpenBatch | null = open
-    ? {
-        id: open.id,
-        lastInputText: open.lastInputText,
-        messageCount: open.messageCount,
-        eventId: open.eventId,
-        scheduleState: open.scheduleState,
-        openedAt: open.openedAt,
-      }
-    : null
-  return { keys, decision: decide({ ...input, eventSeen, textSeen, countedInWindow, openBatch }) }
+  const joinable = latest != null && (latest.state === 'open' || latest.state === 'queued') && input.now < latest.openedAt + MAX_BURST_MS
+  const openBatch = joinable && latest ? toOpen(latest) : null
+  const unsentBatch = !joinable && latest ? toOpen(latest) : null
+  return { keys, decision: decide({ ...input, eventSeen, textSeen, countedInWindow, openBatch, unsentBatch }) }
 }
 
 export class MemoryStore implements GatewayStore {
   private admissions: Array<AdmissionRow & { tenant: string; pageId: string; subscriberId: string }> = []
   private batches = new Map<string, BatchRow>()
+  private cursors = new Map<string, { revision: number; latestBatchId: string }>()
   private chains = new Map<string, Promise<unknown>>()
+
+  private contactKey(input: { tenant: string; pageId: string; subscriberId: string }): string {
+    return `${input.tenant}|${input.pageId}|${input.subscriberId}`
+  }
+
+  private bump(key: string, batchId: string): number {
+    const current = this.cursors.get(key) ?? { revision: 0, latestBatchId: '' }
+    const revision = current.revision + 1
+    this.cursors.set(key, { revision, latestBatchId: batchId })
+    return revision
+  }
 
   private lock<T>(key: string, fn: () => Promise<T> | T): Promise<T> {
     const prev = this.chains.get(key) ?? Promise.resolve()
@@ -135,6 +154,7 @@ export class MemoryStore implements GatewayStore {
           textSeen: false,
           countedInWindow: 0,
           openBatch: null,
+          unsentBatch: null,
           now: input.now,
           text: input.text,
           eventId: input.eventId,
@@ -161,6 +181,8 @@ export class MemoryStore implements GatewayStore {
       batch.lastInputText = decision.text
       batch.eventId = decision.eventId
       batch.messageCount = decision.messageCount
+      batch.deliverAfter = decision.deliverAfter
+      batch.revision = this.bump(this.contactKey(input), batch.id)
       const published = decision.publish ? await this.settle(batch, publish) : false
       this.admissions.push({
         tenant: input.tenant, pageId: input.pageId, subscriberId: input.subscriberId,
@@ -169,6 +191,7 @@ export class MemoryStore implements GatewayStore {
       return { reason: published === 'uncertain' ? 'accepted_queue_uncertain' : decision.reason, batchId: batch.id, publish: decision.publish }
     }
     const id = randomUUID()
+    const folded = decision.type === 'succeed'
     const row: BatchRow = {
       id,
       tenant: input.tenant,
@@ -184,11 +207,28 @@ export class MemoryStore implements GatewayStore {
       deliveryAttemptedAt: null,
       publishAttempts: 0,
       lastError: null,
+      revision: 0,
     }
+    const cursorKey = this.contactKey(input)
+    const previousCursor = this.cursors.get(cursorKey)
+    row.revision = this.bump(cursorKey, id)
+    row.lastInputText = folded ? decision.text : row.lastInputText
+    row.messageCount = folded ? decision.messageCount : row.messageCount
+    row.eventId = folded ? decision.eventId : row.eventId
     // The row stays invisible until publish returns, so a crash before the
     // insert does not leave an accepted batch with no queue message.
     const settled = await this.settle(row, publish)
-    if (settled === 'rejected') throw new PublishRejected()
+    if (settled === 'rejected') {
+      if (previousCursor) this.cursors.set(cursorKey, previousCursor)
+      else this.cursors.delete(cursorKey)
+      throw new PublishRejected()
+    }
+    if (folded) {
+      const previous = this.batches.get(decision.previousId)
+      if (previous && (previous.state === 'open' || previous.state === 'queued' || previous.state === 'sending')) {
+        previous.state = 'superseded'
+      }
+    }
     this.batches.set(id, row)
     this.admissions.push({
       tenant: input.tenant, pageId: input.pageId, subscriberId: input.subscriberId,
@@ -232,10 +272,17 @@ export class MemoryStore implements GatewayStore {
   }
 
   async claim(batchId: string, now: number): Promise<ClaimResult> {
-    return this.lock(`batch:${batchId}`, () => {
+    const existing = this.batches.get(batchId)
+    if (!existing) return { kind: 'missing' }
+    return this.lock(this.contactKey(existing), () => {
       const batch = this.batches.get(batchId) ?? null
-      const decision = decideClaim(batch, now)
       if (!batch) return { kind: 'missing' }
+      const cursor = this.cursors.get(this.contactKey(batch))
+      if (cursor && (cursor.latestBatchId !== batch.id || cursor.revision !== batch.revision)) {
+        if (batch.state === 'open' || batch.state === 'queued' || batch.state === 'sending') batch.state = 'superseded'
+        return { kind: 'terminal' }
+      }
+      const decision = decideClaim(batch, now)
       if (decision.kind === 'crash_uncertain') {
         batch.state = 'uncertain'
         return { kind: 'crash_uncertain' }
@@ -243,10 +290,26 @@ export class MemoryStore implements GatewayStore {
       if (decision.kind === 'send') {
         batch.state = 'sending'
         batch.deliveryAttemptedAt = now
-        return { kind: 'send', batch: { ...batch } }
+        return { kind: 'send', batch: { ...batch, revision: batch.revision } }
       }
       if (decision.kind === 'defer') return decision
       return { kind: decision.kind }
+    })
+  }
+
+  async confirmSend(batchId: string, now: number): Promise<{ ok: true; batch: ClaimBatch } | { ok: false }> {
+    const existing = this.batches.get(batchId)
+    if (!existing) return { ok: false }
+    return this.lock(this.contactKey(existing), () => {
+      const batch = this.batches.get(batchId)
+      if (!batch || batch.state !== 'sending') return { ok: false }
+      const cursor = this.cursors.get(this.contactKey(batch))
+      if (!cursor || cursor.latestBatchId !== batch.id || cursor.revision !== batch.revision) {
+        batch.state = 'superseded'
+        return { ok: false }
+      }
+      void now
+      return { ok: true, batch: { ...batch } }
     })
   }
 
@@ -329,6 +392,7 @@ export function createSqlStore(db: Sql): GatewayStore {
     admit: (input, publish) => db.transaction(tx => admitSql(tx, input, publish)),
     markSchedule: (batchId, schedule, now) => markScheduleSql(db, batchId, schedule, now),
     claim: (batchId, now) => db.transaction(tx => claimSql(tx, batchId, now)),
+    confirmSend: (batchId, now) => db.transaction(tx => confirmSendSql(tx, batchId, now)),
     markOutcome: (batchId, state, now) => markOutcomeSql(db, batchId, state, now),
     listRecoverable: now => listRecoverableSql(db, now),
     markPublishResult: (batchId, schedule, attempts, lastError, now) => markPublishResultSql(db, batchId, schedule, attempts, lastError, now),
@@ -365,32 +429,38 @@ async function admitSql(tx: Sql, input: AdmitInput, publish?: PublishFn): Promis
     [input.tenant, input.pageId, input.subscriberId, stamp(windowStart(input.now))],
   )
   const openRows = await tx.query(
-    `SELECT "id", "lastInputText", "messageCount", "eventId", "scheduleState", "openedAt"
+    `SELECT "id", "lastInputText", "messageCount", "eventId", "scheduleState", "openedAt", "deliverAfter", "state"
      FROM "ManychatBatch"
      WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3
-       AND "state" IN ('open', 'queued') AND "scheduleState" <> 'poisoned' AND "deliverAfter" > $4::timestamptz
+       AND "scheduleState" <> 'poisoned'
+       AND "state" IN ('open', 'queued', 'sending')
      ORDER BY "openedAt" DESC
      LIMIT 1
      FOR UPDATE`,
-    [input.tenant, input.pageId, input.subscriberId, stamp(input.now)],
+    [input.tenant, input.pageId, input.subscriberId],
   )
   const open = openRows[0]
-  const openBatch: OpenBatch | null = open
+  const openedAt = open ? millis(open.openedAt) : 0
+  const state = open ? String(open.state) : ''
+  const asOpen: OpenBatch | null = open
     ? {
         id: String(open.id),
         lastInputText: String(open.lastInputText),
         messageCount: Number(open.messageCount),
         eventId: open.eventId == null ? null : String(open.eventId),
         scheduleState: String(open.scheduleState) as ScheduleState,
-        openedAt: millis(open.openedAt),
+        openedAt,
+        deliverAfter: millis(open.deliverAfter),
       }
     : null
+  const joinable = asOpen != null && (state === 'open' || state === 'queued') && input.now < openedAt + MAX_BURST_MS
   const decision = decide({
     filterReason: input.filterReason,
     eventSeen: eventRows.length > 0,
     textSeen: textRows.length > 0,
     countedInWindow: Number(countRows[0]?.count ?? 0),
-    openBatch,
+    openBatch: joinable ? asOpen : null,
+    unsentBatch: !joinable ? asOpen : null,
     now: input.now,
     text: input.text,
     eventId: input.eventId,
@@ -430,11 +500,13 @@ async function applySql(
     return { reason: decision.reason, batchId: null, publish: false }
   }
   if (decision.type === 'join') {
+    const revision = await bumpSql(tx, input, decision.batchId)
     await tx.query(
       `UPDATE "ManychatBatch"
-       SET "lastInputText" = $2, "eventId" = $3, "messageCount" = $4, "updatedAt" = $5::timestamptz
+       SET "lastInputText" = $2, "eventId" = $3, "messageCount" = $4, "deliverAfter" = $5::timestamptz,
+           "revision" = $6, "updatedAt" = $7::timestamptz
        WHERE "id" = $1 AND "state" IN ('open', 'queued')`,
-      [decision.batchId, decision.text, decision.eventId, decision.messageCount, admittedAt],
+      [decision.batchId, decision.text, decision.eventId, decision.messageCount, stamp(decision.deliverAfter), revision, admittedAt],
     )
     const settled = decision.publish ? await settleSql(tx, decision.batchId, publish, admittedAt) : null
     await tx.query(
@@ -453,12 +525,20 @@ async function applySql(
       publish: decision.publish,
     }
   }
+  if (decision.type === 'succeed') {
+    await tx.query(
+      `UPDATE "ManychatBatch" SET "state" = 'superseded', "updatedAt" = $2::timestamptz
+       WHERE "id" = $1 AND "state" IN ('open', 'queued', 'sending')`,
+      [decision.previousId, admittedAt],
+    )
+  }
   const id = randomUUID()
+  const revision = await bumpSql(tx, input, id)
   await tx.query(
     `INSERT INTO "ManychatBatch"
-      ("id", "tenant", "pageId", "subscriberId", "state", "scheduleState", "openedAt", "deliverAfter", "lastInputText", "eventId", "messageCount", "updatedAt", "publishAttempts", "lastError")
-     VALUES ($1, $2, $3, $4, 'open', 'pending', $5::timestamptz, $6::timestamptz, $7, $8, 1, $5::timestamptz, 0, NULL)`,
-    [id, input.tenant, input.pageId, input.subscriberId, admittedAt, stamp(deliverAfter(input.now)), decision.text, decision.eventId],
+      ("id", "tenant", "pageId", "subscriberId", "state", "scheduleState", "openedAt", "deliverAfter", "lastInputText", "eventId", "messageCount", "updatedAt", "publishAttempts", "lastError", "revision")
+     VALUES ($1, $2, $3, $4, 'open', 'pending', $5::timestamptz, $6::timestamptz, $7, $8, $9, $5::timestamptz, 0, NULL, $10)`,
+    [id, input.tenant, input.pageId, input.subscriberId, admittedAt, stamp(deliverAfter(input.now)), decision.text, decision.eventId, decision.type === 'succeed' ? decision.messageCount : 1, revision],
   )
   const settled = await settleSql(tx, id, publish, admittedAt)
   if (settled === 'rejected') throw new PublishRejected()
@@ -500,6 +580,19 @@ async function settleSql(tx: Sql, batchId: string, publish: PublishFn | undefine
   return settled
 }
 
+async function bumpSql(tx: Sql, input: AdmitInput, batchId: string): Promise<number> {
+  const rows = await tx.query(
+    `UPDATE "ManychatSubscriberLock"
+     SET "revision" = "revision" + 1, "latestBatchId" = $4
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3
+     RETURNING "revision"`,
+    [input.tenant, input.pageId, input.subscriberId, batchId],
+  )
+  const revision = Number(rows[0]?.revision ?? 0)
+  if (!revision) throw new Error('subscriber_lock_missing')
+  return revision
+}
+
 async function markScheduleSql(db: Sql, batchId: string, schedule: ScheduleState, now: number): Promise<void> {
   await db.query(
     `UPDATE "ManychatBatch"
@@ -511,28 +604,57 @@ async function markScheduleSql(db: Sql, batchId: string, schedule: ScheduleState
   )
 }
 
+function batchFromRow(row: Record<string, unknown>): ClaimBatch {
+  return {
+    id: String(row.id),
+    tenant: String(row.tenant),
+    pageId: String(row.pageId),
+    subscriberId: String(row.subscriberId),
+    state: String(row.state),
+    deliverAfter: millis(row.deliverAfter),
+    deliveryAttemptedAt: row.deliveryAttemptedAt == null ? null : millis(row.deliveryAttemptedAt),
+    lastInputText: String(row.lastInputText),
+    eventId: row.eventId == null ? null : String(row.eventId),
+    revision: Number(row.revision ?? 0),
+  }
+}
+
 async function claimSql(tx: Sql, batchId: string, now: number): Promise<ClaimResult> {
+  const peeked = await tx.query(
+    `SELECT "tenant", "pageId", "subscriberId" FROM "ManychatBatch" WHERE "id" = $1`,
+    [batchId],
+  )
+  if (!peeked[0]) return { kind: 'missing' }
+  await tx.query(
+    `SELECT 1 FROM "ManychatSubscriberLock"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3
+     FOR UPDATE`,
+    [peeked[0].tenant, peeked[0].pageId, peeked[0].subscriberId],
+  )
   const rows = await tx.query(
-    `SELECT "id", "tenant", "pageId", "subscriberId", "state", "deliverAfter", "deliveryAttemptedAt", "lastInputText", "eventId"
+    `SELECT "id", "tenant", "pageId", "subscriberId", "state", "deliverAfter", "deliveryAttemptedAt", "lastInputText", "eventId", "revision"
      FROM "ManychatBatch" WHERE "id" = $1 FOR UPDATE`,
     [batchId],
   )
   const row = rows[0]
-  const batch: ClaimBatch | null = row
-    ? {
-        id: String(row.id),
-        tenant: String(row.tenant),
-        pageId: String(row.pageId),
-        subscriberId: String(row.subscriberId),
-        state: String(row.state),
-        deliverAfter: millis(row.deliverAfter),
-        deliveryAttemptedAt: row.deliveryAttemptedAt == null ? null : millis(row.deliveryAttemptedAt),
-        lastInputText: String(row.lastInputText),
-        eventId: row.eventId == null ? null : String(row.eventId),
-      }
-    : null
+  if (!row) return { kind: 'missing' }
+  const cursor = await tx.query(
+    `SELECT "revision", "latestBatchId" FROM "ManychatSubscriberLock"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3`,
+    [row.tenant, row.pageId, row.subscriberId],
+  )
+  const latestId = cursor[0]?.latestBatchId == null ? '' : String(cursor[0].latestBatchId)
+  const latestRevision = Number(cursor[0]?.revision ?? 0)
+  if (latestId !== String(row.id) || latestRevision !== Number(row.revision ?? 0)) {
+    await tx.query(
+      `UPDATE "ManychatBatch" SET "state" = 'superseded', "updatedAt" = $2::timestamptz
+       WHERE "id" = $1 AND "state" IN ('open', 'queued', 'sending')`,
+      [batchId, stamp(now)],
+    )
+    return { kind: 'terminal' }
+  }
+  const batch: ClaimBatch = batchFromRow(row)
   const decision = decideClaim(batch, now)
-  if (!batch) return { kind: 'missing' }
   if (decision.kind === 'crash_uncertain') {
     await tx.query(
       `UPDATE "ManychatBatch" SET "state" = 'uncertain', "updatedAt" = $2::timestamptz WHERE "id" = $1 AND "state" = 'sending'`,
@@ -559,6 +681,38 @@ async function claimSql(tx: Sql, batchId: string, now: number): Promise<ClaimRes
   }
   if (decision.kind === 'defer') return decision
   return { kind: decision.kind }
+}
+
+async function confirmSendSql(tx: Sql, batchId: string, now: number): Promise<{ ok: true; batch: ClaimBatch } | { ok: false }> {
+  const rows = await tx.query(
+    `SELECT "id", "tenant", "pageId", "subscriberId", "state", "deliverAfter", "deliveryAttemptedAt", "lastInputText", "eventId", "revision"
+     FROM "ManychatBatch" WHERE "id" = $1 FOR UPDATE`,
+    [batchId],
+  )
+  const row = rows[0]
+  if (!row || String(row.state) !== 'sending') return { ok: false }
+  await tx.query(
+    `SELECT 1 FROM "ManychatSubscriberLock"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3 FOR UPDATE`,
+    [row.tenant, row.pageId, row.subscriberId],
+  )
+  const cursor = await tx.query(
+    `SELECT "revision", "latestBatchId" FROM "ManychatSubscriberLock"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3`,
+    [row.tenant, row.pageId, row.subscriberId],
+  )
+  const current = batchFromRow(row)
+  const latestId = cursor[0]?.latestBatchId == null ? '' : String(cursor[0].latestBatchId)
+  const latestRevision = Number(cursor[0]?.revision ?? 0)
+  if (latestId !== current.id || latestRevision !== current.revision) {
+    await tx.query(
+      `UPDATE "ManychatBatch" SET "state" = 'superseded', "updatedAt" = $2::timestamptz
+       WHERE "id" = $1 AND "state" = 'sending'`,
+      [batchId, stamp(now)],
+    )
+    return { ok: false }
+  }
+  return { ok: true, batch: current }
 }
 
 async function markOutcomeSql(db: Sql, batchId: string, state: OutcomeState, now: number): Promise<void> {

@@ -582,9 +582,11 @@ model DispatchItem {
 // ManyChat PRE-AI gateway. Rows are the durable outbox and rolling-window ledger.
 // The migration is not applied by opening a pull request.
 model ManychatSubscriberLock {
-  tenant       String
-  pageId       String
-  subscriberId String
+  tenant        String
+  pageId        String
+  subscriberId  String
+  revision      Int     @default(0)
+  latestBatchId String?
 
   @@id([tenant, pageId, subscriberId])
 }
@@ -605,6 +607,7 @@ model ManychatBatch {
   deliveryAttemptedAt DateTime?
   publishAttempts     Int       @default(0)
   lastError           String?
+  revision            Int       @default(0)
 
   @@index([tenant, pageId, subscriberId, state, deliverAfter])
 }

@@ -3,6 +3,7 @@ import { bearerMatches } from '@/lib/bot-auth'
 import {
   COALESCE_MS,
   HOUR_MS,
+  MAX_BURST_MS,
   IN_FLIGHT_MS,
   MAX_BATCH_TEXT,
   MAX_PER_HOUR,
@@ -149,13 +150,24 @@ export interface OpenBatch {
   eventId: string | null
   scheduleState: ScheduleState
   openedAt: number
+  deliverAfter: number
+}
+
+// Null when `now` is already at the 8s cap. Otherwise the next wake time:
+// 5s after this fragment, but not later than the cap and not earlier than
+// the deadline already promised.
+export function quietDeadline(openedAt: number, currentDeliverAfter: number, now: number): number | null {
+  const cap = openedAt + MAX_BURST_MS
+  if (now >= cap) return null
+  return Math.min(cap, Math.max(currentDeliverAfter, now + COALESCE_MS))
 }
 
 export type Decision =
   | { type: 'duplicate' }
   | { type: 'record'; counted: false; reason: string }
   | { type: 'create'; reason: 'queued'; text: string; eventId: string | null }
-  | { type: 'join'; batchId: string; reason: 'queued' | 'coalesced'; publish: boolean; text: string; eventId: string | null; messageCount: number }
+  | { type: 'join'; batchId: string; reason: 'queued' | 'coalesced'; publish: boolean; text: string; eventId: string | null; messageCount: number; deliverAfter: number }
+  | { type: 'succeed'; previousId: string; reason: 'queued'; text: string; eventId: string | null; messageCount: number }
 
 export function decide(input: {
   filterReason: FilterReason | null
@@ -163,6 +175,7 @@ export function decide(input: {
   textSeen: boolean
   countedInWindow: number
   openBatch: OpenBatch | null
+  unsentBatch: OpenBatch | null
   now: number
   text: string
   eventId: string | null
@@ -174,17 +187,31 @@ export function decide(input: {
   if (input.eventSeen || input.textSeen) return { type: 'duplicate' }
   if (input.countedInWindow >= MAX_PER_HOUR) return { type: 'record', counted: false, reason: 'rate_limited' }
   if (input.openBatch) {
-    const age = input.now - input.openBatch.openedAt
-    const publish = input.openBatch.scheduleState === 'failed'
-      || (input.openBatch.scheduleState === 'pending' && age >= PENDING_REPUBLISH_MS)
+    const deadline = quietDeadline(input.openBatch.openedAt, input.openBatch.deliverAfter, input.now)
+    if (deadline != null) {
+      const age = input.now - input.openBatch.openedAt
+      const publish = input.openBatch.scheduleState === 'failed'
+        || (input.openBatch.scheduleState === 'pending' && age >= PENDING_REPUBLISH_MS)
+      return {
+        type: 'join',
+        batchId: input.openBatch.id,
+        reason: publish ? 'queued' : 'coalesced',
+        publish,
+        text: coalesceText(input.openBatch.lastInputText, input.text),
+        eventId: input.eventId ?? input.openBatch.eventId,
+        messageCount: input.openBatch.messageCount + 1,
+        deliverAfter: deadline,
+      }
+    }
+  }
+  if (input.unsentBatch) {
     return {
-      type: 'join',
-      batchId: input.openBatch.id,
-      reason: publish ? 'queued' : 'coalesced',
-      publish,
-      text: coalesceText(input.openBatch.lastInputText, input.text),
-      eventId: input.eventId ?? input.openBatch.eventId,
-      messageCount: input.openBatch.messageCount + 1,
+      type: 'succeed',
+      previousId: input.unsentBatch.id,
+      reason: 'queued',
+      text: coalesceText(input.unsentBatch.lastInputText, input.text),
+      eventId: input.eventId ?? input.unsentBatch.eventId,
+      messageCount: input.unsentBatch.messageCount + 1,
     }
   }
   return { type: 'create', reason: 'queued', text: input.text, eventId: input.eventId }
@@ -200,6 +227,7 @@ export interface ClaimBatch {
   deliveryAttemptedAt: number | null
   lastInputText: string
   eventId: string | null
+  revision: number
 }
 
 export type ClaimDecision =
@@ -214,7 +242,7 @@ export type ClaimDecision =
 export function decideClaim(batch: ClaimBatch | null, now: number): ClaimDecision {
   if (!batch) return { kind: 'missing' }
   if (batch.tenant !== TENANT || batch.pageId !== PAGE_ID) return { kind: 'reject_scope' }
-  if (batch.state === 'delivered' || batch.state === 'uncertain' || batch.state === 'suppressed') return { kind: 'terminal' }
+  if (batch.state === 'delivered' || batch.state === 'uncertain' || batch.state === 'suppressed' || batch.state === 'superseded') return { kind: 'terminal' }
   if (batch.state === 'sending') {
     const age = now - (batch.deliveryAttemptedAt ?? 0)
     return age < IN_FLIGHT_MS ? { kind: 'in_flight' } : { kind: 'crash_uncertain' }

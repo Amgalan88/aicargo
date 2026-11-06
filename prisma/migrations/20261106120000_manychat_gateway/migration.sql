@@ -6,6 +6,8 @@ CREATE TABLE "ManychatSubscriberLock" (
     "tenant" TEXT NOT NULL,
     "pageId" TEXT NOT NULL,
     "subscriberId" TEXT NOT NULL,
+    "revision" INTEGER NOT NULL DEFAULT 0,
+    "latestBatchId" TEXT,
     CONSTRAINT "ManychatSubscriberLock_pkey" PRIMARY KEY ("tenant", "pageId", "subscriberId")
 );
 
@@ -25,6 +27,7 @@ CREATE TABLE "ManychatBatch" (
     "deliveryAttemptedAt" TIMESTAMP(3),
     "publishAttempts" INTEGER NOT NULL DEFAULT 0,
     "lastError" TEXT,
+    "revision" INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT "ManychatBatch_pkey" PRIMARY KEY ("id")
 );
 

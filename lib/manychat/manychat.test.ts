@@ -167,7 +167,7 @@ describe('durable coalesce, dedupe, and cap', () => {
     assert.equal(store.batch(published[0])?.messageCount, 10)
   })
 
-  it('does not extend the five second window and sends the joined text once', async () => {
+  it('waits out a five second quiet period and sends the joined text once', async () => {
     const store = new MemoryStore()
     const published: string[] = []
     const base = 10_000
@@ -176,18 +176,19 @@ describe('durable coalesce, dedupe, and cap', () => {
     assert.equal(first.body.reason, 'queued')
     assert.equal(second.body.reason, 'coalesced')
     assert.equal(published.length, 1)
+    assert.equal(store.batch(published[0])?.deliverAfter, base + 8_000)
     const calls: Array<{ url: string; init: RequestInit }> = []
     const fetch: WakeFetch = async (url, init) => {
       calls.push({ url, init })
       return { status: 204 }
     }
     await assert.rejects(
-      () => processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 4_999, db: store, fetch }),
+      () => processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 5_000, db: store, fetch }),
       DeferWake,
     )
     assert.equal(calls.length, 0)
     assert.deepEqual(wakeRetry(new DeferWake(1, 'early'), { deliveryCount: 1 }), { afterSeconds: 1 })
-    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 5_000, db: store, fetch })
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 8_000, db: store, fetch })
     assert.equal(calls.length, 1)
     assert.equal(calls[0].url, WEBHOOK)
     assert.equal(calls[0].init.redirect, 'manual')
@@ -196,10 +197,12 @@ describe('durable coalesce, dedupe, and cap', () => {
     assert.equal(body.subscriber_id, '1234567890')
     assert.equal(body.last_input_text, 'where is it?\nwhich shelf?')
     assert.equal(body.event_id, 'evt-2')
+    assert.equal(body.batch_id, published[0])
+    assert.equal(body.revision, 2)
     assert.equal(body.gate.provenance.subscriber_verified, false)
     assert.equal(body.gate.provenance.text_trust, 'untrusted_customer_content')
     assert.equal(store.batch(published[0])?.state, 'delivered')
-    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 6_000, db: store, fetch })
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 9_000, db: store, fetch })
     assert.equal(calls.length, 1)
   })
 
@@ -439,6 +442,7 @@ describe('wake failure semantics', () => {
       markPublishResult: store.markPublishResult.bind(store),
       noteDiagnostic: store.noteDiagnostic.bind(store),
       markOutcome: store.markOutcome.bind(store),
+      confirmSend: store.confirmSend.bind(store),
       claim: async (id, now) => {
         claims += 1
         if (claims < 3) throw new Error('connection reset')
@@ -463,6 +467,7 @@ describe('wake failure semantics', () => {
       markPublishResult: poisoned.markPublishResult.bind(poisoned),
       noteDiagnostic: poisoned.noteDiagnostic.bind(poisoned),
       markOutcome: poisoned.markOutcome.bind(poisoned),
+      confirmSend: poisoned.confirmSend.bind(poisoned),
       claim: async () => { throw new Error('still down') },
     }
     await assert.rejects(
@@ -491,6 +496,7 @@ describe('wake failure semantics', () => {
       noteDiagnostic: unrecorded.noteDiagnostic.bind(unrecorded),
       claim: unrecorded.claim.bind(unrecorded),
       markOutcome: async () => { throw new Error('outcome write failed') },
+      confirmSend: unrecorded.confirmSend.bind(unrecorded),
     }
     await assert.rejects(
       () => processQueueMessage({ batchId: unrecordedId }, { env: enabledEnv(), now: () => 5_000, db: dropOutcome, fetch }),
@@ -505,6 +511,143 @@ describe('wake failure semantics', () => {
     await processQueueMessage({ batchId: unrecordedId }, { env: enabledEnv(), now: () => 5_000 + 60_000, db: unrecorded, fetch })
     assert.equal(fetches, 2)
     assert.equal(unrecorded.batch(unrecordedId)?.state, 'uncertain')
+  })
+})
+
+describe('per-contact burst', () => {
+  it('merges the observed two fragments into one payload', async () => {
+    const store = new MemoryStore()
+    const published: string[] = []
+    const base = 20_000
+    await handleIngress(message('21 дээр байгаа юу', { event_id: 'frag-1' }), AUTH, deps(store, base, async id => { published.push(id) }))
+    const second = await handleIngress(message('Байршил', { event_id: 'frag-2' }), AUTH, deps(store, base + 3_000, async id => { published.push(id) }))
+    assert.equal(second.body.reason, 'coalesced')
+    assert.equal(published.length, 1)
+    assert.equal(store.batch(published[0])?.lastInputText, '21 дээр байгаа юу\nБайршил')
+    const calls: string[] = []
+    const fetch: WakeFetch = async (_url, init) => {
+      calls.push(String(init?.body))
+      return { status: 204 }
+    }
+    await assert.rejects(
+      () => processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 5_000, db: store, fetch }),
+      DeferWake,
+    )
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 8_000, db: store, fetch })
+    assert.equal(calls.length, 1)
+    assert.equal(JSON.parse(calls[0]).last_input_text, '21 дээр байгаа юу\nБайршил')
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 9_000, db: store, fetch })
+    assert.equal(calls.length, 1)
+  })
+
+  it('holds a single fragment until the five second mark', async () => {
+    const store = new MemoryStore()
+    const published: string[] = []
+    const base = 25_000
+    await handleIngress(message('only?', { event_id: 'solo' }), AUTH, deps(store, base, async id => { published.push(id) }))
+    let fetches = 0
+    const fetch: WakeFetch = async () => {
+      fetches += 1
+      return { status: 204 }
+    }
+    await assert.rejects(
+      () => processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 4_999, db: store, fetch }),
+      DeferWake,
+    )
+    assert.equal(fetches, 0)
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 5_000, db: store, fetch })
+    assert.equal(fetches, 1)
+  })
+
+  it('joins a fragment at five seconds and starts a new batch at eight', async () => {
+    const store = new MemoryStore()
+    const published: string[] = []
+    const base = 30_000
+    const publish = async (id: string) => { published.push(id) }
+    await handleIngress(message('first?', { event_id: 'b-1' }), AUTH, deps(store, base, publish))
+    const atFive = await handleIngress(message('still here?', { event_id: 'b-2' }), AUTH, deps(store, base + 5_000, publish))
+    assert.equal(atFive.body.reason, 'coalesced')
+    assert.equal(published.length, 1)
+    await assert.rejects(
+      () => processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 5_000, db: store, fetch: async () => ({ status: 204 }) }),
+      DeferWake,
+    )
+    const atCap = await handleIngress(message('after cap?', { event_id: 'b-3' }), AUTH, deps(store, base + 8_000, publish))
+    assert.equal(atCap.body.reason, 'queued')
+    assert.equal(published.length, 2)
+    assert.equal(store.batch(published[0])?.state, 'superseded')
+    assert.equal(store.batch(published[1])?.lastInputText, 'first?\nstill here?\nafter cap?')
+    let fetches = 0
+    const fetch: WakeFetch = async () => {
+      fetches += 1
+      return { status: 204 }
+    }
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 8_000, db: store, fetch })
+    assert.equal(fetches, 0)
+    await processQueueMessage({ batchId: published[1] }, { env: enabledEnv(), now: () => base + 13_000, db: store, fetch })
+    assert.equal(fetches, 1)
+  })
+
+  it('folds an unsent claimed batch and refuses the stale callback', async () => {
+    const store = new MemoryStore()
+    const published: string[] = []
+    const base = 40_000
+    await handleIngress(message('21 дээр байгаа юу', { event_id: 'c-1' }), AUTH, deps(store, base, async id => { published.push(id) }))
+    const claimed = await store.claim(published[0], base + 5_000)
+    assert.equal(claimed.kind, 'send')
+    const second = await handleIngress(message('Байршил', { event_id: 'c-2' }), AUTH, deps(store, base + 6_000, async id => { published.push(id) }))
+    assert.equal(store.batch(published[0])?.state, 'superseded')
+    assert.equal(second.body.reason, 'queued')
+    assert.equal(published.length, 2)
+    let fetches = 0
+    let body = ''
+    const fetch: WakeFetch = async (_url, init) => {
+      fetches += 1
+      body = String(init?.body)
+      return { status: 204 }
+    }
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 6_000, db: store, fetch })
+    assert.equal(fetches, 0)
+    await processQueueMessage({ batchId: published[1] }, { env: enabledEnv(), now: () => base + 11_000, db: store, fetch })
+    assert.equal(fetches, 1)
+    assert.equal(JSON.parse(body).last_input_text, '21 дээр байгаа юу\nБайршил')
+    await processQueueMessage({ batchId: published[1] }, { env: enabledEnv(), now: () => base + 12_000, db: store, fetch })
+    assert.equal(fetches, 1)
+    const recoverable = await store.listRecoverable(base + 60_000)
+    assert.equal(recoverable.some(row => row.id === published[0]), false)
+  })
+
+  it('keeps contacts and callback order isolated', async () => {
+    const store = new MemoryStore()
+    const base = 50_000
+    const published: string[] = []
+    await handleIngress(message('shelf A?', { contact_id: '111111', event_id: 'iso-a' }), AUTH, deps(store, base, async id => { published.push(id) }))
+    await handleIngress(message('shelf B?', { contact_id: '222222', event_id: 'iso-b' }), AUTH, deps(store, base, async id => { published.push(id) }))
+    const bodies: string[] = []
+    const fetch: WakeFetch = async (_url, init) => {
+      bodies.push(String(init?.body))
+      return { status: 204 }
+    }
+    await processQueueMessage({ batchId: published[1] }, { env: enabledEnv(), now: () => base + 5_000, db: store, fetch })
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 5_000, db: store, fetch })
+    await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 6_000, db: store, fetch })
+    assert.deepEqual(bodies.map(raw => JSON.parse(raw).subscriber_id), ['222222', '111111'])
+    assert.equal(JSON.parse(bodies[0]).revision, 1)
+    assert.equal(JSON.parse(bodies[1]).revision, 1)
+  })
+
+  it('does not send when confirm sees a newer revision', async () => {
+    const store = new MemoryStore()
+    const base = 60_000
+    const published: string[] = []
+    await handleIngress(message('one?', { event_id: 'fence-1' }), AUTH, deps(store, base, async id => { published.push(id) }))
+    const claimed = await store.claim(published[0], base + 5_000)
+    assert.equal(claimed.kind, 'send')
+    await handleIngress(message('two?', { event_id: 'fence-2' }), AUTH, deps(store, base + 6_000, async id => { published.push(id) }))
+    const confirm = await store.confirmSend(published[0], base + 6_000)
+    assert.equal(confirm.ok, false)
+    assert.equal(store.batch(published[0])?.state, 'superseded')
+    assert.equal(store.batch(published[1])?.state, 'queued')
   })
 })
 
@@ -614,6 +757,53 @@ describe('postgres ledger', () => {
     assert.equal(rejected.status, 503)
     const left = await db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM "ManychatAdmission" WHERE "subscriberId" = '999004'`)
     assert.equal(Number(left.rows[0].count), 0)
+    await db.close()
+  })
+
+  it('merges distinct fragments and concurrent callbacks into one batch', async () => {
+    const db = new PGlite()
+    await db.exec(readFileSync(new URL('../../prisma/migrations/20261106120000_manychat_gateway/migration.sql', import.meta.url), 'utf8'))
+    const store = createSqlStore(pgliteSql(db))
+    const t0 = Date.parse('2026-11-06T00:00:00.000Z')
+    const published: string[] = []
+    const publish = async (id: string) => { published.push(id) }
+    await handleIngress(message('21 дээр байгаа юу', { contact_id: '555001', event_id: 'pg-1' }), AUTH, deps(store, t0, publish))
+    const second = await handleIngress(message('Байршил', { contact_id: '555001', event_id: 'pg-2' }), AUTH, deps(store, t0 + 3_000, publish))
+    assert.equal(second.body.reason, 'coalesced')
+    assert.equal(published.length, 1)
+    const joined = await db.query<{ text: string }>(`SELECT "lastInputText" AS text FROM "ManychatBatch" WHERE "subscriberId" = '555001'`)
+    assert.equal(String(joined.rows[0].text), '21 дээр байгаа юу\nБайршил')
+    const raced = await Promise.all([
+      handleIngress(message('left?', { contact_id: '555002', event_id: 'pg-left' }), AUTH, deps(store, t0, publish)),
+      handleIngress(message('right?', { contact_id: '555002', event_id: 'pg-right' }), AUTH, deps(store, t0, publish)),
+    ])
+    assert.equal(published.length, 2)
+    assert.equal(raced.filter(result => result.body.reason === 'queued' || result.body.reason === 'coalesced').length, 2)
+    const rows = await db.query<{ count: number; text: string }>(
+      `SELECT COUNT(*)::int AS count, MAX("lastInputText") AS text FROM "ManychatBatch" WHERE "subscriberId" = '555002'`,
+    )
+    assert.equal(Number(rows.rows[0].count), 1)
+    const text = String(rows.rows[0].text)
+    assert.equal(text.includes('left?'), true)
+    assert.equal(text.includes('right?'), true)
+    const claimed = await store.claim(published[0], t0 + 8_000)
+    assert.equal(claimed.kind, 'send')
+    const folded = await handleIngress(message('again?', { contact_id: '555001', event_id: 'pg-3' }), AUTH, deps(store, t0 + 8_000, publish))
+    assert.equal(folded.body.reason, 'queued')
+    assert.equal(published.length, 3)
+    let fetches = 0
+    await processQueueMessage({ batchId: published[0] }, {
+      env: enabledEnv(),
+      now: () => t0 + 8_000,
+      db: store,
+      fetch: async () => {
+        fetches += 1
+        return { status: 204 }
+      },
+    })
+    assert.equal(fetches, 0)
+    const stale = await db.query<{ state: string }>(`SELECT "state" FROM "ManychatBatch" WHERE "id" = $1`, [published[0]])
+    assert.equal(stale.rows[0].state, 'superseded')
     await db.close()
   })
 })

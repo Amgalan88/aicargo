@@ -115,11 +115,19 @@ export async function runWake(message: unknown, deps: WakeDeps): Promise<void> {
     // must not POST. Deferring lets a later delivery mark a crash uncertain.
     if (claim.kind === 'in_flight') throw new DeferWake(8, 'inflight')
     if (claim.kind !== 'send') return
+    let fresh: { ok: true; batch: ClaimBatch } | { ok: false }
+    try {
+      fresh = await deps.db.confirmSend(batchId, deps.now())
+    } catch (error) {
+      if (error instanceof DeferWake || error instanceof TerminalWake || error instanceof RetryableWake) throw error
+      throw new RetryableWake('db_before_send')
+    }
+    if (!fresh.ok) return
     claimed = true
     const outcome = await postWebhook({
       url: config.webhookUrl,
       key: config.webhookKey,
-      batch: claim.batch,
+      batch: fresh.batch,
       fetch: deps.fetch,
     })
     const state = outcome === 'delivered' ? 'delivered' : outcome === 'timeout' || outcome === 'network' ? 'uncertain' : 'suppressed'
@@ -195,6 +203,8 @@ async function postWebhook(input: {
     subscriber_id: input.batch.subscriberId,
     last_input_text: input.batch.lastInputText,
     event_id: input.batch.eventId,
+    batch_id: input.batch.id,
+    revision: input.batch.revision,
     gate: {
       decision: 'forward',
       provenance: {
