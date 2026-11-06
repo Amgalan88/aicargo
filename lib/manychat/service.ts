@@ -6,8 +6,9 @@ import {
   validateWebhookUrl,
   type ClaimBatch,
 } from '@/lib/manychat/policy'
-import { PAGE_ID, TENANT } from '@/lib/manychat/constants'
-import type { GatewayStore } from '@/lib/manychat/store'
+import { MAX_PUBLISH_ATTEMPTS, MAX_WAKE_DELIVERIES, MISSING_BATCH_DEFERS, PAGE_ID, TENANT } from '@/lib/manychat/constants'
+import { DeferWake, PublishRejected, RetryableWake, TerminalWake, classifyPublishError } from '@/lib/manychat/errors'
+import type { GatewayStore, PublishFn } from '@/lib/manychat/store'
 
 export interface HttpResult {
   status: number
@@ -18,7 +19,7 @@ export interface IngressDeps {
   env: NodeJS.ProcessEnv
   now: () => number
   db: GatewayStore
-  publish: (batchId: string) => Promise<void>
+  publish: PublishFn
   hostSlug?: string | null
 }
 
@@ -42,28 +43,32 @@ export async function handleIngress(
     return { status, body: { ok: false, error: parsed.error } }
   }
 
-  const admitted = await deps.db.admit({
-    now: deps.now(),
-    tenant: TENANT,
-    pageId: parsed.value.pageId,
-    subscriberId: parsed.value.subscriberId,
-    text: parsed.value.text,
-    eventId: parsed.value.eventId,
-    filterReason: filterText(parsed.value.text),
-  })
-
-  if (admitted.publish && admitted.batchId) {
-    try {
-      await deps.publish(admitted.batchId)
-      await deps.db.markSchedule(admitted.batchId, 'enqueued', deps.now())
-    } catch {
+  let admitted
+  try {
+    // Publish runs inside the admission transaction, before commit. A crash
+    // after commit still has the queue message. A definite publish rejection
+    // rolls the admission back so nothing is stranded.
+    admitted = await deps.db.admit({
+      now: deps.now(),
+      tenant: TENANT,
+      pageId: parsed.value.pageId,
+      subscriberId: parsed.value.subscriberId,
+      text: parsed.value.text,
+      eventId: parsed.value.eventId,
+      filterReason: filterText(parsed.value.text),
+    }, async (batchId, attempt) => {
       try {
-        await deps.db.markSchedule(admitted.batchId, 'failed', deps.now())
-      } catch {
-        // The row stays pending. No AI call is made from this request.
+        await deps.publish(batchId, attempt)
+      } catch (error) {
+        if (classifyPublishError(error) === 'rejected') throw new PublishRejected()
+        throw error
       }
-      return { status: 200, body: { ok: true, ai: false, reason: 'accepted_queue_failed' } }
+    })
+  } catch (error) {
+    if (error instanceof PublishRejected) {
+      return { status: 503, body: { ok: false, ai: false, error: 'queue_rejected' } }
     }
+    throw error
   }
 
   return { status: 200, body: { ok: true, ai: false, reason: admitted.reason } }
@@ -78,47 +83,105 @@ export interface WakeDeps {
   fetch: WakeFetch
 }
 
-export class DeferWake extends Error {
-  constructor(readonly afterSeconds: number) {
-    super('defer')
-    this.name = 'DeferWake'
+export { DeferWake, RetryableWake, TerminalWake }
+
+export function wakeRetry(error: unknown, metadata?: { deliveryCount?: number }): { afterSeconds: number } | { acknowledge: true } {
+  const attempt = metadata?.deliveryCount ?? 1
+  if (error instanceof TerminalWake) return { acknowledge: true }
+  if (error instanceof DeferWake) {
+    // In-flight defers stay retriable until claim marks a stale send uncertain.
+    // Capping them would acknowledge `sending` and skip that transition.
+    if (error.purpose === 'missing' && attempt >= MISSING_BATCH_DEFERS) return { acknowledge: true }
+    if (error.purpose === 'early' && attempt >= MAX_WAKE_DELIVERIES) return { acknowledge: true }
+    return { afterSeconds: error.afterSeconds }
+  }
+  if (attempt >= MAX_WAKE_DELIVERIES) return { acknowledge: true }
+  return { afterSeconds: Math.min(30, 2 * attempt) }
+}
+
+export async function runWake(message: unknown, deps: WakeDeps): Promise<void> {
+  const config = readConfig(deps.env)
+  if (!config.enabled || !config.webhookKey || validateWebhookUrl(config.webhookUrl)) return
+  if (!message || typeof message !== 'object' || Array.isArray(message)) return
+  const batchId = (message as { batchId?: unknown }).batchId
+  if (typeof batchId !== 'string' || !/^[0-9a-f-]{36}$/i.test(batchId)) return
+
+  let claimed = false
+  try {
+    const claim = await deps.db.claim(batchId, deps.now())
+    if (claim.kind === 'missing') throw new DeferWake(2, 'missing')
+    if (claim.kind === 'defer') throw new DeferWake(claim.afterSeconds, 'early')
+    // A second delivery while the first attempt is inside the in-flight window
+    // must not POST. Deferring lets a later delivery mark a crash uncertain.
+    if (claim.kind === 'in_flight') throw new DeferWake(8, 'inflight')
+    if (claim.kind !== 'send') return
+    claimed = true
+    const outcome = await postWebhook({
+      url: config.webhookUrl,
+      key: config.webhookKey,
+      batch: claim.batch,
+      fetch: deps.fetch,
+    })
+    const state = outcome === 'delivered' ? 'delivered' : outcome === 'timeout' || outcome === 'network' ? 'uncertain' : 'suppressed'
+    try {
+      await deps.db.markOutcome(batchId, state, deps.now())
+    } catch {
+      // The outbound call already finished. Retrying the callback is safe
+      // only until claim refuses a second POST. Recording the outcome is
+      // infrastructure; losing the row in `sending` is handled by the next
+      // delivery's in-flight to uncertain transition. Acknowledge so a blind
+      // webhook retry cannot be implied by this error.
+      throw new TerminalWake('outcome_unrecorded')
+    }
+  } catch (error) {
+    if (error instanceof DeferWake || error instanceof TerminalWake || error instanceof RetryableWake) throw error
+    if (!claimed) throw new RetryableWake('db_before_claim')
+    throw new TerminalWake('after_outbound')
   }
 }
 
-export function wakeRetry(error: unknown): { afterSeconds: number } | { acknowledge: true } {
-  if (error instanceof DeferWake) return { afterSeconds: error.afterSeconds }
-  return { acknowledge: true }
+export async function processQueueMessage(message: unknown, deps: WakeDeps, metadata?: { deliveryCount?: number }): Promise<void> {
+  try {
+    await runWake(message, deps)
+  } catch (error) {
+    if (error instanceof RetryableWake && (metadata?.deliveryCount ?? 1) >= MAX_WAKE_DELIVERIES) {
+      const batchId = message && typeof message === 'object' && !Array.isArray(message)
+        ? (message as { batchId?: unknown }).batchId
+        : undefined
+      if (typeof batchId === 'string') await deps.db.noteDiagnostic(batchId, 'wake_exhausted', deps.now()).catch(() => undefined)
+      throw new TerminalWake('wake_exhausted')
+    }
+    throw error
+  }
 }
 
-export async function runWake(message: unknown, deps: WakeDeps): Promise<{ deferSeconds?: number }> {
+export async function recoverUnpublished(deps: {
+  env: NodeJS.ProcessEnv
+  now: () => number
+  db: GatewayStore
+  publish: PublishFn
+}): Promise<{ skipped?: string; republished: string[]; poisoned: string[] }> {
   const config = readConfig(deps.env)
-  if (!config.enabled || !config.webhookKey || validateWebhookUrl(config.webhookUrl)) return {}
-  if (!message || typeof message !== 'object' || Array.isArray(message)) return {}
-  const batchId = (message as { batchId?: unknown }).batchId
-  if (typeof batchId !== 'string' || !/^[0-9a-f-]{36}$/i.test(batchId)) return {}
-
-  const claim = await deps.db.claim(batchId, deps.now())
-  if (claim.kind === 'defer') return { deferSeconds: claim.afterSeconds }
-  // A second delivery while the first attempt is still inside the in-flight
-  // window must not POST. Deferring, instead of acknowledging, lets a later
-  // delivery mark a crashed attempt uncertain. It still never sends twice.
-  if (claim.kind === 'in_flight') return { deferSeconds: 8 }
-  if (claim.kind !== 'send') return {}
-
-  const outcome = await postWebhook({
-    url: config.webhookUrl,
-    key: config.webhookKey,
-    batch: claim.batch,
-    fetch: deps.fetch,
-  })
-  const state = outcome === 'delivered' ? 'delivered' : outcome === 'timeout' || outcome === 'network' ? 'uncertain' : 'suppressed'
-  await deps.db.markOutcome(batchId, state, deps.now())
-  return {}
-}
-
-export async function processQueueMessage(message: unknown, deps: WakeDeps): Promise<void> {
-  const result = await runWake(message, deps)
-  if (result.deferSeconds) throw new DeferWake(result.deferSeconds)
+  if (!config.enabled) return { skipped: 'disabled', republished: [], poisoned: [] }
+  const now = deps.now()
+  const rows = await deps.db.listRecoverable(now)
+  const republished: string[] = []
+  const poisoned: string[] = []
+  for (const row of rows) {
+    const next = row.publishAttempts + 1
+    try {
+      await deps.publish(row.id, row.publishAttempts)
+      await deps.db.markPublishResult(row.id, 'enqueued', next, null, now)
+      republished.push(row.id)
+    } catch (error) {
+      const giveUp = classifyPublishError(error) === 'rejected' || next >= MAX_PUBLISH_ATTEMPTS
+      const schedule = giveUp ? 'poisoned' : 'failed'
+      const code = giveUp ? 'publish_exhausted' : 'publish_uncertain'
+      await deps.db.markPublishResult(row.id, schedule, next, code, now)
+      if (giveUp) poisoned.push(row.id)
+    }
+  }
+  return { republished, poisoned }
 }
 
 async function postWebhook(input: {

@@ -14,7 +14,7 @@ import {
 } from '@/lib/manychat/constants'
 
 export type FilterReason = 'empty' | 'sticker' | 'ack' | 'spam'
-export type ScheduleState = 'pending' | 'enqueued' | 'failed'
+export type ScheduleState = 'pending' | 'enqueued' | 'failed' | 'poisoned'
 
 const ACKS = new Set([
   'ok', 'okay', 'k', 'kk', 'thanks', 'thank you', 'thx', 'ty',

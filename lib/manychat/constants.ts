@@ -19,3 +19,11 @@ export const MAX_BATCH_TEXT = 4000
 export const RETENTION_SECONDS = 3600
 export const IN_FLIGHT_MS = 60_000
 export const PENDING_REPUBLISH_MS = 1000
+// Sweeper waits until the 5s delay should already have been delivered.
+// Vercel Cron cannot run inside this window (Pro minimum is one minute,
+// Hobby is once a day), so this grace is only the eligibility rule.
+export const SWEEP_GRACE_MS = 15_000
+export const MAX_PUBLISH_ATTEMPTS = 5
+export const MAX_WAKE_DELIVERIES = 8
+export const MISSING_BATCH_DEFERS = 3
+export const PUBLISH_TIMEOUT_MS = 4_000

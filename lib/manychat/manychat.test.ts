@@ -2,9 +2,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
-import { PAGE_ID, TENANT, HOUR_MS, TEXT_DEDUPE_MS, MAX_PER_HOUR } from './constants'
-import { DeferWake, handleIngress, processQueueMessage, runWake, wakeRetry, type WakeFetch } from './service'
-import { MemoryStore, createSqlStore, type GatewayStore, type Sql } from './store'
+import { PAGE_ID, TENANT, HOUR_MS, TEXT_DEDUPE_MS, MAX_PER_HOUR, MAX_PUBLISH_ATTEMPTS, MAX_WAKE_DELIVERIES, MISSING_BATCH_DEFERS, SWEEP_GRACE_MS, COALESCE_MS } from './constants'
+import { PublishRejected, RetryableWake, TerminalWake } from './errors'
+import { DeferWake, handleIngress, processQueueMessage, recoverUnpublished, wakeRetry, type WakeFetch } from './service'
+import { MemoryStore, createSqlStore, type GatewayStore, type PublishFn, type Sql } from './store'
 import { coalesceText, filterText, parseIngressBody, validateWebhookUrl } from './policy'
 
 const SECRET = 'test-manychat-secret'
@@ -26,7 +27,7 @@ function message(text: string, extra: Record<string, unknown> = {}) {
   return { page_id: PAGE_ID, contact_id: '1234567890', text, ...extra }
 }
 
-function deps(store: GatewayStore, now: number, publish: (id: string) => Promise<void>, env = enabledEnv()) {
+function deps(store: GatewayStore, now: number, publish: PublishFn, env = enabledEnv()) {
   return { env, now: () => now, db: store, publish, hostSlug: TENANT }
 }
 
@@ -180,9 +181,12 @@ describe('durable coalesce, dedupe, and cap', () => {
       calls.push({ url, init })
       return { status: 204 }
     }
-    const early = await runWake({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 4_999, db: store, fetch })
-    assert.ok(early.deferSeconds)
+    await assert.rejects(
+      () => processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 4_999, db: store, fetch }),
+      DeferWake,
+    )
     assert.equal(calls.length, 0)
+    assert.deepEqual(wakeRetry(new DeferWake(1, 'early'), { deliveryCount: 1 }), { afterSeconds: 1 })
     await processQueueMessage({ batchId: published[0] }, { env: enabledEnv(), now: () => base + 5_000, db: store, fetch })
     assert.equal(calls.length, 1)
     assert.equal(calls[0].url, WEBHOOK)
@@ -225,37 +229,137 @@ describe('durable coalesce, dedupe, and cap', () => {
     assert.equal(store.counted('1234567890'), 2)
   })
 
-  it('republishes a pending batch only after the crash window, and records a publish failure', async () => {
+  it('keeps the batch invisible until publish returns, then wakes with no later customer message', async () => {
     const store = new MemoryStore()
-    const opened = await store.admit({
-      now: 0,
-      tenant: TENANT,
-      pageId: PAGE_ID,
-      subscriberId: '1234567890',
-      text: 'where is it?',
-      eventId: null,
-      filterReason: null,
-    })
-    assert.equal(opened.publish, true)
-    let publishes = 0
-    const soon = await handleIngress(message('and the price?'), AUTH, deps(store, 999, async () => { publishes += 1 }))
-    assert.equal(soon.body.reason, 'coalesced')
-    assert.equal(publishes, 0)
-    assert.equal(store.batch(opened.batchId!)?.scheduleState, 'pending')
-    const recovered = await handleIngress(message('still there?'), AUTH, deps(store, 1_000, async () => { publishes += 1 }))
-    assert.equal(recovered.body.reason, 'queued')
-    assert.equal(publishes, 1)
-
-    const failing = new MemoryStore()
-    let failedId = ''
-    const failed = await handleIngress(message('where is it?'), AUTH, deps(failing, 0, async id => {
-      failedId = id
-      throw new Error('queue down')
+    let hidden = false
+    let batchId = ''
+    const admitted = await handleIngress(message('where is it?'), AUTH, deps(store, 0, async id => {
+      batchId = id
+      hidden = store.batch(id) === undefined
     }))
-    assert.equal(failed.status, 200)
-    assert.equal(failed.body.reason, 'accepted_queue_failed')
-    assert.equal(failing.batch(failedId)?.scheduleState, 'failed')
-    assert.equal(failing.batch(failedId)?.state, 'open')
+    assert.equal(hidden, true)
+    assert.equal(admitted.body.reason, 'queued')
+    assert.equal(store.batch(batchId)?.scheduleState, 'enqueued')
+    let fetches = 0
+    const fetch: WakeFetch = async () => {
+      fetches += 1
+      return { status: 204 }
+    }
+    await processQueueMessage({ batchId }, { env: enabledEnv(), now: () => COALESCE_MS, db: store, fetch })
+    assert.equal(fetches, 1)
+    assert.equal(store.batch(batchId)?.state, 'delivered')
+  })
+})
+
+describe('pre-send recovery', () => {
+  it('wakes a queue accept that the client observed as a timeout, with no later customer message', async () => {
+    const store = new MemoryStore()
+    let batchId = ''
+    const admitted = await handleIngress(message('where is it?'), AUTH, deps(store, 0, async id => {
+      batchId = id
+      const error = new Error('socket hang up')
+      error.name = 'TimeoutError'
+      throw error
+    }))
+    assert.equal(admitted.status, 200)
+    assert.equal(admitted.body.reason, 'accepted_queue_uncertain')
+    assert.equal(store.batch(batchId)?.lastError, 'publish_uncertain')
+    assert.equal(store.counted('1234567890'), 1)
+    let fetches = 0
+    const fetch: WakeFetch = async () => {
+      fetches += 1
+      return { status: 200 }
+    }
+    await processQueueMessage({ batchId }, { env: enabledEnv(), now: () => COALESCE_MS, db: store, fetch })
+    await processQueueMessage({ batchId }, { env: enabledEnv(), now: () => COALESCE_MS + 5_000, db: store, fetch })
+    assert.equal(fetches, 1)
+    assert.equal(store.batch(batchId)?.state, 'delivered')
+  })
+
+  it('recovers a timed-out publish the queue did not accept, without a later customer message', async () => {
+    const store = new MemoryStore()
+    const publishes: number[] = []
+    const admitted = await handleIngress(message('where is it?'), AUTH, deps(store, 0, async (_id, attempt) => {
+      publishes.push(attempt)
+      const error = new Error('timeout')
+      error.name = 'TimeoutError'
+      throw error
+    }))
+    assert.equal(admitted.body.reason, 'accepted_queue_uncertain')
+    const early = await recoverUnpublished({
+      env: enabledEnv(),
+      now: () => COALESCE_MS + SWEEP_GRACE_MS - 1,
+      db: store,
+      publish: async (_batchId, attempt) => { publishes.push(attempt) },
+    })
+    assert.deepEqual(early.republished, [])
+    const recovered = await recoverUnpublished({
+      env: enabledEnv(),
+      now: () => COALESCE_MS + SWEEP_GRACE_MS,
+      db: store,
+      publish: async (_batchId, attempt) => { publishes.push(attempt) },
+    })
+    assert.equal(recovered.republished.length, 1)
+    assert.deepEqual(publishes, [0, 1])
+    let fetches = 0
+    await processQueueMessage({ batchId: recovered.republished[0] }, {
+      env: enabledEnv(),
+      now: () => COALESCE_MS + SWEEP_GRACE_MS,
+      db: store,
+      fetch: async () => {
+        fetches += 1
+        return { status: 204 }
+      },
+    })
+    assert.equal(fetches, 1)
+    const again = await recoverUnpublished({
+      env: enabledEnv(),
+      now: () => COALESCE_MS + SWEEP_GRACE_MS + 1_000,
+      db: store,
+      publish: async () => { throw new Error('should not publish') },
+    })
+    assert.deepEqual(again.republished, [])
+  })
+
+  it('rolls back a definite publish rejection and stops after the publish bound', async () => {
+    const store = new MemoryStore()
+    const rejected = await handleIngress(message('where is it?'), AUTH, deps(store, 0, async () => { throw new PublishRejected() }))
+    assert.equal(rejected.status, 503)
+    assert.equal(rejected.body.error, 'queue_rejected')
+    assert.equal(store.counted('1234567890'), 0)
+
+    const exhausted = new MemoryStore()
+    let attempts = 0
+    await handleIngress(message('where is it?'), AUTH, deps(exhausted, 0, async () => {
+      attempts += 1
+      const error = new Error('timeout')
+      error.name = 'TimeoutError'
+      throw error
+    }))
+    const publish = async () => {
+      attempts += 1
+      const error = new Error('timeout')
+      error.name = 'TimeoutError'
+      throw error
+    }
+    const now = COALESCE_MS + SWEEP_GRACE_MS
+    let poisoned: string[] = []
+    for (let i = 0; i < MAX_PUBLISH_ATTEMPTS; i++) {
+      const result = await recoverUnpublished({ env: enabledEnv(), now: () => now, db: exhausted, publish })
+      poisoned = result.poisoned
+      if (poisoned.length === 1) break
+    }
+    assert.equal(poisoned.length, 1)
+    assert.equal(attempts, MAX_PUBLISH_ATTEMPTS)
+    const stopped = await recoverUnpublished({
+      env: enabledEnv(),
+      now: () => now + 1,
+      db: exhausted,
+      publish: async () => { attempts += 1 },
+    })
+    assert.deepEqual(stopped.republished, [])
+    assert.equal(attempts, MAX_PUBLISH_ATTEMPTS)
+    assert.equal(exhausted.batch(poisoned[0])?.lastError, 'publish_exhausted')
   })
 })
 
@@ -308,9 +412,13 @@ describe('wake failure semantics', () => {
     assert.equal(calls.filter(call => call === 'redirect').length, 1)
   })
 
-  it('acknowledges a database error and a disabled consumer without sending', async () => {
-    assert.deepEqual(wakeRetry(new DeferWake(5)), { afterSeconds: 5 })
-    assert.deepEqual(wakeRetry(new Error('db down')), { acknowledge: true })
+  it('retries a database error before claim and never resends an uncertain outbound', async () => {
+    assert.deepEqual(wakeRetry(new DeferWake(5, 'early'), { deliveryCount: 1 }), { afterSeconds: 5 })
+    assert.deepEqual(wakeRetry(new DeferWake(2, 'missing'), { deliveryCount: MISSING_BATCH_DEFERS }), { acknowledge: true })
+    assert.deepEqual(wakeRetry(new RetryableWake('db_before_claim'), { deliveryCount: 1 }), { afterSeconds: 2 })
+    assert.deepEqual(wakeRetry(new RetryableWake('db_before_claim'), { deliveryCount: MAX_WAKE_DELIVERIES }), { acknowledge: true })
+    assert.deepEqual(wakeRetry(new TerminalWake('after_outbound'), { deliveryCount: 1 }), { acknowledge: true })
+
     const store = new MemoryStore()
     let batchId = ''
     await handleIngress(message('where is it?'), AUTH, deps(store, 0, async id => { batchId = id }))
@@ -322,28 +430,81 @@ describe('wake failure semantics', () => {
     await processQueueMessage({ batchId }, { env: enabledEnv({ MANYCHAT_GATEWAY_ENABLED: 'false' }), now: () => 5_000, db: store, fetch })
     assert.equal(fetches, 0)
     assert.equal(store.batch(batchId)?.state, 'queued')
+
+    let claims = 0
+    const flaky: GatewayStore = {
+      admit: store.admit.bind(store),
+      markSchedule: store.markSchedule.bind(store),
+      listRecoverable: store.listRecoverable.bind(store),
+      markPublishResult: store.markPublishResult.bind(store),
+      noteDiagnostic: store.noteDiagnostic.bind(store),
+      markOutcome: store.markOutcome.bind(store),
+      claim: async (id, now) => {
+        claims += 1
+        if (claims < 3) throw new Error('connection reset')
+        return store.claim(id, now)
+      },
+    }
+    const wakeDeps = { env: enabledEnv(), now: () => 5_000, db: flaky, fetch }
+    await assert.rejects(() => processQueueMessage({ batchId }, wakeDeps, { deliveryCount: 1 }), RetryableWake)
+    await assert.rejects(() => processQueueMessage({ batchId }, wakeDeps, { deliveryCount: 2 }), RetryableWake)
+    await processQueueMessage({ batchId }, wakeDeps, { deliveryCount: 3 })
+    assert.equal(fetches, 1)
+    await processQueueMessage({ batchId }, { env: enabledEnv(), now: () => 6_000, db: store, fetch })
+    assert.equal(fetches, 1)
+
+    const poisoned = new MemoryStore()
+    let poisonedId = ''
+    await handleIngress(message('where is it?'), AUTH, deps(poisoned, 0, async id => { poisonedId = id }))
+    const failingDb: GatewayStore = {
+      admit: poisoned.admit.bind(poisoned),
+      markSchedule: poisoned.markSchedule.bind(poisoned),
+      listRecoverable: poisoned.listRecoverable.bind(poisoned),
+      markPublishResult: poisoned.markPublishResult.bind(poisoned),
+      noteDiagnostic: poisoned.noteDiagnostic.bind(poisoned),
+      markOutcome: poisoned.markOutcome.bind(poisoned),
+      claim: async () => { throw new Error('still down') },
+    }
     await assert.rejects(
-      processQueueMessage({ batchId }, {
-        env: enabledEnv(),
-        now: () => 5_000,
-        db: {
-          admit: store.admit.bind(store),
-          markSchedule: store.markSchedule.bind(store),
-          claim: async () => { throw new Error('db down') },
-          markOutcome: store.markOutcome.bind(store),
-        },
-        fetch,
-      }),
-      /db down/,
+      () => processQueueMessage({ batchId: poisonedId }, { env: enabledEnv(), now: () => 5_000, db: failingDb, fetch }, { deliveryCount: MAX_WAKE_DELIVERIES }),
+      TerminalWake,
     )
-    assert.equal(fetches, 0)
-    await assert.rejects(() => processQueueMessage({ batchId }, {
+    assert.equal(fetches, 1)
+    assert.equal(poisoned.batch(poisonedId)?.lastError, 'wake_exhausted')
+    assert.equal(poisoned.batch(poisonedId)?.state, 'queued')
+
+    await assert.rejects(() => processQueueMessage({ batchId: '00000000-0000-4000-8000-000000000099' }, {
       env: enabledEnv(),
-      now: () => 4_000,
+      now: () => 5_000,
       db: store,
       fetch,
-    }), DeferWake)
-    assert.equal(fetches, 0)
+    }), (error: unknown) => error instanceof DeferWake && error.purpose === 'missing')
+
+    const unrecorded = new MemoryStore()
+    let unrecordedId = ''
+    await handleIngress(message('where is it?'), AUTH, deps(unrecorded, 0, async id => { unrecordedId = id }))
+    const dropOutcome: GatewayStore = {
+      admit: unrecorded.admit.bind(unrecorded),
+      markSchedule: unrecorded.markSchedule.bind(unrecorded),
+      listRecoverable: unrecorded.listRecoverable.bind(unrecorded),
+      markPublishResult: unrecorded.markPublishResult.bind(unrecorded),
+      noteDiagnostic: unrecorded.noteDiagnostic.bind(unrecorded),
+      claim: unrecorded.claim.bind(unrecorded),
+      markOutcome: async () => { throw new Error('outcome write failed') },
+    }
+    await assert.rejects(
+      () => processQueueMessage({ batchId: unrecordedId }, { env: enabledEnv(), now: () => 5_000, db: dropOutcome, fetch }),
+      TerminalWake,
+    )
+    assert.equal(fetches, 2)
+    assert.equal(unrecorded.batch(unrecordedId)?.state, 'sending')
+    await assert.rejects(
+      () => processQueueMessage({ batchId: unrecordedId }, { env: enabledEnv(), now: () => 6_000, db: unrecorded, fetch }),
+      (error: unknown) => error instanceof DeferWake && error.purpose === 'inflight',
+    )
+    await processQueueMessage({ batchId: unrecordedId }, { env: enabledEnv(), now: () => 5_000 + 60_000, db: unrecorded, fetch })
+    assert.equal(fetches, 2)
+    assert.equal(unrecorded.batch(unrecordedId)?.state, 'uncertain')
   })
 })
 
@@ -400,6 +561,59 @@ describe('postgres ledger', () => {
       `SELECT COUNT(*)::int AS count FROM "ManychatAdmission" WHERE "subscriberId" = '888002' AND "counted" = true`,
     )
     assert.equal(Number(counted.rows[0].count), 10)
+    await db.close()
+  })
+
+  it('commits an uncertain publish and rolls back a rejected one', async () => {
+    const db = new PGlite()
+    await db.exec(readFileSync(new URL('../../prisma/migrations/20261106120000_manychat_gateway/migration.sql', import.meta.url), 'utf8'))
+    const store = createSqlStore(pgliteSql(db))
+    const t0 = Date.parse('2026-11-06T00:00:00.000Z')
+    const attempts: number[] = []
+    const uncertain = await handleIngress(
+      message('sql timeout?', { contact_id: '999003', event_id: 'sql-timeout' }),
+      AUTH,
+      deps(store, t0, async (_id, attempt) => {
+        attempts.push(attempt)
+        if (attempts.length === 1) {
+          const error = new Error('timeout')
+          error.name = 'TimeoutError'
+          throw error
+        }
+      }),
+    )
+    assert.equal(uncertain.status, 200)
+    assert.equal(uncertain.body.reason, 'accepted_queue_uncertain')
+    const present = await db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM "ManychatBatch" WHERE "subscriberId" = '999003'`)
+    assert.equal(Number(present.rows[0].count), 1)
+    const swept = await recoverUnpublished({
+      env: enabledEnv(),
+      now: () => t0 + COALESCE_MS + SWEEP_GRACE_MS,
+      db: store,
+      publish: async (_id, attempt) => { attempts.push(attempt) },
+    })
+    assert.equal(swept.republished.length, 1)
+    assert.deepEqual(attempts, [0, 1])
+    let fetches = 0
+    await processQueueMessage({ batchId: swept.republished[0] }, {
+      env: enabledEnv(),
+      now: () => t0 + COALESCE_MS + SWEEP_GRACE_MS,
+      db: store,
+      fetch: async () => {
+        fetches += 1
+        return { status: 204 }
+      },
+    })
+    assert.equal(fetches, 1)
+
+    const rejected = await handleIngress(
+      message('sql reject?', { contact_id: '999004', event_id: 'sql-reject' }),
+      AUTH,
+      deps(store, t0, async () => { throw new PublishRejected() }),
+    )
+    assert.equal(rejected.status, 503)
+    const left = await db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM "ManychatAdmission" WHERE "subscriberId" = '999004'`)
+    assert.equal(Number(left.rows[0].count), 0)
     await db.close()
   })
 })

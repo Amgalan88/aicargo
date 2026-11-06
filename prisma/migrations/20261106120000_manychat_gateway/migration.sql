@@ -23,6 +23,8 @@ CREATE TABLE "ManychatBatch" (
     "messageCount" INTEGER NOT NULL,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deliveryAttemptedAt" TIMESTAMP(3),
+    "publishAttempts" INTEGER NOT NULL DEFAULT 0,
+    "lastError" TEXT,
     CONSTRAINT "ManychatBatch_pkey" PRIMARY KEY ("id")
 );
 

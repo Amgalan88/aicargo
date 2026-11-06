@@ -1,4 +1,6 @@
 import { randomUUID } from 'crypto'
+import { MAX_PUBLISH_ATTEMPTS, SWEEP_GRACE_MS } from '@/lib/manychat/constants'
+import { PublishRejected, classifyPublishError } from '@/lib/manychat/errors'
 import {
   type ClaimBatch,
   type Decision,
@@ -30,6 +32,15 @@ export interface AdmitResult {
   publish: boolean
 }
 
+export type PublishFn = (batchId: string, attempt: number) => Promise<void>
+
+export interface RecoverableBatch {
+  id: string
+  publishAttempts: number
+  deliverAfter: number
+  scheduleState: ScheduleState
+}
+
 export type OutcomeState = 'delivered' | 'uncertain' | 'suppressed'
 
 export type ClaimResult =
@@ -42,10 +53,13 @@ export type ClaimResult =
   | { kind: 'send'; batch: ClaimBatch }
 
 export interface GatewayStore {
-  admit(input: AdmitInput): Promise<AdmitResult>
+  admit(input: AdmitInput, publish?: PublishFn): Promise<AdmitResult>
   markSchedule(batchId: string, schedule: ScheduleState, now: number): Promise<void>
   claim(batchId: string, now: number): Promise<ClaimResult>
   markOutcome(batchId: string, state: OutcomeState, now: number): Promise<void>
+  listRecoverable(now: number): Promise<RecoverableBatch[]>
+  markPublishResult(batchId: string, schedule: ScheduleState, attempts: number, lastError: string | null, now: number): Promise<void>
+  noteDiagnostic(batchId: string, code: string, now: number): Promise<void>
 }
 
 interface AdmissionRow {
@@ -61,6 +75,8 @@ interface BatchRow extends ClaimBatch {
   lastInputText: string
   messageCount: number
   eventId: string | null
+  publishAttempts: number
+  lastError: string | null
 }
 
 function keysFor(input: AdmitInput): { eventKey: string | null; textKey: string | null; kind: 'event' | 'text' } {
@@ -75,7 +91,7 @@ function summarize(input: AdmitInput, admissions: AdmissionRow[], batches: Batch
   const textSeen = keys.textKey !== null && admissions.some(row => row.textKey === keys.textKey && row.admittedAt > textWindowStart(input.now))
   const countedInWindow = admissions.filter(row => row.counted && row.admittedAt > windowStart(input.now)).length
   const open = batches
-    .filter(batch => (batch.state === 'open' || batch.state === 'queued') && batch.deliverAfter > input.now)
+    .filter(batch => (batch.state === 'open' || batch.state === 'queued') && batch.deliverAfter > input.now && batch.scheduleState !== 'poisoned')
     .sort((a, b) => b.openedAt - a.openedAt)[0] ?? null
   const openBatch: OpenBatch | null = open
     ? {
@@ -102,12 +118,12 @@ export class MemoryStore implements GatewayStore {
     return run
   }
 
-  admit(input: AdmitInput): Promise<AdmitResult> {
+  admit(input: AdmitInput, publish?: PublishFn): Promise<AdmitResult> {
     const key = `${input.tenant}|${input.pageId}|${input.subscriberId}`
-    return this.lock(key, () => this.admitLocked(input))
+    return this.lock(key, () => this.admitLocked(input, publish))
   }
 
-  private admitLocked(input: AdmitInput): AdmitResult {
+  private async admitLocked(input: AdmitInput, publish?: PublishFn): Promise<AdmitResult> {
     const mineA = this.admissions.filter(row => row.tenant === input.tenant && row.pageId === input.pageId && row.subscriberId === input.subscriberId)
     const mineB = [...this.batches.values()].filter(row => row.tenant === input.tenant && row.pageId === input.pageId && row.subscriberId === input.subscriberId)
     const { keys, decision: local } = summarize(input, mineA, mineB)
@@ -124,10 +140,10 @@ export class MemoryStore implements GatewayStore {
           eventId: input.eventId,
         })
       : local
-    return this.apply(input, keys, decision)
+    return this.apply(input, keys, decision, publish)
   }
 
-  private apply(input: AdmitInput, keys: { eventKey: string | null; textKey: string | null; kind: 'event' | 'text' }, decision: Decision): AdmitResult {
+  private async apply(input: AdmitInput, keys: { eventKey: string | null; textKey: string | null; kind: 'event' | 'text' }, decision: Decision, publish?: PublishFn): Promise<AdmitResult> {
     if (decision.type === 'duplicate') return { reason: 'duplicate', batchId: null, publish: false }
     if (decision.type === 'record') {
       this.admissions.push({
@@ -145,14 +161,15 @@ export class MemoryStore implements GatewayStore {
       batch.lastInputText = decision.text
       batch.eventId = decision.eventId
       batch.messageCount = decision.messageCount
+      const published = decision.publish ? await this.settle(batch, publish) : false
       this.admissions.push({
         tenant: input.tenant, pageId: input.pageId, subscriberId: input.subscriberId,
         eventKey: keys.eventKey, textKey: keys.textKey, counted: true, admittedAt: input.now,
       })
-      return { reason: decision.reason, batchId: batch.id, publish: decision.publish }
+      return { reason: published === 'uncertain' ? 'accepted_queue_uncertain' : decision.reason, batchId: batch.id, publish: decision.publish }
     }
     const id = randomUUID()
-    this.batches.set(id, {
+    const row: BatchRow = {
       id,
       tenant: input.tenant,
       pageId: input.pageId,
@@ -165,12 +182,44 @@ export class MemoryStore implements GatewayStore {
       eventId: decision.eventId,
       messageCount: 1,
       deliveryAttemptedAt: null,
-    })
+      publishAttempts: 0,
+      lastError: null,
+    }
+    // The row stays invisible until publish returns, so a crash before the
+    // insert does not leave an accepted batch with no queue message.
+    const settled = await this.settle(row, publish)
+    if (settled === 'rejected') throw new PublishRejected()
+    this.batches.set(id, row)
     this.admissions.push({
       tenant: input.tenant, pageId: input.pageId, subscriberId: input.subscriberId,
       eventKey: keys.eventKey, textKey: keys.textKey, counted: true, admittedAt: input.now,
     })
-    return { reason: 'queued', batchId: id, publish: true }
+    return { reason: settled === 'uncertain' ? 'accepted_queue_uncertain' : 'queued', batchId: id, publish: true }
+  }
+
+  private async settle(batch: BatchRow, publish?: PublishFn): Promise<'enqueued' | 'uncertain' | 'rejected'> {
+    const attempt = batch.publishAttempts
+    let settled: 'enqueued' | 'uncertain' | 'rejected'
+    try {
+      if (!publish) throw new PublishRejected()
+      await publish(batch.id, attempt)
+      settled = 'enqueued'
+    } catch (error) {
+      settled = classifyPublishError(error) === 'rejected' ? 'rejected' : 'uncertain'
+    }
+    batch.publishAttempts = attempt + 1
+    if (settled === 'enqueued') {
+      batch.scheduleState = 'enqueued'
+      batch.state = 'queued'
+      batch.lastError = null
+    } else if (settled === 'uncertain') {
+      batch.scheduleState = 'pending'
+      batch.lastError = 'publish_uncertain'
+    } else {
+      batch.scheduleState = 'failed'
+      batch.lastError = 'publish_rejected'
+    }
+    return settled
   }
 
   async markSchedule(batchId: string, schedule: ScheduleState, now: number): Promise<void> {
@@ -205,6 +254,40 @@ export class MemoryStore implements GatewayStore {
     const batch = this.batches.get(batchId)
     if (!batch || batch.state !== 'sending') return
     batch.state = state
+    void now
+  }
+
+  async listRecoverable(now: number): Promise<RecoverableBatch[]> {
+    const due = now - SWEEP_GRACE_MS
+    return [...this.batches.values()]
+      .filter(batch => (batch.state === 'open' || batch.state === 'queued')
+        && batch.deliveryAttemptedAt == null
+        && batch.scheduleState !== 'poisoned'
+        && batch.deliverAfter <= due
+        && batch.publishAttempts < MAX_PUBLISH_ATTEMPTS)
+      .map(batch => ({
+        id: batch.id,
+        publishAttempts: batch.publishAttempts,
+        deliverAfter: batch.deliverAfter,
+        scheduleState: batch.scheduleState,
+      }))
+  }
+
+  async markPublishResult(batchId: string, schedule: ScheduleState, attempts: number, lastError: string | null, now: number): Promise<void> {
+    const batch = this.batches.get(batchId)
+    if (!batch || batch.deliveryAttemptedAt != null) return
+    if (batch.state !== 'open' && batch.state !== 'queued') return
+    batch.scheduleState = schedule
+    batch.publishAttempts = attempts
+    batch.lastError = lastError
+    if (schedule === 'enqueued') batch.state = 'queued'
+    void now
+  }
+
+  async noteDiagnostic(batchId: string, code: string, now: number): Promise<void> {
+    const batch = this.batches.get(batchId)
+    if (!batch || (batch.state !== 'open' && batch.state !== 'queued')) return
+    batch.lastError = code
     void now
   }
 
@@ -243,14 +326,17 @@ function isUnique(error: unknown): boolean {
 
 export function createSqlStore(db: Sql): GatewayStore {
   return {
-    admit: input => db.transaction(tx => admitSql(tx, input)),
+    admit: (input, publish) => db.transaction(tx => admitSql(tx, input, publish)),
     markSchedule: (batchId, schedule, now) => markScheduleSql(db, batchId, schedule, now),
     claim: (batchId, now) => db.transaction(tx => claimSql(tx, batchId, now)),
     markOutcome: (batchId, state, now) => markOutcomeSql(db, batchId, state, now),
+    listRecoverable: now => listRecoverableSql(db, now),
+    markPublishResult: (batchId, schedule, attempts, lastError, now) => markPublishResultSql(db, batchId, schedule, attempts, lastError, now),
+    noteDiagnostic: (batchId, code, now) => noteDiagnosticSql(db, batchId, code, now),
   }
 }
 
-async function admitSql(tx: Sql, input: AdmitInput): Promise<AdmitResult> {
+async function admitSql(tx: Sql, input: AdmitInput, publish?: PublishFn): Promise<AdmitResult> {
   await tx.query(
     `INSERT INTO "ManychatSubscriberLock" ("tenant", "pageId", "subscriberId")
      VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
@@ -282,7 +368,7 @@ async function admitSql(tx: Sql, input: AdmitInput): Promise<AdmitResult> {
     `SELECT "id", "lastInputText", "messageCount", "eventId", "scheduleState", "openedAt"
      FROM "ManychatBatch"
      WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3
-       AND "state" IN ('open', 'queued') AND "deliverAfter" > $4::timestamptz
+       AND "state" IN ('open', 'queued') AND "scheduleState" <> 'poisoned' AND "deliverAfter" > $4::timestamptz
      ORDER BY "openedAt" DESC
      LIMIT 1
      FOR UPDATE`,
@@ -310,7 +396,7 @@ async function admitSql(tx: Sql, input: AdmitInput): Promise<AdmitResult> {
     eventId: input.eventId,
   })
   try {
-    return await applySql(tx, input, keys, decision)
+    return await applySql(tx, input, keys, decision, publish)
   } catch (error) {
     if (isUnique(error)) return { reason: 'duplicate', batchId: null, publish: false }
     throw error
@@ -322,6 +408,7 @@ async function applySql(
   input: AdmitInput,
   keys: { eventKey: string | null; textKey: string | null },
   decision: Decision,
+  publish?: PublishFn,
 ): Promise<AdmitResult> {
   if (decision.type === 'duplicate') return { reason: 'duplicate', batchId: null, publish: false }
   const admittedAt = stamp(input.now)
@@ -349,6 +436,7 @@ async function applySql(
        WHERE "id" = $1 AND "state" IN ('open', 'queued')`,
       [decision.batchId, decision.text, decision.eventId, decision.messageCount, admittedAt],
     )
+    const settled = decision.publish ? await settleSql(tx, decision.batchId, publish, admittedAt) : null
     await tx.query(
       `INSERT INTO "ManychatAdmission"
         ("id", "tenant", "pageId", "subscriberId", "eventKey", "textKey", "kind", "counted", "reason", "batchId", "admittedAt")
@@ -359,15 +447,21 @@ async function applySql(
         decision.reason, decision.batchId, admittedAt,
       ],
     )
-    return { reason: decision.reason, batchId: decision.batchId, publish: decision.publish }
+    return {
+      reason: settled === 'uncertain' ? 'accepted_queue_uncertain' : decision.reason,
+      batchId: decision.batchId,
+      publish: decision.publish,
+    }
   }
   const id = randomUUID()
   await tx.query(
     `INSERT INTO "ManychatBatch"
-      ("id", "tenant", "pageId", "subscriberId", "state", "scheduleState", "openedAt", "deliverAfter", "lastInputText", "eventId", "messageCount", "updatedAt")
-     VALUES ($1, $2, $3, $4, 'open', 'pending', $5::timestamptz, $6::timestamptz, $7, $8, 1, $5::timestamptz)`,
+      ("id", "tenant", "pageId", "subscriberId", "state", "scheduleState", "openedAt", "deliverAfter", "lastInputText", "eventId", "messageCount", "updatedAt", "publishAttempts", "lastError")
+     VALUES ($1, $2, $3, $4, 'open', 'pending', $5::timestamptz, $6::timestamptz, $7, $8, 1, $5::timestamptz, 0, NULL)`,
     [id, input.tenant, input.pageId, input.subscriberId, admittedAt, stamp(deliverAfter(input.now)), decision.text, decision.eventId],
   )
+  const settled = await settleSql(tx, id, publish, admittedAt)
+  if (settled === 'rejected') throw new PublishRejected()
   await tx.query(
     `INSERT INTO "ManychatAdmission"
       ("id", "tenant", "pageId", "subscriberId", "eventKey", "textKey", "kind", "counted", "reason", "batchId", "admittedAt")
@@ -377,7 +471,33 @@ async function applySql(
       keys.eventKey, keys.textKey, input.eventId ? 'event' : 'text', id, admittedAt,
     ],
   )
-  return { reason: 'queued', batchId: id, publish: true }
+    return { reason: settled === 'uncertain' ? 'accepted_queue_uncertain' : 'queued', batchId: id, publish: true }
+  }
+
+async function settleSql(tx: Sql, batchId: string, publish: PublishFn | undefined, admittedAt: string): Promise<'enqueued' | 'uncertain' | 'rejected'> {
+  const rows = await tx.query(
+    `SELECT "publishAttempts" FROM "ManychatBatch" WHERE "id" = $1 FOR UPDATE`,
+    [batchId],
+  )
+  const attempt = Number(rows[0]?.publishAttempts ?? 0)
+  let settled: 'enqueued' | 'uncertain' | 'rejected'
+  try {
+    if (!publish) throw new PublishRejected()
+    await publish(batchId, attempt)
+    settled = 'enqueued'
+  } catch (error) {
+    settled = classifyPublishError(error) === 'rejected' ? 'rejected' : 'uncertain'
+  }
+  const schedule = settled === 'enqueued' ? 'enqueued' : settled === 'uncertain' ? 'pending' : 'failed'
+  const lastError = settled === 'enqueued' ? null : settled === 'uncertain' ? 'publish_uncertain' : 'publish_rejected'
+  const state = settled === 'enqueued' ? 'queued' : 'open'
+  await tx.query(
+    `UPDATE "ManychatBatch"
+     SET "scheduleState" = $2, "state" = $3, "publishAttempts" = $4, "lastError" = $5, "updatedAt" = $6::timestamptz
+     WHERE "id" = $1`,
+    [batchId, schedule, state, attempt + 1, lastError, admittedAt],
+  )
+  return settled
 }
 
 async function markScheduleSql(db: Sql, batchId: string, schedule: ScheduleState, now: number): Promise<void> {
@@ -446,5 +566,45 @@ async function markOutcomeSql(db: Sql, batchId: string, state: OutcomeState, now
     `UPDATE "ManychatBatch" SET "state" = $2, "updatedAt" = $3::timestamptz
      WHERE "id" = $1 AND "state" = 'sending'`,
     [batchId, state, stamp(now)],
+  )
+}
+
+async function listRecoverableSql(db: Sql, now: number): Promise<RecoverableBatch[]> {
+  const rows = await db.query(
+    `SELECT "id", "publishAttempts", "deliverAfter", "scheduleState"
+     FROM "ManychatBatch"
+     WHERE "state" IN ('open', 'queued')
+       AND "deliveryAttemptedAt" IS NULL
+       AND "scheduleState" <> 'poisoned'
+       AND "deliverAfter" <= $1::timestamptz
+       AND "publishAttempts" < $2`,
+    [stamp(now - SWEEP_GRACE_MS), MAX_PUBLISH_ATTEMPTS],
+  )
+  return rows.map(row => ({
+    id: String(row.id),
+    publishAttempts: Number(row.publishAttempts),
+    deliverAfter: millis(row.deliverAfter),
+    scheduleState: String(row.scheduleState) as ScheduleState,
+  }))
+}
+
+async function markPublishResultSql(db: Sql, batchId: string, schedule: ScheduleState, attempts: number, lastError: string | null, now: number): Promise<void> {
+  await db.query(
+    `UPDATE "ManychatBatch"
+     SET "scheduleState" = $2,
+         "state" = CASE WHEN $2 = 'enqueued' THEN 'queued' ELSE "state" END,
+         "publishAttempts" = $3,
+         "lastError" = $4,
+         "updatedAt" = $5::timestamptz
+     WHERE "id" = $1 AND "state" IN ('open', 'queued') AND "deliveryAttemptedAt" IS NULL`,
+    [batchId, schedule, attempts, lastError, stamp(now)],
+  )
+}
+
+async function noteDiagnosticSql(db: Sql, batchId: string, code: string, now: number): Promise<void> {
+  await db.query(
+    `UPDATE "ManychatBatch" SET "lastError" = $2, "updatedAt" = $3::timestamptz
+     WHERE "id" = $1 AND "state" IN ('open', 'queued')`,
+    [batchId, code, stamp(now)],
   )
 }

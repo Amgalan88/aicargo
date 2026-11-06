@@ -8,17 +8,18 @@ export const maxDuration = 15
 
 const store = createSqlStore(prismaSql())
 
-// Queue push callback. Success acknowledges. Any error other than an early
-// wake is acknowledged too, so a failed or uncertain AI post is not retried
-// by the queue. OIDC is checked by the SDK; this route has no static token.
-export const POST = handleCallback(async message => {
+// Queue push callback. Handler success acknowledges. Disabled, invalid, and
+// terminal batches acknowledge. A database error before any outbound call is
+// retried until the delivery bound, then acknowledged with a diagnostic.
+// OIDC is checked by the SDK; this route has no static token.
+export const POST = handleCallback(async (message, metadata) => {
   await processQueueMessage(message, {
     env: process.env,
     now: () => Date.now(),
     db: store,
     fetch: (url, init) => fetch(url, init),
-  })
+  }, metadata)
 }, {
   visibilityTimeoutSeconds: 60,
-  retry: error => wakeRetry(error),
+  retry: (error, metadata) => wakeRetry(error, metadata),
 })

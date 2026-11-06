@@ -12,6 +12,6 @@ export function prismaSql(): Sql {
     query: async (text, params = []) => (await prisma.$queryRawUnsafe(text, ...params)) as Array<Record<string, unknown>>,
     transaction: fn => prisma.$transaction(async tx => fn(bind(
       (text, params) => tx.$queryRawUnsafe(text, ...params),
-    ))),
+    )), { maxWait: 5_000, timeout: 15_000 }),
   }
 }
