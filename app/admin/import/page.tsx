@@ -56,6 +56,7 @@ export default function ImportPage() {
   const [ereenDate, setEreenDate] = useState('')
   const [done, setDone] = useState<number | null>(null)
   const [duplicates, setDuplicates] = useState<string[]>([])
+  const [alreadyArrived, setAlreadyArrived] = useState<{ list: string[]; count: number }>({ list: [], count: 0 })
   const [ownerChanges, setOwnerChanges] = useState<{ list: OwnerChange[]; count: number }>({ list: [], count: 0 })
   const [error, setError] = useState('')
   const [lastAdded, setLastAdded] = useState('')
@@ -280,6 +281,7 @@ export default function ImportPage() {
       setDone(data.count)
       setEreenDate('')
       setDuplicates(data.duplicates ?? [])
+      setAlreadyArrived({ list: data.alreadyArrived ?? [], count: data.alreadyArrivedCount ?? 0 })
       setOwnerChanges({ list: data.ownerChanges ?? [], count: data.ownerChangeCount ?? 0 })
       setRows([])
       setLastAdded('')
@@ -545,6 +547,16 @@ export default function ImportPage() {
               </span>
               <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: 'monospace', lineHeight: 1.6 }}>
                 {duplicates.join(', ')}
+              </span>
+            </div>
+          )}
+          {alreadyArrived.count > 0 && (
+            <div className="card-row scan-warning" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.3rem' }}>
+              <strong style={{ fontSize: '0.78rem' }}>
+                ⚠ {alreadyArrived.count} бараа аль хэдийн ирсэн/олгогдсон байсан — өөрчлөгдөөгүй:
+              </strong>
+              <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', lineHeight: 1.6 }}>
+                {alreadyArrived.list.join(', ')}{alreadyArrived.count > alreadyArrived.list.length ? '…' : ''}
               </span>
             </div>
           )}
