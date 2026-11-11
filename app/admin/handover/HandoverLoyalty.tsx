@@ -54,8 +54,8 @@ export function useHandoverQuote(ids: number[]) {
   const netTotal = groups.reduce((s, g) => s + g.quote.netMnt, 0)
   return {
     quote, enabled, fresh, groups, netTotal, redeem,
-    // Тооцоо (хөнгөлөлт, оноо) ирэхээс өмнө, эсвэл хуучирсан тооцоогоор олгохгүй
-    blocked: !fresh,
+    // Тооцоо (хөнгөлөлт, оноо) ирэхээс өмнө, хуучирсан тооцоогоор, эсвэл буруу оноо (жш дээд хэмжээнээс их) оруулсан үед олгохгүй
+    blocked: !fresh || groups.some(g => !!g.redeemError),
     setRedeem: (phone: string, points: number) => setRedeem(r => {
       const n = { ...r }
       if (points > 0) n[phone] = points; else delete n[phone]
@@ -113,7 +113,7 @@ export function HandoverLoyaltyPanel({ q }: { q: ReturnType<typeof useHandoverQu
                       </button>
                     </span>
                   ) : (
-                    <span style={{ color: 'var(--muted)', fontSize: '0.74rem' }}>{!c.canRedeem ? 'Ашиглах: бүртгэл + утас баталгаажуулалт' : 'Ашиглах оноо алга'}</span>
+                    <span style={{ color: 'var(--muted)', fontSize: '0.74rem' }}>{!c.canRedeem ? 'Оноо ашиглахад бүртгэлтэй, утсаа баталгаажуулсан байх ёстой' : 'Ашиглах оноо алга'}</span>
                   )}
                 </div>
                 {g.redeemError && <span style={{ color: 'var(--danger)' }}>{g.redeemError}</span>}

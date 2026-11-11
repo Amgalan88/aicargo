@@ -418,7 +418,7 @@ export async function revertHandover(db: PrismaClient, args: {
             for (const p of parts) {
               await tx.loyaltyLedger.create({
                 data: { ...base, kind: 'VOID', points: p.points, refLedgerId: redeem.id, expiresAt: p.expiresAt ?? fallback,
-                  dedupeKey: `void-redeem:r${receipt.id}:${i++}`, note: `Олголт №${receipt.id} буцаасан — зарцуулсан оноо буцав` },
+                  dedupeKey: `void-redeem:r${receipt.id}:${i++}`, note: `№${receipt.id}: зарцуулсан оноо буцав` },
               })
               pointsRefunded += p.points
             }
@@ -427,7 +427,7 @@ export async function revertHandover(db: PrismaClient, args: {
             await tx.loyaltyLedger.create({
               data: { ...base, kind: 'VOID', points: -earnedNet, refLedgerId: earn?.id ?? null,
                 expiresAt: earnedNet < 0 ? (earn?.expiresAt ?? new Date(now.getTime() + cfg.pointsExpiryDays * DAY_MS)) : null,
-                dedupeKey: `void-earn:r${receipt.id}`, note: `Олголт №${receipt.id} буцаасан — олсон оноо хасагдав` },
+                dedupeKey: `void-earn:r${receipt.id}`, note: `№${receipt.id}: олсон оноо хасагдав` },
             })
             pointsReversed = earnedNet
           }
