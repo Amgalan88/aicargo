@@ -329,6 +329,11 @@ textarea.input { resize: vertical; }
 /* ── MESSAGES ── */
 .msg-error   { font-size: 0.82rem; color: var(--danger); margin-top: 0.5rem; }
 .msg-success { font-size: 0.82rem; color: var(--green);  margin-top: 0.5rem; }
+.scan-warning {
+  background: color-mix(in srgb, var(--yellow) 14%, transparent);
+  border-left: 4px solid var(--yellow);
+  color: var(--yellow);
+}
 
 /* ── SECTION TITLE ── */
 .section-title {

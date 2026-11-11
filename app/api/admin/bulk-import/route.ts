@@ -7,6 +7,7 @@ import { parseTrackCode, parseArrivedCode } from '@/lib/track-code'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { resolveImportOwners } from '@/lib/import-owner'
 import { importLimitError } from '@/lib/import-limits'
+import { isArrivedOrLater } from '@/lib/arrival-scan'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -155,8 +156,11 @@ export async function POST(req: NextRequest) {
       + (ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''),
   })
 
+  // Ирсэн/олгосон ачааг дээрх upsert хөндөөгүй — шинээр орсонд тооцохгүй
+  const alreadyArrived = codes.filter(c => isArrivedOrLater(existingByCode.get(c)?.status))
   return NextResponse.json({
-    count: codes.length, duplicates, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    count: codes.length - alreadyArrived.length, duplicates, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    alreadyArrived: alreadyArrived.slice(0, 200), alreadyArrivedCount: alreadyArrived.length,
     duplicateRows, ownerChanges: ownerChanges.slice(0, 200), ownerChangeCount: ownerChanges.length,
   })
 }
