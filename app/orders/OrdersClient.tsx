@@ -243,6 +243,34 @@ function NavItem({ label, short, children }: { label: React.ReactNode; short: Re
   )
 }
 
+interface LoyaltyView {
+  vip: {
+    pct: number
+    spend: number
+    graceUntil: string | null
+    next: { pct: number; remaining: number } | null
+    windowDays: number
+  } | null
+  points: {
+    balance: number
+    valueMnt: number
+    expiringSoon: { points: number; at: string | null } | null
+    canRedeem: boolean
+  } | null
+  receipts: {
+    id: number
+    createdAt: string
+    vipPct: number
+    current: { discountMnt: number; redeemedPoints: number; redeemedMnt: number; netMnt: number; earnedPoints: number }
+  }[]
+}
+
+function loyaltyDay(iso: string | null) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`
+}
+
 export default function OrdersClient({
   shipments: initialShipments,
   userName,
@@ -275,6 +303,7 @@ export default function OrdersClient({
   linkOrdersOn = false,
   batches = [],
   aiSuggestions = [],
+  loyalty = null,
 }: {
   shipments: Shipment[]
   userName: string
@@ -308,6 +337,7 @@ export default function OrdersClient({
   linkOrdersOn?: boolean
   batches?: UserBatch[]
   aiSuggestions?: string[]
+  loyalty?: LoyaltyView | null
 }) {
   const router = useRouter()
   const [lang, setLang] = useUserLang()
@@ -888,10 +918,59 @@ export default function OrdersClient({
             </button>
           </div>
         </div>
+        {loyalty && (loyalty.vip || loyalty.points) && (
+          <div className="card" style={{ padding: '0.85rem 1rem', marginBottom: '0.8rem', fontSize: '0.86rem' }}>
+            <strong>{t.loyaltyTitle}</strong>
+            <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', marginTop: '0.45rem' }}>
+              {loyalty.vip && (
+                <div>
+                  <div style={{ fontWeight: 700 }}>{loyalty.vip.pct > 0 ? fmt(t.vipBadge, { pct: loyalty.vip.pct }) : 'VIP'}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{fmt(t.vipSpend90, { days: loyalty.vip.windowDays, spend: loyalty.vip.spend.toLocaleString() })}</div>
+                  {loyalty.vip.graceUntil && loyalty.vip.pct > 0 && (
+                    <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{fmt(t.vipGraceUntil, { date: loyaltyDay(loyalty.vip.graceUntil) })}</div>
+                  )}
+                  {loyalty.vip.next && (
+                    <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{fmt(t.vipNextTier, { pct: loyalty.vip.next.pct, n: loyalty.vip.next.remaining.toLocaleString() })}</div>
+                  )}
+                </div>
+              )}
+              {loyalty.points && (
+                <div>
+                  <div style={{ fontWeight: 700 }}>{t.pointsLabel}: {loyalty.points.balance.toLocaleString()}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{fmt(t.pointsWorth, { n: loyalty.points.valueMnt.toLocaleString() })}</div>
+                  {loyalty.points.expiringSoon && (
+                    <div style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{fmt(t.pointsExpireSoon, { n: loyalty.points.expiringSoon.points, date: loyaltyDay(loyalty.points.expiringSoon.at) })}</div>
+                  )}
+                  {!loyalty.points.canRedeem && loyalty.points.balance > 0 && (
+                    <div style={{ color: 'var(--orange)', fontSize: '0.78rem' }}>{t.pointsNeedVerify}</div>
+                  )}
+                </div>
+              )}
+            </div>
+            {loyalty.receipts.length > 0 && (
+              <div style={{ marginTop: '0.6rem', borderTop: '1px solid var(--border)', paddingTop: '0.4rem' }}>
+                <div style={{ color: 'var(--muted)', fontSize: '0.75rem', marginBottom: '0.2rem' }}>{t.loyaltyReceipts}</div>
+                {loyalty.receipts.slice(0, 5).map(r => (
+                  <div key={r.id} style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap', fontSize: '0.78rem', padding: '0.15rem 0' }}>
+                    <span style={{ color: 'var(--muted)' }}>{loyaltyDay(r.createdAt)}</span>
+                    <span>{t.receiptPaid} ₮{r.current.netMnt.toLocaleString()}</span>
+                    {r.current.discountMnt > 0 && <span>{t.receiptDiscount} −₮{r.current.discountMnt.toLocaleString()}</span>}
+                    {r.current.redeemedPoints > 0 && <span>{t.receiptRedeemed} −{r.current.redeemedPoints}</span>}
+                    {r.current.earnedPoints > 0 && <span>{t.receiptEarned} +{r.current.earnedPoints}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {(() => {
           const arrived = shipments.filter(s => s.status === 'ARRIVED')
           const total = arrived.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
           if (arrived.length === 0) return null
+          // VIP хөнгөлөлтийг ирсэн ачааны нийт дүн дээр харуулна. Оноо олголтын үед л хасагдана.
+          const vipPct = !batchMode && loyalty?.vip?.pct ? loyalty.vip.pct : 0
+          const discount = vipPct > 0 ? Math.floor((total * vipPct) / 100) : 0
+          const pay = total - discount
           // Мэдэгдэл маягийн мөр — "амьд" цэгтэй, дарахад ирсэн ачааны таб нээгдэнэ
           return (
             <button
@@ -904,8 +983,9 @@ export default function OrdersClient({
               </span>
               {total > 0 && (
                 <span className="onotice-sum">
-                  <small>{t.totalPayment}</small>
-                  <b>{CUR}{total.toLocaleString()}</b>
+                  <small>{discount > 0 ? fmt(t.vipDiscount, { pct: vipPct }) : t.totalPayment}</small>
+                  <b>{CUR}{pay.toLocaleString()}</b>
+                  {discount > 0 && <small style={{ textDecoration: 'line-through', marginLeft: 6 }}>{CUR}{total.toLocaleString()}</small>}
                 </span>
               )}
               <ChevronRight size={18} className="onotice-chev" />

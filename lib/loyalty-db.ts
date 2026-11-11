@@ -607,8 +607,18 @@ export async function customerLoyalty(db: Db, cargoId: number, phone: string, no
       expiringSoon: points.expiringSoon.points > 0 ? { points: points.expiringSoon.points, at: points.expiringSoon.at?.toISOString() ?? null } : null,
       canRedeem: !!owner?.phoneVerifiedAt,
     } : null,
-    receipts: JSON.parse(JSON.stringify(receipts)) as unknown[],
+    receipts: JSON.parse(JSON.stringify(receipts)) as CustomerReceipt[],
   }
+}
+
+export interface CustomerReceipt {
+  id: number
+  createdAt: string
+  shipmentCount: number
+  vipPct: number
+  vipSource: string | null
+  current: ReceiptTotals
+  adjustments: { id: number; reason: string; note: string | null }[]
 }
 export type CustomerLoyalty = NonNullable<Awaited<ReturnType<typeof customerLoyalty>>>
 

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Truck,
+  ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Truck, Award,
   Users, Megaphone, CircleHelp, Settings, Sparkles, ScrollText, SearchCheck,
   Bell, LogOut, Link2, Check, ShoppingCart, PlayCircle, CalendarClock, Ellipsis, ChevronDown, X,
   type LucideIcon,
@@ -144,6 +144,7 @@ export default function AdminNav({
     { href: '/admin/faq', label: 'FAQ', icon: CircleHelp },
     // Видео нэмэгдсэн үед л харагдана (lib/tutorials)
     ...(withVideo(ADMIN_TUTORIALS).length ? [{ href: '/admin/help', label: 'Заавар видео', icon: PlayCircle }] : []),
+    { href: '/admin/loyalty', label: 'Урамшуулал', icon: Award },
     { href: '/admin/settings', label: 'Тохиргоо', icon: Settings },
     ...(!isStaffAdmin ? [{ href: '/admin/audit-log', label: 'Аудит лог', icon: ScrollText }] : []),
   ]

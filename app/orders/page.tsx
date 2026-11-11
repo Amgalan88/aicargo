@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import OrdersClient from './OrdersClient'
 import { cargoAddresses } from '@/lib/ereen-address'
+import { customerLoyalty } from '@/lib/loyalty-db'
 
 export default async function OrdersPage() {
   const user = await getAuthUser()
@@ -30,7 +31,7 @@ export default async function OrdersPage() {
       .catch(() => []) as Promise<string[]>,
   ])
 
-  const [batches, cargo] = userRecord?.cargoId
+  const [batches, cargo, loyalty] = userRecord?.cargoId
     ? await Promise.all([
         // Хэрэглэгчийн багцууд (утас эсвэл эзнээр холбогдсон)
         (prisma as any).batch.findMany({
@@ -45,8 +46,9 @@ export default async function OrdersPage() {
           where: { id: userRecord.cargoId },
           select: { name: true, logoUrl: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, aiEnabled: true, batchEnabled: true, linkOrdersEnabled: true },
         }),
+        userRecord.phone ? customerLoyalty(prisma, userRecord.cargoId, userRecord.phone) : Promise.resolve(null),
       ])
-    : [[], null]
+    : [[], null, null]
 
   return (
     <OrdersClient
@@ -86,6 +88,7 @@ export default async function OrdersPage() {
       linkOrdersOn={userRecord?.linkOrdersOn ?? false}
       batches={JSON.parse(JSON.stringify(batches))}
       aiSuggestions={suggestedQuestions}
+      loyalty={loyalty}
     />
   )
 }

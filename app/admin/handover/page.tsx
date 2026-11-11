@@ -1,6 +1,7 @@
 'use client'
 import { ScanLine } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { REDEEM_BLOCK_LABEL, SKIP_REASON_LABEL, type RedeemBlock, type SkipReason } from '@/lib/loyalty'
 
 interface Shipment {
   id: number
@@ -21,6 +22,92 @@ interface Group { phone: string; count: number; total: number; shipments: Shipme
 interface Summary { groups: Group[]; totalGroups: number; totalShipments: number; totalCustomers: number; totalValue: number; page: number; pageSize: number }
 interface TodayStats { shipments: number; customers: number; value: number }
 
+interface QuoteGroup {
+  phone: string | null
+  shipmentIds: number[]
+  skipReason: SkipReason | null
+  vip: { pct: number; source: string | null } | null
+  points: { available: number; maxRedeem: number; block: RedeemBlock | null; pointValueMnt: number; earning: boolean } | null
+  grossMnt: number
+  discountMnt: number
+  redeemedPoints: number
+  redeemedMnt: number
+  netMnt: number
+  earnedPoints: number
+}
+interface Quote {
+  active: boolean
+  groups: QuoteGroup[]
+  totals: { grossMnt: number; discountMnt: number; redeemedPoints: number; redeemedMnt: number; netMnt: number; earnedPoints: number }
+}
+interface DoneReceipt {
+  id: number
+  phone: string | null
+  grossMnt: number
+  vipPct: number
+  discountMnt: number
+  redeemedPoints: number
+  redeemedMnt: number
+  netMnt: number
+  earnedPoints: number
+  skipReason: string | null
+}
+
+function newIdemKey() {
+  const raw = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return raw.replace(/[^\w-]/g, '').slice(0, 80)
+}
+
+function QuotePanel({ quote, redeemPhone, onRedeem }: { quote: Quote; redeemPhone: string | null; onRedeem: (phone: string | null) => void }) {
+  if (!quote.active) return null
+  const t = quote.totals
+  return (
+    <div style={{ fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+      {quote.groups.map(g => (
+        <div key={g.phone ?? '-'}>
+          {g.skipReason && <div style={{ color: 'var(--muted)' }}>{g.phone ? `${g.phone}: ` : ''}{SKIP_REASON_LABEL[g.skipReason]}</div>}
+          {g.vip && g.vip.pct > 0 && <div>VIP {g.vip.pct}% · −₮{g.discountMnt.toLocaleString()}</div>}
+          {g.points && (
+            <div style={{ color: 'var(--muted)' }}>
+              Оноо {g.points.available.toLocaleString()}
+              {g.points.block && g.points.available > 0 ? ` · ${REDEEM_BLOCK_LABEL[g.points.block]}` : ''}
+              {g.points.maxRedeem > 0 && g.phone && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.25rem', color: 'var(--text)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={redeemPhone === g.phone} onChange={e => onRedeem(e.target.checked ? g.phone : null)}
+                    style={{ accentColor: 'var(--accent)' }} />
+                  Оноо ашиглах ({g.points.maxRedeem} = ₮{(g.points.maxRedeem * g.points.pointValueMnt).toLocaleString()})
+                </label>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+      {t.discountMnt > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Хөнгөлөлт</span><span>−₮{t.discountMnt.toLocaleString()}</span></div>}
+      {t.redeemedPoints > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Оноогоор</span><span>−₮{t.redeemedMnt.toLocaleString()}</span></div>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}><span>Төлөх</span><span style={{ color: 'var(--accent)' }}>₮{t.netMnt.toLocaleString()}</span></div>
+      {t.earnedPoints > 0 && <div style={{ color: 'var(--muted)' }}>+{t.earnedPoints} оноо олгоно</div>}
+    </div>
+  )
+}
+
+function ReceiptSummary({ receipts }: { receipts: DoneReceipt[] }) {
+  const shown = receipts.filter(r => r.discountMnt > 0 || r.redeemedPoints > 0 || r.earnedPoints > 0)
+  if (!shown.length) return <span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо.</span>
+  return (
+    <div style={{ fontSize: '0.84rem' }}>
+      <span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо.</span>
+      {shown.map(r => (
+        <div key={r.id} style={{ marginTop: '0.35rem' }}>
+          {r.phone ? `${r.phone} · ` : ''}₮{r.netMnt.toLocaleString()} төлөх
+          {r.discountMnt > 0 ? ` · VIP ${r.vipPct}% −₮${r.discountMnt.toLocaleString()}` : ''}
+          {r.redeemedPoints > 0 ? ` · оноо −${r.redeemedPoints}` : ''}
+          {r.earnedPoints > 0 ? ` · +${r.earnedPoints} оноо` : ''}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function HandoverPage() {
   const [mode, setMode] = useState<'search' | 'scanner'>('search')
 
@@ -33,6 +120,10 @@ export default function HandoverPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [doneReceipts, setDoneReceipts] = useState<DoneReceipt[]>([])
+  const [quote, setQuote] = useState<Quote | null>(null)
+  const [redeemPhone, setRedeemPhone] = useState<string | null>(null)
+  const idemKey = useRef('')
 
   // ── Scanner mode ──
   const scanRef = useRef<HTMLInputElement>(null)
@@ -56,6 +147,48 @@ export default function HandoverPage() {
     fetch('/api/admin/handover?today=1').then(r => r.json()).then(setToday).catch(() => { })
   }
   useEffect(() => { loadSummary(); loadToday() }, [])
+
+  const activeIds = (mode === 'search' ? selected : scanned.map(s => s.id)).slice().sort((a, b) => a - b)
+  const idsKey = activeIds.join(',')
+  useEffect(() => { setRedeemPhone(null); idemKey.current = idsKey ? newIdemKey() : '' }, [idsKey])
+  useEffect(() => {
+    const ids = idsKey ? idsKey.split(',').map(Number) : []
+    if (!ids.length) { setQuote(null); return }
+    let cancel = false
+    const t = setTimeout(() => {
+      fetch('/api/admin/loyalty/quote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shipmentIds: ids, redeem: redeemPhone ? { phone: redeemPhone, points: 'max' } : null }),
+      }).then(r => r.ok ? r.json() : null).then(d => { if (!cancel) setQuote(d) }).catch(() => {})
+    }, 200)
+    return () => { cancel = true; clearTimeout(t) }
+  }, [idsKey, redeemPhone])
+
+  const quoteForSelection = (() => {
+    if (!quote?.active) return null
+    const got = quote.groups.flatMap(g => g.shipmentIds).slice().sort((a, b) => a - b).join(',')
+    return got === idsKey ? quote : null
+  })()
+
+  function quotedNet(fallback: number) {
+    return quoteForSelection ? quoteForSelection.totals.netMnt : fallback
+  }
+
+  async function postHandover(ids: number[]) {
+    if (!idemKey.current) idemKey.current = newIdemKey()
+    const matched = quote?.active && quote.groups.flatMap(g => g.shipmentIds).slice().sort((a, b) => a - b).join(',') === ids.slice().sort((a, b) => a - b).join(',')
+    const res = await fetch('/api/admin/handover', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shipmentIds: ids,
+        idempotencyKey: idemKey.current,
+        redeem: redeemPhone ? { phone: redeemPhone, points: 'max' } : null,
+        ...(matched ? { expectedNetMnt: quote!.totals.netMnt } : {}),
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    return { res, data }
+  }
 
   // Focus scanner input when switching to scanner mode
   useEffect(() => {
@@ -88,12 +221,12 @@ export default function HandoverPage() {
   async function handover() {
     if (selected.length === 0) return
     setLoading(true)
-    const res = await fetch('/api/admin/handover', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shipmentIds: selected }),
-    })
+    setError('')
+    const { res, data } = await postHandover(selected)
     setLoading(false)
-    if (res.ok) { setDone(true); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
+    if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
+    setDoneReceipts(data.receipts ?? [])
+    setDone(true); setShipments([]); setSelected([]); setSearched(false); setQ(''); setRedeemPhone(null); loadSummary(); loadToday()
   }
 
   // ── Scanner mode functions ──
@@ -123,12 +256,11 @@ export default function HandoverPage() {
   async function scanHandover() {
     if (scanned.length === 0) return
     setScanLoading(true)
-    const res = await fetch('/api/admin/handover', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shipmentIds: scanned.map(s => s.id) }),
-    })
+    const { res, data } = await postHandover(scanned.map(s => s.id))
     setScanLoading(false)
-    if (res.ok) { setScanDone(true); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
+    if (!res.ok) { setScanMsg({ text: data.error || 'Алдаа гарлаа', ok: false }); return }
+    setDoneReceipts(data.receipts ?? [])
+    setScanDone(true); setScanned([]); setScanMsg(null); setRedeemPhone(null); loadSummary(); loadToday()
   }
 
   return (
@@ -176,7 +308,7 @@ export default function HandoverPage() {
           </form>
 
           {error && <p className="msg-error" style={{ marginBottom: '1rem' }}>{error}</p>}
-          {done && <div className="card" style={{ maxWidth: 400, marginBottom: '1.5rem' }}><div className="card-row"><span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо.</span></div></div>}
+          {done && <div className="card" style={{ maxWidth: 460, marginBottom: '1.5rem' }}><div className="card-row"><ReceiptSummary receipts={doneReceipts} /></div></div>}
           {searched && shipments.length === 0 && !done && <p className="empty" style={{ padding: '1.5rem 0' }}>Ирсэн бараа олдсонгүй.</p>}
 
           {shipments.length > 0 && (
@@ -280,9 +412,14 @@ export default function HandoverPage() {
                         <strong>Нийт</strong>
                         <strong style={{ color: 'var(--accent)' }}>₮{total.toLocaleString()}</strong>
                       </div>
+                      {quoteForSelection && (
+                        <div style={{ padding: '0.7rem 1rem', borderTop: '1px solid var(--border)' }}>
+                          <QuotePanel quote={quoteForSelection} redeemPhone={redeemPhone} onRedeem={setRedeemPhone} />
+                        </div>
+                      )}
                       <div style={{ padding: '0.75rem 1rem' }}>
                         <button className="btn" style={{ width: '100%' }} onClick={handover} disabled={loading}>
-                          {loading ? '...' : `Олгох (${selectedItems.length})`}
+                          {loading ? '...' : quoteForSelection ? `Олгох (${selectedItems.length}) — ₮${quotedNet(total).toLocaleString()}` : `Олгох (${selectedItems.length})`}
                         </button>
                       </div>
                     </div>
@@ -305,7 +442,7 @@ export default function HandoverPage() {
       {/* ── SCANNER MODE ── */}
       {mode === 'scanner' && (
         <div style={{ maxWidth: 520 }}>
-          {scanDone && <div className="card" style={{ marginBottom: '1rem' }}><div className="card-row"><span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо.</span></div></div>}
+          {scanDone && <div className="card" style={{ marginBottom: '1rem' }}><div className="card-row"><ReceiptSummary receipts={doneReceipts} /></div></div>}
 
           <form onSubmit={scanSubmit} style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.5rem' }}>
             <input
@@ -364,8 +501,13 @@ export default function HandoverPage() {
                 ))}
               </div>
 
+              {quoteForSelection && (
+                <div className="card" style={{ padding: '0.75rem 1rem', marginBottom: '0.75rem' }}>
+                  <QuotePanel quote={quoteForSelection} redeemPhone={redeemPhone} onRedeem={setRedeemPhone} />
+                </div>
+              )}
               <button className="btn" style={{ width: '100%' }} onClick={scanHandover} disabled={scanLoading}>
-                {scanLoading ? '...' : `Олгох (${scanned.length}) — ₮${scanTotal.toLocaleString()}`}
+                {scanLoading ? '...' : `Олгох (${scanned.length}) — ₮${quotedNet(scanTotal).toLocaleString()}`}
               </button>
             </>
           )}
