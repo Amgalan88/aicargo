@@ -66,6 +66,12 @@ model Cargo {
   shipmentDeletions ShipmentDeletion[]
   warehouseContracts WarehouseContract[]
   dispatches         Dispatch[]
+  loyaltySettings    LoyaltySettings?
+  loyaltyAccounts    LoyaltyAccount[]
+  loyaltyLedger      LoyaltyLedger[]
+  handoverReceipts   HandoverReceipt[]
+  receiptAdjustments HandoverReceiptAdjustment[]
+  priceLogs          ShipmentPriceLog[]
 }
 
 model User {
@@ -113,13 +119,171 @@ model Shipment {
   arrivedAt      DateTime?
   batchId        Int?
   batch          Batch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  // «Олгох» бүрийн баримт (scripts/add-loyalty.ts). Олголтыг буцаавал null болно
+  receiptId      Int?
+  receipt        HandoverReceipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
 
   @@unique([trackCode, cargoId])
   @@index([cargoId, status])
   @@index([cargoId, updatedAt])
   @@index([batchId])
   @@index([userId])
+  @@index([receiptId])
 }
+
+// Урамшууллын тохиргоо (1 карго = 1 мөр). Мөр байхгүй = бүх горим унтраалттай
+model LoyaltySettings {
+  cargoId       Int      @id
+  cargo         Cargo    @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  vipEnabled    Boolean  @default(false)
+  pointsEnabled Boolean  @default(false)
+  // [{"minSpend":90000,"pct":1},...] — 90 хоногийн олгосон дүнгийн босго, pct 1..5
+  vipTiers      Json
+  mntPerPoint   Int      @default(1000) // ₮1000 = 1 оноо
+  pointValueMnt Int      @default(20) // 1 оноо = ₮20
+  updatedById   Int?
+  updatedByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Хэрэглэгчийн урамшууллын төлөв: карго + утас. Онооны үлдэгдэл энд хадгалагдахгүй — LoyaltyLedger-ээс тооцно
+model LoyaltyAccount {
+  id                Int               @id @default(autoincrement())
+  cargoId           Int
+  cargo             Cargo             @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  phone             String
+  userId            Int?
+  manualVipPct      Int?
+  manualVipNote     String?
+  manualVipUntil    DateTime?
+  manualVipById     Int?
+  manualVipByName   String?
+  manualVipAt       DateTime?
+  autoVipPct        Int               @default(0)
+  autoVipSpend      Int               @default(0)
+  // Шат буурах ёстой болсон ч энэ хүртэл хуучин хувь хэвээр (30 хоногийн grace)
+  autoVipGraceUntil DateTime?
+  autoVipCheckedAt  DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  ledger            LoyaltyLedger[]
+  receipts          HandoverReceipt[]
+
+  @@unique([cargoId, phone])
+  @@index([cargoId, autoVipPct])
+  @@index([cargoId, manualVipPct])
+}
+
+// Append-only: мөрийг засахгүй, устгахгүй (DB trigger) — залруулга нь шинэ мөрөөр л
+// kind: EARN | REDEEM | ADJUST | REDEEM_REFUND | EXPIRE
+model LoyaltyLedger {
+  id           Int            @id @default(autoincrement())
+  cargoId      Int
+  cargo        Cargo          @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  accountId    Int
+  account      LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind         String
+  points       Int
+  expiresAt    DateTime?
+  receiptId    Int?
+  adjustmentId Int?
+  refLedgerId  Int?
+  // Давхар бичихээс хамгаална: earn:R12, redeem:R12, adj:A5:earn, expire:L40
+  dedupeKey    String
+  note         String?
+  actorId      Int?
+  actorName    String?
+  createdAt    DateTime       @default(now())
+
+  @@unique([cargoId, dedupeKey])
+  @@index([accountId, createdAt])
+  @@index([cargoId, createdAt])
+  @@index([expiresAt])
+}
+
+// Олголтын баримт: нэг «Олгох» дээр нэг утас = нэг мөр. Олгосон мөчийн дүн, нөхцөлийг хөлдөөнө
+model HandoverReceipt {
+  id             Int                         @id @default(autoincrement())
+  cargoId        Int
+  cargo          Cargo                       @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  requestKey     String?
+  // requestKey + утас — нэг хүсэлтийг давтахад шинэ баримт үүсэхгүй
+  idemKey        String?
+  phone          String?
+  userId         Int?
+  accountId      Int?
+  account        LoyaltyAccount?             @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  // [{"id":1,"trackCode":"JT…","price":3000}]
+  lines          Json
+  shipmentCount  Int
+  grossMnt       Int
+  vipPct         Int                         @default(0)
+  vipSource      String?
+  discountMnt    Int                         @default(0)
+  redeemedPoints Int                         @default(0)
+  redeemedMnt    Int                         @default(0)
+  netMnt         Int
+  earnedPoints   Int                         @default(0)
+  mntPerPoint    Int?
+  pointValueMnt  Int?
+  skipReason     String?
+  createdById    Int
+  createdByName  String
+  createdAt      DateTime                    @default(now())
+  shipments      Shipment[]
+  adjustments    HandoverReceiptAdjustment[]
+
+  @@unique([cargoId, idemKey])
+  @@index([cargoId, createdAt])
+  @@index([cargoId, phone, createdAt])
+  @@index([cargoId, requestKey])
+}
+
+// Олгосны дараах залруулга (үнэ засах, олголт буцаах): баримтын одоогийн дүн = анхны + нийлбэр
+model HandoverReceiptAdjustment {
+  id                  Int             @id @default(autoincrement())
+  cargoId             Int
+  cargo               Cargo           @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  receiptId           Int
+  receipt             HandoverReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  shipmentId          Int?
+  reason              String // PRICE_EDIT | PICKUP_REVERT
+  grossDelta          Int
+  discountDelta       Int
+  redeemedPointsDelta Int
+  redeemedMntDelta    Int
+  netDelta            Int
+  earnedPointsDelta   Int
+  note                String?
+  actorId             Int
+  actorName           String
+  createdAt           DateTime        @default(now())
+
+  @@index([cargoId, createdAt])
+  @@index([receiptId])
+}
+
+// adminPrice-ийн өөрчлөлт бүр (ялангуяа олгосны дараах засвар)
+model ShipmentPriceLog {
+  id         Int      @id @default(autoincrement())
+  cargoId    Int
+  cargo      Cargo    @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  shipmentId Int
+  trackCode  String
+  oldPrice   Decimal? @db.Decimal(10, 2)
+  newPrice   Decimal? @db.Decimal(10, 2)
+  status     Status
+  receiptId  Int?
+  source     String
+  actorId    Int
+  actorName  String
+  createdAt  DateTime @default(now())
+
+  @@index([cargoId, createdAt])
+  @@index([cargoId, shipmentId])
+}
+
 
 model Batch {
   id        Int        @id @default(autoincrement())
