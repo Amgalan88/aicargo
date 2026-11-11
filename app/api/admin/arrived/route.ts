@@ -12,6 +12,7 @@ import { importLimitError } from '@/lib/import-limits'
 import { openDispatchId, markArrivals } from '@/lib/dispatch'
 import { recordDeletions, DELETION_SNAPSHOT_SELECT, createdWithArrival } from '@/lib/shipment-deletion'
 import { scanArrival, ArrivalScanConflictError, ARRIVED_OR_LATER, parseScanPrice, partitionArrivalImport } from '@/lib/arrival-scan'
+import { recordPriceChange } from '@/lib/loyalty-db'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -215,16 +216,27 @@ export async function PATCH(req: NextRequest) {
     const owners = await resolveImportOwners(admin.cargoId!, [before.trackCode], new Map([[before.trackCode, String(phone)]]), new Map([[before.trackCode, before]]))
     if (parsePhone(phone)) { newPhone = owners.phones[0]; newUserId = owners.userIds[0] }
   }
-  const shipment = await prisma.shipment.update({
-    where: { id: Number(id), cargoId: admin.cargoId! },
-    data: {
-      // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
-      ...(before?.status === 'PICKED_UP' ? { updatedAt: before.updatedAt } : {}),
-      adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
-      adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
-      phone: newPhone,
-      ...(newUserId !== undefined ? { userId: newUserId } : {}),
-    },
+  // Үнийн засвар бүр ShipmentPriceLog-д; олгосон ачааных бол баримтын хөнгөлөлт/оноог залруулах мөр нэг транзакцид
+  const shipment = await prisma.$transaction(async tx => {
+    const updated = await tx.shipment.update({
+      where: { id: Number(id), cargoId: admin.cargoId! },
+      data: {
+        // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
+        ...(before?.status === 'PICKED_UP' ? { updatedAt: before.updatedAt } : {}),
+        adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
+        adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
+        phone: newPhone,
+        ...(newUserId !== undefined ? { userId: newUserId } : {}),
+      },
+    })
+    const price = (v: unknown) => (v == null ? null : Number(v))
+    if (before && price(before.adminPrice) !== price(updated.adminPrice)) {
+      await recordPriceChange(tx, {
+        cargoId: admin.cargoId!, shipment: updated, oldPrice: before.adminPrice, newPrice: updated.adminPrice,
+        actor: { id: admin.userId, name: admin.name }, source: 'admin:arrived',
+      })
+    }
+    return updated
   })
 
   // Мөнгө, эзэнтэй холбоотой тул юунаас юу болсныг хадгална

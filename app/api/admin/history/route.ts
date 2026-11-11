@@ -2,6 +2,7 @@
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { logAdminAction } from '@/lib/audit'
+import { revertPickup } from '@/lib/loyalty-db'
 
 const PAGE_SIZE = 20
 
@@ -51,15 +52,16 @@ export async function PATCH(req: NextRequest) {
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID шаардлагатай' }, { status: 400 })
 
-  const shipment = await prisma.shipment.findUnique({ where: { id: Number(id) } })
-  if (!shipment || shipment.status !== 'PICKED_UP' || shipment.cargoId !== admin.cargoId) {
+  // Баримттай бол хөнгөлөлт, ашигласан/олгосон оноог залруулах мөр (PICKUP_REVERT) мөн транзакцид бичигдэнэ
+  const r = await revertPickup(prisma, { cargoId: admin.cargoId!, shipmentId: Number(id), actor: { id: admin.userId, name: admin.name } })
+  if (!r) {
     return NextResponse.json({ error: 'Олдсонгүй эсвэл буцаах боломжгүй' }, { status: 400 })
   }
 
-  await prisma.shipment.update({ where: { id: Number(id) }, data: { status: 'ARRIVED' } })
   await logAdminAction(prisma, {
     cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
-    action: 'shipment:revert-pickup', detail: shipment.trackCode,
+    action: 'shipment:revert-pickup',
+    detail: r.receiptId ? `${r.trackCode} · баримт #${r.receiptId}${r.adjustment ? ' залруулсан' : ''}` : r.trackCode,
   })
   return NextResponse.json({ ok: true })
 }

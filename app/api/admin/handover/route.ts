@@ -1,7 +1,8 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
-import { auditLater } from '@/lib/audit'
+import { performHandover } from '@/lib/loyalty-db'
+import { loyaltyErrorResponse, parseRedeem, parseShipmentIds, receiptJson } from '@/lib/loyalty-http'
 
 // GET /api/admin/handover?q=phone_or_trackcode
 // GET /api/admin/handover?summary=1
@@ -85,44 +86,28 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(shipments)
 }
 
-// POST /api/admin/handover — bulk PICKED_UP
+// POST /api/admin/handover — bulk PICKED_UP + олголтын баримт (утас тус бүрт), VIP хөнгөлөлт, оноо — нэг транзакцид.
+// idempotencyKey: клиент нэг «Олгох» оролдлогод нэг түлхүүр үүсгэнэ — давтан илгээхэд шинэ баримт үүсэхгүй
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { shipmentIds } = await req.json()
-  if (!Array.isArray(shipmentIds) || shipmentIds.length === 0) {
+  const body = await req.json().catch(() => ({}))
+  const ids = parseShipmentIds(body.shipmentIds)
+  if (ids.length === 0) {
     return NextResponse.json({ error: 'Бараа сонгоно уу' }, { status: 400 })
   }
+  const requestKey = typeof body.idempotencyKey === 'string' && /^[\w-]{8,80}$/.test(body.idempotencyKey) ? body.idempotencyKey : null
+  const expected = body.expectedNetMnt == null ? null : Number(body.expectedNetMnt)
 
-  const ids = shipmentIds.map(Number).filter(Boolean)
-  const { count } = await prisma.shipment.updateMany({
-    where: { id: { in: ids }, status: 'ARRIVED', cargoId: admin.cargoId! },
-    data: { status: 'PICKED_UP' },
-  })
-
-  // Хэнд, ямар ачаа, ямар дүнтэй олгосныг (маргаан гарвал шалгахад) — хариу өгсний дараа бичнэ
-  const cargoId = admin.cargoId!
-  auditLater(async () => {
-    const rows = await prisma.shipment.findMany({
-      where: { id: { in: ids }, cargoId, status: 'PICKED_UP' },
-      select: { trackCode: true, phone: true, adminPrice: true, user: { select: { phone: true } } },
+  try {
+    const r = await performHandover(prisma, {
+      cargoId: admin.cargoId!, actor: { id: admin.userId, name: admin.name }, shipmentIds: ids, requestKey,
+      redeem: parseRedeem(body.redeem), expectedNetMnt: expected != null && isFinite(expected) ? expected : null,
     })
-    const phones = [...new Set(rows.map(r => r.user?.phone || r.phone).filter(Boolean))]
-    const total = rows.reduce((t, r) => t + Number(r.adminPrice ?? 0), 0)
-    const codes = rows.map(r => r.trackCode)
-    return {
-      cargoId, userId: admin.userId, userName: admin.name,
-      action: 'shipment:handover',
-      detail: [
-        `${count} ачаа`,
-        phones.length ? phones.slice(0, 2).join(', ') + (phones.length > 2 ? ` +${phones.length - 2}` : '') : null,
-        total > 0 ? '₮' + Math.round(total).toLocaleString('en-US') : null,
-        codes.slice(0, 5).join(', ') + (codes.length > 5 ? ` +${codes.length - 5}` : ''),
-      ].filter(Boolean).join(' · '),
-    }
-  })
-
-  return NextResponse.json({ ok: true, count })
+    return NextResponse.json({ ok: true, count: r.count, replayed: r.replayed, receipts: r.receipts.map(receiptJson) })
+  } catch (e) {
+    return loyaltyErrorResponse(e)
+  }
 }
