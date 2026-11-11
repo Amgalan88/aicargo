@@ -59,9 +59,9 @@ export default function LoginClient({ cargoName, logoUrl, adminNext }: { cargoNa
           </div>
         </form>
         <hr className="divider" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--muted)' }}>
-          <Link href="/register" style={{ color: 'var(--accent)' }}>Бүртгүүлэх</Link>
-          <Link href="/forgot-password" style={{ color: 'var(--muted)' }}>Нууц үг мартсан?</Link>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: 'var(--muted)' }}>
+          <Link href="/register" className="link-tap" style={{ color: 'var(--accent)', marginLeft: -8 }}>Бүртгүүлэх</Link>
+          <Link href="/forgot-password" className="link-tap" style={{ color: 'var(--muted)', marginRight: -8 }}>Нууц үг мартсан?</Link>
         </div>
       </div>
     </>

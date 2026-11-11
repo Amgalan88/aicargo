@@ -199,7 +199,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               <a href="#pricing" className="lp-nav-hide-sm">Үнэ</a>
               <a href="#track" className="lp-nav-hide-sm">Ачаа шалгах</a>
               <ThemeToggle storageKey="landing-theme" />
-              <Link href="/login">Нэвтрэх</Link>
+              <Link href="/login" className="link-tap">Нэвтрэх</Link>
               <Link href="/signup-cargo" className="btn btn-sm" style={{ whiteSpace: 'nowrap' }}>Карго нээх</Link>
             </>
           )}
@@ -248,7 +248,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             <ul className="lp-assure">
               <li><Check size={14} strokeWidth={3} />Карт шаардлагагүй</li>
               <li><Check size={14} strokeWidth={3} />Суулгах шаардлагагүй</li>
-              <li><button onClick={() => setDemoOpen(true)} className="lp-demo-link"><Monitor size={14} />Демо үзэх</button></li>
+              <li><button onClick={() => setDemoOpen(true)} className="lp-demo-link link-tap"><Monitor size={14} />Демо үзэх</button></li>
             </ul>
           </Reveal>
         </section>
@@ -409,7 +409,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 </details>
               ))}
               <p className="lp-faq-more">
-                <MessageCircleQuestion size={15} />Өөр асуулт байна уу? <a href={`tel:${PHONE}`}>{PHONE}</a> дугаарт залгаарай
+                <MessageCircleQuestion size={15} />Өөр асуулт байна уу? <a href={`tel:${PHONE}`} className="link-tap" style={{ padding: "0 4px" }}>{PHONE}</a> дугаарт залгаарай
               </p>
             </div>
           </div>
@@ -434,7 +434,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               <h2><Search size={20} strokeWidth={2.4} />Хэрэглэгч үү? Ачаагаа шалгаарай</h2>
               <p>
                 Аль ч каргогийн ачааг трак кодоор шалгана ·{' '}
-                <Link href="/register">Хэрэглэгчээр бүртгүүлэх</Link>
+                <Link href="/register" className="link-tap">Хэрэглэгчээр бүртгүүлэх</Link>
               </p>
             </div>
             <div className="lp-track-form">

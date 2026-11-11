@@ -2381,3 +2381,11 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
   .add-sheet { top: auto !important; bottom: 0 !important; left: 0 !important; transform: none !important; width: 100% !important; max-width: none !important; border-radius: 18px 18px 0 0 !important; max-height: 92vh; overflow-y: auto; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important; }
   .add-sheet::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--border); margin: -0.6rem auto 0.9rem; }
 }
+
+/* ── Товшилтын бүс ≥44px (UX аудит #6) ── */
+.link-tap { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
+.lp-demo-link.link-tap { padding: 0 8px; margin-left: -8px; }
+.lp .nav-links button[aria-label="Харагдацын горим солих"] { width: 44px !important; height: 44px !important; }
+.lp-footer-grid a, .lp-footer-grid button { min-height: 44px; }
+.lp-footer-grid > div:not(.lp-footer-brand) { gap: 0; }
+.lp-footer-bottom a { display: inline-flex; align-items: center; min-height: 44px; }

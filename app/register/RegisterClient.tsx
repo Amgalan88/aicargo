@@ -166,7 +166,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
             </div>
             <hr className="divider" />
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Бүртгэлтэй юу? <Link href="/login" style={{ color: 'var(--accent)' }}>Нэвтрэх</Link>
+              Бүртгэлтэй юу? <Link href="/login" className="link-tap" style={{ color: 'var(--accent)' }}>Нэвтрэх</Link>
             </p>
           </>
         ) : (
@@ -288,7 +288,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
             )}
             <hr className="divider" />
             <p style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              Бүртгэлтэй юу? <Link href="/login" style={{ color: 'var(--accent)' }}>Нэвтрэх</Link>
+              Бүртгэлтэй юу? <Link href="/login" className="link-tap" style={{ color: 'var(--accent)' }}>Нэвтрэх</Link>
             </p>
           </>
         )}
