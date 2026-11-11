@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import NavLogo from './components/NavLogo'
-import { Reveal, Stagger, StaggerItem, AnimatedNumber } from './components/motion'
+import { Reveal, Stagger, StaggerItem, CountUpStat } from './components/motion'
 import {
   Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search, Check, Gift,
   Warehouse as WarehouseIcon, ArrowRight, Factory, Wrench, User, X, Smartphone, HandCoins,
@@ -164,7 +164,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
     <div className="lp-stats">
       {statItems.map(s => (
         <div key={s.label}>
-          <b><AnimatedNumber value={s.v} suffix="+" /></b>
+          <b><CountUpStat value={s.v} suffix="+" /></b>
           <span>{s.label}</span>
         </div>
       ))}
