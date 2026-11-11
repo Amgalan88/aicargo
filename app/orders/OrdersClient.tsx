@@ -1,5 +1,7 @@
 'use client'
 import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
+import LoyaltyCard from './LoyaltyCard'
+import type { CustomerLoyaltyView } from '@/lib/loyalty-core'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
@@ -275,6 +277,7 @@ export default function OrdersClient({
   linkOrdersOn = false,
   batches = [],
   aiSuggestions = [],
+  loyalty = null,
 }: {
   shipments: Shipment[]
   userName: string
@@ -308,6 +311,8 @@ export default function OrdersClient({
   linkOrdersOn?: boolean
   batches?: UserBatch[]
   aiSuggestions?: string[]
+  // Карго урамшуулал (оноо / VIP) асаасан бол
+  loyalty?: CustomerLoyaltyView | null
 }) {
   const router = useRouter()
   const [lang, setLang] = useUserLang()
@@ -912,6 +917,8 @@ export default function OrdersClient({
             </button>
           )
         })()}
+
+        <LoyaltyCard loyalty={loyalty} arrivedTotal={shipments.filter(s => s.status === 'ARRIVED').reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)} />
 
         {/* Search */}
         <div className="osearch-row">

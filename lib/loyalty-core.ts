@@ -375,3 +375,20 @@ export function ubMonthOf(d: Date): string {
   const ub = new Date(d.getTime() + 8 * 3600_000)
   return `${ub.getUTCFullYear()}-${String(ub.getUTCMonth() + 1).padStart(2, '0')}`
 }
+
+// Хэрэглэгчийн «Миний ачаа» дээр харагдах урамшуулал (JSON — огноо string)
+export interface CustomerLoyaltyView {
+  points: {
+    balance: number; valueMnt: number; pointValueMnt: number; earnMntPerPoint: number; maxRedeemPct: number; expiryDays: number
+    expiringSoon: { points: number; at: string } | null; canRedeem: boolean
+  } | null
+  vip: {
+    pct: number; source: 'AUTO' | 'MANUAL' | null; spend: number; held: boolean
+    next: { pct: number; minSpend: number; remaining: number } | null
+    windowDays: number; graceDays: number; tiers: VipTier[]; manualUntil: string | null
+  } | null
+  receipts: {
+    id: number; createdAt: string; itemCount: number; grossMnt: number; vipPct: number; vipDiscountMnt: number
+    pointsRedeemed: number; pointsRedeemedMnt: number; netMnt: number; pointsEarned: number
+  }[]
+}

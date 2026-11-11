@@ -469,7 +469,7 @@ export async function customerLoyalty(db: Db, cargoId: number, phone: string, no
     } : null,
     vip: cfg.vipEnabled ? {
       pct: st.vip.pct, source: st.vip.source, spend: st.auto.spend, held: st.auto.held, next: st.auto.next,
-      windowDays: cfg.vipWindowDays, tiers: cfg.vipTiers, manualUntil: st.vip.source === 'MANUAL' ? st.manual.until : null,
+      windowDays: cfg.vipWindowDays, graceDays: cfg.vipGraceDays, tiers: cfg.vipTiers, manualUntil: st.vip.source === 'MANUAL' ? st.manual.until : null,
     } : null,
     receipts: receipts.map(r => ({ ...toSummary(r), createdAt: r.createdAt })),
   }

@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
-import { purgeLoyaltyForDemo } from '@/lib/loyalty'
+import { purgeLoyaltyForDemo } from './loyalty'
 
 // Демо карго — маркетингийн туршилтын орчин (demo.aicargo.mn)
 // seedDemoCargo() нь өгөгдлийг бүрэн цэвэрлэж дахин үүсгэдэг тул

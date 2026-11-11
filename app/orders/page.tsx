@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import OrdersClient from './OrdersClient'
 import { cargoAddresses } from '@/lib/ereen-address'
+import { customerLoyalty } from '@/lib/loyalty'
+import type { CustomerLoyaltyView } from '@/lib/loyalty-core'
 
 export default async function OrdersPage() {
   const user = await getAuthUser()
@@ -48,6 +50,13 @@ export default async function OrdersPage() {
       ])
     : [[], null]
 
+  // Урамшуулал асаалттай каргод л (алдаа гарвал хуудсыг унагаахгүй — урамшуулалгүй харагдана)
+  const loyalty: CustomerLoyaltyView | null = userRecord?.cargoId && userRecord.phone
+    ? await customerLoyalty(prisma, userRecord.cargoId, userRecord.phone)
+        .then(v => (v ? JSON.parse(JSON.stringify(v)) : null))
+        .catch(e => { console.error('customerLoyalty failed', e); return null })
+    : null
+
   return (
     <OrdersClient
       shipments={JSON.parse(JSON.stringify(shipments))}
@@ -86,6 +95,7 @@ export default async function OrdersPage() {
       linkOrdersOn={userRecord?.linkOrdersOn ?? false}
       batches={JSON.parse(JSON.stringify(batches))}
       aiSuggestions={suggestedQuestions}
+      loyalty={loyalty}
     />
   )
 }
