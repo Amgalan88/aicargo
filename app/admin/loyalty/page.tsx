@@ -186,10 +186,10 @@ function CustomersTab() {
 
 interface Detail {
   ledger: { id: number; kind: string; points: number; createdAt: string; expiresAt: string | null; receiptId: number | null; note: string | null; actorName: string | null }[]
-  receipts: { id: number; createdAt: string; itemCount: number; grossMnt: string; vipPct: number; vipDiscountMnt: string; pointsRedeemed: number; pointsEarned: number; netMnt: string; createdByName: string; loyaltyNote: string | null }[]
+  receipts: { id: number; createdAt: string; itemCount: number; grossMnt: string; vipPct: number; vipDiscountMnt: string; pointsRedeemed: number; pointsEarned: number; netMnt: string; createdByName: string; loyaltyNote: string | null; voidedAt: string | null; voidedByName: string | null }[]
   customer: { manual: { pct: number | null; note: string | null; until: string | null } }
 }
-const KIND: Record<string, string> = { EARN: 'Хуримтлуулсан', REDEEM: 'Ашигласан', ADJUST: 'Үнэ засварын залруулга', EXPIRE: 'Хугацаа дууссан' }
+const KIND: Record<string, string> = { EARN: 'Хуримтлуулсан', REDEEM: 'Ашигласан', ADJUST: 'Үнэ засварын залруулга', EXPIRE: 'Хугацаа дууссан', VOID: 'Олголт буцаасан' }
 
 function CustomerDetail({ phone, canEdit, onSaved }: { phone: string; canEdit: boolean; onSaved: () => void }) {
   const [d, setD] = useState<Detail | null>(null)
@@ -239,8 +239,8 @@ function CustomerDetail({ phone, canEdit, onSaved }: { phone: string; canEdit: b
       <div>
         <h3 style={{ fontSize: '0.85rem', margin: '0 0 0.4rem' }}>Олголтын баримт</h3>
         {d.receipts.length === 0 ? <p className="empty" style={{ padding: 0 }}>Алга</p> : d.receipts.map(r => (
-          <div key={r.id} className="card-row" style={{ fontSize: '0.8rem' }}>
-            <span>{dt(r.createdAt)} · {r.itemCount} ачаа · {r.createdByName}{r.loyaltyNote === 'self' ? ' · өөрийн утас' : ''}</span>
+          <div key={r.id} className="card-row" style={{ fontSize: '0.8rem', ...(r.voidedAt ? { opacity: 0.55, textDecoration: 'line-through' } : {}) }}>
+            <span>{dt(r.createdAt)} · {r.itemCount} ачаа · {r.createdByName}{r.loyaltyNote === 'self' ? ' · өөрийн утас' : ''}{r.voidedAt ? ` · буцаасан ${dt(r.voidedAt)}${r.voidedByName ? ` (${r.voidedByName})` : ''}` : ''}</span>
             <span>{tg(Number(r.grossMnt))}{Number(r.vipDiscountMnt) ? ` −${r.vipPct}%` : ''}{r.pointsRedeemed ? ` −${r.pointsRedeemed}о` : ''} → <b>{tg(Number(r.netMnt))}</b>{r.pointsEarned ? ` · +${r.pointsEarned}о` : ''}</span>
           </div>
         ))}
@@ -261,7 +261,8 @@ function CustomerDetail({ phone, canEdit, onSaved }: { phone: string; canEdit: b
 interface Report {
   month: string; enabled: { points: boolean; vip: boolean }
   receipts: { count: number; items: number; grossMnt: number; netMnt: number; vipReceipts: number; vipDiscountMnt: number; pointsRedeemed: number; pointsRedeemedMnt: number; pointsEarned: number }
-  ledger: { earned: number; redeemed: number; expired: number; adjustedUp: number; adjustedDown: number }
+  ledger: { earned: number; redeemed: number; expired: number; adjustedUp: number; adjustedDown: number; voidReversed: number; voidRefunded: number }
+  voidedReceipts: { count: number; grossMnt: number; netMnt: number }
   priceEditsAfterHandover: { count: number; vipDiscountDeltaMnt: number; pointsDelta: number }
   manualVipChanges: number; outstandingPoints: number; outstandingMnt: number; vipTiersNow: Record<string, number>
 }
@@ -294,6 +295,7 @@ function ReportTab() {
           <Stat label="Хуримтлуулсан оноо" value={String(r.ledger.earned)} />
           <Stat label="Хугацаа дууссан оноо" value={String(r.ledger.expired)} />
           <Stat label="Үнэ засварын залруулга" value={`+${r.ledger.adjustedUp} / −${r.ledger.adjustedDown} оноо`} />
+          <Stat label="Буцаасан олголт" value={`${r.voidedReceipts.count} баримт · ${tg(r.voidedReceipts.netMnt)} · −${r.ledger.voidReversed} / +${r.ledger.voidRefunded} оноо`} />
           <Stat label="Олгосны дараа үнэ зассан" value={`${r.priceEditsAfterHandover.count} удаа · VIP ${r.priceEditsAfterHandover.vipDiscountDeltaMnt >= 0 ? '+' : ''}${tg(r.priceEditsAfterHandover.vipDiscountDeltaMnt)}`} />
           <Stat label="Гараар VIP өөрчилсөн" value={String(r.manualVipChanges)} />
           <Stat label="Нийт үлдэгдэл оноо (өр)" value={`${r.outstandingPoints} = ${tg(r.outstandingMnt)}`} />

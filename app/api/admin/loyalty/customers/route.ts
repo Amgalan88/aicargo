@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       }),
       prisma.handoverReceipt.findMany({
         where: { cargoId, phone }, orderBy: { id: 'desc' }, take: 30,
-        select: { id: true, createdAt: true, itemCount: true, grossMnt: true, vipPct: true, vipDiscountMnt: true, pointsRedeemed: true, pointsRedeemedMnt: true, pointsEarned: true, netMnt: true, createdByName: true, loyaltyNote: true },
+        select: { id: true, createdAt: true, itemCount: true, grossMnt: true, vipPct: true, vipDiscountMnt: true, pointsRedeemed: true, pointsRedeemedMnt: true, pointsEarned: true, netMnt: true, createdByName: true, loyaltyNote: true, voidedAt: true, voidedByName: true },
       }),
     ])
     return NextResponse.json({ config: cfg, customer: st, ledger, receipts })

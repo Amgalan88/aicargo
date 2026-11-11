@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   DEFAULT_LOYALTY_CONFIG, DAY_MS, configFromRow, validateConfigInput, tierPct, autoVip, manualVipPct, effectiveVip,
-  simulatePoints, quoteReceipt, RedeemError, receiptOutcome, priceChangeCompensation, ownerPhoneOf, ubMonthRange, ubMonthOf,
+  simulatePoints, consumedLots, quoteReceipt, RedeemError, receiptOutcome, priceChangeCompensation, ownerPhoneOf, ubMonthRange, ubMonthOf,
   type LedgerEntry, type LoyaltyConfig,
 } from './loyalty-core'
 
@@ -241,5 +241,55 @@ describe('helpers', () => {
     assert.equal(r.end.toISOString(), '2026-12-31T15:59:59.999Z')
     assert.equal(ubMonthRange('2026-13'), null)
     assert.equal(ubMonthOf(new Date('2026-11-30T16:30:00Z')), '2026-12')
+  })
+})
+
+describe('handover revert (VOID rows)', () => {
+  it('consumedLots tells which lots a REDEEM used, with their expiry', () => {
+    const a = L('EARN', 50, daysAgo(170), daysAgo(-10))
+    const b = L('EARN', 50, daysAgo(10), daysAgo(-170))
+    const r = L('REDEEM', -60, daysAgo(1))
+    assert.deepEqual(consumedLots([a, b, r], r.id, NOW), [
+      { lotId: a.id, points: 50, expiresAt: a.expiresAt },
+      { lotId: b.id, points: 10, expiresAt: b.expiresAt },
+    ])
+    assert.deepEqual(consumedLots([a, b], 999, NOW), [])
+  })
+
+  it('refund + reversal restore the exact pre-handover balance and lots', () => {
+    const old = L('EARN', 700, daysAgo(175), daysAgo(-5))      // expires in 5 days
+    const before = simulatePoints([old], NOW)
+    // handover: redeem 490 (from the expiring lot), earn 9
+    const red = L('REDEEM', -490, daysAgo(1))
+    const earn = L('EARN', 9, daysAgo(1), daysAgo(-179))
+    const parts = consumedLots([old, red, earn], red.id, NOW)
+    const refunds = parts.map(p => L('VOID', p.points, NOW, p.expiresAt, red.id))
+    const rev = L('VOID', -9, NOW, null, earn.id)
+    const after = simulatePoints([old, red, earn, ...refunds, rev], NOW)
+    assert.equal(after.balance, before.balance)
+    assert.deepEqual(after.expiringSoon, before.expiringSoon) // 700 still expire in 5 days, not extended
+  })
+
+  it('negative VOID takes from the referenced lot first, not FIFO', () => {
+    const a = L('EARN', 50, daysAgo(170), daysAgo(-10))
+    const b = L('EARN', 20, daysAgo(1), daysAgo(-179))
+    const s = simulatePoints([a, b, L('VOID', -20, NOW, null, b.id)], NOW)
+    assert.deepEqual(s.lots.map(l => [l.id, l.remaining]), [[a.id, 50]])
+  })
+
+  it('reversal of already-spent points leaves a deficit instead of vanishing', () => {
+    const e = L('EARN', 30, daysAgo(10), daysAgo(-170))
+    const r = L('REDEEM', -30, daysAgo(5))                       // spent in another handover
+    assert.equal(simulatePoints([e, r, L('VOID', -30, NOW, null, e.id)], NOW).balance, -30)
+  })
+
+  it('refund of points whose original lot has since expired comes back already expired', () => {
+    const lot = L('EARN', 100, daysAgo(200), daysAgo(20))
+    const red = L('REDEEM', -100, daysAgo(30))
+    const parts = consumedLots([lot, red], red.id, NOW)
+    const ref = L('VOID', parts[0].points, NOW, parts[0].expiresAt, red.id)
+    const s = simulatePoints([lot, red, ref], NOW)
+    assert.equal(s.balance, 0)
+    assert.deepEqual(s.dueExpiries, [{ lotId: ref.id, points: 100 }])
   })
 })

@@ -380,6 +380,147 @@ describe('loyalty on a real local Postgres', { skip }, () => {
     })
   })
 
+  describe('history revert (PICKED_UP → ARRIVED)', () => {
+    let C: number, D: number
+    const balance = async (cargoId: number, phone: string, at = NOW) =>
+      (await L.loadCustomerStates(prisma, cargoId, await L.getLoyaltyConfig(prisma, cargoId), [phone], at)).get(phone)!
+    const ho = (cargoId: number, ids: number[], extra: Record<string, unknown> = {}) =>
+      L.performHandover(prisma, { cargoId, actor: S.adminA, shipmentIds: ids, requestKey: key(), now: NOW, ...extra })
+    const revert = (cargoId: number, shipmentId: number, wholeReceipt = false, actor = S.adminA) =>
+      L.revertHandover(prisma, { cargoId, actor, shipmentId, wholeReceipt, now: NOW })
+
+    before(async () => {
+      C = (await prisma.cargo.create({ data: { name: 'C', slug: 'c-revert', ereemReceiver: 'r', ereemPhone: 'p', ereemAddress: 'x' } })).id
+      D = (await prisma.cargo.create({ data: { name: 'D', slug: 'd-revert', ereemReceiver: 'r', ereemPhone: 'p', ereemAddress: 'x' } })).id
+      await enable(C, { pointsEnabled: true, vipEnabled: true })
+    })
+
+    it('voids the receipt, reverses earned + refunds redeemed points, detaches; re-handover earns once', async () => {
+      const p = '99180001'
+      await user(C, p, true)
+      const hist = await shipment(C, p, 700000)
+      await L.performHandover(prisma, { cargoId: C, actor: S.adminA, shipmentIds: [hist.id], requestKey: key(), now: ago(175) }) // 700 pts, expire in 5 days
+      const before0 = await balance(C, p)
+      assert.equal(before0.points.balance, 700)
+      const s = await shipment(C, p, 20000)
+      const r1 = await ho(C, [s.id], { redeem: { [p]: 490 } })
+      assert.deepEqual([r1.receipts[0].pointsRedeemed, r1.receipts[0].netMnt, r1.receipts[0].pointsEarned], [490, 10200, 10]) // no VIP (old spend outside window)
+      assert.equal((await balance(C, p)).points.balance, 700 - 490 + 10)
+
+      const rv = await revert(C, s.id)
+      assert.deepEqual([rv.receiptId, rv.pointsReversed, rv.pointsRefunded, rv.shipmentIds], [r1.receipts[0].id, 10, 490, [s.id]])
+      const after = await balance(C, p)
+      assert.equal(after.points.balance, before0.points.balance)
+      assert.deepEqual(after.points.expiringSoon, before0.points.expiringSoon) // refunded points keep their original expiry
+      const sh = await prisma.shipment.findUniqueOrThrow({ where: { id: s.id } })
+      assert.deepEqual([sh.status, sh.receiptId], ['ARRIVED', null])
+      const rc = await prisma.handoverReceipt.findUniqueOrThrow({ where: { id: r1.receipts[0].id } })
+      assert.ok(rc.voidedAt && rc.voidedById === S.adminA.id)
+      // append-only: original EARN/REDEEM untouched, compensating VOID rows added
+      const rows = await prisma.loyaltyLedger.findMany({ where: { receiptId: rc.id }, orderBy: { id: 'asc' } })
+      assert.deepEqual(rows.map(r => [r.kind, r.points]), [['REDEEM', -490], ['EARN', 10], ['VOID', 490], ['VOID', -10]])
+
+      // second revert of the same (now ARRIVED) shipment is refused, nothing new written
+      await assert.rejects(revert(C, s.id), /буцаах боломжгүй/)
+      assert.equal(await prisma.loyaltyLedger.count({ where: { receiptId: rc.id } }), 4)
+
+      // fresh handover → new receipt, earns exactly once
+      const r2 = await ho(C, [s.id])
+      assert.notEqual(r2.receipts[0].id, rc.id)
+      assert.equal((await balance(C, p)).points.balance, 700 + r2.receipts[0].pointsEarned)
+      assert.equal((await prisma.shipment.findUniqueOrThrow({ where: { id: s.id } })).receiptId, r2.receipts[0].id)
+    })
+
+    it('concurrent double revert reverses only once', async () => {
+      const p = '99180002'
+      await user(C, p, true)
+      const s = await shipment(C, p, 50000)
+      const r = await ho(C, [s.id])
+      const res = await Promise.allSettled([revert(C, s.id), revert(C, s.id)])
+      assert.equal(res.filter(x => x.status === 'fulfilled').length, 1)
+      assert.equal(await prisma.loyaltyLedger.count({ where: { receiptId: r.receipts[0].id, kind: 'VOID' } }), 1)
+      assert.equal((await balance(C, p)).points.balance, 0)
+    })
+
+    it('multi-shipment receipt: single revert blocked (409), wholeReceipt reverts all', async () => {
+      const p = '99180003'
+      const a = await shipment(C, p, 10000), b = await shipment(C, p, 20000)
+      const r = await ho(C, [a.id, b.id])
+      await assert.rejects(revert(C, a.id), (e: unknown) => {
+        const err = e as InstanceType<typeof L.LoyaltyError>
+        assert.equal(err.status, 409)
+        assert.match(err.message, /нэг баримтаар/)
+        assert.equal((err.details as { code: string }).code, 'RECEIPT_MULTI')
+        return true
+      })
+      assert.equal((await prisma.shipment.findUniqueOrThrow({ where: { id: a.id } })).status, 'PICKED_UP')
+      assert.equal((await prisma.handoverReceipt.findUniqueOrThrow({ where: { id: r.receipts[0].id } })).voidedAt, null)
+      const rv = await revert(C, a.id, true)
+      assert.deepEqual(rv.shipmentIds.sort(), [a.id, b.id].sort())
+      const rows = await prisma.shipment.findMany({ where: { id: { in: [a.id, b.id] } } })
+      assert.ok(rows.every(x => x.status === 'ARRIVED' && x.receiptId === null))
+      assert.equal((await balance(C, p)).points.balance, 0)
+    })
+
+    it('reverses ADJUST rows from a price edit too; VIP spend and report exclude the voided receipt', async () => {
+      const p = '99180004'
+      const s = await shipment(C, p, 100000)
+      const r = await ho(C, [s.id])
+      await prisma.$transaction(async tx => {
+        const cur = await tx.shipment.findUniqueOrThrow({ where: { id: s.id } })
+        await L.recordPriceChange(tx, { cargoId: C, actor: S.adminA, shipment: cur, newPrice: 200000, now: NOW })
+        await tx.shipment.update({ where: { id: s.id }, data: { adminPrice: 200000 } })
+      })
+      const mid = await balance(C, p)
+      assert.equal(mid.points.balance, 200) // 100 earned at 0% VIP + 100 ADJUST after the price doubled
+      assert.equal(mid.auto.spend, 200000)
+      const repBefore = await L.monthlyReport(prisma, C, '2026-11', NOW)
+      const rv = await revert(C, s.id)
+      assert.equal(rv.pointsReversed, mid.points.balance)
+      const after = await balance(C, p)
+      assert.equal(after.points.balance, 0)
+      assert.equal(after.auto.spend, 0)
+      const rep = await L.monthlyReport(prisma, C, '2026-11', NOW)
+      assert.equal(rep.receipts.count, repBefore.receipts.count - 1)
+      assert.equal(rep.receipts.grossMnt, repBefore.receipts.grossMnt - 100000)
+      assert.equal(rep.voidedReceipts.count, repBefore.voidedReceipts.count + 1)
+      assert.equal(rep.ledger.voidReversed, repBefore.ledger.voidReversed + mid.points.balance)
+      assert.ok(!(await L.customerLoyalty(prisma, C, p, NOW))!.receipts.some(x => x.id === r.receipts[0].id))
+    })
+
+    it('loyalty OFF: receipt voided, no ledger rows; legacy shipment without receipt reverts as before', async () => {
+      const s = await shipment(D, '99180005', 15000)
+      const r = await ho(D, [s.id])
+      const rv = await revert(D, s.id)
+      assert.deepEqual([rv.receiptId, rv.pointsReversed, rv.pointsRefunded], [r.receipts[0].id, 0, 0])
+      assert.equal(await prisma.loyaltyLedger.count({ where: { cargoId: D } }), 0)
+      const legacy = await shipment(D, '99180005', 5000, 'PICKED_UP', ago(3))
+      const lv = await revert(D, legacy.id)
+      assert.deepEqual([lv.receiptId, (await prisma.shipment.findUniqueOrThrow({ where: { id: legacy.id } })).status], [null, 'ARRIVED'])
+    })
+
+    it('tenant isolation: another cargo cannot revert, nothing changes', async () => {
+      const s = await shipment(C, '99180006', 10000)
+      const r = await ho(C, [s.id])
+      await assert.rejects(revert(D, s.id, true, S.adminB), /Олдсонгүй/)
+      assert.equal((await prisma.shipment.findUniqueOrThrow({ where: { id: s.id } })).status, 'PICKED_UP')
+      assert.equal((await prisma.handoverReceipt.findUniqueOrThrow({ where: { id: r.receipts[0].id } })).voidedAt, null)
+    })
+
+    it('migration upgrades the v1 kind CHECK to v2 (VOID allowed) idempotently', async () => {
+      await sql(`ALTER TABLE "LoyaltyLedger" DROP CONSTRAINT IF EXISTS "LoyaltyLedger_kind_v2_check"`)
+      await sql(`ALTER TABLE "LoyaltyLedger" ADD CONSTRAINT "LoyaltyLedger_kind_check" CHECK (("kind" = 'EARN' AND "points" > 0) OR ("kind" = 'REDEEM' AND "points" < 0) OR ("kind" = 'EXPIRE' AND "points" < 0) OR ("kind" = 'ADJUST' AND "points" <> 0)) NOT VALID`)
+      for (const st of LOYALTY_DDL) await prisma.$executeRawUnsafe(st)
+      for (const st of LOYALTY_DDL) await prisma.$executeRawUnsafe(st)
+      const cons = await sql(`SELECT conname FROM pg_constraint WHERE conname LIKE 'LoyaltyLedger_kind%' AND contype = 'c' ORDER BY 1`)
+      assert.deepEqual(cons.map(c => c.conname), ['LoyaltyLedger_kind_v2_check'])
+      const [acc] = await sql(`SELECT id, "cargoId" FROM "LoyaltyAccount" LIMIT 1`)
+      await assert.rejects(sql(`INSERT INTO "LoyaltyLedger" ("cargoId","accountId",kind,points,"dedupeKey") VALUES ($1,$2,'VOID',0,'t-void-0')`, [acc.cargoId, acc.id]))
+      await assert.rejects(sql(`INSERT INTO "LoyaltyLedger" ("cargoId","accountId",kind,points,"dedupeKey") VALUES ($1,$2,'BOGUS',1,'t-bogus')`, [acc.cargoId, acc.id]))
+      await assert.rejects(sql(`UPDATE "HandoverReceipt" SET "voidedAt" = now(), "voidedById" = NULL WHERE id = (SELECT min(id) FROM "HandoverReceipt")`))
+    })
+  })
+
   describe('cleanup paths', () => {
     it('demo purge and cargo deletion work despite the append-only trigger', async () => {
       const c = await prisma.cargo.create({ data: { name: 'D', slug: 'd', ereemReceiver: 'r', ereemPhone: 'p', ereemAddress: 'x' } })

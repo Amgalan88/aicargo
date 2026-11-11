@@ -3,7 +3,7 @@
 import { Prisma, PrismaClient } from '@prisma/client'
 import {
   DAY_MS, autoVip, configFromRow, effectiveVip, manualVipPct, ownerPhoneOf, priceChangeCompensation, quoteReceipt,
-  RedeemError, simulatePoints, toCents, fromCents, ubMonthRange,
+  RedeemError, consumedLots, simulatePoints, toCents, fromCents, ubMonthRange,
   type AutoVip, type LedgerEntry, type LoyaltyConfig, type PointsState, type Quote, type SpendEvent,
 } from './loyalty-core'
 
@@ -47,6 +47,7 @@ export async function loadSpendEvents(db: Db, cargoId: number, phones: string[] 
         LEFT JOIN "User" u ON u.id = s."userId"
         WHERE s."cargoId" = ${cargoId} AND s.status = 'PICKED_UP' AND s."adminPrice" IS NOT NULL
           AND (TRIM(s.phone) = ANY(${phones}::text[]) OR (NULLIF(TRIM(s.phone), '') IS NULL AND u.phone = ANY(${phones}::text[])))
+          AND r."voidedAt" IS NULL
           AND COALESCE(r."createdAt", s."updatedAt") >= ${since}`
     : await db.$queryRaw<{ phone: string; at: Date; amount: Prisma.Decimal | null }[]>`
         SELECT COALESCE(NULLIF(TRIM(s.phone), ''), u.phone) AS phone, COALESCE(r."createdAt", s."updatedAt") AS at, s."adminPrice" AS amount
@@ -54,6 +55,7 @@ export async function loadSpendEvents(db: Db, cargoId: number, phones: string[] 
         LEFT JOIN "HandoverReceipt" r ON r.id = s."receiptId" AND r."cargoId" = s."cargoId"
         LEFT JOIN "User" u ON u.id = s."userId"
         WHERE s."cargoId" = ${cargoId} AND s.status = 'PICKED_UP' AND s."adminPrice" IS NOT NULL
+          AND r."voidedAt" IS NULL
           AND COALESCE(r."createdAt", s."updatedAt") >= ${since}`
   const out = new Map<string, SpendEvent[]>()
   for (const r of rows) {
@@ -349,6 +351,99 @@ export async function performHandover(db: PrismaClient, args: {
   }
 }
 
+// ── Олголт буцаах («Түүх» → Ирсэн төлөвт буцаах) ───────────────────────────
+
+export interface RevertResult {
+  shipmentIds: number[]; trackCodes: string[]; receiptId: number | null
+  pointsReversed: number; pointsRefunded: number
+}
+
+// PICKED_UP → ARRIVED. Баримттай бол нэг транзакцид: баримтыг цуцлах (voidedAt), олсон оноог (EARN + ADJUST) хасах,
+// зарцуулсан оноог анхны дуусах хугацаатай нь буцаах (VOID мөрүүд, dedupeKey-тэй тул хоёр дахин буцаагдахгүй),
+// ачааг баримтаас салгах — дахин «Олгох»-од шинэ баримт үүснэ. Олон ачаатай баримтын нэг ачааг тусад нь буцаахгүй:
+// баримтын дүн, хөнгөлөлт, оноо бүх ачаанд хамт бодогдсон тул wholeReceipt=true үед л бүгдийг хамт буцаана.
+export async function revertHandover(db: PrismaClient, args: {
+  cargoId: number; actor: Actor; shipmentId: number; wholeReceipt?: boolean; now?: Date
+}): Promise<RevertResult> {
+  const { cargoId, actor, shipmentId } = args
+  return db.$transaction(async tx => {
+    const now = args.now ?? new Date()
+    const [s] = await tx.$queryRaw<{ id: number; trackCode: string; status: string; receiptId: number | null }[]>`
+      SELECT id, "trackCode", status::text AS status, "receiptId" FROM "Shipment"
+      WHERE id = ${shipmentId} AND "cargoId" = ${cargoId} FOR UPDATE`
+    if (!s || s.status !== 'PICKED_UP') throw new LoyaltyError('Олдсонгүй эсвэл буцаах боломжгүй', 400)
+
+    const receipt = s.receiptId == null ? null : (await tx.$queryRaw<{ id: number; phone: string | null; voidedAt: Date | null; pointsRedeemed: number }[]>`
+      SELECT id, phone, "voidedAt", "pointsRedeemed" FROM "HandoverReceipt" WHERE id = ${s.receiptId} AND "cargoId" = ${cargoId} FOR UPDATE`)[0] ?? null
+
+    if (!receipt) {
+      // Баримтгүй (урамшууллаас өмнөх) олголт — өмнөх шигээ зөвхөн төлөв
+      await tx.shipment.updateMany({ where: { id: s.id, cargoId, status: 'PICKED_UP' }, data: { status: 'ARRIVED', receiptId: null } })
+      return { shipmentIds: [s.id], trackCodes: [s.trackCode], receiptId: null, pointsReversed: 0, pointsRefunded: 0 }
+    }
+
+    const linked = await tx.$queryRaw<{ id: number; trackCode: string; status: string }[]>`
+      SELECT id, "trackCode", status::text AS status FROM "Shipment"
+      WHERE "receiptId" = ${receipt.id} AND "cargoId" = ${cargoId} ORDER BY id FOR UPDATE`
+    const others = linked.filter(x => x.id !== s.id && x.status === 'PICKED_UP')
+    if (others.length && !args.wholeReceipt) {
+      throw new LoyaltyError(
+        `Энэ ачаа өөр ${others.length} ачаатай хамт нэг баримтаар (№${receipt.id}) олгогдсон тул ганцааранг нь буцаах боломжгүй. ` +
+        'Хөнгөлөлт, оноо баримтаар бодогддог — баримтыг бүхэлд нь (бүх ачааг) буцаана уу.',
+        409, { code: 'RECEIPT_MULTI', receiptId: receipt.id, trackCodes: linked.map(x => x.trackCode) },
+      )
+    }
+
+    let pointsReversed = 0, pointsRefunded = 0
+    if (!receipt.voidedAt && receipt.phone) {
+      const [acc] = await tx.$queryRaw<{ id: number }[]>`
+        SELECT id FROM "LoyaltyAccount" WHERE "cargoId" = ${cargoId} AND phone = ${receipt.phone} FOR UPDATE`
+      if (acc) {
+        const ledger = await tx.loyaltyLedger.findMany({
+          where: { cargoId, accountId: acc.id },
+          select: { id: true, kind: true, points: true, createdAt: true, expiresAt: true, refLedgerId: true, receiptId: true },
+        })
+        const mine = ledger.filter(e => e.receiptId === receipt.id)
+        if (!mine.some(e => e.kind === 'VOID')) {
+          const cfg = await getLoyaltyConfig(tx, cargoId)
+          const base = { cargoId, accountId: acc.id, receiptId: receipt.id, actorId: actor.id, actorName: actor.name, createdAt: now }
+          const earn = mine.find(e => e.kind === 'EARN') ?? null
+          const earnedNet = mine.filter(e => e.kind === 'EARN' || e.kind === 'ADJUST').reduce((t, e) => t + e.points, 0)
+          const redeem = mine.find(e => e.kind === 'REDEEM') ?? null
+          // Зарцуулсан оноо: REDEEM аль багцаас авсныг тэр хугацаатай нь сэргээнэ (хугацаа нь өнгөрсөн бол шууд дуусна)
+          if (redeem) {
+            const parts = consumedLots(ledger, redeem.id, now)
+            const fallback = new Date(now.getTime() + cfg.pointsExpiryDays * DAY_MS)
+            let i = 0
+            for (const p of parts) {
+              await tx.loyaltyLedger.create({
+                data: { ...base, kind: 'VOID', points: p.points, refLedgerId: redeem.id, expiresAt: p.expiresAt ?? fallback,
+                  dedupeKey: `void-redeem:r${receipt.id}:${i++}`, note: `Олголт №${receipt.id} буцаасан — зарцуулсан оноо буцав` },
+              })
+              pointsRefunded += p.points
+            }
+          }
+          if (earnedNet !== 0) {
+            await tx.loyaltyLedger.create({
+              data: { ...base, kind: 'VOID', points: -earnedNet, refLedgerId: earn?.id ?? null,
+                expiresAt: earnedNet < 0 ? (earn?.expiresAt ?? new Date(now.getTime() + cfg.pointsExpiryDays * DAY_MS)) : null,
+                dedupeKey: `void-earn:r${receipt.id}`, note: `Олголт №${receipt.id} буцаасан — олсон оноо хасагдав` },
+            })
+            pointsReversed = earnedNet
+          }
+        }
+      }
+    }
+    if (!receipt.voidedAt) {
+      await tx.handoverReceipt.update({ where: { id: receipt.id }, data: { voidedAt: now, voidedById: actor.id, voidedByName: actor.name } })
+    }
+    const ids = linked.map(x => x.id)
+    await tx.shipment.updateMany({ where: { id: { in: ids }, cargoId }, data: { receiptId: null } })
+    await tx.shipment.updateMany({ where: { id: { in: ids }, cargoId, status: 'PICKED_UP' }, data: { status: 'ARRIVED' } })
+    return { shipmentIds: ids, trackCodes: linked.map(x => x.trackCode), receiptId: receipt.id, pointsReversed, pointsRefunded }
+  }, { timeout: 20_000, maxWait: 10_000 })
+}
+
 // ── Үнэ засах ────────────────────────────────────────────────────────────────
 
 // adminPrice өөрчлөлт бүрийг бичнэ. Олгосон ачаа бол баримтын нөхцөлөөр дахин бодож онооны зөрүүг ADJUST мөрөөр нэмнэ.
@@ -458,7 +553,7 @@ export async function customerLoyalty(db: Db, cargoId: number, phone: string, no
   if (!loyaltyOn(cfg)) return null
   const st = (await loadCustomerStates(db, cargoId, cfg, [phone], now)).get(phone)!
   const receipts = await db.handoverReceipt.findMany({
-    where: { cargoId, phone }, orderBy: { createdAt: 'desc' }, take: 10,
+    where: { cargoId, phone, voidedAt: null }, orderBy: { createdAt: 'desc' }, take: 10,
     select: { ...RECEIPT_SUMMARY, createdAt: true },
   })
   return {
@@ -480,19 +575,23 @@ export async function monthlyReport(db: Db, cargoId: number, month: string, now 
   if (!range) throw new LoyaltyError('Сар буруу (YYYY-MM)', 400)
   const inMonth = { gte: range.start, lte: range.end }
   const cfg = await getLoyaltyConfig(db, cargoId)
-  const [rc, vipCount, ledger, adjustUp, adjustDown, priceChanges, manualChanges, allLedger] = await Promise.all([
+  const [rc, vipCount, ledger, adjustUp, adjustDown, priceChanges, manualChanges, allLedger, voided, voidUp, voidDown] = await Promise.all([
     db.handoverReceipt.aggregate({
-      where: { cargoId, createdAt: inMonth },
+      where: { cargoId, createdAt: inMonth, voidedAt: null },
       _count: { _all: true },
       _sum: { grossMnt: true, vipDiscountMnt: true, pointsRedeemed: true, pointsRedeemedMnt: true, pointsEarned: true, netMnt: true, itemCount: true },
     }),
-    db.handoverReceipt.count({ where: { cargoId, createdAt: inMonth, vipPct: { gt: 0 } } }),
+    db.handoverReceipt.count({ where: { cargoId, createdAt: inMonth, vipPct: { gt: 0 }, voidedAt: null } }),
     db.loyaltyLedger.groupBy({ by: ['kind'], where: { cargoId, createdAt: inMonth }, _sum: { points: true }, _count: { _all: true } }),
     db.loyaltyLedger.aggregate({ where: { cargoId, createdAt: inMonth, kind: 'ADJUST', points: { gt: 0 } }, _sum: { points: true } }),
     db.loyaltyLedger.aggregate({ where: { cargoId, createdAt: inMonth, kind: 'ADJUST', points: { lt: 0 } }, _sum: { points: true } }),
     db.shipmentPriceChange.aggregate({ where: { cargoId, createdAt: inMonth, receiptId: { not: null } }, _count: { _all: true }, _sum: { vipDiscountDeltaMnt: true, pointsDelta: true } }),
     db.loyaltyAccount.count({ where: { cargoId, vipManualAt: inMonth } }),
     db.loyaltyLedger.findMany({ where: { cargoId }, select: { accountId: true, id: true, kind: true, points: true, createdAt: true, expiresAt: true, refLedgerId: true } }),
+    // Энэ сард буцаасан (цуцалсан) олголтууд — дээрх нийлбэрт орохгүй
+    db.handoverReceipt.aggregate({ where: { cargoId, voidedAt: inMonth }, _count: { _all: true }, _sum: { grossMnt: true, netMnt: true } }),
+    db.loyaltyLedger.aggregate({ where: { cargoId, createdAt: inMonth, kind: 'VOID', points: { gt: 0 } }, _sum: { points: true } }),
+    db.loyaltyLedger.aggregate({ where: { cargoId, createdAt: inMonth, kind: 'VOID', points: { lt: 0 } }, _sum: { points: true } }),
   ])
   const byKind = Object.fromEntries(ledger.map(l => [l.kind, { points: l._sum.points ?? 0, count: l._count._all }]))
   // Нийт үлдэгдэл (каргоны өр) — одоогийн байдлаар
@@ -513,7 +612,10 @@ export async function monthlyReport(db: Db, cargoId: number, month: string, now 
     ledger: {
       earned: byKind.EARN?.points ?? 0, redeemed: -(byKind.REDEEM?.points ?? 0), expired: -(byKind.EXPIRE?.points ?? 0),
       adjustedUp: adjustUp._sum.points ?? 0, adjustedDown: -(adjustDown._sum.points ?? 0),
+      // Буцаасан олголт: олсон оноог хассан / зарцуулсан оноог буцаасан
+      voidReversed: -(voidDown._sum.points ?? 0), voidRefunded: voidUp._sum.points ?? 0,
     },
+    voidedReceipts: { count: voided._count._all, grossMnt: Number(voided._sum.grossMnt ?? 0), netMnt: Number(voided._sum.netMnt ?? 0) },
     priceEditsAfterHandover: {
       count: priceChanges._count._all, vipDiscountDeltaMnt: Number(priceChanges._sum.vipDiscountDeltaMnt ?? 0), pointsDelta: priceChanges._sum.pointsDelta ?? 0,
     },

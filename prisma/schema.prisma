@@ -636,6 +636,7 @@ model LoyaltyAccount {
 
 // Онооны дэвтэр — зөвхөн нэмж бичнэ (DB trigger UPDATE/DELETE-ийг хориглоно). Залруулга = шинэ ADJUST мөр
 // kind: EARN (+) · REDEEM (−) · ADJUST (±, олгосны дараа үнэ зассан) · EXPIRE (−, хугацаа дууссан)
+//       VOID (±, олголтыг буцаасан: олсон оноог хасна (−), зарцуулсан оноог буцаана (+))
 model LoyaltyLedger {
   id            Int              @id @default(autoincrement())
   cargoId       Int
@@ -695,6 +696,10 @@ model HandoverReceipt {
   createdById       Int
   createdByName     String
   createdAt         DateTime        @default(now())
+  // «Ирсэн төлөвт буцаах» (түүх) — баримт цуцлагдсан: тайлан, VIP зарцуулалтад тооцогдохгүй, оноо VOID мөрөөр буцаагдсан
+  voidedAt          DateTime?
+  voidedById        Int?
+  voidedByName      String?
   shipments         Shipment[]
   ledger            LoyaltyLedger[]
 

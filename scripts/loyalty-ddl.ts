@@ -75,6 +75,10 @@ export const LOYALTY_DDL: string[] = [
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "HandoverReceipt_pkey" PRIMARY KEY ("id")
   )`,
+  // Олголтыг «Ирсэн» төлөвт буцаахад баримт цуцлагдана (мөр устахгүй)
+  `ALTER TABLE "HandoverReceipt" ADD COLUMN IF NOT EXISTS "voidedAt" TIMESTAMP(3)`,
+  `ALTER TABLE "HandoverReceipt" ADD COLUMN IF NOT EXISTS "voidedById" INTEGER`,
+  `ALTER TABLE "HandoverReceipt" ADD COLUMN IF NOT EXISTS "voidedByName" TEXT`,
 
   `CREATE TABLE IF NOT EXISTS "LoyaltyLedger" (
     "id" SERIAL NOT NULL,
@@ -144,9 +148,13 @@ export const LOYALTY_DDL: string[] = [
      AND "maxRedeemPct" BETWEEN 0 AND 100 AND "vipWindowDays" BETWEEN 1 AND 365 AND "vipGraceDays" BETWEEN 0 AND 365
      AND jsonb_typeof("vipTiers") = 'array'`),
   check('LoyaltyAccount', 'LoyaltyAccount_vipManualPct_check', `"vipManualPct" IS NULL OR "vipManualPct" BETWEEN 1 AND 5`),
-  check('LoyaltyLedger', 'LoyaltyLedger_kind_check',
+  // v2: VOID (олголт буцаасан) нэмэгдсэн. Хуучин (v1) шалгалттай DB-д v1-ийг хасаад v2-ийг нэмнэ — давтан ажиллуулж болно
+  `ALTER TABLE "LoyaltyLedger" DROP CONSTRAINT IF EXISTS "LoyaltyLedger_kind_check"`,
+  check('LoyaltyLedger', 'LoyaltyLedger_kind_v2_check',
     `("kind" = 'EARN' AND "points" > 0) OR ("kind" = 'REDEEM' AND "points" < 0)
-     OR ("kind" = 'EXPIRE' AND "points" < 0) OR ("kind" = 'ADJUST' AND "points" <> 0)`),
+     OR ("kind" = 'EXPIRE' AND "points" < 0) OR ("kind" = 'ADJUST' AND "points" <> 0)
+     OR ("kind" = 'VOID' AND "points" <> 0)`),
+  check('HandoverReceipt', 'HandoverReceipt_void_check', `"voidedAt" IS NULL OR "voidedById" IS NOT NULL`),
   check('HandoverReceipt', 'HandoverReceipt_amounts_check',
     `"vipPct" BETWEEN 0 AND 5 AND "grossMnt" >= 0 AND "vipDiscountMnt" >= 0 AND "pointsRedeemed" >= 0
      AND "pointsRedeemedMnt" >= 0 AND "pointsEarned" >= 0 AND "netMnt" >= 0 AND "itemCount" > 0`),

@@ -178,7 +178,7 @@ export function effectiveVip(auto: Pick<AutoVip, 'pct'>, manualPct: number): { p
 
 // ── Оноо (append-only дэвтрээс тооцно) ──────────────────────────────────────
 
-export type LedgerKind = 'EARN' | 'REDEEM' | 'ADJUST' | 'EXPIRE'
+export type LedgerKind = 'EARN' | 'REDEEM' | 'ADJUST' | 'EXPIRE' | 'VOID'
 
 export interface LedgerEntry {
   id: number
@@ -196,9 +196,24 @@ export interface PointsState {
   expiringSoon: { points: number; at: Date } | null
 }
 
-// Оноо нь EARN/ADJUST(+) мөр бүрээр «багц» болно, хамгийн түрүүнд дуусах багцаас зарцуулна.
+export interface ConsumedLot { lotId: number | null; points: number; expiresAt: Date | null }
+
+// Оноо нь эерэг мөр бүрээр (EARN/ADJUST/VOID+) «багц» болно, хамгийн түрүүнд дуусах багцаас зарцуулна.
+// refLedgerId-тай сөрөг мөр (VOID: буцаасан олголтын оноо) эхлээд тэр багцаас хасна, дутуу нь ердийн дарааллаар.
 // Хугацаа дууссан багцын үлдэгдэл тэр мөчид шатна (EXPIRE мөр хожуу бичигдсэн ч тооцоо ижил).
 export function simulatePoints(entries: LedgerEntry[], now: Date): PointsState {
+  return runPoints(entries, now, null)
+}
+
+// Сөрөг мөр (жш REDEEM) ямар багцуудаас, хэдэн оноо авсныг буцаана — олголт буцаахад оноог
+// анхны дуусах хугацаатай нь сэргээхэд хэрэглэнэ. lotId=null хэсэг нь өрөөр (deficit) авсан.
+export function consumedLots(entries: LedgerEntry[], entryId: number, now: Date): ConsumedLot[] {
+  const track = new Map<number, ConsumedLot[]>()
+  runPoints(entries, now, track)
+  return track.get(entryId) ?? []
+}
+
+function runPoints(entries: LedgerEntry[], now: Date, track: Map<number, ConsumedLot[]> | null): PointsState {
   const sorted = [...entries].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id)
   const active: { id: number; remaining: number; expiresAt: Date | null }[] = []
   const expired = new Map<number, number>()
@@ -231,14 +246,21 @@ export function simulatePoints(entries: LedgerEntry[], now: Date): PointsState {
       if (amount > 0) active.push({ id: e.id, remaining: amount, expiresAt: e.expiresAt })
     } else if (e.points < 0) {
       let need = -e.points
-      for (const lot of byExpiry()) {
+      const used: ConsumedLot[] = []
+      const ordered = byExpiry()
+      const ref = e.refLedgerId != null ? ordered.findIndex(l => l.id === e.refLedgerId) : -1
+      if (ref > 0) ordered.unshift(...ordered.splice(ref, 1))
+      for (const lot of ordered) {
         if (need === 0) break
         const take = Math.min(lot.remaining, need)
+        if (take > 0) used.push({ lotId: lot.id, points: take, expiresAt: lot.expiresAt })
         lot.remaining -= take
         need -= take
       }
       for (let i = active.length - 1; i >= 0; i--) if (active[i].remaining === 0) active.splice(i, 1)
+      if (need > 0) used.push({ lotId: null, points: need, expiresAt: null })
       deficit += need
+      track?.set(e.id, used)
     }
   }
   expireUpTo(now.getTime())
@@ -252,7 +274,10 @@ export function simulatePoints(entries: LedgerEntry[], now: Date): PointsState {
     balance,
     lots: active.map(l => ({ ...l })),
     dueExpiries,
-    expiringSoon: first?.expiresAt ? { points: first.remaining, at: first.expiresAt } : null,
+    // Ижил өдөр дуусах багцуудыг нэгтгэнэ (жш буцаасан олголтын оноо анхны багцынхаа хугацаатай сэргэсэн)
+    expiringSoon: first?.expiresAt
+      ? { points: active.filter(l => l.expiresAt?.getTime() === first.expiresAt!.getTime()).reduce((t, l) => t + l.remaining, 0), at: first.expiresAt }
+      : null,
   }
 }
 
