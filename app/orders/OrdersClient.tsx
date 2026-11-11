@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, ChevronDown, X, LockKeyhole, Pencil } from 'lucide-react'
 import LoyaltyHub from './loyalty/LoyaltyHub'
 import { vipDiscountMnt, type CustomerLoyaltyView } from '@/lib/loyalty-core'
 import type { EreenAddress } from '@/lib/ereen-address'
@@ -87,6 +87,10 @@ function fmtDT(iso: string) {
 }
 
 const STEP_ORDER = ['REGISTERED', 'EREEN_ARRIVED', 'ARRIVED', 'PICKED_UP'] as const
+// Жагсаалтын дараалал: авахад бэлэн → Эрээнд → бүртгүүлсэн → олгосон (UX аудит #4). Тухайн бүлэгт өмнөх эрэмбэ хэвээр
+const LIST_PRIORITY: Record<string, number> = { ARRIVED: 0, EREEN_ARRIVED: 1, REGISTERED: 2, PICKED_UP: 3 }
+const byListPriority = <T extends { status: string }>(list: T[]) =>
+  list.map((x, i) => [x, i] as const).sort((a, b) => (LIST_PRIORITY[a[0].status] ?? 9) - (LIST_PRIORITY[b[0].status] ?? 9) || a[1] - b[1]).map(([x]) => x)
 const STEP_COLOR: Record<string, string> = {
   REGISTERED: 'var(--muted)', EREEN_ARRIVED: 'var(--blue)', ARRIVED: 'var(--yellow)', PICKED_UP: 'var(--green)',
 }
@@ -148,6 +152,8 @@ function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onD
   onDelete: () => void
 }) {
   const [menu, setMenu] = useState(false)
+  // Явцын шугамыг анхдагчаар нууна — карт намхан, статус + хугацаа нэг харцаар. Товшиж дэлгэнэ
+  const [open, setOpen] = useState(false)
   const idx = STEP_ORDER.indexOf(s.status as typeof STEP_ORDER[number])
   const price = s.adminPrice ? `${cur}${Number(s.adminPrice).toLocaleString()}` : null
   const title = s.description?.trim() || s.trackCode
@@ -217,24 +223,34 @@ function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onD
         </div>
       )}
 
-      {s.status !== 'PICKED_UP' && idx >= 0 && (
-        <ol className="sc-track" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
+      {s.status !== 'PICKED_UP' && idx >= 0 ? (
+        <button type="button" className="sc-status sc-status-btn" aria-expanded={open} onClick={() => setOpen(o => !o)}
+          aria-label={`${labels[s.status] ?? s.status} — ${open ? 'явцыг хаах' : 'явцыг харах'}`}>
+          <b>{headline}</b>
+          {sub && <span>{sub}</span>}
+          <ChevronDown size={16} className="sc-chev" aria-hidden />
+        </button>
+      ) : (
+        <p className="sc-status">
+          <b>{headline}</b>
+          {sub && <span>{sub}</span>}
+        </p>
+      )}
+
+      {open && s.status !== 'PICKED_UP' && idx >= 0 && (
+        <ol className="sc-track sc-track-labeled" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
           {STEP_ORDER.map((k, i) => {
             const d = i <= idx ? stepDates[i] : null
             return (
               <li key={k} className={`sc-step${i < idx ? ' done' : ''}${i === idx ? ' cur' : ''}`} title={d ? `${labels[k]} · ${fullDate(d)}` : labels[k]}>
                 <span className="sc-bar" />
+                <span className="sc-step-lbl">{labels[k]}</span>
                 <time dateTime={d ?? undefined}>{d ? shortDate(d) : ' '}</time>
               </li>
             )
           })}
         </ol>
       )}
-
-      <p className="sc-status">
-        <b>{headline}</b>
-        {sub && <span>{sub}</span>}
-      </p>
 
       {s.adminNote && <p className="sc-note">{t.adminNote}: {s.adminNote}</p>}
     </article>
@@ -491,7 +507,7 @@ export default function OrdersClient({
   const afterSearch = soloShipments
     .filter(s => !searchQ.trim() || s.trackCode.toLowerCase().includes(searchQ.trim().toLowerCase()) || (s.phone || '').includes(searchQ.trim()))
 
-  const filtered = activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab)
+  const filtered = byListPriority(activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab))
 
   // Өдрөөр бүлэглэсэн харагдац — сонгосон таб/хайлтад тааруулсан жагсаалтыг
   // огноогоор (сүүлийнхээс эхлээд) бүлэглэнэ, admin/report-той адил хэлбэр.

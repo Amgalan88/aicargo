@@ -2356,3 +2356,14 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 .sys-page-title { font-size: 1.35rem; font-weight: 700; margin: 0; }
 .sys-page-text { color: var(--muted); max-width: 360px; margin: 0 0 0.6rem; }
 .sys-page-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.9rem; color: var(--accent); font-weight: 600; }
+
+/* ── Хэрэглэгчийн карт: намхан, статус товч + дэлгэх явц (UX аудит #4) ── */
+.sc { padding: 0.7rem 0.95rem 0.6rem; }
+.sc-status.sc-status-btn { width: 100%; margin: 0.15rem 0 0; padding: 0.35rem 1.6rem 0.2rem 0; min-height: 36px; position: relative; background: none; border: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.sc-status-btn .sc-chev { position: absolute; right: 0; top: 50%; transform: translateY(-50%); color: var(--muted); transition: transform 0.15s; }
+.sc-status-btn[aria-expanded="true"] .sc-chev { transform: translateY(-50%) rotate(180deg); }
+.sc-track.sc-track-labeled { margin: 0.5rem 0 0.2rem; }
+.sc-step-lbl { display: block; margin-top: 0.45rem; font-size: 0.75rem; line-height: 1.2; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-step.cur .sc-step-lbl { color: var(--c); font-weight: 700; }
+.sc-track-labeled .sc-step time { margin-top: 0.15rem; }
+.sc-PICKED_UP { padding: 0.6rem 0.95rem; }
