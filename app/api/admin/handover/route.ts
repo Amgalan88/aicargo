@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { auditLater } from '@/lib/audit'
 import { randomUUID } from 'node:crypto'
-import { performHandover, LoyaltyError, cleanIds, cleanRedeem } from '@/lib/loyalty'
+import { performHandover, LoyaltyError, cleanIds, cleanRedeem, pointsBalances } from '@/lib/loyalty'
 
 // GET /api/admin/handover?q=phone_or_trackcode
 // GET /api/admin/handover?summary=1
@@ -146,5 +146,7 @@ export async function POST(req: NextRequest) {
     }
   })
 
-  return NextResponse.json({ ok: true, count, receipts, replayed: result.replayed })
+  // Баримтын хураангуйд «шинэ үлдэгдэл» харуулна (алдаа гарвал олголтыг унагаахгүй)
+  const balances = await pointsBalances(prisma, cargoId, receipts.map(r => r.phone)).catch(() => null)
+  return NextResponse.json({ ok: true, count, receipts, balances, replayed: result.replayed })
 }

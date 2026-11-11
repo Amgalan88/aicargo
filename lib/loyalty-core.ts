@@ -288,6 +288,30 @@ export const toCents = (mnt: number | string | { toString(): string } | null | u
 export const fromCents = (c: number) => c / 100
 const floorMnt = (cents: number) => Math.floor(cents / 100) * 100
 
+// Ирсэн (олгоогүй) ачааны VIP хөнгөлөлтийн урьдчилсан тооцоо — баримттай ижил дүрэм (₮ бүхэлд доош)
+export function vipDiscountMnt(grossMnt: number, vipPct: number): number {
+  if (!(vipPct > 0) || !(grossMnt > 0)) return 0
+  return fromCents(floorMnt(Math.floor((toCents(grossMnt) * vipPct) / 100)))
+}
+
+// Олгосон баримтын төлсөн дүнг (net) ачаа бүрд нийт үнийн жингээр хуваана — нийлбэр нь яг баримтын net.
+// Сүүлийн мөнгө (бүхэлчлэлийн үлдэгдэл) хамгийн их үнэтэй ачаанд ногдоно.
+export function allocateReceiptNet(items: { id: number; grossMnt: number }[], netMnt: number): Map<number, number> {
+  const out = new Map<number, number>()
+  if (!items.length) return out
+  const netC = toCents(netMnt)
+  const grossC = items.reduce((t, i) => t + Math.max(0, toCents(i.grossMnt)), 0)
+  let used = 0
+  for (const i of items) {
+    const share = grossC > 0 ? Math.floor((netC * Math.max(0, toCents(i.grossMnt))) / grossC / 100) * 100 : 0
+    out.set(i.id, share); used += share
+  }
+  const top = items.reduce((a, b) => (toCents(b.grossMnt) > toCents(a.grossMnt) ? b : a))
+  out.set(top.id, out.get(top.id)! + netC - used)
+  for (const [k, v] of out) out.set(k, fromCents(v))
+  return out
+}
+
 export interface QuoteInput {
   grossMnt: number
   cfg: LoyaltyConfig

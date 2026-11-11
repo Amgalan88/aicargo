@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import OrdersClient from './OrdersClient'
 import { cargoAddresses } from '@/lib/ereen-address'
-import { customerLoyalty } from '@/lib/loyalty'
+import { customerLoyalty, paidByShipment } from '@/lib/loyalty'
 import type { CustomerLoyaltyView } from '@/lib/loyalty-core'
 
 export default async function OrdersPage() {
@@ -57,6 +57,12 @@ export default async function OrdersPage() {
         .catch(e => { console.error('customerLoyalty failed', e); return null })
     : null
 
+  // Олгосон ачааны бодит төлсөн дүн (баримтаас) — VIP/оноо хассан дүн картанд харагдана
+  const paid = userRecord?.cargoId
+    ? await paidByShipment(prisma, userRecord.cargoId, shipments.filter(s => s.status === 'PICKED_UP').map(s => s.receiptId))
+        .catch(e => { console.error('paidByShipment failed', e); return {} })
+    : {}
+
   return (
     <OrdersClient
       shipments={JSON.parse(JSON.stringify(shipments))}
@@ -96,6 +102,7 @@ export default async function OrdersPage() {
       batches={JSON.parse(JSON.stringify(batches))}
       aiSuggestions={suggestedQuestions}
       loyalty={loyalty}
+      paid={paid}
     />
   )
 }

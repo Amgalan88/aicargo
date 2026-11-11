@@ -1,7 +1,7 @@
 'use client'
 import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
 import LoyaltyCard from './LoyaltyCard'
-import type { CustomerLoyaltyView } from '@/lib/loyalty-core'
+import { vipDiscountMnt, type CustomerLoyaltyView } from '@/lib/loyalty-core'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useRef, useEffect, useMemo } from 'react'
@@ -54,6 +54,20 @@ interface Shipment {
   ereenArrivedAt?: string | null
   arrivedAt?: string | null
   batchId?: number | null
+  receiptId?: number | null
+}
+
+// Олгосон ачааны бодит төлсөн дүн (баримтаас, app/orders/page.tsx → lib/loyalty.paidByShipment)
+export interface ShipmentPaid { receiptId: number; paidMnt: number; vipPct: number; pointsRedeemed: number; itemCount: number }
+
+// Картанд харуулах дүн: Ирсэн → VIP-ийн урьдчилсан хөнгөлөлттэй, Олгосон → баримтын төлсөн дүн
+interface Amount { gross: number; final: number; kind: 'est' | 'paid' | null; receiptId?: number }
+function amountOf(s: Shipment, vipPct: number, paid?: Record<number, ShipmentPaid>): Amount {
+  const gross = s.adminPrice ? Number(s.adminPrice) : 0
+  if (s.status === 'ARRIVED' && vipPct > 0 && gross > 0) return { gross, final: gross - vipDiscountMnt(gross, vipPct), kind: 'est' }
+  const p = s.status === 'PICKED_UP' ? paid?.[s.id] : undefined
+  if (p) return { gross, final: p.paidMnt, kind: 'paid', receiptId: p.receiptId }
+  return { gross, final: gross, kind: null }
 }
 
 interface UserBatch {
@@ -122,8 +136,10 @@ function shortDate(iso: string) {
 
 // Хэрэглэгчийн ачааны карт: гарчиг = юу болох нь (тайлбар), доор нь нэг өгүүлбэрээр хаана явааг хэлнэ.
 // Төлөв нэг л удаа — цэгэн явц + хүний хэлээрх мөр. "Ирсэн" нь цорын ганц үйлдэл шаардах төлөв тул тодорно.
-function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
+function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onDelete }: {
   s: Shipment
+  amt: Amount
+  vipPct: number
   t: UserDict
   labels: Record<string, string>
   cur: string
@@ -146,7 +162,9 @@ function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
   ]
 
   let headline: React.ReactNode
-  let sub: string | null = null
+  let sub: React.ReactNode = null
+  const money = (n: number) => `${cur}${Math.round(n).toLocaleString()}`
+  const struck = amt.final !== amt.gross && amt.gross > 0 ? <s style={{ color: 'var(--muted)', fontWeight: 400 }}>{money(amt.gross)}</s> : null
   if (s.status === 'REGISTERED') {
     headline = t.stWaitEreen
     sub = fmt(t.stRegistered, { r: relTime(s.createdAt, t) })
@@ -155,10 +173,14 @@ function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
     sub = relTime(s.ereenArrivedAt ?? s.updatedAt, t)
   } else if (s.status === 'ARRIVED') {
     headline = <>{labels.ARRIVED}!</>
-    sub = price ? fmt(t.stPay, { p: price }) : t.stReady
+    sub = !price ? t.stReady : amt.kind === 'est'
+      ? <>{struck} {fmt(t.stPay, { p: money(amt.final) })}<small className="sc-est">{fmt(t.vipEst, { pct: vipPct })}</small></>
+      : fmt(t.stPay, { p: price })
   } else if (s.status === 'PICKED_UP') {
     headline = fmt(t.stPicked, { d: shortDate(s.updatedAt) })
-    sub = price
+    sub = amt.kind === 'paid'
+      ? <>{struck} {money(amt.final)} · {fmt(t.paidReceipt, { n: amt.receiptId ?? '' })}</>
+      : price
   } else {
     headline = labels[s.status] ?? s.status
   }
@@ -278,6 +300,7 @@ export default function OrdersClient({
   batches = [],
   aiSuggestions = [],
   loyalty = null,
+  paid = {},
 }: {
   shipments: Shipment[]
   userName: string
@@ -313,10 +336,12 @@ export default function OrdersClient({
   aiSuggestions?: string[]
   // Карго урамшуулал (оноо / VIP) асаасан бол
   loyalty?: CustomerLoyaltyView | null
+  paid?: Record<number, ShipmentPaid>
 }) {
   const router = useRouter()
   const [lang, setLang] = useUserLang()
   const t = dict(lang)
+  const vipPct = loyalty?.vip?.pct ?? 0
   // Батч горимд: Эрээний шат нуугдаж, ARRIVED нь "УБ руу ачигдсан" нэртэй болно.
   // Каргогийн өөрийн тохируулсан нэр (arrivedLabel/ereemLabel) бүх хэлэнд хэвээр.
   const { map: STATUS_LABEL, all: allLabel } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
@@ -483,9 +508,9 @@ export default function OrdersClient({
       .map(([date, items]) => ({
         date,
         items,
-        total: items.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0),
+        total: items.reduce((sum, s) => sum + amountOf(s, vipPct, paid).final, 0),
       }))
-  }, [filtered])
+  }, [filtered, vipPct, paid])
 
   const totalPages = viewMode === 'byDate'
     ? Math.max(1, Math.ceil(groupedByDate.length / PAGE_SIZE))
@@ -897,6 +922,8 @@ export default function OrdersClient({
           const arrived = shipments.filter(s => s.status === 'ARRIVED')
           const total = arrived.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
           if (arrived.length === 0) return null
+          // LoyaltyCard-тай ижил: нийт дүнгээс VIP % (олгох үед нэг баримтаар тооцогдоно — урьдчилсан)
+          const estDiscount = vipDiscountMnt(total, vipPct)
           // Мэдэгдэл маягийн мөр — "амьд" цэгтэй, дарахад ирсэн ачааны таб нээгдэнэ
           return (
             <button
@@ -909,8 +936,10 @@ export default function OrdersClient({
               </span>
               {total > 0 && (
                 <span className="onotice-sum">
-                  <small>{t.totalPayment}</small>
-                  <b>{CUR}{total.toLocaleString()}</b>
+                  <small>{t.totalPayment}{estDiscount > 0 ? ` · VIP ${vipPct}%` : ''}</small>
+                  {estDiscount > 0
+                    ? <b><s className="onotice-was">{CUR}{total.toLocaleString()}</s>{CUR}{(total - estDiscount).toLocaleString()}</b>
+                    : <b>{CUR}{total.toLocaleString()}</b>}
                 </span>
               )}
               <ChevronRight size={18} className="onotice-chev" />
@@ -1079,6 +1108,8 @@ export default function OrdersClient({
                 >
                 <ShipmentCard
                   s={s}
+                  amt={amountOf(s, vipPct, paid)}
+                  vipPct={vipPct}
                   t={t}
                   labels={STATUS_LABEL}
                   cur={CUR}
@@ -1127,9 +1158,15 @@ export default function OrdersClient({
                             <span className={`badge badge-${s.status}`} style={{ fontSize: '0.62rem', padding: '0.15rem 0.5rem', flexShrink: 0 }}>{STATUS_LABEL[s.status] ?? s.status}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
-                            <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
-                              {s.adminPrice ? `${CUR}${Number(s.adminPrice).toLocaleString()}` : '—'}
-                            </span>
+                            {(() => {
+                              const a = amountOf(s, vipPct, paid)
+                              return (
+                                <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
+                                  {a.final !== a.gross && <s style={{ color: 'var(--muted)', fontWeight: 400, marginRight: 4 }}>{CUR}{a.gross.toLocaleString()}</s>}
+                                  {s.adminPrice ? `${CUR}${Math.round(a.final).toLocaleString()}` : '—'}
+                                </span>
+                              )
+                            })()}
                             {(s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
                               <button onClick={() => setConfirmDelete(s.id)} disabled={deleting === s.id}
                                 title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}

@@ -150,10 +150,11 @@ function CustomersTab() {
   useEffect(() => { load() }, [load])
   return (
     <div>
-      <form onSubmit={e => { e.preventDefault(); load(q) }} style={{ display: 'flex', gap: '0.5rem', maxWidth: 420, marginBottom: '1rem' }}>
-        <input className="input" placeholder="Утасны дугаар (8 оронтой бол шинээр VIP оноож болно)" value={q} onChange={e => setQ(e.target.value)} />
-        <button className="btn" type="submit">Хайх</button>
+      <form onSubmit={e => { e.preventDefault(); load(q) }} style={{ display: 'flex', gap: '0.5rem', maxWidth: 420, marginBottom: '0.35rem' }}>
+        <input className="input" placeholder="Утасны дугаар" aria-describedby="vip-search-hint" inputMode="numeric" value={q} onChange={e => setQ(e.target.value)} />
+        <button className="btn" type="submit" style={{ flexShrink: 0 }}>Хайх</button>
       </form>
+      <p id="vip-search-hint" style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: '0 0 1rem' }}>8 оронтой дугаар оруулбал шинэ хэрэглэгчид VIP оноож болно.</p>
       {!data ? <p className="empty">Ачаалж байна…</p> : data.rows.length === 0 ? <p className="empty">VIP эсвэл оноотой хэрэглэгч алга.</p> : (
         <div className="card" style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>

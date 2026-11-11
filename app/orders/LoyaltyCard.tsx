@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Award, Coins, ChevronDown } from 'lucide-react'
-import type { CustomerLoyaltyView } from '@/lib/loyalty-core'
+import { vipDiscountMnt, type CustomerLoyaltyView } from '@/lib/loyalty-core'
 
 const tg = (n: number) => '₮' + Math.round(n).toLocaleString('en-US')
 const d = (iso: string) => { const x = new Date(iso); return `${x.getFullYear()}.${x.getMonth() + 1}.${x.getDate()}` }
@@ -11,7 +11,7 @@ export default function LoyaltyCard({ loyalty, arrivedTotal }: { loyalty: Custom
   const [open, setOpen] = useState(false)
   if (!loyalty || (!loyalty.points && !loyalty.vip)) return null
   const { points, vip, receipts } = loyalty
-  const vipDiscount = vip && vip.pct > 0 ? Math.floor((arrivedTotal * vip.pct) / 100) : 0
+  const vipDiscount = vip ? vipDiscountMnt(arrivedTotal, vip.pct) : 0
   return (
     <div className="card" style={{ padding: '0.85rem 1rem', margin: '0.75rem 0', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
       {vip && (

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   DEFAULT_LOYALTY_CONFIG, DAY_MS, configFromRow, validateConfigInput, tierPct, autoVip, manualVipPct, effectiveVip,
-  simulatePoints, consumedLots, quoteReceipt, RedeemError, receiptOutcome, priceChangeCompensation, ownerPhoneOf, ubMonthRange, ubMonthOf,
+  simulatePoints, consumedLots, quoteReceipt, vipDiscountMnt, allocateReceiptNet, RedeemError, receiptOutcome, priceChangeCompensation, ownerPhoneOf, ubMonthRange, ubMonthOf,
   type LedgerEntry, type LoyaltyConfig,
 } from './loyalty-core'
 
@@ -291,5 +291,29 @@ describe('handover revert (VOID rows)', () => {
     const s = simulatePoints([lot, red, ref], NOW)
     assert.equal(s.balance, 0)
     assert.deepEqual(s.dueExpiries, [{ lotId: ref.id, points: 100 }])
+  })
+})
+
+describe('customer /orders amounts', () => {
+  it('vipDiscountMnt matches the receipt rule (whole ₮, floored) and quote', () => {
+    for (const [gross, pct] of [[15000, 1], [32000, 2], [18000, 3], [12345, 2], [999, 5], [100, 0]] as const) {
+      const terms = { vipEnabled: true, vipPct: pct, pointsEnabled: false, earnMntPerPoint: null, pointsRedeemedMnt: 0 }
+      assert.equal(vipDiscountMnt(gross, pct), receiptOutcome(terms as never, gross).vipDiscountMnt, `${gross} ${pct}%`)
+    }
+    assert.equal(vipDiscountMnt(32000, 2), 640)
+    assert.equal(vipDiscountMnt(12345, 2), 246)
+    assert.equal(vipDiscountMnt(0, 5), 0)
+    assert.equal(vipDiscountMnt(15000, -1), 0)
+  })
+  it('allocateReceiptNet splits net by gross weight and sums exactly to the receipt net', () => {
+    const one = allocateReceiptNet([{ id: 1, grossMnt: 20000 }], 9800)
+    assert.deepEqual([...one], [[1, 9800]])
+    const three = allocateReceiptNet([{ id: 1, grossMnt: 10000 }, { id: 2, grossMnt: 20000 }, { id: 3, grossMnt: 3333 }], 31999)
+    assert.equal([...three.values()].reduce((a, b) => a + b, 0), 31999)
+    assert.ok([...three.values()].every(v => Number.isInteger(v)))
+    assert.equal(three.get(1), 9599)
+    const zero = allocateReceiptNet([{ id: 1, grossMnt: 0 }, { id: 2, grossMnt: 0 }], 0)
+    assert.deepEqual([...zero.values()], [0, 0])
+    assert.equal(allocateReceiptNet([], 100).size, 0)
   })
 })

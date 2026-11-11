@@ -135,3 +135,40 @@ export function HandoverLoyaltyPanel({ q }: { q: ReturnType<typeof useHandoverQu
     </div>
   )
 }
+
+// ── Олголтын дараах баримтын хураангуй ─────────────────────────────────────
+export interface HandoverResult {
+  count: number
+  receipts: { id: number; phone: string | null; itemCount: number; grossMnt: number; vipPct: number; vipDiscountMnt: number; pointsRedeemed: number; pointsRedeemedMnt: number; netMnt: number; pointsEarned: number }[]
+  balances: Record<string, number> | null
+}
+
+export function HandoverReceiptSummary({ r, style }: { r: HandoverResult; style?: React.CSSProperties }) {
+  const row = (label: React.ReactNode, value: React.ReactNode, color?: string, bold = false) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.85rem', color, fontWeight: bold ? 700 : undefined }}>
+      <span>{label}</span><span style={{ fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{value}</span>
+    </div>
+  )
+  return (
+    <div className="card" role="status" data-testid="handover-receipt" style={{ maxWidth: 420, marginBottom: '1.5rem', ...style }}>
+      <div className="card-row"><span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо · {r.count} ачаа</span></div>
+      {r.receipts.map(x => {
+        const bal = x.phone && r.balances ? r.balances[x.phone] : undefined
+        return (
+          <div key={x.id} style={{ padding: '0.6rem 1rem 0.75rem', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+            {row(<b>Баримт №{x.id}</b>, <span style={{ color: 'var(--muted)' }}>{x.phone ?? 'утасгүй'} · {x.itemCount} ачаа</span>)}
+            {row('Нийт', tg(x.grossMnt))}
+            {x.vipDiscountMnt > 0 && row(`VIP ${x.vipPct}% хөнгөлөлт`, `−${tg(x.vipDiscountMnt)}`, 'var(--green)')}
+            {x.pointsRedeemed > 0 && row(`${x.pointsRedeemed} оноо ашигласан`, `−${tg(x.pointsRedeemedMnt)}`, 'var(--green)')}
+            {row('Төлсөн', tg(x.netMnt), undefined, true)}
+            {(x.pointsEarned > 0 || bal !== undefined) && row(
+              x.pointsEarned > 0 ? `+${x.pointsEarned} оноо нэмэгдсэн` : 'Оноо',
+              bal !== undefined ? `Шинэ үлдэгдэл: ${bal.toLocaleString('en-US')} оноо` : '',
+              'var(--muted)',
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}

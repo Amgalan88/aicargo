@@ -485,7 +485,50 @@ describe('loyalty on a real local Postgres', { skip }, () => {
       assert.equal(rep.receipts.grossMnt, repBefore.receipts.grossMnt - 100000)
       assert.equal(rep.voidedReceipts.count, repBefore.voidedReceipts.count + 1)
       assert.equal(rep.ledger.voidReversed, repBefore.ledger.voidReversed + mid.points.balance)
+      // reverted receipt is netted out of earned points / price-edit adjustments too
+      assert.equal(rep.ledger.earned, repBefore.ledger.earned - 100)
+      assert.equal(rep.ledger.adjustedUp, repBefore.ledger.adjustedUp - 100)
+      assert.equal(rep.priceEditsAfterHandover.count, repBefore.priceEditsAfterHandover.count - 1)
       assert.ok(!(await L.customerLoyalty(prisma, C, p, NOW))!.receipts.some(x => x.id === r.receipts[0].id))
+    })
+
+    it('monthly report nets a reverted handover out of earned/redeemed points; matches receipt totals', async () => {
+      const p = '99180006'
+      await user(C, p, true)
+      const hist = await shipment(C, p, 300000)
+      await L.performHandover(prisma, { cargoId: C, actor: S.adminA, shipmentIds: [hist.id], requestKey: key(), now: ago(40) }) // previous month
+      const repBefore = await L.monthlyReport(prisma, C, '2026-11', NOW)
+      const s = await shipment(C, p, 20000)
+      const r = await ho(C, [s.id], { redeem: { [p]: 100 } })
+      const mid = await L.monthlyReport(prisma, C, '2026-11', NOW)
+      assert.equal(mid.ledger.earned - repBefore.ledger.earned, r.receipts[0].pointsEarned)
+      assert.equal(mid.ledger.redeemed - repBefore.ledger.redeemed, 100)
+      assert.equal(mid.receipts.pointsRedeemed - repBefore.receipts.pointsRedeemed, 100)
+      await revert(C, s.id)
+      const rep = await L.monthlyReport(prisma, C, '2026-11', NOW)
+      assert.deepEqual(
+        [rep.ledger.earned, rep.ledger.redeemed, rep.receipts.pointsEarned, rep.receipts.pointsRedeemed, rep.receipts.netMnt, rep.receipts.vipDiscountMnt],
+        [repBefore.ledger.earned, repBefore.ledger.redeemed, repBefore.receipts.pointsEarned, repBefore.receipts.pointsRedeemed, repBefore.receipts.netMnt, repBefore.receipts.vipDiscountMnt],
+      )
+      // info section still shows what was reverted
+      assert.equal(rep.ledger.voidRefunded - repBefore.ledger.voidRefunded, 100)
+      assert.equal(rep.ledger.voidReversed - repBefore.ledger.voidReversed, r.receipts[0].pointsEarned)
+      assert.equal(rep.voidedReceipts.count - repBefore.voidedReceipts.count, 1)
+    })
+
+    it('paidByShipment splits a receipt net across its shipments, skips voided; pointsBalances after handover', async () => {
+      const p = '99180007'
+      const a = await shipment(C, p, 10000)
+      const b = await shipment(C, p, 20000)
+      const rc = (await ho(C, [a.id, b.id])).receipts[0]
+      const paid = await L.paidByShipment(prisma, C, [rc.id, null, rc.id])
+      assert.equal(paid[a.id].paidMnt + paid[b.id].paidMnt, rc.netMnt)
+      assert.deepEqual([paid[a.id].receiptId, paid[b.id].itemCount], [rc.id, 2])
+      assert.equal((await L.pointsBalances(prisma, C, [p, null]))![p], rc.pointsEarned)
+      assert.equal(await L.pointsBalances(prisma, D, [p]), null) // points off
+      await revert(C, a.id, true)
+      assert.deepEqual(await L.paidByShipment(prisma, C, [rc.id]), {})
+      assert.equal((await L.pointsBalances(prisma, C, [p]))![p], 0)
     })
 
     it('loyalty OFF: receipt voided, no ledger rows; legacy shipment without receipt reverts as before', async () => {
