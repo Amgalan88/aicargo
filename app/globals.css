@@ -937,7 +937,9 @@ textarea.input { resize: vertical; }
 /* Hero */
 .lp-hero { position: relative; max-width: 880px; margin: 0 auto; padding: clamp(2rem, 5vw, 3.25rem) 5% 1rem; text-align: center; }
 .lp-hero > * { position: relative; }
-.lp-hero-glow { position: absolute !important; inset: -10% -30% 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 60% 55% at 50% 40%, rgba(180,83,47,0.12), transparent 70%); }
+/* Өмнө нь inset -30% → hero-оос 160% өргөн, утсан дээр хуудсыг 507px болгодог байв. Одоо hero-гийн өргөнд багтана;
+   ellipse 96% = хуучин 160%×60% тул туяа адилхан харагдана */
+.lp-hero-glow { position: absolute !important; inset: -10% 0 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 96% 55% at 50% 40%, rgba(180,83,47,0.12), transparent 70%); }
 .lp-pill {
   display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 1.2rem;
   font-size: var(--fs-xs); font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em;
