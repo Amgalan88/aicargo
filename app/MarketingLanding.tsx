@@ -458,7 +458,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                   {result.cargo?.name && (
                     <div className="card-row"><span className="label">Карго</span><strong style={{ color: 'var(--accent)' }}>{result.cargo.name}</strong></div>
                   )}
-                  <div className="card-row"><span className="label">Трак код</span><strong style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{result.trackCode}</strong></div>
+                  <div className="card-row"><span className="label">Трак код</span><strong style={{ fontFamily: 'monospace', fontSize: 'var(--fs-sm)' }}>{result.trackCode}</strong></div>
                   <div className="card-row"><span className="label">Статус</span><span className={`badge badge-${result.status}`}>{STATUS_LABEL[result.status] ?? result.status}</span></div>
                   {result.adminPrice && (
                     <div className="card-row"><span className="label">Төлбөр</span><strong style={{ color: 'var(--accent)' }}>₮{Number(result.adminPrice).toLocaleString()}</strong></div>
@@ -466,7 +466,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                   {result.updatedAt && (
                     <div className="card-row">
                       <span className="label">Огноо</span>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                      <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
                         {new Date(result.updatedAt).toLocaleDateString('mn-MN', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                       </span>
                     </div>

@@ -2389,3 +2389,18 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 .lp-footer-grid a, .lp-footer-grid button { min-height: 44px; }
 .lp-footer-grid > div:not(.lp-footer-brand) { gap: 0; }
 .lp-footer-bottom a { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* ── Нүүр (landing) хуудасны бичгийн хэмжээг токен руу буулгах (UX аудит #7, зөвхөн .lp дотор) ──
+   Утга бичвэр: --fs-xs(12) / --fs-sm(13) / --fs-base(14.4) / --fs-md(16) / --fs-lg(20); гарчиг: h1 + нэг h2 хэмжээ.
+   Доод хязгаар 12px. aria-hidden жижиг дэлгэцийн дүрслэл (hero mock) зориуд жижиг тул хөндөөгүй. */
+.lp .nav-links a:not(.btn), .lp .nav-links button:not(.btn) { font-size: var(--fs-sm); }
+.lp-lead { font-size: var(--fs-md); }
+@media (min-width: 768px) { .lp-lead { font-size: var(--fs-lg); } }
+.lp-head h2, .lp-final h2, .lp-wh-title, .lp-stats b, .lp-plan-price b { font-size: clamp(1.6rem, 3.8vw, 2.35rem); }
+.lp-role-head h3, .lp-plan h3, .lp-step h3, .lp-step-n, .lp-modal h3 { font-size: var(--fs-lg); }
+.lp-wh-flow b, .lp-wh-card-tag, .lp-step-time { font-size: var(--fs-xs); }
+@media (max-width: 720px) {
+  .lp-step h3 { font-size: var(--fs-base); }
+  .lp-step-n { font-size: var(--fs-md); }
+  .lp-step-time { font-size: var(--fs-xs); }
+}
