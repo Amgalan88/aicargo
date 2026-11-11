@@ -53,7 +53,8 @@ export default function ImportPage() {
   const [page, setPage] = useState(1)
   const [saving, setSaving] = useState(false)
   // Эрээнд ирсэн огноо ('' = өнөөдөр)
-  const [ereenDate, setEreenDate] = useState('')
+  // Анхны сонголт = өнөөдөр (UB). Хадгалахын өмнө админ огноог баталгаажуулна (чимээгүй хадгалахгүй)
+  const [ereenDate, setEreenDate] = useState(() => todayUB())
   const [pickDate, setPickDate] = useState(false)
   const [done, setDone] = useState<number | null>(null)
   const [duplicates, setDuplicates] = useState<string[]>([])
@@ -266,6 +267,14 @@ export default function ImportPage() {
     if (rows.length === 0) return
     // Эрээнд ирсэн огноо заавал — өнөөдрөөр чимээгүй хадгалахгүй (хадгалсны дараа буруу огноо засагдахгүй асуудал)
     if (!ereenDate) { setError('Эрээнд ирсэн огноог сонгоно уу'); return }
+    // Өнөөдөр урьдчилан сонгогдсон тул огноог заавал баталгаажуулна — буруу огноогоор чимээгүй хадгалахаас сэргийлнэ
+    const rel = ereenDate === todayUB() ? 'Өнөөдөр' : ereenDate === daysAgoUB(1) ? 'Өчигдөр'
+      : `${Math.round((Date.parse(todayUB()) - Date.parse(ereenDate)) / 86400_000)} хоногийн өмнө`
+    if (!await confirmAsync({
+      title: `${rows.length} ачаа «Эрээнд ирсэн» болгох уу?`,
+      message: `Огноо: ${ereenDate.replace(/-/g, '.')} (${rel})\nОгноо буруу бол «Болих» дараад өөрчилнө үү.`,
+      confirmLabel: 'Огноо зөв — хадгалах', danger: false,
+    })) return
     setSaving(true)
     setError('')
     try {
@@ -280,7 +289,7 @@ export default function ImportPage() {
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
       setDone(data.count)
-      setEreenDate(''); setPickDate(false)
+      setEreenDate(todayUB()); setPickDate(false)
       setDuplicates(data.duplicates ?? [])
       setAlreadyArrived({ list: data.alreadyArrived ?? [], count: data.alreadyArrivedCount ?? 0 })
       setOwnerChanges({ list: data.ownerChanges ?? [], count: data.ownerChangeCount ?? 0 })
