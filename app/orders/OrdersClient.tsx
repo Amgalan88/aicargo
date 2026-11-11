@@ -416,12 +416,14 @@ export default function OrdersClient({
   const [addForm, setAddForm] = useState({ trackCode: '', description: '' })
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
+  // Давхардсан (өөрийн жагсаалтад байгаа) трак код — «Харах →» холбоосоор жагсаалтаас олж харуулна
+  const [addDupCode, setAddDupCode] = useState<string | null>(null)
   const [addedCodes, setAddedCodes] = useState<string[]>([])
   const addInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (addOpen) setTimeout(() => addInputRef.current?.focus(), 100)
-    else { setAddForm({ trackCode: '', description: '' }); setAddError(''); setAddedCodes([]) }
+    else { setAddForm({ trackCode: '', description: '' }); setAddError(''); setAddDupCode(null); setAddedCodes([]) }
   }, [addOpen])
 
 
@@ -432,7 +434,7 @@ export default function OrdersClient({
     // Захиалгын дугаар Эрээнд бараг таарахгүй — бүртгэхийн өмнө заавал асууна (ховор тохиолдолд агуулах ийм кодоор бүртгэдэг тул хаахгүй)
     if (looksLikeOrderNumber(cleanTrackCode(addForm.trackCode)) && !await confirmAsync(t.orderNoConfirm)) return
     setAddLoading(true)
-    setAddError('')
+    setAddError(''); setAddDupCode(null)
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -440,7 +442,12 @@ export default function OrdersClient({
     })
     const data = await res.json()
     setAddLoading(false)
-    if (!res.ok) { setAddError(data.error); return }
+    if (!res.ok) {
+      setAddError(data.error || 'Бүртгэж чадсангүй. Дахин оролдоно уу.')
+      const code = cleanTrackCode(addForm.trackCode)
+      if (res.status === 409 && shipments.some(x => x.trackCode === code)) setAddDupCode(code)
+      return
+    }
     setShipments(prev => [data, ...prev])
     setAddedCodes(prev => [data.trackCode, ...prev])
     setAddForm({ trackCode: '', description: '' })
@@ -850,7 +857,7 @@ export default function OrdersClient({
       {addOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
           <div onClick={() => setAddOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
-          <div style={{
+          <div className="add-sheet" role="dialog" aria-modal="true" aria-label={t.addTitle} style={{
             position: 'absolute', top: '6%', left: '50%',
             transform: 'translateX(-50%)',
             background: 'var(--surface)', borderRadius: '16px',
@@ -860,34 +867,37 @@ export default function OrdersClient({
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{t.addTitle}</h2>
-              <button onClick={() => setAddOpen(false)} style={{
-                background: 'var(--surface2)', border: 'none', cursor: 'pointer',
-                width: 32, height: 32, borderRadius: '50%', fontSize: '1rem',
-                color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>✕</button>
+              <button type="button" className="add-x" aria-label="Хаах" onClick={() => setAddOpen(false)}><X size={18} /></button>
             </div>
             <form onSubmit={submitAdd}>
               <div className="form-group">
-                <label>{t.trackCode}</label>
-                <input ref={addInputRef} className="input" placeholder={t.trackCodePh} required
+                <label htmlFor="add-track">{t.trackCode} <span className="req" aria-hidden>*</span></label>
+                <input id="add-track" ref={addInputRef} className={`input${addError ? ' input-error' : ''}`} placeholder={t.trackCodePh} required
+                  aria-invalid={!!addError} aria-describedby={addError ? 'add-err' : undefined}
                   value={addForm.trackCode}
-                  onChange={e => setAddForm({ ...addForm, trackCode: e.target.value })} />
+                  onChange={e => { setAddForm({ ...addForm, trackCode: e.target.value }); if (addError) { setAddError(''); setAddDupCode(null) } }} />
+                {addError && (
+                  <p id="add-err" className="msg-error add-err" role="alert">
+                    {addError}
+                    {addDupCode && <> <button type="button" className="add-err-link" onClick={() => { setAddOpen(false); setActiveTab('ALL'); setSearchQ(addDupCode); setPage(1) }}>Харах →</button></>}
+                  </p>
+                )}
                 {/* Захиалгын дугаар (260926-…) оруулбал Эрээнд хэзээ ч таарахгүй — сануулна */}
                 {looksLikeOrderNumber(cleanTrackCode(addForm.trackCode)) && (
                   <p style={{ fontSize: '0.75rem', color: 'var(--orange)', lineHeight: 1.45, margin: '0.35rem 0 0' }}>⚠ {t.orderNoWarn}</p>
                 )}
               </div>
               <div className="form-group">
-                <label>{t.description}</label>
-                <textarea className="input" placeholder={t.descriptionPh} rows={2} required
+                <label htmlFor="add-desc">{t.description} <span className="req" aria-hidden>*</span> <small className="add-help">{t.descriptionHelp}</small></label>
+                <textarea id="add-desc" className="input" placeholder={t.descriptionPh} rows={2} required
                   value={addForm.description}
-                  onChange={e => setAddForm({ ...addForm, description: e.target.value })} />
+                  onChange={e => { setAddForm({ ...addForm, description: e.target.value }); if (addError && !addDupCode) setAddError('') }} />
               </div>
-              {addError && <p className="msg-error">{addError}</p>}
               <button className="btn" type="submit" disabled={addLoading || !addForm.trackCode.trim() || !addForm.description.trim()}
                 style={{ width: '100%', marginTop: '0.25rem' }}>
                 {addLoading ? t.saving : t.registerBtn}
               </button>
+              {!addLoading && (!addForm.trackCode.trim() || !addForm.description.trim()) && <p className="add-hint">{t.addFillHint}</p>}
             </form>
             {addedCodes.length > 0 && (
               <div style={{ marginTop: '1rem' }}>

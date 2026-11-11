@@ -2367,3 +2367,17 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 .sc-step.cur .sc-step-lbl { color: var(--c); font-weight: 700; }
 .sc-track-labeled .sc-step time { margin-top: 0.15rem; }
 .sc-PICKED_UP { padding: 0.6rem 0.95rem; }
+
+/* ── Бараа бүртгэх форм (UX аудит #5) ── */
+.req { color: var(--danger); font-weight: 700; }
+.add-help { font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
+.add-x { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--surface2); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: -0.4rem -0.4rem -0.4rem 0; }
+.add-x:hover { color: var(--text); }
+.input.input-error { border-color: var(--danger); }
+.add-err { margin: 0.35rem 0 0; }
+.add-err-link { background: none; border: none; padding: 0 0.15rem; min-height: 24px; color: var(--accent); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.add-hint { margin: 0.45rem 0 0; text-align: center; font-size: var(--fs-sm); color: var(--muted); }
+@media (max-width: 600px) {
+  .add-sheet { top: auto !important; bottom: 0 !important; left: 0 !important; transform: none !important; width: 100% !important; max-width: none !important; border-radius: 18px 18px 0 0 !important; max-height: 92vh; overflow-y: auto; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important; }
+  .add-sheet::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--border); margin: -0.6rem auto 0.9rem; }
+}
