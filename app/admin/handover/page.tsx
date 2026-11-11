@@ -1,6 +1,7 @@
 'use client'
 import { ScanLine } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { useHandoverQuote, HandoverLoyaltyPanel } from './HandoverLoyalty'
 
 interface Shipment {
   id: number
@@ -84,16 +85,20 @@ export default function HandoverPage() {
 
   const selectedItems = shipments.filter(s => selected.includes(s.id))
   const total = selectedItems.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
+  const searchQuote = useHandoverQuote(selected)
 
   async function handover() {
-    if (selected.length === 0) return
-    setLoading(true)
+    if (selected.length === 0 || searchQuote.blocked) return
+    setLoading(true); setError('')
+    // Сүлжээ тасарвал ижил requestKey-ээр дахин илгээнэ — давхар баримт/оноо үүсэхгүй
     const res = await fetch('/api/admin/handover', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shipmentIds: selected }),
-    })
+      body: JSON.stringify(searchQuote.body()),
+    }).catch(() => null)
     setLoading(false)
-    if (res.ok) { setDone(true); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
+    if (!res) { setError('Сүлжээний алдаа — дахин дарна уу (давхар олгогдохгүй)'); return }
+    if (res.ok) { searchQuote.reset(); setDone(true); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
+    else { const d = await res.json().catch(() => ({})); setError(d.error || 'Алдаа гарлаа'); searchQuote.refresh() }
   }
 
   // ── Scanner mode functions ──
@@ -119,16 +124,19 @@ export default function HandoverPage() {
   }
 
   const scanTotal = scanned.reduce((s, r) => s + (r.adminPrice ? Number(r.adminPrice) : 0), 0)
+  const scanQuote = useHandoverQuote(scanned.map(s => s.id))
 
   async function scanHandover() {
-    if (scanned.length === 0) return
+    if (scanned.length === 0 || scanQuote.blocked) return
     setScanLoading(true)
     const res = await fetch('/api/admin/handover', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shipmentIds: scanned.map(s => s.id) }),
-    })
+      body: JSON.stringify(scanQuote.body()),
+    }).catch(() => null)
     setScanLoading(false)
-    if (res.ok) { setScanDone(true); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
+    if (!res) { setScanMsg({ text: 'Сүлжээний алдаа — дахин дарна уу (давхар олгогдохгүй)', ok: false }); return }
+    if (res.ok) { scanQuote.reset(); setScanDone(true); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
+    else { const d = await res.json().catch(() => ({})); setScanMsg({ text: d.error || 'Алдаа гарлаа', ok: false }); scanQuote.refresh() }
   }
 
   return (
@@ -280,9 +288,10 @@ export default function HandoverPage() {
                         <strong>Нийт</strong>
                         <strong style={{ color: 'var(--accent)' }}>₮{total.toLocaleString()}</strong>
                       </div>
+                      <HandoverLoyaltyPanel q={searchQuote} />
                       <div style={{ padding: '0.75rem 1rem' }}>
-                        <button className="btn" style={{ width: '100%' }} onClick={handover} disabled={loading}>
-                          {loading ? '...' : `Олгох (${selectedItems.length})`}
+                        <button className="btn" style={{ width: '100%' }} onClick={handover} disabled={loading || searchQuote.blocked}>
+                          {loading ? '...' : searchQuote.enabled ? `Олгох (${selectedItems.length}) — төлөх ₮${searchQuote.netTotal.toLocaleString()}` : `Олгох (${selectedItems.length})`}
                         </button>
                       </div>
                     </div>
@@ -364,8 +373,9 @@ export default function HandoverPage() {
                 ))}
               </div>
 
-              <button className="btn" style={{ width: '100%' }} onClick={scanHandover} disabled={scanLoading}>
-                {scanLoading ? '...' : `Олгох (${scanned.length}) — ₮${scanTotal.toLocaleString()}`}
+              {scanQuote.enabled && <div className="card" style={{ overflow: 'hidden', marginBottom: '0.75rem' }}><HandoverLoyaltyPanel q={scanQuote} /></div>}
+              <button className="btn" style={{ width: '100%' }} onClick={scanHandover} disabled={scanLoading || scanQuote.blocked}>
+                {scanLoading ? '...' : `Олгох (${scanned.length}) — ${scanQuote.enabled ? 'төлөх ' : ''}₮${(scanQuote.enabled ? scanQuote.netTotal : scanTotal).toLocaleString()}`}
               </button>
             </>
           )}
