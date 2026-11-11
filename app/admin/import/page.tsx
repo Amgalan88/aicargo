@@ -54,6 +54,7 @@ export default function ImportPage() {
   const [saving, setSaving] = useState(false)
   // Эрээнд ирсэн огноо ('' = өнөөдөр)
   const [ereenDate, setEreenDate] = useState('')
+  const [pickDate, setPickDate] = useState(false)
   const [done, setDone] = useState<number | null>(null)
   const [duplicates, setDuplicates] = useState<string[]>([])
   const [alreadyArrived, setAlreadyArrived] = useState<{ list: string[]; count: number }>({ list: [], count: 0 })
@@ -279,7 +280,7 @@ export default function ImportPage() {
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
       setDone(data.count)
-      setEreenDate('')
+      setEreenDate(''); setPickDate(false)
       setDuplicates(data.duplicates ?? [])
       setAlreadyArrived({ list: data.alreadyArrived ?? [], count: data.alreadyArrivedCount ?? 0 })
       setOwnerChanges({ list: data.ownerChanges ?? [], count: data.ownerChangeCount ?? 0 })
@@ -569,12 +570,29 @@ export default function ImportPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Нийт {rows.length} бараа</span>
             {/* Эрээнд ирсэн огноо — жш 23-нд ирснийг 25-нд оруулбал 23 гэж сонгоно (30 хоногийн дотор) */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-              Эрээнд ирсэн огноо <span style={{ color: 'var(--danger)' }}>*</span>
-              <input type="date" className="input" value={ereenDate} required min={daysAgoUB(30)} max={todayUB()}
-                onChange={e => setEreenDate(e.target.value)}
-                style={{ width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.82rem' }} />
-            </label>
+            {/* Нэг товшилтоор: Өнөөдөр / Өчигдөр / Сонгох (browser-ийн mm/dd/yyyy-г шууд харуулахгүй).
+                Огноог чимээгүй өнөөдрөөр бөглөхгүй — ажилтан өөрөө сонгоно (хадгалсны дараа буруу огноо асуудал) */}
+            <div className="ereen-date" role="radiogroup" aria-label="Эрээнд ирсэн огноо" data-testid="ereen-date">
+              <span className="ereen-date-lbl">Эрээнд ирсэн огноо <span style={{ color: 'var(--danger)' }}>*</span></span>
+              {([['Өнөөдөр', todayUB()], ['Өчигдөр', daysAgoUB(1)]] as const).map(([lbl, d]) => (
+                <button key={lbl} type="button" role="radio" aria-checked={ereenDate === d && !pickDate}
+                  className={`ereen-chip${ereenDate === d && !pickDate ? ' on' : ''}`}
+                  onClick={() => { setPickDate(false); setEreenDate(d); setError('') }}>{lbl}</button>
+              ))}
+              {(() => { const custom = pickDate || (!!ereenDate && ereenDate !== todayUB() && ereenDate !== daysAgoUB(1)); return (
+                <>
+                  <button type="button" role="radio" aria-checked={custom} className={`ereen-chip${custom ? ' on' : ''}`}
+                    onClick={() => { setPickDate(true); setTimeout(() => (document.getElementById('ereen-date-input') as HTMLInputElement | null)?.showPicker?.(), 0) }}>
+                    {custom && ereenDate ? `${Number(ereenDate.slice(5, 7))}/${Number(ereenDate.slice(8, 10))}` : 'Сонгох'}
+                  </button>
+                  {custom && (
+                    <input id="ereen-date-input" type="date" className="input" aria-label="Огноо сонгох" value={ereenDate} required min={daysAgoUB(30)} max={todayUB()}
+                      onChange={e => setEreenDate(e.target.value)}
+                      style={{ width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.82rem' }} />
+                  )}
+                </>
+              ) })()}
+            </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={() => { setRows([]); setPage(1); inputRef.current?.focus() }} style={{
                 background: 'none', border: '1px solid var(--border)', borderRadius: '8px',
