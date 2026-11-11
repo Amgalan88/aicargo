@@ -1,7 +1,9 @@
 'use client'
 import { ScanLine } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
-import { useHandoverQuote, HandoverLoyaltyPanel, HandoverReceiptSummary, type HandoverResult } from './HandoverLoyalty'
+import { useHandoverQuote, HandoverLoyaltyPanel } from './HandoverLoyalty'
+import HandoverDone, { type HandoverDoneInfo } from './HandoverDone'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 
 interface Shipment {
   id: number
@@ -33,14 +35,14 @@ export default function HandoverPage() {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState<HandoverResult | null>(null)
+  const [done, setDone] = useState<HandoverDoneInfo | null>(null)
 
   // ── Scanner mode ──
   const scanRef = useRef<HTMLInputElement>(null)
   const [scanInput, setScanInput] = useState('')
   const [scanned, setScanned] = useState<Shipment[]>([])
   const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null)
-  const [scanDone, setScanDone] = useState<HandoverResult | null>(null)
+  const [scanDone, setScanDone] = useState<HandoverDoneInfo | null>(null)
   const [scanLoading, setScanLoading] = useState(false)
 
   // ── Summary ──
@@ -89,6 +91,11 @@ export default function HandoverPage() {
 
   async function handover() {
     if (selected.length === 0 || searchQuote.blocked) return
+    const ids = [...selected]
+    const who = shipments.find(s => selected.includes(s.id))?.phone ?? q.trim()
+    const paidMnt = searchQuote.enabled ? searchQuote.netTotal : total
+    // Буруу/давхар олголтоос сэргийлэх баталгаажуулалт (буцаах нь «Олгосон» түүх эсвэл 10 сек «Буцаах»)
+    if (!await confirmAsync({ title: `${who} — ${ids.length} ачаа олгох уу?`, message: `Төлөх дүн: ₮${paidMnt.toLocaleString()}`, confirmLabel: `Олгох (${ids.length})`, danger: false })) return
     setLoading(true); setError('')
     // Сүлжээ тасарвал ижил requestKey-ээр дахин илгээнэ — давхар баримт/оноо үүсэхгүй
     const res = await fetch('/api/admin/handover', {
@@ -97,8 +104,8 @@ export default function HandoverPage() {
     }).catch(() => null)
     setLoading(false)
     if (!res) { setError('Сүлжээний алдаа — дахин дарна уу (давхар олгогдохгүй)'); return }
-    if (res.ok) { const d = await res.json().catch(() => null); searchQuote.reset(); setDone(d ?? { count: selected.length, receipts: [], balances: null }); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
-    else { const d = await res.json().catch(() => ({})); setError(d.error || 'Алдаа гарлаа'); searchQuote.refresh() }
+    if (res.ok) { const d = await res.json().catch(() => null); searchQuote.reset(); setDone({ result: d ?? { count: ids.length, receipts: [], balances: null }, shipmentIds: ids, who, paidMnt, at: Date.now() }); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
+    else { const d = await res.json().catch(() => ({})); setError(d.error || 'Олгож чадсангүй. Дахин оролдоно уу.'); searchQuote.refresh() }
   }
 
   // ── Scanner mode functions ──
@@ -128,6 +135,11 @@ export default function HandoverPage() {
 
   async function scanHandover() {
     if (scanned.length === 0 || scanQuote.blocked) return
+    const ids = scanned.map(s => s.id)
+    const phones = [...new Set(scanned.map(s => s.phone).filter(Boolean))]
+    const who = phones.length === 1 ? phones[0]! : phones.length > 1 ? `${phones.length} хэрэглэгч` : 'Сканнер'
+    const paidMnt = scanQuote.enabled ? scanQuote.netTotal : scanTotal
+    if (!await confirmAsync({ title: `${who} — ${ids.length} ачаа олгох уу?`, message: `Төлөх дүн: ₮${paidMnt.toLocaleString()}`, confirmLabel: `Олгох (${ids.length})`, danger: false })) return
     setScanLoading(true)
     const res = await fetch('/api/admin/handover', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -135,8 +147,8 @@ export default function HandoverPage() {
     }).catch(() => null)
     setScanLoading(false)
     if (!res) { setScanMsg({ text: 'Сүлжээний алдаа — дахин дарна уу (давхар олгогдохгүй)', ok: false }); return }
-    if (res.ok) { const d = await res.json().catch(() => null); scanQuote.reset(); setScanDone(d ?? { count: scanned.length, receipts: [], balances: null }); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
-    else { const d = await res.json().catch(() => ({})); setScanMsg({ text: d.error || 'Алдаа гарлаа', ok: false }); scanQuote.refresh() }
+    if (res.ok) { const d = await res.json().catch(() => null); scanQuote.reset(); setScanDone({ result: d ?? { count: ids.length, receipts: [], balances: null }, shipmentIds: ids, who, paidMnt, at: Date.now() }); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
+    else { const d = await res.json().catch(() => ({})); setScanMsg({ text: d.error || 'Олгож чадсангүй. Дахин оролдоно уу.', ok: false }); scanQuote.refresh() }
   }
 
   return (
@@ -184,7 +196,7 @@ export default function HandoverPage() {
           </form>
 
           {error && <p className="msg-error" style={{ marginBottom: '1rem' }}>{error}</p>}
-          {done && <HandoverReceiptSummary r={done} />}
+          {done && <HandoverDone info={done} onUndone={() => { loadSummary(); loadToday() }} />}
           {searched && shipments.length === 0 && !done && <p className="empty" style={{ padding: '1.5rem 0' }}>Ирсэн бараа олдсонгүй.</p>}
 
           {shipments.length > 0 && (
@@ -314,7 +326,7 @@ export default function HandoverPage() {
       {/* ── SCANNER MODE ── */}
       {mode === 'scanner' && (
         <div style={{ maxWidth: 520 }}>
-          {scanDone && <HandoverReceiptSummary r={scanDone} style={{ maxWidth: 'none', marginBottom: '1rem' }} />}
+          {scanDone && <HandoverDone info={scanDone} onUndone={() => { loadSummary(); loadToday() }} style={{ maxWidth: 'none', marginBottom: '1rem' }} />}
 
           <form onSubmit={scanSubmit} style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.5rem' }}>
             <input
