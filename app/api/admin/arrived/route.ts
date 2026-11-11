@@ -223,18 +223,19 @@ export async function PATCH(req: NextRequest) {
     const [locked] = await tx.$queryRaw<{ id: number; trackCode: string; status: string; adminPrice: Prisma.Decimal | null; receiptId: number | null }[]>`
       SELECT id, "trackCode", status::text AS status, "adminPrice", "receiptId" FROM "Shipment"
       WHERE id = ${Number(id)} AND "cargoId" = ${cargoId} FOR UPDATE`
+    if (!locked) return null // өөр каргоны / устсан ачаа — 404
     const updated = await tx.shipment.update({
       where: { id: Number(id), cargoId },
       data: {
         // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
-        ...(locked?.status === 'PICKED_UP' ? { updatedAt: before?.updatedAt } : {}),
+        ...(locked.status === 'PICKED_UP' ? { updatedAt: before?.updatedAt } : {}),
         adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
         adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
         phone: newPhone,
         ...(newUserId !== undefined ? { userId: newUserId } : {}),
       },
     })
-    if (locked && adminPrice !== undefined) {
+    if (adminPrice !== undefined) {
       await recordPriceChange(tx, {
         cargoId, actor: { id: admin.userId, name: admin.name, phone: null }, shipment: locked,
         newPrice: updated.adminPrice == null ? null : Number(updated.adminPrice),
@@ -242,6 +243,7 @@ export async function PATCH(req: NextRequest) {
     }
     return updated
   })
+  if (!shipment) return NextResponse.json({ error: 'Ачаа олдсонгүй' }, { status: 404 })
 
   // Мөнгө, эзэнтэй холбоотой тул юунаас юу болсныг хадгална
   if (before) {
