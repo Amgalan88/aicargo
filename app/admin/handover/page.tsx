@@ -68,13 +68,22 @@ export default function HandoverPage() {
   // ── Search mode functions ──
   async function search(e: React.FormEvent) {
     e.preventDefault()
+    await loadSearch(q)
+  }
+  // «Олгоход бэлэн» жагсаалтын «Олгох» товчноос ч дуудагдана — дугаарыг дахин бичих шаардлагагүй
+  async function loadSearch(query: string) {
+    const term = query.trim()
+    if (!term) return
+    setQ(term)
     setLoading(true); setError(''); setShipments([]); setSelected([]); setDone(null); setExpandedDates(new Set())
-    const res = await fetch(`/api/admin/handover?q=${encodeURIComponent(q)}`)
-    const data = await res.json()
+    const res = await fetch(`/api/admin/handover?q=${encodeURIComponent(term)}`).catch(() => null)
+    const data = res ? await res.json().catch(() => ({})) : {}
     setLoading(false); setSearched(true)
-    if (!res.ok) { setError(data.error); return }
+    if (!res || !res.ok) { setError(data.error || 'Хайж чадсангүй. Дахин оролдоно уу.'); return }
     setShipments(data)
-    setSelected(data.map((s: Shipment) => s.id)) // auto-select all
+    setSelected(data.map((s: Shipment) => s.id)) // auto-select all (олгохын өмнө баталгаажуулах цонх гарна)
+    // ≤10 ачаа бол огнооны бүлгүүдийг нээлттэй харуулна — ажилтан юу олгож буйгаа харна
+    if (data.length <= 10) setExpandedDates(new Set(data.map((s: Shipment) => new Date(s.updatedAt).toLocaleDateString('en-CA'))))
   }
 
   function toggle(id: number) {
@@ -261,13 +270,13 @@ export default function HandoverPage() {
                     }
                     return (
                       <div key={date} className="card" style={{ overflow: 'hidden', marginBottom: '0.5rem' }}>
-                        <div onClick={toggleDate} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 1rem', cursor: 'pointer', background: isOpen ? 'var(--surface2)' : 'var(--surface)', userSelect: 'none' }}>
+                        <button type="button" onClick={toggleDate} aria-expanded={isOpen} data-testid="handover-date-group" className="handover-row-btn" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 1rem', minHeight: 44, cursor: 'pointer', background: isOpen ? 'var(--surface2)' : 'var(--surface)', userSelect: 'none' }}>
                           <span style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontSize: '0.6rem', color: 'var(--muted)', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▶</span>
                             {label} · {items.length} бараа
                           </span>
                           {dayTotal > 0 && <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.88rem' }}>₮{dayTotal.toLocaleString()}</span>}
-                        </div>
+                        </button>
                         {isOpen && items.map((s) => (
                           <label key={s.id} style={{ cursor: 'pointer', display: 'block', padding: '0.55rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -412,17 +421,21 @@ export default function HandoverPage() {
 
           <div className="card" style={{ overflow: 'hidden' }}>
             {summary.groups.map((g, i) => (
-              <div key={g.phone}>
-                <div onClick={() => setExpandedPhone(expandedPhone === g.phone ? null : g.phone)} style={{
+              <div key={g.phone} data-testid="handover-summary-row" style={{
+                display: 'flex', alignItems: 'stretch', flexWrap: 'wrap',
+                borderBottom: (expandedPhone === g.phone || i < summary.groups.length - 1) ? '1px solid var(--border)' : 'none',
+                background: expandedPhone === g.phone ? 'var(--surface2)' : 'var(--surface)',
+              }}>
+                <button type="button" className="handover-row-btn" aria-expanded={expandedPhone === g.phone}
+                  onClick={() => setExpandedPhone(expandedPhone === g.phone ? null : g.phone)} style={{
+                  flex: 1, minWidth: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '0.75rem 1.2rem',
-                  borderBottom: (expandedPhone === g.phone || i < summary.groups.length - 1) ? '1px solid var(--border)' : 'none',
-                  cursor: 'pointer',
-                  background: expandedPhone === g.phone ? 'var(--surface2)' : 'var(--surface)',
+                  padding: '0.75rem 0.6rem 0.75rem 1.2rem', minHeight: 44,
+                  cursor: 'pointer', background: 'transparent',
                   transition: 'background 0.12s', gap: '0.5rem',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)', width: 22, textAlign: 'right', flexShrink: 0 }}>{(summaryPage - 1) * 20 + i + 1}</span>
+                    <span className="hs-idx" style={{ fontSize: '0.72rem', color: 'var(--muted)', width: 22, textAlign: 'right', flexShrink: 0 }}>{(summaryPage - 1) * 20 + i + 1}</span>
                     <span style={{ fontSize: '0.65rem', color: 'var(--muted)', display: 'inline-block', transform: expandedPhone === g.phone ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▶</span>
                     <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{g.phone}</span>
                     <span className="status-group-count">{g.count} ачаа</span>
@@ -430,9 +443,14 @@ export default function HandoverPage() {
                   <strong style={{ color: g.total > 0 ? 'var(--accent)' : 'var(--muted)', fontSize: '0.88rem', flexShrink: 0 }}>
                     {g.total > 0 ? `₮${g.total.toLocaleString()}` : '—'}
                   </strong>
-                </div>
+                </button>
+                <button type="button" className="btn btn-sm handover-row-give" data-testid="handover-summary-give"
+                  aria-label={`${g.phone} — ${g.count} ачаа олгох`}
+                  onClick={() => { setMode('search'); setScanDone(null); loadSearch(g.phone); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+                  Олгох
+                </button>
                 {expandedPhone === g.phone && (
-                  <div style={{ borderBottom: i < summary.groups.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ flexBasis: '100%', borderTop: '1px solid var(--border)' }}>
                     {g.shipments.map((s, si) => (
                       <div key={s.id} style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
