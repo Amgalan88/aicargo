@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, ChevronDown, X, LockKeyhole, Pencil } from 'lucide-react'
 import LoyaltyHub from './loyalty/LoyaltyHub'
 import { vipDiscountMnt, type CustomerLoyaltyView } from '@/lib/loyalty-core'
 import type { EreenAddress } from '@/lib/ereen-address'
@@ -81,12 +81,22 @@ interface UserBatch {
   shipments: { id: number; trackCode: string }[]
 }
 
+// Огноог үргэлж Улаанбаатарын цагаар (UTC+8, DST-гүй) — server (Vercel = UTC) ба browser-ийн
+// local цаг ялгаатай үед SSR/hydration таарахгүй байсан (React #418). getUTC* + 8ц = UB цаг.
+const UB_OFFSET_MS = 8 * 3600_000
+const ub = (iso: string | number) => new Date(new Date(iso).getTime() + UB_OFFSET_MS)
+const p2 = (n: number) => String(n).padStart(2, '0')
+
 function fmtDT(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear().toString().slice(2)}.${d.getMonth()+1}.${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
+  const d = ub(iso)
+  return `${d.getUTCFullYear().toString().slice(2)}.${d.getUTCMonth()+1}.${d.getUTCDate()} ${d.getUTCHours()}:${p2(d.getUTCMinutes())}`
 }
 
 const STEP_ORDER = ['REGISTERED', 'EREEN_ARRIVED', 'ARRIVED', 'PICKED_UP'] as const
+// Жагсаалтын дараалал: авахад бэлэн → Эрээнд → бүртгүүлсэн → олгосон (UX аудит #4). Тухайн бүлэгт өмнөх эрэмбэ хэвээр
+const LIST_PRIORITY: Record<string, number> = { ARRIVED: 0, EREEN_ARRIVED: 1, REGISTERED: 2, PICKED_UP: 3 }
+const byListPriority = <T extends { status: string }>(list: T[]) =>
+  list.map((x, i) => [x, i] as const).sort((a, b) => (LIST_PRIORITY[a[0].status] ?? 9) - (LIST_PRIORITY[b[0].status] ?? 9) || a[1] - b[1]).map(([x]) => x)
 const STEP_COLOR: Record<string, string> = {
   REGISTERED: 'var(--muted)', EREEN_ARRIVED: 'var(--blue)', ARRIVED: 'var(--yellow)', PICKED_UP: 'var(--green)',
 }
@@ -124,14 +134,14 @@ function relTime(iso: string, t: UserDict): string {
 }
 
 function fullDate(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const d = ub(iso)
+  return `${d.getUTCFullYear()}.${p2(d.getUTCMonth() + 1)}.${p2(d.getUTCDate())} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`
 }
 
 function shortDate(iso: string) {
-  const d = new Date(iso)
-  const sameYear = d.getFullYear() === new Date().getFullYear()
-  return sameYear ? `${d.getMonth() + 1}/${d.getDate()}` : `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`
+  const d = ub(iso)
+  const sameYear = d.getUTCFullYear() === ub(Date.now()).getUTCFullYear()
+  return sameYear ? `${d.getUTCMonth() + 1}/${d.getUTCDate()}` : `${d.getUTCFullYear()}.${d.getUTCMonth() + 1}.${d.getUTCDate()}`
 }
 
 // Хэрэглэгчийн ачааны карт: гарчиг = юу болох нь (тайлбар), доор нь нэг өгүүлбэрээр хаана явааг хэлнэ.
@@ -148,6 +158,8 @@ function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onD
   onDelete: () => void
 }) {
   const [menu, setMenu] = useState(false)
+  // Явцын шугамыг анхдагчаар нууна — карт намхан, статус + хугацаа нэг харцаар. Товшиж дэлгэнэ
+  const [open, setOpen] = useState(false)
   const idx = STEP_ORDER.indexOf(s.status as typeof STEP_ORDER[number])
   const price = s.adminPrice ? `${cur}${Number(s.adminPrice).toLocaleString()}` : null
   const title = s.description?.trim() || s.trackCode
@@ -217,24 +229,34 @@ function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onD
         </div>
       )}
 
-      {s.status !== 'PICKED_UP' && idx >= 0 && (
-        <ol className="sc-track" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
+      {s.status !== 'PICKED_UP' && idx >= 0 ? (
+        <button type="button" className="sc-status sc-status-btn" aria-expanded={open} onClick={() => setOpen(o => !o)}
+          aria-label={`${labels[s.status] ?? s.status} — ${open ? 'явцыг хаах' : 'явцыг харах'}`}>
+          <b>{headline}</b>
+          {sub && <span>{sub}</span>}
+          <ChevronDown size={16} className="sc-chev" aria-hidden />
+        </button>
+      ) : (
+        <p className="sc-status">
+          <b>{headline}</b>
+          {sub && <span>{sub}</span>}
+        </p>
+      )}
+
+      {open && s.status !== 'PICKED_UP' && idx >= 0 && (
+        <ol className="sc-track sc-track-labeled" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
           {STEP_ORDER.map((k, i) => {
             const d = i <= idx ? stepDates[i] : null
             return (
               <li key={k} className={`sc-step${i < idx ? ' done' : ''}${i === idx ? ' cur' : ''}`} title={d ? `${labels[k]} · ${fullDate(d)}` : labels[k]}>
                 <span className="sc-bar" />
+                <span className="sc-step-lbl">{labels[k]}</span>
                 <time dateTime={d ?? undefined}>{d ? shortDate(d) : ' '}</time>
               </li>
             )
           })}
         </ol>
       )}
-
-      <p className="sc-status">
-        <b>{headline}</b>
-        {sub && <span>{sub}</span>}
-      </p>
 
       {s.adminNote && <p className="sc-note">{t.adminNote}: {s.adminNote}</p>}
     </article>
@@ -400,12 +422,14 @@ export default function OrdersClient({
   const [addForm, setAddForm] = useState({ trackCode: '', description: '' })
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
+  // Давхардсан (өөрийн жагсаалтад байгаа) трак код — «Харах →» холбоосоор жагсаалтаас олж харуулна
+  const [addDupCode, setAddDupCode] = useState<string | null>(null)
   const [addedCodes, setAddedCodes] = useState<string[]>([])
   const addInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (addOpen) setTimeout(() => addInputRef.current?.focus(), 100)
-    else { setAddForm({ trackCode: '', description: '' }); setAddError(''); setAddedCodes([]) }
+    else { setAddForm({ trackCode: '', description: '' }); setAddError(''); setAddDupCode(null); setAddedCodes([]) }
   }, [addOpen])
 
 
@@ -416,7 +440,7 @@ export default function OrdersClient({
     // Захиалгын дугаар Эрээнд бараг таарахгүй — бүртгэхийн өмнө заавал асууна (ховор тохиолдолд агуулах ийм кодоор бүртгэдэг тул хаахгүй)
     if (looksLikeOrderNumber(cleanTrackCode(addForm.trackCode)) && !await confirmAsync(t.orderNoConfirm)) return
     setAddLoading(true)
-    setAddError('')
+    setAddError(''); setAddDupCode(null)
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -424,7 +448,12 @@ export default function OrdersClient({
     })
     const data = await res.json()
     setAddLoading(false)
-    if (!res.ok) { setAddError(data.error); return }
+    if (!res.ok) {
+      setAddError(data.error || 'Бүртгэж чадсангүй. Дахин оролдоно уу.')
+      const code = cleanTrackCode(addForm.trackCode)
+      if (res.status === 409 && shipments.some(x => x.trackCode === code)) setAddDupCode(code)
+      return
+    }
     setShipments(prev => [data, ...prev])
     setAddedCodes(prev => [data.trackCode, ...prev])
     setAddForm({ trackCode: '', description: '' })
@@ -491,15 +520,15 @@ export default function OrdersClient({
   const afterSearch = soloShipments
     .filter(s => !searchQ.trim() || s.trackCode.toLowerCase().includes(searchQ.trim().toLowerCase()) || (s.phone || '').includes(searchQ.trim()))
 
-  const filtered = activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab)
+  const filtered = byListPriority(activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab))
 
   // Өдрөөр бүлэглэсэн харагдац — сонгосон таб/хайлтад тааруулсан жагсаалтыг
   // огноогоор (сүүлийнхээс эхлээд) бүлэглэнэ, admin/report-той адил хэлбэр.
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Shipment[]>()
     for (const s of filtered) {
-      const d = new Date(s.updatedAt)
-      const key = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+      const d = ub(s.updatedAt)
+      const key = `${d.getUTCFullYear()}.${p2(d.getUTCMonth() + 1)}.${p2(d.getUTCDate())}`
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(s)
     }
@@ -834,7 +863,7 @@ export default function OrdersClient({
       {addOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
           <div onClick={() => setAddOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
-          <div style={{
+          <div className="add-sheet" role="dialog" aria-modal="true" aria-label={t.addTitle} style={{
             position: 'absolute', top: '6%', left: '50%',
             transform: 'translateX(-50%)',
             background: 'var(--surface)', borderRadius: '16px',
@@ -844,34 +873,37 @@ export default function OrdersClient({
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{t.addTitle}</h2>
-              <button onClick={() => setAddOpen(false)} style={{
-                background: 'var(--surface2)', border: 'none', cursor: 'pointer',
-                width: 32, height: 32, borderRadius: '50%', fontSize: '1rem',
-                color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>✕</button>
+              <button type="button" className="add-x" aria-label="Хаах" onClick={() => setAddOpen(false)}><X size={18} /></button>
             </div>
             <form onSubmit={submitAdd}>
               <div className="form-group">
-                <label>{t.trackCode}</label>
-                <input ref={addInputRef} className="input" placeholder={t.trackCodePh} required
+                <label htmlFor="add-track">{t.trackCode} <span className="req" aria-hidden>*</span></label>
+                <input id="add-track" ref={addInputRef} className={`input${addError ? ' input-error' : ''}`} placeholder={t.trackCodePh} required
+                  aria-invalid={!!addError} aria-describedby={addError ? 'add-err' : undefined}
                   value={addForm.trackCode}
-                  onChange={e => setAddForm({ ...addForm, trackCode: e.target.value })} />
+                  onChange={e => { setAddForm({ ...addForm, trackCode: e.target.value }); if (addError) { setAddError(''); setAddDupCode(null) } }} />
+                {addError && (
+                  <p id="add-err" className="msg-error add-err" role="alert">
+                    {addError}
+                    {addDupCode && <> <button type="button" className="add-err-link" onClick={() => { setAddOpen(false); setActiveTab('ALL'); setSearchQ(addDupCode); setPage(1) }}>Харах →</button></>}
+                  </p>
+                )}
                 {/* Захиалгын дугаар (260926-…) оруулбал Эрээнд хэзээ ч таарахгүй — сануулна */}
                 {looksLikeOrderNumber(cleanTrackCode(addForm.trackCode)) && (
                   <p style={{ fontSize: '0.75rem', color: 'var(--orange)', lineHeight: 1.45, margin: '0.35rem 0 0' }}>⚠ {t.orderNoWarn}</p>
                 )}
               </div>
               <div className="form-group">
-                <label>{t.description}</label>
-                <textarea className="input" placeholder={t.descriptionPh} rows={2} required
+                <label htmlFor="add-desc">{t.description} <span className="req" aria-hidden>*</span> <small className="add-help">{t.descriptionHelp}</small></label>
+                <textarea id="add-desc" className="input" placeholder={t.descriptionPh} rows={2} required
                   value={addForm.description}
-                  onChange={e => setAddForm({ ...addForm, description: e.target.value })} />
+                  onChange={e => { setAddForm({ ...addForm, description: e.target.value }); if (addError && !addDupCode) setAddError('') }} />
               </div>
-              {addError && <p className="msg-error">{addError}</p>}
               <button className="btn" type="submit" disabled={addLoading || !addForm.trackCode.trim() || !addForm.description.trim()}
                 style={{ width: '100%', marginTop: '0.25rem' }}>
                 {addLoading ? t.saving : t.registerBtn}
               </button>
+              {!addLoading && (!addForm.trackCode.trim() || !addForm.description.trim()) && <p className="add-hint">{t.addFillHint}</p>}
             </form>
             {addedCodes.length > 0 && (
               <div style={{ marginTop: '1rem' }}>

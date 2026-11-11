@@ -143,7 +143,7 @@ export interface HandoverResult {
   balances: Record<string, number> | null
 }
 
-export function HandoverReceiptSummary({ r, style }: { r: HandoverResult; style?: React.CSSProperties }) {
+export function HandoverReceiptSummary({ r, style, hideHeader = false }: { r: HandoverResult; style?: React.CSSProperties; hideHeader?: boolean }) {
   const row = (label: React.ReactNode, value: React.ReactNode, color?: string, bold = false) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.85rem', color, fontWeight: bold ? 700 : undefined }}>
       <span>{label}</span><span style={{ fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{value}</span>
@@ -151,7 +151,7 @@ export function HandoverReceiptSummary({ r, style }: { r: HandoverResult; style?
   )
   return (
     <div className="card" role="status" data-testid="handover-receipt" style={{ maxWidth: 420, marginBottom: '1.5rem', ...style }}>
-      <div className="card-row"><span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо · {r.count} ачаа</span></div>
+      {!hideHeader && <div className="card-row"><span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо · {r.count} ачаа</span></div>}
       {r.receipts.map(x => {
         const bal = x.phone && r.balances ? r.balances[x.phone] : undefined
         return (

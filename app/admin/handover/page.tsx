@@ -1,7 +1,9 @@
 'use client'
 import { ScanLine } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
-import { useHandoverQuote, HandoverLoyaltyPanel, HandoverReceiptSummary, type HandoverResult } from './HandoverLoyalty'
+import { useHandoverQuote, HandoverLoyaltyPanel } from './HandoverLoyalty'
+import HandoverDone, { type HandoverDoneInfo } from './HandoverDone'
+import { confirmAsync } from '@/app/components/ConfirmDialog'
 
 interface Shipment {
   id: number
@@ -33,14 +35,14 @@ export default function HandoverPage() {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState<HandoverResult | null>(null)
+  const [done, setDone] = useState<HandoverDoneInfo | null>(null)
 
   // ── Scanner mode ──
   const scanRef = useRef<HTMLInputElement>(null)
   const [scanInput, setScanInput] = useState('')
   const [scanned, setScanned] = useState<Shipment[]>([])
   const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null)
-  const [scanDone, setScanDone] = useState<HandoverResult | null>(null)
+  const [scanDone, setScanDone] = useState<HandoverDoneInfo | null>(null)
   const [scanLoading, setScanLoading] = useState(false)
 
   // ── Summary ──
@@ -66,13 +68,22 @@ export default function HandoverPage() {
   // ── Search mode functions ──
   async function search(e: React.FormEvent) {
     e.preventDefault()
+    await loadSearch(q)
+  }
+  // «Олгоход бэлэн» жагсаалтын «Олгох» товчноос ч дуудагдана — дугаарыг дахин бичих шаардлагагүй
+  async function loadSearch(query: string) {
+    const term = query.trim()
+    if (!term) return
+    setQ(term)
     setLoading(true); setError(''); setShipments([]); setSelected([]); setDone(null); setExpandedDates(new Set())
-    const res = await fetch(`/api/admin/handover?q=${encodeURIComponent(q)}`)
-    const data = await res.json()
+    const res = await fetch(`/api/admin/handover?q=${encodeURIComponent(term)}`).catch(() => null)
+    const data = res ? await res.json().catch(() => ({})) : {}
     setLoading(false); setSearched(true)
-    if (!res.ok) { setError(data.error); return }
+    if (!res || !res.ok) { setError(data.error || 'Хайж чадсангүй. Дахин оролдоно уу.'); return }
     setShipments(data)
-    setSelected(data.map((s: Shipment) => s.id)) // auto-select all
+    setSelected(data.map((s: Shipment) => s.id)) // auto-select all (олгохын өмнө баталгаажуулах цонх гарна)
+    // ≤10 ачаа бол огнооны бүлгүүдийг нээлттэй харуулна — ажилтан юу олгож буйгаа харна
+    if (data.length <= 10) setExpandedDates(new Set(data.map((s: Shipment) => new Date(s.updatedAt).toLocaleDateString('en-CA'))))
   }
 
   function toggle(id: number) {
@@ -89,6 +100,11 @@ export default function HandoverPage() {
 
   async function handover() {
     if (selected.length === 0 || searchQuote.blocked) return
+    const ids = [...selected]
+    const who = shipments.find(s => selected.includes(s.id))?.phone ?? q.trim()
+    const paidMnt = searchQuote.enabled ? searchQuote.netTotal : total
+    // Буруу/давхар олголтоос сэргийлэх баталгаажуулалт (буцаах нь «Олгосон» түүх эсвэл 10 сек «Буцаах»)
+    if (!await confirmAsync({ title: `${who} — ${ids.length} ачаа олгох уу?`, message: `Төлөх дүн: ₮${paidMnt.toLocaleString()}`, confirmLabel: `Олгох (${ids.length})`, danger: false })) return
     setLoading(true); setError('')
     // Сүлжээ тасарвал ижил requestKey-ээр дахин илгээнэ — давхар баримт/оноо үүсэхгүй
     const res = await fetch('/api/admin/handover', {
@@ -97,8 +113,8 @@ export default function HandoverPage() {
     }).catch(() => null)
     setLoading(false)
     if (!res) { setError('Сүлжээний алдаа — дахин дарна уу (давхар олгогдохгүй)'); return }
-    if (res.ok) { const d = await res.json().catch(() => null); searchQuote.reset(); setDone(d ?? { count: selected.length, receipts: [], balances: null }); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
-    else { const d = await res.json().catch(() => ({})); setError(d.error || 'Алдаа гарлаа'); searchQuote.refresh() }
+    if (res.ok) { const d = await res.json().catch(() => null); searchQuote.reset(); setDone({ result: d ?? { count: ids.length, receipts: [], balances: null }, shipmentIds: ids, who, paidMnt, at: Date.now() }); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
+    else { const d = await res.json().catch(() => ({})); setError(d.error || 'Олгож чадсангүй. Дахин оролдоно уу.'); searchQuote.refresh() }
   }
 
   // ── Scanner mode functions ──
@@ -128,6 +144,11 @@ export default function HandoverPage() {
 
   async function scanHandover() {
     if (scanned.length === 0 || scanQuote.blocked) return
+    const ids = scanned.map(s => s.id)
+    const phones = [...new Set(scanned.map(s => s.phone).filter(Boolean))]
+    const who = phones.length === 1 ? phones[0]! : phones.length > 1 ? `${phones.length} хэрэглэгч` : 'Сканнер'
+    const paidMnt = scanQuote.enabled ? scanQuote.netTotal : scanTotal
+    if (!await confirmAsync({ title: `${who} — ${ids.length} ачаа олгох уу?`, message: `Төлөх дүн: ₮${paidMnt.toLocaleString()}`, confirmLabel: `Олгох (${ids.length})`, danger: false })) return
     setScanLoading(true)
     const res = await fetch('/api/admin/handover', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -135,8 +156,8 @@ export default function HandoverPage() {
     }).catch(() => null)
     setScanLoading(false)
     if (!res) { setScanMsg({ text: 'Сүлжээний алдаа — дахин дарна уу (давхар олгогдохгүй)', ok: false }); return }
-    if (res.ok) { const d = await res.json().catch(() => null); scanQuote.reset(); setScanDone(d ?? { count: scanned.length, receipts: [], balances: null }); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
-    else { const d = await res.json().catch(() => ({})); setScanMsg({ text: d.error || 'Алдаа гарлаа', ok: false }); scanQuote.refresh() }
+    if (res.ok) { const d = await res.json().catch(() => null); scanQuote.reset(); setScanDone({ result: d ?? { count: ids.length, receipts: [], balances: null }, shipmentIds: ids, who, paidMnt, at: Date.now() }); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
+    else { const d = await res.json().catch(() => ({})); setScanMsg({ text: d.error || 'Олгож чадсангүй. Дахин оролдоно уу.', ok: false }); scanQuote.refresh() }
   }
 
   return (
@@ -184,7 +205,7 @@ export default function HandoverPage() {
           </form>
 
           {error && <p className="msg-error" style={{ marginBottom: '1rem' }}>{error}</p>}
-          {done && <HandoverReceiptSummary r={done} />}
+          {done && <HandoverDone info={done} onUndone={() => { loadSummary(); loadToday() }} />}
           {searched && shipments.length === 0 && !done && <p className="empty" style={{ padding: '1.5rem 0' }}>Ирсэн бараа олдсонгүй.</p>}
 
           {shipments.length > 0 && (
@@ -249,13 +270,13 @@ export default function HandoverPage() {
                     }
                     return (
                       <div key={date} className="card" style={{ overflow: 'hidden', marginBottom: '0.5rem' }}>
-                        <div onClick={toggleDate} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 1rem', cursor: 'pointer', background: isOpen ? 'var(--surface2)' : 'var(--surface)', userSelect: 'none' }}>
+                        <button type="button" onClick={toggleDate} aria-expanded={isOpen} data-testid="handover-date-group" className="handover-row-btn" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 1rem', minHeight: 44, cursor: 'pointer', background: isOpen ? 'var(--surface2)' : 'var(--surface)', userSelect: 'none' }}>
                           <span style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span style={{ fontSize: '0.6rem', color: 'var(--muted)', display: 'inline-block', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▶</span>
                             {label} · {items.length} бараа
                           </span>
                           {dayTotal > 0 && <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.88rem' }}>₮{dayTotal.toLocaleString()}</span>}
-                        </div>
+                        </button>
                         {isOpen && items.map((s) => (
                           <label key={s.id} style={{ cursor: 'pointer', display: 'block', padding: '0.55rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -314,7 +335,7 @@ export default function HandoverPage() {
       {/* ── SCANNER MODE ── */}
       {mode === 'scanner' && (
         <div style={{ maxWidth: 520 }}>
-          {scanDone && <HandoverReceiptSummary r={scanDone} style={{ maxWidth: 'none', marginBottom: '1rem' }} />}
+          {scanDone && <HandoverDone info={scanDone} onUndone={() => { loadSummary(); loadToday() }} style={{ maxWidth: 'none', marginBottom: '1rem' }} />}
 
           <form onSubmit={scanSubmit} style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.5rem' }}>
             <input
@@ -400,17 +421,21 @@ export default function HandoverPage() {
 
           <div className="card" style={{ overflow: 'hidden' }}>
             {summary.groups.map((g, i) => (
-              <div key={g.phone}>
-                <div onClick={() => setExpandedPhone(expandedPhone === g.phone ? null : g.phone)} style={{
+              <div key={g.phone} data-testid="handover-summary-row" style={{
+                display: 'flex', alignItems: 'stretch', flexWrap: 'wrap',
+                borderBottom: (expandedPhone === g.phone || i < summary.groups.length - 1) ? '1px solid var(--border)' : 'none',
+                background: expandedPhone === g.phone ? 'var(--surface2)' : 'var(--surface)',
+              }}>
+                <button type="button" className="handover-row-btn" aria-expanded={expandedPhone === g.phone}
+                  onClick={() => setExpandedPhone(expandedPhone === g.phone ? null : g.phone)} style={{
+                  flex: 1, minWidth: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '0.75rem 1.2rem',
-                  borderBottom: (expandedPhone === g.phone || i < summary.groups.length - 1) ? '1px solid var(--border)' : 'none',
-                  cursor: 'pointer',
-                  background: expandedPhone === g.phone ? 'var(--surface2)' : 'var(--surface)',
+                  padding: '0.75rem 0.6rem 0.75rem 1.2rem', minHeight: 44,
+                  cursor: 'pointer', background: 'transparent',
                   transition: 'background 0.12s', gap: '0.5rem',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)', width: 22, textAlign: 'right', flexShrink: 0 }}>{(summaryPage - 1) * 20 + i + 1}</span>
+                    <span className="hs-idx" style={{ fontSize: '0.72rem', color: 'var(--muted)', width: 22, textAlign: 'right', flexShrink: 0 }}>{(summaryPage - 1) * 20 + i + 1}</span>
                     <span style={{ fontSize: '0.65rem', color: 'var(--muted)', display: 'inline-block', transform: expandedPhone === g.phone ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▶</span>
                     <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{g.phone}</span>
                     <span className="status-group-count">{g.count} ачаа</span>
@@ -418,9 +443,14 @@ export default function HandoverPage() {
                   <strong style={{ color: g.total > 0 ? 'var(--accent)' : 'var(--muted)', fontSize: '0.88rem', flexShrink: 0 }}>
                     {g.total > 0 ? `₮${g.total.toLocaleString()}` : '—'}
                   </strong>
-                </div>
+                </button>
+                <button type="button" className="btn btn-sm handover-row-give" data-testid="handover-summary-give"
+                  aria-label={`${g.phone} — ${g.count} ачаа олгох`}
+                  onClick={() => { setMode('search'); setScanDone(null); loadSearch(g.phone); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+                  Олгох
+                </button>
                 {expandedPhone === g.phone && (
-                  <div style={{ borderBottom: i < summary.groups.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ flexBasis: '100%', borderTop: '1px solid var(--border)' }}>
                     {g.shipments.map((s, si) => (
                       <div key={s.id} style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',

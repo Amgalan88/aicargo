@@ -169,3 +169,31 @@ export function TiltCard({
     </motion.div>
   )
 }
+
+/* ── Нүүрний статистик: SSR-д бодит тоо (0 биш), харагдах үед л 80%-аас тоолно (UX аудит #10) ──
+   JS ачаалагдаагүй/screenshot/SEO/удаан утсанд бодит тоо харагдана. prefers-reduced-motion үед тоолохгүй. */
+export function CountUpStat({ value, suffix = '', duration = 1.1, from = 0.8 }: { value: number; suffix?: string; duration?: number; from?: number }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const fmt = (v: number) => Math.round(v).toLocaleString('en-US') + suffix
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let raf = 0
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return
+      io.disconnect()
+      const start = value * from, t0 = performance.now()
+      const step = (t: number) => {
+        const k = Math.min(1, (t - t0) / (duration * 1000))
+        el.textContent = fmt(start + (value - start) * (1 - Math.pow(1 - k, 3)))
+        if (k < 1) raf = requestAnimationFrame(step)
+      }
+      raf = requestAnimationFrame(step)
+    }, { threshold: 0.4 })
+    io.observe(el)
+    return () => { io.disconnect(); cancelAnimationFrame(raf) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, suffix, duration, from])
+  return <span ref={ref} data-testid="count-up" data-value={value}>{fmt(value)}</span>
+}
