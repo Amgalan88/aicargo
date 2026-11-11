@@ -81,9 +81,15 @@ interface UserBatch {
   shipments: { id: number; trackCode: string }[]
 }
 
+// Огноог үргэлж Улаанбаатарын цагаар (UTC+8, DST-гүй) — server (Vercel = UTC) ба browser-ийн
+// local цаг ялгаатай үед SSR/hydration таарахгүй байсан (React #418). getUTC* + 8ц = UB цаг.
+const UB_OFFSET_MS = 8 * 3600_000
+const ub = (iso: string | number) => new Date(new Date(iso).getTime() + UB_OFFSET_MS)
+const p2 = (n: number) => String(n).padStart(2, '0')
+
 function fmtDT(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear().toString().slice(2)}.${d.getMonth()+1}.${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
+  const d = ub(iso)
+  return `${d.getUTCFullYear().toString().slice(2)}.${d.getUTCMonth()+1}.${d.getUTCDate()} ${d.getUTCHours()}:${p2(d.getUTCMinutes())}`
 }
 
 const STEP_ORDER = ['REGISTERED', 'EREEN_ARRIVED', 'ARRIVED', 'PICKED_UP'] as const
@@ -128,14 +134,14 @@ function relTime(iso: string, t: UserDict): string {
 }
 
 function fullDate(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const d = ub(iso)
+  return `${d.getUTCFullYear()}.${p2(d.getUTCMonth() + 1)}.${p2(d.getUTCDate())} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`
 }
 
 function shortDate(iso: string) {
-  const d = new Date(iso)
-  const sameYear = d.getFullYear() === new Date().getFullYear()
-  return sameYear ? `${d.getMonth() + 1}/${d.getDate()}` : `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`
+  const d = ub(iso)
+  const sameYear = d.getUTCFullYear() === ub(Date.now()).getUTCFullYear()
+  return sameYear ? `${d.getUTCMonth() + 1}/${d.getUTCDate()}` : `${d.getUTCFullYear()}.${d.getUTCMonth() + 1}.${d.getUTCDate()}`
 }
 
 // Хэрэглэгчийн ачааны карт: гарчиг = юу болох нь (тайлбар), доор нь нэг өгүүлбэрээр хаана явааг хэлнэ.
@@ -521,8 +527,8 @@ export default function OrdersClient({
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Shipment[]>()
     for (const s of filtered) {
-      const d = new Date(s.updatedAt)
-      const key = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+      const d = ub(s.updatedAt)
+      const key = `${d.getUTCFullYear()}.${p2(d.getUTCMonth() + 1)}.${p2(d.getUTCDate())}`
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(s)
     }
