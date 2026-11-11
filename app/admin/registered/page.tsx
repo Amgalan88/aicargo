@@ -12,8 +12,12 @@ interface Row {
   trackCode: string
   description: string | null
   createdAt: string
+  phone: string | null
   user: { name: string; phone: string } | null
 }
+
+// Аккаунтгүй (утсаар бүртгэсэн) ачаанд утас Shipment.phone-д байдаг
+const phoneOf = (r: Row) => r.phone ?? r.user?.phone ?? null
 
 type SortKey = 'track' | 'name' | 'phone' | 'date'
 
@@ -75,7 +79,7 @@ export default function RegisteredPage() {
   async function deletePicked() {
     const list = rows.filter(r => picked.has(r.id))
     if (!list.length) return
-    const ex = list.slice(0, 5).map(r => `${r.trackCode}${r.user?.phone ? ' · ' + r.user.phone : ''}`).join('\n')
+    const ex = list.slice(0, 5).map(r => `${r.trackCode}${phoneOf(r) ? ' · ' + phoneOf(r) : ''}`).join('\n')
     if (!await confirmAsync(`${list.length} бүртгүүлсэн ачааг устгах уу?\n\n${ex}${list.length > 5 ? '\n...' : ''}\n\nХэрэглэгчийн жагсаалтаас алга болно. Устгалын түүх, аудитад бичигдэнэ.`)) return
     setDeleting(true)
     const res = await fetch('/api/admin/registered', {
@@ -91,7 +95,7 @@ export default function RegisteredPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const { sorted, sort, toggle } = useSort<Row, SortKey>(rows, (r, k) =>
-    k === 'track' ? r.trackCode : k === 'name' ? r.user?.name : k === 'phone' ? r.user?.phone : r.createdAt)
+    k === 'track' ? r.trackCode : k === 'name' ? r.user?.name : k === 'phone' ? phoneOf(r) : r.createdAt)
 
   return (
     <div className="page-wide">
@@ -163,7 +167,7 @@ export default function RegisteredPage() {
                       )}
                     </td>
                     <td data-label="Хэрэглэгч" style={{ fontWeight: 600 }}>{r.user?.name ?? '—'}</td>
-                    <td data-label="Утас" style={{ whiteSpace: 'nowrap' }}>{r.user?.phone ? <CopyCell value={r.user.phone} /> : '—'}</td>
+                    <td data-label="Утас" style={{ whiteSpace: 'nowrap' }}>{phoneOf(r) ? <CopyCell value={phoneOf(r)!} /> : '—'}</td>
                     <td data-label="Тайлбар" style={{ color: 'var(--muted)' }}>{r.description ?? '—'}</td>
                     <td data-label="Бүртгүүлсэн" style={{ color: 'var(--muted)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{fmtDate(r.createdAt)}</td>
                   </tr>
