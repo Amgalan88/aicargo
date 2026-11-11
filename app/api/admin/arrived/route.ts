@@ -1,4 +1,6 @@
 ﻿import { NextRequest, NextResponse, after } from 'next/server'
+import type { Prisma } from '@prisma/client'
+import { recordPriceChange } from '@/lib/loyalty'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
@@ -215,17 +217,33 @@ export async function PATCH(req: NextRequest) {
     const owners = await resolveImportOwners(admin.cargoId!, [before.trackCode], new Map([[before.trackCode, String(phone)]]), new Map([[before.trackCode, before]]))
     if (parsePhone(phone)) { newPhone = owners.phones[0]; newUserId = owners.userIds[0] }
   }
-  const shipment = await prisma.shipment.update({
-    where: { id: Number(id), cargoId: admin.cargoId! },
-    data: {
-      // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
-      ...(before?.status === 'PICKED_UP' ? { updatedAt: before.updatedAt } : {}),
-      adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
-      adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
-      phone: newPhone,
-      ...(newUserId !== undefined ? { userId: newUserId } : {}),
-    },
+  // Үнэ өөрчлөгдвөл түүхэнд бичнэ; олгосон ачаа бол урамшууллын зөрүүг (оноо) нөхөн бичнэ — нэг транзакцид, ачааг түгжээд
+  const cargoId = admin.cargoId!
+  const shipment = await prisma.$transaction(async tx => {
+    const [locked] = await tx.$queryRaw<{ id: number; trackCode: string; status: string; adminPrice: Prisma.Decimal | null; receiptId: number | null }[]>`
+      SELECT id, "trackCode", status::text AS status, "adminPrice", "receiptId" FROM "Shipment"
+      WHERE id = ${Number(id)} AND "cargoId" = ${cargoId} FOR UPDATE`
+    if (!locked) return null // өөр каргоны / устсан ачаа — 404
+    const updated = await tx.shipment.update({
+      where: { id: Number(id), cargoId },
+      data: {
+        // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
+        ...(locked.status === 'PICKED_UP' ? { updatedAt: before?.updatedAt } : {}),
+        adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
+        adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
+        phone: newPhone,
+        ...(newUserId !== undefined ? { userId: newUserId } : {}),
+      },
+    })
+    if (adminPrice !== undefined) {
+      await recordPriceChange(tx, {
+        cargoId, actor: { id: admin.userId, name: admin.name, phone: null }, shipment: locked,
+        newPrice: updated.adminPrice == null ? null : Number(updated.adminPrice),
+      })
+    }
+    return updated
   })
+  if (!shipment) return NextResponse.json({ error: 'Ачаа олдсонгүй' }, { status: 404 })
 
   // Мөнгө, эзэнтэй холбоотой тул юунаас юу болсныг хадгална
   if (before) {

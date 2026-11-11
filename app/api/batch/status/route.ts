@@ -18,6 +18,19 @@ export async function POST(req: NextRequest) {
   const batch = await (prisma as any).batch.findFirst({ where: { id: Number(id), cargoId } })
   if (!batch) return NextResponse.json({ error: 'Багц олдсонгүй' }, { status: 404 })
 
+  // «Олгох»-оор баримттай олгосон ачааг багцаар буцаавал оноо/хөнгөлөлт давхардана — «Түүх»-ээс буцаана (баримт цуцлагдана)
+  if (status !== 'PICKED_UP') {
+    const withReceipt = await prisma.shipment.findMany({
+      where: { batchId: Number(id), cargoId, status: 'PICKED_UP', receiptId: { not: null } } as any,
+      select: { trackCode: true }, take: 5,
+    })
+    if (withReceipt.length) {
+      return NextResponse.json({
+        error: `Багцад «Олгох»-оор баримттай олгосон ачаа байна (${withReceipt.map(s => s.trackCode).join(', ')}). Эдгээрийг эхлээд «Түүх» хэсгээс буцаана уу.`,
+      }, { status: 409 })
+    }
+  }
+
   const rec = await prisma.user.findUnique({ where: { id: admin.userId }, select: { name: true } })
   const now = new Date()
   const stamp =

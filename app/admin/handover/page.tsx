@@ -1,6 +1,7 @@
 'use client'
 import { ScanLine } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { useHandoverQuote, HandoverLoyaltyPanel, HandoverReceiptSummary, type HandoverResult } from './HandoverLoyalty'
 
 interface Shipment {
   id: number
@@ -32,14 +33,14 @@ export default function HandoverPage() {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState(false)
+  const [done, setDone] = useState<HandoverResult | null>(null)
 
   // ── Scanner mode ──
   const scanRef = useRef<HTMLInputElement>(null)
   const [scanInput, setScanInput] = useState('')
   const [scanned, setScanned] = useState<Shipment[]>([])
   const [scanMsg, setScanMsg] = useState<{ text: string; ok: boolean } | null>(null)
-  const [scanDone, setScanDone] = useState(false)
+  const [scanDone, setScanDone] = useState<HandoverResult | null>(null)
   const [scanLoading, setScanLoading] = useState(false)
 
   // ── Summary ──
@@ -65,7 +66,7 @@ export default function HandoverPage() {
   // ── Search mode functions ──
   async function search(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true); setError(''); setShipments([]); setSelected([]); setDone(false); setExpandedDates(new Set())
+    setLoading(true); setError(''); setShipments([]); setSelected([]); setDone(null); setExpandedDates(new Set())
     const res = await fetch(`/api/admin/handover?q=${encodeURIComponent(q)}`)
     const data = await res.json()
     setLoading(false); setSearched(true)
@@ -84,16 +85,20 @@ export default function HandoverPage() {
 
   const selectedItems = shipments.filter(s => selected.includes(s.id))
   const total = selectedItems.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
+  const searchQuote = useHandoverQuote(selected)
 
   async function handover() {
-    if (selected.length === 0) return
-    setLoading(true)
+    if (selected.length === 0 || searchQuote.blocked) return
+    setLoading(true); setError('')
+    // Сүлжээ тасарвал ижил requestKey-ээр дахин илгээнэ — давхар баримт/оноо үүсэхгүй
     const res = await fetch('/api/admin/handover', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shipmentIds: selected }),
-    })
+      body: JSON.stringify(searchQuote.body()),
+    }).catch(() => null)
     setLoading(false)
-    if (res.ok) { setDone(true); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
+    if (!res) { setError('Сүлжээний алдаа — дахин дарна уу (давхар олгогдохгүй)'); return }
+    if (res.ok) { const d = await res.json().catch(() => null); searchQuote.reset(); setDone(d ?? { count: selected.length, receipts: [], balances: null }); setShipments([]); setSelected([]); setSearched(false); setQ(''); loadSummary(); loadToday() }
+    else { const d = await res.json().catch(() => ({})); setError(d.error || 'Алдаа гарлаа'); searchQuote.refresh() }
   }
 
   // ── Scanner mode functions ──
@@ -119,16 +124,19 @@ export default function HandoverPage() {
   }
 
   const scanTotal = scanned.reduce((s, r) => s + (r.adminPrice ? Number(r.adminPrice) : 0), 0)
+  const scanQuote = useHandoverQuote(scanned.map(s => s.id))
 
   async function scanHandover() {
-    if (scanned.length === 0) return
+    if (scanned.length === 0 || scanQuote.blocked) return
     setScanLoading(true)
     const res = await fetch('/api/admin/handover', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shipmentIds: scanned.map(s => s.id) }),
-    })
+      body: JSON.stringify(scanQuote.body()),
+    }).catch(() => null)
     setScanLoading(false)
-    if (res.ok) { setScanDone(true); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
+    if (!res) { setScanMsg({ text: 'Сүлжээний алдаа — дахин дарна уу (давхар олгогдохгүй)', ok: false }); return }
+    if (res.ok) { const d = await res.json().catch(() => null); scanQuote.reset(); setScanDone(d ?? { count: scanned.length, receipts: [], balances: null }); setScanned([]); setScanMsg(null); loadSummary(); loadToday() }
+    else { const d = await res.json().catch(() => ({})); setScanMsg({ text: d.error || 'Алдаа гарлаа', ok: false }); scanQuote.refresh() }
   }
 
   return (
@@ -154,7 +162,7 @@ export default function HandoverPage() {
       {/* Mode toggle */}
       <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem' }}>
         {(['search', 'scanner'] as const).map(m => (
-          <button key={m} onClick={() => { setMode(m); setDone(false); setScanDone(false) }} style={{
+          <button key={m} onClick={() => { setMode(m); setDone(null); setScanDone(null) }} style={{
             padding: '0.35rem 1rem', borderRadius: '100px', fontSize: '0.82rem', fontFamily: 'inherit',
             border: `1px solid ${mode === m ? 'var(--accent)' : 'var(--border)'}`,
             background: mode === m ? 'var(--accent)' : 'var(--surface)',
@@ -176,7 +184,7 @@ export default function HandoverPage() {
           </form>
 
           {error && <p className="msg-error" style={{ marginBottom: '1rem' }}>{error}</p>}
-          {done && <div className="card" style={{ maxWidth: 400, marginBottom: '1.5rem' }}><div className="card-row"><span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо.</span></div></div>}
+          {done && <HandoverReceiptSummary r={done} />}
           {searched && shipments.length === 0 && !done && <p className="empty" style={{ padding: '1.5rem 0' }}>Ирсэн бараа олдсонгүй.</p>}
 
           {shipments.length > 0 && (
@@ -280,9 +288,10 @@ export default function HandoverPage() {
                         <strong>Нийт</strong>
                         <strong style={{ color: 'var(--accent)' }}>₮{total.toLocaleString()}</strong>
                       </div>
+                      <HandoverLoyaltyPanel q={searchQuote} />
                       <div style={{ padding: '0.75rem 1rem' }}>
-                        <button className="btn" style={{ width: '100%' }} onClick={handover} disabled={loading}>
-                          {loading ? '...' : `Олгох (${selectedItems.length})`}
+                        <button className="btn" style={{ width: '100%' }} onClick={handover} disabled={loading || searchQuote.blocked}>
+                          {loading ? '...' : searchQuote.enabled ? `Олгох (${selectedItems.length}) — төлөх ₮${searchQuote.netTotal.toLocaleString()}` : `Олгох (${selectedItems.length})`}
                         </button>
                       </div>
                     </div>
@@ -305,7 +314,7 @@ export default function HandoverPage() {
       {/* ── SCANNER MODE ── */}
       {mode === 'scanner' && (
         <div style={{ maxWidth: 520 }}>
-          {scanDone && <div className="card" style={{ marginBottom: '1rem' }}><div className="card-row"><span className="msg-success" style={{ margin: 0 }}>Амжилттай олгогдлоо.</span></div></div>}
+          {scanDone && <HandoverReceiptSummary r={scanDone} style={{ maxWidth: 'none', marginBottom: '1rem' }} />}
 
           <form onSubmit={scanSubmit} style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.5rem' }}>
             <input
@@ -333,7 +342,7 @@ export default function HandoverPage() {
                   {scanned.length} ачаа &nbsp;·&nbsp;
                   <span style={{ color: 'var(--accent)' }}>₮{scanTotal.toLocaleString()}</span>
                 </span>
-                <button onClick={() => { setScanned([]); setScanMsg(null); setScanDone(false); setTimeout(() => scanRef.current?.focus(), 30) }}
+                <button onClick={() => { setScanned([]); setScanMsg(null); setScanDone(null); setTimeout(() => scanRef.current?.focus(), 30) }}
                   style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.3rem 0.75rem', fontSize: '0.78rem', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>
                   Цэвэрлэх
                 </button>
@@ -364,8 +373,9 @@ export default function HandoverPage() {
                 ))}
               </div>
 
-              <button className="btn" style={{ width: '100%' }} onClick={scanHandover} disabled={scanLoading}>
-                {scanLoading ? '...' : `Олгох (${scanned.length}) — ₮${scanTotal.toLocaleString()}`}
+              {scanQuote.enabled && <div className="card" style={{ overflow: 'hidden', marginBottom: '0.75rem' }}><HandoverLoyaltyPanel q={scanQuote} /></div>}
+              <button className="btn" style={{ width: '100%' }} onClick={scanHandover} disabled={scanLoading || scanQuote.blocked}>
+                {scanLoading ? '...' : `Олгох (${scanned.length}) — ${scanQuote.enabled ? 'төлөх ' : ''}₮${(scanQuote.enabled ? scanQuote.netTotal : scanTotal).toLocaleString()}`}
               </button>
             </>
           )}

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Truck,
   Users, Megaphone, CircleHelp, Settings, Sparkles, ScrollText, SearchCheck,
-  Bell, LogOut, Link2, Check, ShoppingCart, PlayCircle, CalendarClock, Ellipsis, ChevronDown, X,
+  Bell, LogOut, Link2, Check, ShoppingCart, PlayCircle, CalendarClock, Ellipsis, ChevronDown, X, Gift,
   type LucideIcon,
 } from 'lucide-react'
 import NavLogo from '@/app/components/NavLogo'
@@ -142,6 +142,7 @@ export default function AdminNav({
     ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт', icon: SearchCheck }] : []),
     ...(AI_SUPPORT_ENABLED ? [{ href: '/admin/ai', label: 'AI туслах', icon: Sparkles }] : []),
     { href: '/admin/faq', label: 'FAQ', icon: CircleHelp },
+    { href: '/admin/loyalty', label: 'Урамшуулал', icon: Gift },
     // Видео нэмэгдсэн үед л харагдана (lib/tutorials)
     ...(withVideo(ADMIN_TUTORIALS).length ? [{ href: '/admin/help', label: 'Заавар видео', icon: PlayCircle }] : []),
     { href: '/admin/settings', label: 'Тохиргоо', icon: Settings },

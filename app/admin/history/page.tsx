@@ -2,6 +2,7 @@
 import { MessageSquare, Undo2 } from 'lucide-react'
 import { Pagination, SortTh, useSort, CopyCell } from '@/app/components/ui'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
+import { toast } from 'sonner'
 import { useState, useEffect, useCallback } from 'react'
 import SkeletonTable from '@/app/components/SkeletonTable'
 
@@ -169,10 +170,32 @@ function ClassicHistory() {
   const [listLoading, setListLoading] = useState(true)
   const [listPage, setListPage] = useState(1)
 
+  // Баримттай олголт бол баримт цуцлагдаж, хөнгөлөлт/оноо буцаагдана. Олон ачаатай баримт → бүгдийг хамт буцаана
   async function revert(id: number) {
-    if (!await confirmAsync('Ирсэн төлөвт буцаах уу?')) return
-    const res = await fetch('/api/admin/history', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
-    if (res.ok) { setRows(prev => prev.filter(r => r.id !== id)); setTotal(t => t - 1) }
+    if (!await confirmAsync({ title: 'Ирсэн төлөвт буцаах уу?', message: 'Урамшууллын баримттай олголт бол баримт цуцлагдаж, олсон оноо хасагдана, зарцуулсан оноо буцаана.' })) return
+    const send = (wholeReceipt: boolean) => fetch('/api/admin/history', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, wholeReceipt }) })
+    let res = await send(false)
+    if (res.status === 409) {
+      const d = await res.json().catch(() => ({}))
+      if (d?.details?.code !== 'RECEIPT_MULTI') { toast.error(d?.error || 'Буцаах боломжгүй'); return }
+      const codes: string[] = d.details.trackCodes ?? []
+      const ok = await confirmAsync({
+        title: `Баримтын ${codes.length} ачааг бүгдийг буцаах уу?`,
+        message: `${d.error}\n\n${codes.join(', ')}`,
+        confirmLabel: 'Бүгдийг буцаах', danger: true,
+      })
+      if (!ok) return
+      res = await send(true)
+    }
+    if (res.ok) {
+      const d = await res.json().catch(() => ({}))
+      const ids: number[] = Array.isArray(d?.shipmentIds) && d.shipmentIds.length ? d.shipmentIds : [id]
+      setRows(prev => prev.filter(r => !ids.includes(r.id))); setTotal(t => t - ids.length)
+      toast.success(d?.receiptId ? `${ids.length} ачаа Ирсэн болов · баримт №${d.receiptId} цуцлагдлаа` : 'Ирсэн төлөвт буцаалаа')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d?.error || 'Буцаах боломжгүй')
+    }
   }
 
   const loadList = useCallback(async (pg: number, s: string) => {
