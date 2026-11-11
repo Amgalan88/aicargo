@@ -362,6 +362,7 @@ export async function recordPriceChange(tx: Prisma.TransactionClient, args: {
   const oldC = shipment.adminPrice == null ? null : toCents(shipment.adminPrice)
   const newC = args.newPrice == null ? null : toCents(args.newPrice)
   if (oldC === newC) return null
+  if (!(await tx.shipment.count({ where: { id: shipment.id, cargoId } }))) throw new LoyaltyError('Ачаа олдсонгүй', 404)
   let vipDiscountDeltaMnt = 0, pointsDelta = 0
   let receipt: { id: number; phone: string | null; grossMnt: Prisma.Decimal; vipEnabled: boolean; vipPct: number; pointsEnabled: boolean; earnMntPerPoint: number | null; pointsRedeemedMnt: Prisma.Decimal; pointsEarned: number; createdAt: Date } | null = null
   if (shipment.status === 'PICKED_UP' && shipment.receiptId) {
