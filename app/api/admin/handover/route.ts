@@ -2,6 +2,8 @@
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { auditLater } from '@/lib/audit'
+import { randomUUID } from 'node:crypto'
+import { performHandover, LoyaltyError, cleanIds, cleanRedeem } from '@/lib/loyalty'
 
 // GET /api/admin/handover?q=phone_or_trackcode
 // GET /api/admin/handover?summary=1
@@ -86,31 +88,48 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/admin/handover — bulk PICKED_UP
+// Нэг транзакцид: ачааг түгжиж PICKED_UP болгох + утас бүрт олголтын баримт (HandoverReceipt) + урамшуулал (асаалттай бол).
+// requestKey: нэг товч даралт — дахин илгээхэд давхар баримт, оноо үүсэхгүй (lib/loyalty.performHandover)
 export async function POST(req: NextRequest) {
   const admin = await getVerifiedUserFromRequest(req)
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { shipmentIds } = await req.json()
-  if (!Array.isArray(shipmentIds) || shipmentIds.length === 0) {
+  const body = await req.json().catch(() => ({}))
+  const ids = cleanIds(body?.shipmentIds)
+  if (ids.length === 0) {
     return NextResponse.json({ error: 'Бараа сонгоно уу' }, { status: 400 })
   }
+  const requestKey = typeof body.requestKey === 'string' && body.requestKey ? body.requestKey : randomUUID()
+  const expectedNet = body.expectedNet && typeof body.expectedNet === 'object'
+    ? Object.fromEntries(Object.entries(body.expectedNet as Record<string, unknown>).filter(([, v]) => Number.isFinite(Number(v))).map(([k, v]) => [k, Number(v)]))
+    : undefined
 
-  const ids = shipmentIds.map(Number).filter(Boolean)
-  const { count } = await prisma.shipment.updateMany({
-    where: { id: { in: ids }, status: 'ARRIVED', cargoId: admin.cargoId! },
-    data: { status: 'PICKED_UP' },
-  })
+  const cargoId = admin.cargoId!
+  const me = await prisma.user.findUnique({ where: { id: admin.userId }, select: { phone: true } })
+  let result
+  try {
+    result = await performHandover(prisma, {
+      cargoId, actor: { id: admin.userId, name: admin.name, phone: me?.phone ?? null },
+      shipmentIds: ids, requestKey, redeem: cleanRedeem(body.redeem), expectedNet,
+    })
+  } catch (e) {
+    if (e instanceof LoyaltyError) return NextResponse.json({ error: e.message, details: e.details ?? null }, { status: e.status })
+    throw e
+  }
+  const { count, receipts } = result
 
   // Хэнд, ямар ачаа, ямар дүнтэй олгосныг (маргаан гарвал шалгахад) — хариу өгсний дараа бичнэ
-  const cargoId = admin.cargoId!
-  auditLater(async () => {
+  if (!result.replayed && count > 0) auditLater(async () => {
     const rows = await prisma.shipment.findMany({
-      where: { id: { in: ids }, cargoId, status: 'PICKED_UP' },
-      select: { trackCode: true, phone: true, adminPrice: true, user: { select: { phone: true } } },
+      where: { receiptId: { in: receipts.map(r => r.id) }, cargoId },
+      select: { trackCode: true },
     })
-    const phones = [...new Set(rows.map(r => r.user?.phone || r.phone).filter(Boolean))]
-    const total = rows.reduce((t, r) => t + Number(r.adminPrice ?? 0), 0)
+    const phones = [...new Set(receipts.map(r => r.phone).filter(Boolean))]
+    const total = receipts.reduce((t, r) => t + r.grossMnt, 0)
+    const discount = receipts.reduce((t, r) => t + r.vipDiscountMnt, 0)
+    const redeemed = receipts.reduce((t, r) => t + r.pointsRedeemed, 0)
+    const earned = receipts.reduce((t, r) => t + r.pointsEarned, 0)
     const codes = rows.map(r => r.trackCode)
     return {
       cargoId, userId: admin.userId, userName: admin.name,
@@ -119,10 +138,13 @@ export async function POST(req: NextRequest) {
         `${count} ачаа`,
         phones.length ? phones.slice(0, 2).join(', ') + (phones.length > 2 ? ` +${phones.length - 2}` : '') : null,
         total > 0 ? '₮' + Math.round(total).toLocaleString('en-US') : null,
+        discount > 0 ? `VIP −₮${Math.round(discount).toLocaleString('en-US')}` : null,
+        redeemed > 0 ? `оноо −${redeemed}` : null,
+        earned > 0 ? `+${earned} оноо` : null,
         codes.slice(0, 5).join(', ') + (codes.length > 5 ? ` +${codes.length - 5}` : ''),
       ].filter(Boolean).join(' · '),
     }
   })
 
-  return NextResponse.json({ ok: true, count })
+  return NextResponse.json({ ok: true, count, receipts, replayed: result.replayed })
 }

@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
+import { purgeLoyaltyForDemo } from '@/lib/loyalty'
 
 // Демо карго — маркетингийн туршилтын орчин (demo.aicargo.mn)
 // seedDemoCargo() нь өгөгдлийг бүрэн цэвэрлэж дахин үүсгэдэг тул
@@ -91,6 +92,8 @@ export async function seedDemoCargo() {
   if (clash) throw new Error(`Демо утасны дугаар ${clash.phone} өөр каргод бүртгэлтэй байна — seed зогслоо`)
 
   // Хүүхэд өгөгдлийг цэвэрлэх (зочдын үүсгэсэн бүх зүйл устана)
+  // Урамшуулал (баримт, онооны дэвтэр, тохиргоо) — дэвтэр append-only тул зөвхөн энэ демо цэвэрлэгээнд устгана
+  await purgeLoyaltyForDemo(prisma, cargo.id)
   await prisma.shipment.deleteMany({ where: { cargoId: cargo.id } })
   await (prisma as any).batch.deleteMany({ where: { cargoId: cargo.id } })
   await prisma.faq.deleteMany({ where: { cargoId: cargo.id } })
