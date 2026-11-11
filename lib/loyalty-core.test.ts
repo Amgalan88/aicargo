@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   DEFAULT_LOYALTY_CONFIG, DAY_MS, configFromRow, validateConfigInput, tierPct, autoVip, manualVipPct, effectiveVip,
-  simulatePoints, consumedLots, quoteReceipt, vipDiscountMnt, allocateReceiptNet, RedeemError, receiptOutcome, priceChangeCompensation, ownerPhoneOf, ubMonthRange, ubMonthOf,
+  simulatePoints, consumedLots, quoteReceipt, redeemCapPoints, vipDiscountMnt, allocateReceiptNet, RedeemError, receiptOutcome, priceChangeCompensation, ownerPhoneOf, ubMonthRange, ubMonthOf,
   type LedgerEntry, type LoyaltyConfig,
 } from './loyalty-core'
 
@@ -21,7 +21,7 @@ describe('config', () => {
     assert.equal(c.earnMntPerPoint, 1000)
     assert.equal(c.pointValueMnt, 20)
     assert.equal(c.pointsExpiryDays, 180)
-    assert.equal(c.maxRedeemPct, 50)
+    assert.equal(c.maxRedeemPct, 100)
     assert.equal(c.vipWindowDays, 90)
     assert.equal(c.vipGraceDays, 30)
   })
@@ -178,11 +178,24 @@ describe('receipt quote', () => {
     assert.equal(q.pointsEarned, 11) // ₮1000 = 1 point on the paid part
   })
 
-  it('redeem capped at 50% of the (post-VIP) amount and by balance', () => {
-    const q = quoteReceipt({ ...base, grossMnt: 10_000, pointsBalance: 1000, redeemPoints: 0 })
+  it('default 100%: the whole post-VIP amount can be paid with points → net 0, earns 0', () => {
+    assert.equal(DEFAULT_LOYALTY_CONFIG.maxRedeemPct, 100)
+    const vipQ = { ...base, grossMnt: 12_000, vip: { pct: 2, source: 'AUTO' as const }, pointsBalance: 5000 }
+    const q = quoteReceipt({ ...vipQ, redeemPoints: 0 })
+    assert.equal(q.maxRedeemPoints, 588) // (12000 − 240) / 20
+    const full = quoteReceipt({ ...vipQ, redeemPoints: 588 })
+    assert.deepEqual([full.vipDiscountMnt, full.pointsRedeemedMnt, full.netMnt, full.pointsEarned], [240, 11_760, 0, 0])
+    assert.throws(() => quoteReceipt({ ...vipQ, redeemPoints: 589 }), /Хамгийн ихдээ 588 оноо/)
+    assert.equal(redeemCapPoints(11_760, { maxRedeemPct: 100, pointValueMnt: 20 }, 100), 100)
+    assert.equal(redeemCapPoints(11_770, { maxRedeemPct: 100, pointValueMnt: 20 }, 9999), 588) // whole points only
+    assert.equal(redeemCapPoints(5000, { maxRedeemPct: 0, pointValueMnt: 20 }, 9999), 0)
+  })
+  it('redeem capped at 50% of the (post-VIP) amount and by balance (owner set 50%)', () => {
+    const b50 = { ...base, cfg: { ...base.cfg, maxRedeemPct: 50 } }
+    const q = quoteReceipt({ ...b50, grossMnt: 10_000, pointsBalance: 1000, redeemPoints: 0 })
     assert.equal(q.maxRedeemPoints, 250) // 5000₮ / 20₮
-    assert.throws(() => quoteReceipt({ ...base, grossMnt: 10_000, pointsBalance: 1000, redeemPoints: 251 }), RedeemError)
-    const used = quoteReceipt({ ...base, grossMnt: 10_000, pointsBalance: 1000, redeemPoints: 250 })
+    assert.throws(() => quoteReceipt({ ...b50, grossMnt: 10_000, pointsBalance: 1000, redeemPoints: 251 }), RedeemError)
+    const used = quoteReceipt({ ...b50, grossMnt: 10_000, pointsBalance: 1000, redeemPoints: 250 })
     assert.equal(used.pointsRedeemedMnt, 5000)
     assert.equal(used.netMnt, 5000)
     assert.equal(used.pointsEarned, 5) // no points on the part paid with points

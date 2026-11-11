@@ -2231,3 +2231,97 @@ html[data-brand="mgl"][data-theme="night"] .badge-ARRIVED { background: #FF8200;
 
 /* Зөвхөн утасны (stack) хүснэгтэд харагдах элемент — эхний багана нуугдахад */
 .data-table .st-show { display: none; }
+
+/* ════════ Миний урамшуулал v2 (compact) — app/orders/loyalty/* ════════ */
+:root { --lh-gold: var(--accent); --lh-track: color-mix(in srgb, var(--accent) 12%, var(--surface2)); --lh-ease: cubic-bezier(.22,1,.36,1); --lh-pop: cubic-bezier(.34,1.56,.64,1); }
+html[data-brand="mgl"] { --lh-gold: #FF8200; }
+.lh { position: relative; margin: 0.75rem 0; border-radius: var(--radius-lg); background: linear-gradient(150deg, var(--accent-light) 0%, var(--surface) 70%); border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border)); box-shadow: var(--shadow); overflow: hidden; }
+.lh .num { font-variant-numeric: tabular-nums; }
+.lh-main { display: grid; gap: 0.5rem; padding: 0.65rem 3rem 0.7rem 0.85rem; }
+.lh-x { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.lh-x svg { transition: transform .25s var(--lh-ease); }
+.lh-x[aria-expanded="true"] svg { transform: rotate(180deg); }
+.lh-x:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+.lh-row { display: flex; align-items: center; gap: 0.55rem; min-height: 28px; min-width: 0; }
+.lh-badge { flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.3rem; height: 26px; padding: 0 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; background: var(--accent); color: var(--on-accent); }
+.lh-badge.locked { background: var(--surface2); color: var(--muted); }
+.lh-badge.max { box-shadow: 0 0 0 2px color-mix(in srgb, var(--lh-gold) 60%, var(--surface)); }
+.lh-coin { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-light); color: var(--accent); }
+.lh-k { font-size: 0.95rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.lh-k em { font-style: normal; color: var(--accent); }
+.lh-m { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; font-weight: 400; }
+.lh-bar { position: relative; height: 18px; }
+.lh-bar.labels { height: 30px; }
+.lh-rail { position: absolute; left: 6px; right: 6px; top: 6px; height: 6px; border-radius: 99px; background: var(--lh-track); overflow: hidden; }
+.lh-fill, .lh-pfill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; transition: width 1100ms var(--lh-ease); }
+.lh-fill { background: var(--accent); }
+.lh-pfill { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 40%, transparent) 0 3px, transparent 3px 6px); }
+.lh-tk { position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong); transition: background .3s, border-color .3s; }
+.lh-tk.on { background: var(--accent); border-color: var(--accent); }
+.lh-tk.nx { border-color: var(--accent); }
+.lh-tk b { position: absolute; top: 13px; left: 50%; transform: translateX(-50%); font-size: 0.6rem; font-weight: 700; color: var(--muted); line-height: 1; }
+.lh-tk.on b, .lh-tk.nx b { color: var(--accent); }
+.lh-hint { position: relative; overflow: hidden; display: flex; align-items: center; gap: 0.4rem; min-height: 30px; padding: 0.3rem 0.6rem; border-radius: 8px; font-size: var(--fs-sm); font-weight: 600; line-height: 1.25; }
+.lh-hint.ok { background: color-mix(in srgb, var(--green) 11%, transparent); color: var(--green); }
+.lh-hint.ok.shine::after { content: ""; position: absolute; inset: 0; transform: translateX(-120%); background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.6) 50%, transparent 80%); animation: lh-shimmer 2.6s var(--lh-ease) 1.2s infinite; }
+.lh-hint.warn { background: color-mix(in srgb, var(--orange) 10%, transparent); color: var(--orange); }
+.lh-hint.info { background: var(--surface2); color: var(--muted); }
+.lh-hint.cta { padding: 0; background: none; }
+.lh-hint.cta .btn { width: 100%; min-height: 44px; font-size: var(--fs-sm); animation: lh-pulse 2.2s ease-out 1.2s infinite; }
+.lh-sep { height: 1px; background: var(--border); margin: 0 -0.1rem; }
+.lh-vsep { display: none; }
+.lh-col { display: grid; gap: 0.45rem; min-width: 0; }
+.lh-more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s var(--lh-ease); }
+.lh-more.open { grid-template-rows: 1fr; }
+.lh-more > div { overflow: hidden; }
+.lh-det { display: grid; gap: 0.7rem; padding: 0.7rem 0.85rem 0.85rem; border-top: 1px solid var(--border); font-size: var(--fs-xs); }
+.lh-det h4 { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 0.3rem; }
+.lh-tiers, .lh-facts { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.lh-tier { display: inline-flex; gap: 0.3rem; align-items: center; height: 26px; padding: 0 0.55rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-weight: 600; white-space: nowrap; }
+.lh-tier.on { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.lh-tier.nx { border-style: dashed; border-color: var(--accent); }
+.lh-facts span { height: 24px; display: inline-flex; align-items: center; padding: 0 0.5rem; border-radius: 6px; background: var(--surface2); color: var(--muted); font-weight: 600; }
+.lh-rc { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0; border-top: 1px dashed var(--border); }
+.lh-rc:first-of-type { border-top: 0; }
+.lh-plus { color: var(--green); font-weight: 800; }
+.lh-note { color: var(--muted); margin: 0; }
+.lh-in { opacity: 0; transform: translateY(6px); animation: lh-in .36s var(--lh-ease) forwards; animation-delay: calc(var(--i, 0) * 60ms); }
+.lh .bump { display: inline-block; animation: lh-bump .5s var(--lh-pop); }
+.lh-ovl { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1.5rem; background: rgba(20,14,10,.55); backdrop-filter: blur(3px); animation: lh-fade .22s linear; }
+.lh-pop { position: relative; width: min(340px, 100%); text-align: center; padding: 1.75rem 1.25rem 1.25rem; border-radius: 20px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); animation: lh-pop-in .45s var(--lh-pop); }
+.lh-medal { position: relative; width: 112px; height: 112px; margin: -0.25rem auto 0.9rem; border-radius: 50%; display: grid; place-content: center; color: var(--on-accent); background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.32), transparent 45%), var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lh-gold) 55%, var(--surface)), 0 14px 32px -10px var(--accent); animation: lh-medal .62s var(--lh-pop) both .08s; isolation: isolate; }
+.lh-medal b { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+.lh-medal small { font-size: 0.72rem; font-weight: 700; opacity: .9; }
+.lh-medal::before { content: ""; position: absolute; inset: -14px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--lh-gold) 45%, transparent) 0%, transparent 70%); z-index: -1; animation: lh-glow 1.8s ease-in-out infinite; }
+.lh-pop h2 { font-size: 1.3rem; font-weight: 800; margin: 0 0 0.35rem; }
+.lh-pop p { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; margin: 0 0 1rem; }
+.lh-pop p b { color: var(--text); }
+.lh-toast { position: fixed; left: 50%; top: 14px; z-index: 990; transform: translate(-50%, -160%); display: flex; align-items: center; gap: 0.55rem; padding: 0.6rem 0.95rem; border-radius: 999px; background: var(--text); color: var(--bg); font-size: var(--fs-sm); font-weight: 700; box-shadow: var(--shadow-lg); transition: transform .38s var(--lh-pop); pointer-events: none; }
+.lh-toast.show { transform: translate(-50%, 0); }
+.lh-toast .plus { color: #4ade80; }
+@keyframes lh-in { to { opacity: 1; transform: none; } }
+@keyframes lh-fade { from { opacity: 0; } }
+@keyframes lh-pop-in { from { transform: scale(.9) translateY(10px); } }
+@keyframes lh-shimmer { 0% { transform: translateX(-120%); } 60%, 100% { transform: translateX(120%); } }
+@keyframes lh-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes lh-medal { 0% { transform: scale(.4) rotate(-12deg); opacity: 0; } 60% { transform: scale(1.08) rotate(3deg); opacity: 1; } 100% { transform: none; } }
+@keyframes lh-glow { 0%, 100% { transform: scale(.92); opacity: .7; } 50% { transform: scale(1.08); opacity: 1; } }
+@keyframes lh-bump { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+/* Сүүлийн мөрийн зөвлөмж ⌄ товчны доор орохгүй тул баруун тийш сунгана (урт ₮ дүн нэг мөрөнд багтана) */
+.lh-main > .lh-hint:last-child, .lh-main > .lh-col:last-child > .lh-hint:last-child { margin-right: -2.15rem; }
+/* 2 багана: /orders-ийн багана ~580px тул viewport биш картын өөрийн өргөнөөр (≥640px) — нарийн бол утасных шиг дараалсан */
+.lh { container-type: inline-size; }
+@container (min-width: 640px) {
+  .lh-main.both { grid-template-columns: 1fr 1px 1fr; column-gap: 1rem; align-items: start; padding: 0.85rem 3.25rem 0.9rem 1rem; }
+  .lh-main.both .lh-vsep { display: block; background: var(--border); align-self: stretch; }
+  .lh-main.both .lh-sep { display: none; }
+  .lh-main.both > .lh-col:last-child > .lh-hint:last-child { margin-right: 0; }
+}
+@container (min-width: 480px) {
+  .lh-det { grid-template-columns: 1fr 1fr 1fr; column-gap: 1.25rem; padding: 0.8rem 1rem 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lh-in { animation: none; opacity: 1; transform: none; }
+  .lh-hint.ok.shine::after, .lh-hint.cta .btn, .lh-medal::before, .lh-medal, .lh .bump, .lh-ovl, .lh-pop { animation: none; }
+  .lh-fill, .lh-pfill, .lh-more, .lh-toast, .lh-x svg, .lh-tk { transition: none; }
+}

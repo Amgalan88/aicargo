@@ -22,7 +22,7 @@ export const LOYALTY_DDL: string[] = [
     "earnMntPerPoint" INTEGER NOT NULL DEFAULT 1000,
     "pointValueMnt" INTEGER NOT NULL DEFAULT 20,
     "pointsExpiryDays" INTEGER NOT NULL DEFAULT 180,
-    "maxRedeemPct" INTEGER NOT NULL DEFAULT 50,
+    "maxRedeemPct" INTEGER NOT NULL DEFAULT 100,
     "vipWindowDays" INTEGER NOT NULL DEFAULT 90,
     "vipGraceDays" INTEGER NOT NULL DEFAULT 30,
     "vipTiers" JSONB NOT NULL,
@@ -79,6 +79,8 @@ export const LOYALTY_DDL: string[] = [
   `ALTER TABLE "HandoverReceipt" ADD COLUMN IF NOT EXISTS "voidedAt" TIMESTAMP(3)`,
   `ALTER TABLE "HandoverReceipt" ADD COLUMN IF NOT EXISTS "voidedById" INTEGER`,
   `ALTER TABLE "HandoverReceipt" ADD COLUMN IF NOT EXISTS "voidedByName" TEXT`,
+  // 2026-11: оноогоор бүтэн төлөх анхдагч (50 → 100). Зөвхөн шинэ мөрийн DEFAULT — одоо байгаа тохиргоог өөрчлөхгүй
+  `ALTER TABLE "LoyaltySettings" ALTER COLUMN "maxRedeemPct" SET DEFAULT 100`,
 
   `CREATE TABLE IF NOT EXISTS "LoyaltyLedger" (
     "id" SERIAL NOT NULL,

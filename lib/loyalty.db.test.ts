@@ -151,7 +151,7 @@ describe('loyalty on a real local Postgres', { skip }, () => {
 
   describe('idempotency', () => {
     it('same requestKey twice → one receipt, one ledger set', async () => {
-      await enable(S.cargoA, { pointsEnabled: true, vipEnabled: true })
+      await enable(S.cargoA, { pointsEnabled: true, vipEnabled: true, maxRedeemPct: 50 }) // owner-set 50% (default is 100)
       const s = await shipment(S.cargoA, '99110002', 10000)
       const k = key()
       const a = await L.performHandover(prisma, { cargoId: S.cargoA, actor: S.adminA, shipmentIds: [s.id], requestKey: k, now: NOW })
@@ -529,6 +529,46 @@ describe('loyalty on a real local Postgres', { skip }, () => {
       await revert(C, a.id, true)
       assert.deepEqual(await L.paidByShipment(prisma, C, [rc.id]), {})
       assert.equal((await L.pointsBalances(prisma, C, [p]))![p], 0)
+    })
+
+    it('100% redemption (default maxRedeemPct): whole post-VIP amount paid with points → net 0, earns 0', async () => {
+      assert.equal((await L.getLoyaltyConfig(prisma, C)).maxRedeemPct, 100)
+      const p = '99180008'
+      await user(C, p, true)
+      const hist = await shipment(C, p, 600000)
+      await L.performHandover(prisma, { cargoId: C, actor: S.adminA, shipmentIds: [hist.id], requestKey: key(), now: ago(100) }) // 600 pts, spend outside window
+      const s = await shipment(C, p, 12000)
+      const q = await L.quoteHandover(prisma, { cargoId: C, actor: S.adminA, shipmentIds: [s.id], now: NOW })
+      const vipD = q.groups[0].quote.vipDiscountMnt // grace-held tier from the old 600k spend
+      const cap = (12000 - vipD) / 20
+      assert.ok(vipD > 0 && cap < 600)
+      assert.equal(q.groups[0].quote.maxRedeemPoints, cap) // 100% of the post-VIP amount (not 50%)
+      await assert.rejects(ho(C, [s.id], { redeem: { [p]: cap + 1 } }), new RegExp(`Хамгийн ихдээ ${cap} оноо`))
+      const r = await ho(C, [s.id], { redeem: { [p]: cap } })
+      assert.deepEqual([r.receipts[0].pointsRedeemedMnt, r.receipts[0].netMnt, r.receipts[0].pointsEarned], [12000 - vipD, 0, 0])
+      assert.equal((await balance(C, p)).points.balance, 600 - cap)
+      assert.equal((await balance(C, p)).auto.spend, 12000) // VIP progress counts the gross price
+      assert.equal((await L.customerLoyalty(prisma, C, p, NOW))!.points!.maxRedeemPct, 100)
+    })
+
+    it('customer view: tiers come from settings (dynamic), each program visible only when enabled', async () => {
+      const E = (await prisma.cargo.create({ data: { name: 'E', slug: 'e-view', ereemReceiver: 'r', ereemPhone: 'p', ereemAddress: 'x' } })).id
+      const p = '99180009'
+      assert.equal(await L.customerLoyalty(prisma, E, p, NOW), null) // no settings row → hidden
+      const two = [{ minSpend: 50000, pct: 2 }, { minSpend: 150000, pct: 4 }]
+      await enable(E, { vipEnabled: true, vipTiers: two, vipWindowDays: 60 })
+      await shipment(E, p, 60000, 'PICKED_UP', ago(3))
+      let v = (await L.customerLoyalty(prisma, E, p, NOW))!
+      assert.deepEqual([v.cargoId, v.points, v.vip!.tiers, v.vip!.pct, v.vip!.windowDays, v.vip!.next], [E, null, two, 2, 60, { pct: 4, minSpend: 150000, remaining: 90000 }])
+      const five = [30000, 80000, 150000, 300000, 600000].map((m, i) => ({ minSpend: m, pct: i + 1 }))
+      await enable(E, { vipEnabled: true, vipTiers: five })
+      v = (await L.customerLoyalty(prisma, E, p, NOW))!
+      assert.deepEqual([v.vip!.tiers.length, v.vip!.pct], [5, 1])
+      await enable(E, { pointsEnabled: true, vipEnabled: false })
+      v = (await L.customerLoyalty(prisma, E, p, NOW))!
+      assert.deepEqual([v.vip, v.points!.maxRedeemPct], [null, 100])
+      await enable(E, { pointsEnabled: false, vipEnabled: false })
+      assert.equal(await L.customerLoyalty(prisma, E, p, NOW), null)
     })
 
     it('loyalty OFF: receipt voided, no ledger rows; legacy shipment without receipt reverts as before', async () => {

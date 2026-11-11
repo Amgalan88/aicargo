@@ -31,7 +31,7 @@ export const DEFAULT_LOYALTY_CONFIG: LoyaltyConfig = {
   earnMntPerPoint: 1000,
   pointValueMnt: 20,
   pointsExpiryDays: 180,
-  maxRedeemPct: 50,
+  maxRedeemPct: 100, // 2026-11: ачаа авахдаа оноогоор бүтэн төлж болно (эзэн 0–100 болгож өөрчилнө)
   vipWindowDays: 90,
   vipGraceDays: 30,
   vipTiers: DEFAULT_VIP_TIERS,
@@ -334,6 +334,14 @@ export interface Quote {
   pointsEarned: number
 }
 
+// Нэг олголтод ашиглаж болох дээд оноо: VIP-ийн ДАРААХ дүнгийн maxRedeemPct% (бүхэл оноо руу доош), үлдэгдлээс хэтрэхгүй
+export function redeemCapPoints(afterVipMnt: number, cfg: Pick<LoyaltyConfig, 'maxRedeemPct' | 'pointValueMnt'>, balance: number): number {
+  const pointC = cfg.pointValueMnt * 100
+  if (!(pointC > 0)) return 0
+  const capPoints = Math.floor(Math.floor((Math.max(0, toCents(afterVipMnt)) * cfg.maxRedeemPct) / 100) / pointC)
+  return Math.max(0, Math.min(Math.floor(balance), capPoints))
+}
+
 export class RedeemError extends Error {
   constructor(message: string, readonly maxRedeemPoints: number) { super(message) }
 }
@@ -346,8 +354,7 @@ export function quoteReceipt(q: QuoteInput): Quote {
   const afterVipC = grossC - discountC
   const pointsOn = q.applyLoyalty && q.cfg.pointsEnabled
   const pointC = q.cfg.pointValueMnt * 100
-  const capPoints = Math.floor(Math.floor((afterVipC * q.cfg.maxRedeemPct) / 100) / pointC)
-  const maxRedeemPoints = pointsOn && q.canRedeem ? Math.max(0, Math.min(q.pointsBalance, capPoints)) : 0
+  const maxRedeemPoints = pointsOn && q.canRedeem ? redeemCapPoints(fromCents(afterVipC), q.cfg, q.pointsBalance) : 0
   const want = q.redeemPoints
   if (!Number.isInteger(want) || want < 0) throw new RedeemError('Онооны тоо буруу', maxRedeemPoints)
   if (want > maxRedeemPoints) {
@@ -427,6 +434,7 @@ export function ubMonthOf(d: Date): string {
 
 // Хэрэглэгчийн «Миний ачаа» дээр харагдах урамшуулал (JSON — огноо string)
 export interface CustomerLoyaltyView {
+  cargoId: number
   points: {
     balance: number; valueMnt: number; pointValueMnt: number; earnMntPerPoint: number; maxRedeemPct: number; expiryDays: number
     expiringSoon: { points: number; at: string } | null; canRedeem: boolean

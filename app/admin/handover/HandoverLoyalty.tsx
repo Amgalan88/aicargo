@@ -14,7 +14,7 @@ interface GroupQuote {
   quote: { grossMnt: number; vipPct: number; vipSource: 'AUTO' | 'MANUAL' | null; vipDiscountMnt: number; maxRedeemPoints: number; pointsRedeemed: number; pointsRedeemedMnt: number; netMnt: number; pointsEarned: number }
   customer: { name: string | null; registered: boolean; verified: boolean; canRedeem: boolean; pointsBalance: number; vipPct: number; spend: number } | null
 }
-interface QuoteResp { enabled: { points: boolean; vip: boolean }; pointValueMnt?: number; groups: GroupQuote[] }
+interface QuoteResp { enabled: { points: boolean; vip: boolean }; pointValueMnt?: number; vipWindowDays?: number; groups: GroupQuote[] }
 
 const tg = (n: number) => '₮' + Math.round(n).toLocaleString('en-US')
 
@@ -93,7 +93,7 @@ export function HandoverLoyaltyPanel({ q }: { q: ReturnType<typeof useHandoverQu
             )}
             {g.applyLoyalty && quote.enabled.vip && (
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>VIP {qq.vipPct}%{qq.vipSource === 'MANUAL' ? ' (гараар)' : qq.vipPct ? ' (90 хоног)' : ''}</span>
+                <span>VIP {qq.vipPct}%{qq.vipSource === 'MANUAL' ? ' (гараар)' : qq.vipPct ? ` (${quote.vipWindowDays ?? 90} хоног)` : ''}</span>
                 <span style={{ color: qq.vipDiscountMnt ? 'var(--green)' : 'var(--muted)' }}>{qq.vipDiscountMnt ? '−' + tg(qq.vipDiscountMnt) : '—'}</span>
               </div>
             )}

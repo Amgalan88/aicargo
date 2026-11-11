@@ -224,7 +224,7 @@ export async function quoteHandover(db: Db, args: { cargoId: number; actor: Acto
   const rows = await readShipments(db, args.cargoId, args.shipmentIds, false)
   const phones = groupShipments(rows).map(([k]) => k).filter(Boolean)
   const states = loyaltyOn(cfg) ? await loadCustomerStates(db, args.cargoId, cfg, phones, now) : new Map()
-  return { enabled: { points: cfg.pointsEnabled, vip: cfg.vipEnabled }, pointValueMnt: cfg.pointValueMnt, groups: buildQuotes(rows, cfg, states, args.actor, args.redeem ?? {}, false) }
+  return { enabled: { points: cfg.pointsEnabled, vip: cfg.vipEnabled }, pointValueMnt: cfg.pointValueMnt, vipWindowDays: cfg.vipWindowDays, groups: buildQuotes(rows, cfg, states, args.actor, args.redeem ?? {}, false) }
 }
 
 export interface ReceiptSummary {
@@ -557,6 +557,7 @@ export async function customerLoyalty(db: Db, cargoId: number, phone: string, no
     select: { ...RECEIPT_SUMMARY, createdAt: true },
   })
   return {
+    cargoId,
     points: cfg.pointsEnabled ? {
       balance: Math.max(0, st.points.balance), valueMnt: Math.max(0, st.points.balance) * cfg.pointValueMnt,
       pointValueMnt: cfg.pointValueMnt, earnMntPerPoint: cfg.earnMntPerPoint, maxRedeemPct: cfg.maxRedeemPct, expiryDays: cfg.pointsExpiryDays,

@@ -1,6 +1,6 @@
 'use client'
 import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
-import LoyaltyCard from './LoyaltyCard'
+import LoyaltyHub from './loyalty/LoyaltyHub'
 import { vipDiscountMnt, type CustomerLoyaltyView } from '@/lib/loyalty-core'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
@@ -922,7 +922,7 @@ export default function OrdersClient({
           const arrived = shipments.filter(s => s.status === 'ARRIVED')
           const total = arrived.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
           if (arrived.length === 0) return null
-          // LoyaltyCard-тай ижил: нийт дүнгээс VIP % (олгох үед нэг баримтаар тооцогдоно — урьдчилсан)
+          // LoyaltyHub-тай ижил: нийт дүнгээс VIP % (олгох үед нэг баримтаар тооцогдоно — урьдчилсан)
           const estDiscount = vipDiscountMnt(total, vipPct)
           // Мэдэгдэл маягийн мөр — "амьд" цэгтэй, дарахад ирсэн ачааны таб нээгдэнэ
           return (
@@ -947,7 +947,13 @@ export default function OrdersClient({
           )
         })()}
 
-        <LoyaltyCard loyalty={loyalty} arrivedTotal={shipments.filter(s => s.status === 'ARRIVED').reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)} />
+        <LoyaltyHub
+          loyalty={loyalty}
+          arrivedTotal={shipments.filter(s => s.status === 'ARRIVED').reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)}
+          arrivedCount={shipments.filter(s => s.status === 'ARRIVED').length}
+          phone={userPhone}
+          onVerifyPhone={() => setPhoneOpen(true)}
+        />
 
         {/* Search */}
         <div className="osearch-row">

@@ -601,7 +601,7 @@ model LoyaltySettings {
   earnMntPerPoint  Int      @default(1000)
   pointValueMnt    Int      @default(20)
   pointsExpiryDays Int      @default(180)
-  maxRedeemPct     Int      @default(50)
+  maxRedeemPct     Int      @default(100)
   // VIP: сүүлийн vipWindowDays хоногийн олгосон дүнгээр шат; шат буурахад vipGraceDays хоног хадгална
   vipWindowDays    Int      @default(90)
   vipGraceDays     Int      @default(30)
