@@ -2428,40 +2428,49 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 @media (max-width: 600px) { .ereen-chip { min-height: 44px; } }
 
 /* ── Миний захиалгууд: компакт мөр v2 (cards-v2 mock) ───────────────────────── */
-/* Таб: 5 таб хэвээр, pill + inline тоо; 390px-д багтахгүй бол хэвтээ scroll */
+/* Таб: 5 багана нэг мөрөнд, scroll-гүй. Каргогийн өөрийн нэр (жш «Дарханд ирсэн») 2 мөр хүртэл багтана.
+   Баганын жинг OrdersClient (tabCols) нэрийн уртаар inline тавина; энд fallback нь тэнцүү багана */
 .ochips {
-  /* 5 таб нэг мөрөнд, scroll-гүй: тэнцүү 5 багана, бүтэн өргөн.
-     padding: булангийн badge (top:-6px, right:-4px) мөрийн дээд/баруун захаас давж таслагдахгүй */
-  display: grid; grid-template-columns: repeat(var(--ochip-cols, 5), minmax(0, 1fr)); gap: 6px;
-  width: 100%; padding: 6px 4px 0; margin-bottom: 0.75rem;
+  /* padding: булангийн badge (top:-8px, right:-3px) мөрийн дээд/баруун захаас давж таслагдахгүй.
+     align-items: stretch (grid default) — нэг таб 2 мөр болбол бүх таб ижил өндөртэй */
+  display: grid; grid-template-columns: repeat(var(--ochip-cols, 5), minmax(0, 1fr)); gap: 5px;
+  width: 100%; padding: 8px 3px 0; margin-bottom: 0.75rem;
 }
 .ochip {
-  /* Нэг мөр, харагдах өндөр 38px; 44px дарах талбайг ::before-оор дээш/доош 3px сунгана.
-     overflow: visible — badge таслагдахгүй; ellipsis зөвхөн нэр дээр */
-  position: relative; min-width: 0; min-height: 38px; padding: 0 4px;
+  /* Өндөр 44px (дарах талбай, 2 мөр багтана). Дээд padding 9px — булангийн badge нэртэй давхцахгүй.
+     overflow: visible — badge таслагдахгүй; line-clamp зөвхөн нэр дээр */
+  position: relative; min-width: 0; min-height: 44px; padding: 9px 4px 4px;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); background: var(--surface); color: var(--muted);
-  border-radius: 100px; font: inherit; font-size: 0.8125rem; font-weight: 600; line-height: 1;
-  cursor: pointer; white-space: nowrap;
+  border-radius: 9px; font: inherit; font-size: 0.8125rem; font-weight: 600; line-height: 1.15;
+  cursor: pointer; text-align: center;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.ochip::before { content: ""; position: absolute; left: 0; right: 0; top: -3px; bottom: -3px; }
-.ochip-lbl { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ochip-lbl {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  min-width: 0; max-width: 100%; overflow: hidden;
+  white-space: normal; overflow-wrap: normal; hyphens: manual; text-wrap: balance;
+}
 .ochip.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 /* Тоо — булангийн badge (PR #14-өөс өмнөх BASE_TABS загвар) */
 .ochip-badge {
-  position: absolute; top: -6px; right: -4px; z-index: 1;
+  position: absolute; top: -8px; right: -3px; z-index: 1;
   display: flex; align-items: center; justify-content: center;
   min-width: 16px; height: 16px; padding: 0 3px; border-radius: 100px;
   background: var(--accent); color: var(--on-accent);
   font-size: 0.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-.ochip.on .ochip-badge { background: var(--on-accent); color: var(--accent); }
+.ochip.on .ochip-badge { background: var(--on-accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 @media (max-width: 360px) {
-  .ochips { gap: 5px; }
-  .ochip { padding: 0 2px; font-size: 0.72rem; letter-spacing: -0.01em; }
+  .ochips { gap: 4px; }
+  .ochip { padding: 9px 2px 4px; font-size: 0.6875rem; letter-spacing: -0.015em; border-radius: 8px; }
 }
+/* Багтахгүй үед (OrdersClient хэмжиж data-fit тавина): 1 = жижиг үсэг, 2 = үгийг таслаж багтаана */
+.ochips[data-fit="1"], .ochips[data-fit="2"] { gap: 3px; }
+.ochips[data-fit="1"] .ochip, .ochips[data-fit="2"] .ochip { padding: 9px 2px 4px; font-size: 0.625rem; letter-spacing: -0.02em; }
+.ochips[data-fit="2"] { grid-template-columns: repeat(var(--ochip-cols, 5), minmax(0, 1fr)) !important; }
+.ochips[data-fit="2"] .ochip-lbl { overflow-wrap: anywhere; }
 
 /* Нэг цагаан жагсаалт, мөрүүд divider-тэй */
 .olist {

@@ -4,7 +4,7 @@ import LoyaltyHub from './loyalty/LoyaltyHub'
 import { vipDiscountMnt, type CustomerLoyaltyView } from '@/lib/loyalty-core'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SiteFooter from '../components/SiteFooter'
@@ -401,9 +401,47 @@ export default function OrdersClient({
   const { map: STATUS_LABEL } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
   const TABS = BASE_TABS
     .filter(tab => !(batchMode && tab.key === 'EREEN_ARRIVED'))
-    // Табын богино нэр (зөвхөн UI) — 5 таб 320px-д scroll-гүй багтана. Батч горимд ARRIVED нь
-    // «УБ руу ачигдсан» утгатай тул богино «Ачигдсан» (мөрийн пил дээр бүтэн статусын нэр хэвээр).
-    .map(tab => ({ ...tab, label: tab.key === 'ARRIVED' && batchMode ? t.tabArrivedBatch : TAB_SHORT[tab.key] }))
+    // Табын нэр: каргогийн admin-ы тохируулсан нэр (ereemLabel/arrivedLabel, зөвхөн mn — statusLabels-тай ижил
+    // дүрэм) байвал түүнийг (STATUS_LABEL) харуулна, 2 мөр хүртэл багтана. Тохируулаагүй бол богино default
+    // (Эрээн / Ирсэн; батч горимд «Ачигдсан»). Бүгд/Бүртгэл/Авсан үргэлж богино.
+    .map(tab => {
+      const custom = lang === 'mn'
+        ? (tab.key === 'ARRIVED' ? arrivedLabel : tab.key === 'EREEN_ARRIVED' ? ereemLabel : null)?.trim()
+        : null
+      const label = custom ? (STATUS_LABEL[tab.key] || custom).trim()
+        : tab.key === 'ARRIVED' && batchMode ? t.tabArrivedBatch : TAB_SHORT[tab.key]
+      return { ...tab, label }
+    })
+  // Баганын өргөн: нэрийн урттай жинтэй (fr), гэхдээ хамгийн урт үгээс нарийсахгүй (min-content) — урт нэр
+  // («Улаанбаатарт ирсэн») илүү зай авч 2 мөрт багтана, «Бүгд/Авсан» бага зай авна, үг дундуураа тасрахгүй.
+  // Жин = max(5, хамгийн урт үг, 0.6 × нэрийн урт).
+  const tabLabelsKey = TABS.map(tab => tab.label).join('|')
+  const tabCols = TABS.map(tab => {
+    const words = tab.label.split(/\s+/)
+    const wgt = Math.max(5, ...words.map(w => w.length), Math.ceil(tab.label.length * 0.6))
+    return `minmax(min-content, ${wgt}fr)`
+  }).join(' ')
+  // Нарийн дэлгэцэнд (320px) урт нэрс багтахгүй бол үсгийг шат дараалан жижигрүүлнэ: 1 = жижиг үсэг,
+  // 2 = сүүлийн арга, үгийг дундуур нь таслана. Scroll хэзээ ч гарахгүй.
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const [tabFit, setTabFit] = useState(0)
+  useLayoutEffect(() => {
+    const el = tabsRef.current
+    if (!el) return
+    const measure = () => {
+      let lvl = 0
+      for (; lvl < 2; lvl++) {
+        el.dataset.fit = String(lvl)
+        if (el.scrollWidth <= el.clientWidth + 1) break
+      }
+      el.dataset.fit = String(lvl)
+      setTabFit(lvl)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [tabLabelsKey])
   const [shipments, setShipments] = useState(initialShipments)
   // Апп арын дэвсгэрт удаан байгаад буцаж нээгдэхэд жагсаалтыг шинэчилнэ — хуучин төлөв (жш буцаагдсан
   // «Ирсэн») харагдахгүй. 1 минутаас дээш нуугдсан бол л, нэг удаагийн хүсэлт.
@@ -1047,15 +1085,16 @@ export default function OrdersClient({
           </div>
         </div>
 
-        {/* Tabs — 5 таб хэвээр, pill + inline тоо; багтахгүй бол хэвтээ scroll */}
-        <div className="orders-list-anchor ochips" role="tablist" style={{ ['--ochip-cols' as string]: TABS.length } as React.CSSProperties}>
+        {/* Tabs — 5 таб нэг мөрөнд, scroll-гүй; каргогийн өөрийн нэр 2 мөр хүртэл */}
+        <div ref={tabsRef} data-fit={tabFit} className="orders-list-anchor ochips" role="tablist" style={{ gridTemplateColumns: tabCols, ['--ochip-cols' as string]: TABS.length } as React.CSSProperties}>
           {TABS.map(tab => {
             const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
             const active = activeTab === tab.key
             return (
               <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => switchTab(tab.key)} className={`ochip${active ? ' on' : ''}`}
                 aria-label={count > 0 ? `${tab.label} ${count}` : tab.label} title={tab.label}>
-                <span className="ochip-lbl">{tab.label}</span>
+                {/* «Тяньжинь-д» зураасан дээр тасрахгүй (U+2011 non-breaking hyphen); title/aria-д жинхэнэ нэр */}
+                <span className="ochip-lbl">{tab.label.replace(/-/g, '\u2011')}</span>
                 {count > 0 && <span className="ochip-badge" aria-hidden>{count}</span>}
               </button>
             )
