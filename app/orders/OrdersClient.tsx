@@ -1,5 +1,5 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, ChevronDown, X, LockKeyhole, Pencil } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
 import LoyaltyHub from './loyalty/LoyaltyHub'
 import { vipDiscountMnt, type CustomerLoyaltyView } from '@/lib/loyalty-core'
 import type { EreenAddress } from '@/lib/ereen-address'
@@ -28,6 +28,7 @@ import { useUserLang } from '../components/useUserLang'
 import { StaggerItem } from '../components/motion'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import CopyButton from '../components/CopyButton'
 import { dict, fmt, statusLabels, LANG_CONFIRM, UserLang, type UserDict } from '@/lib/user-i18n'
 
 
@@ -100,6 +101,10 @@ const byListPriority = <T extends { status: string }>(list: T[]) =>
 const STEP_COLOR: Record<string, string> = {
   REGISTERED: 'var(--muted)', EREEN_ARRIVED: 'var(--blue)', ARRIVED: 'var(--yellow)', PICKED_UP: 'var(--green)',
 }
+// Компакт мөрийн явцын өнгө = пилийн өнгө (Эрээнд улбар шар, Ирсэн accent) — багц картын ShipSteps хэвээр
+const ROW_COLOR: Record<string, string> = {
+  REGISTERED: 'var(--muted)', EREEN_ARRIVED: 'var(--orange)', ARRIVED: 'var(--accent)', PICKED_UP: 'var(--green)',
+}
 
 // Ачаа аль шатанд явж байгааг 4 алхамтай зурвасаар харуулна — badge-аас илүү ойлгомжтой
 function ShipSteps({ status, labels }: { status: string; labels: Record<string, string> }) {
@@ -144,8 +149,14 @@ function shortDate(iso: string) {
   return sameYear ? `${d.getUTCMonth() + 1}/${d.getUTCDate()}` : `${d.getUTCFullYear()}.${d.getUTCMonth() + 1}.${d.getUTCDate()}`
 }
 
-// Хэрэглэгчийн ачааны карт: гарчиг = юу болох нь (тайлбар), доор нь нэг өгүүлбэрээр хаана явааг хэлнэ.
-// Төлөв нэг л удаа — цэгэн явц + хүний хэлээрх мөр. "Ирсэн" нь цорын ганц үйлдэл шаардах төлөв тул тодорно.
+// «2 өдөр» маягийн богино хугацаа — компакт мөрийн баруун талд (яг огноо нь дэлгэсэн явц дээр)
+function shortAge(iso: string, t: UserDict): string {
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  return d < 1 ? t.relShortToday : fmt(t.relShortDays, { n: d })
+}
+
+// Хэрэглэгчийн ачааны компакт мөр (~60px): зүүн = нэр + трак (хуулах), баруун = төлвийн пил + дүн/хугацаа.
+// Мөр дарахад 4 шатны явц, төлвийн өгүүлбэр, тэмдэглэл, устгах цэс доор нь дэлгэгдэнэ.
 function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onDelete }: {
   s: Shipment
   amt: Amount
@@ -158,7 +169,7 @@ function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onD
   onDelete: () => void
 }) {
   const [menu, setMenu] = useState(false)
-  // Явцын шугамыг анхдагчаар нууна — карт намхан, статус + хугацаа нэг харцаар. Товшиж дэлгэнэ
+  // Явцыг анхдагчаар нууна — мөр намхан, статус + хугацаа нэг харцаар. Товшиж дэлгэнэ
   const [open, setOpen] = useState(false)
   const idx = STEP_ORDER.indexOf(s.status as typeof STEP_ORDER[number])
   const price = s.adminPrice ? `${cur}${Number(s.adminPrice).toLocaleString()}` : null
@@ -175,104 +186,124 @@ function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onD
 
   let headline: React.ReactNode
   let sub: React.ReactNode = null
+  let meta: React.ReactNode = null
   const money = (n: number) => `${cur}${Math.round(n).toLocaleString()}`
   const struck = amt.final !== amt.gross && amt.gross > 0 ? <s style={{ color: 'var(--muted)', fontWeight: 400 }}>{money(amt.gross)}</s> : null
   if (s.status === 'REGISTERED') {
     headline = t.stWaitEreen
     sub = fmt(t.stRegistered, { r: relTime(s.createdAt, t) })
+    meta = shortAge(s.createdAt, t)
   } else if (s.status === 'EREEN_ARRIVED') {
     headline = labels.EREEN_ARRIVED
     sub = relTime(s.ereenArrivedAt ?? s.updatedAt, t)
+    meta = shortAge(s.ereenArrivedAt ?? s.updatedAt, t)
   } else if (s.status === 'ARRIVED') {
     headline = <>{labels.ARRIVED}!</>
     sub = !price ? t.stReady : amt.kind === 'est'
       ? <>{struck} {fmt(t.stPay, { p: money(amt.final) })}<small className="sc-est">{fmt(t.vipEst, { pct: vipPct })}</small></>
       : fmt(t.stPay, { p: price })
+    // Төлөх дүн (VIP-тэй бол урьдчилсан хөнгөлөлттэй дүн)
+    meta = price ? money(amt.final) : null
   } else if (s.status === 'PICKED_UP') {
     headline = fmt(t.stPicked, { d: shortDate(s.updatedAt) })
     sub = amt.kind === 'paid'
       ? <>{struck} {money(amt.final)} · {fmt(t.paidReceipt, { n: amt.receiptId ?? '' })}</>
       : price
+    meta = amt.kind === 'paid' ? money(amt.final) : (price ?? shortDate(s.updatedAt))
   } else {
     headline = labels[s.status] ?? s.status
   }
 
+  const toggle = () => { setMenu(false); setOpen(o => !o) }
+  const rowCls = [
+    'orow',
+    s.status === 'ARRIVED' ? 'is-arrived' : '',
+    s.status === 'PICKED_UP' ? 'is-picked' : '',
+    open ? 'is-open' : '',
+  ].filter(Boolean).join(' ')
+  const stepColor = { ['--c' as string]: ROW_COLOR[s.status] ?? 'var(--muted)' } as React.CSSProperties
+
   return (
-    <article className={`sc sc-${s.status}`}>
-      <div className="sc-top">
-        <h3 className="sc-title">
-          {hasTitle ? title : <CopyText text={s.trackCode}>{s.trackCode}</CopyText>}
-        </h3>
-        {canDelete && (
-          <div className="sc-menu-wrap">
-            <button className="sc-more" onClick={() => setMenu(m => !m)} aria-label={t.moreActions} aria-expanded={menu} disabled={deleting}>
-              <MoreHorizontal size={18} />
-            </button>
-            {menu && (
-              <>
-                <div className="sc-menu-bg" onClick={() => setMenu(false)} />
-                <div className="sc-menu" role="menu">
-                  <button role="menuitem" onClick={() => { setMenu(false); onDelete() }}>
-                    <Trash2 size={15} />{s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+    <div className={`oitem oitem-${s.status}`} data-shipment-id={s.id}>
+      <div
+        className={rowCls}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        aria-label={`${title} — ${labels[s.status] ?? s.status} — ${open ? t.hideProgress : t.showProgress}`}
+        onClick={toggle}
+        onKeyDown={e => {
+          if (e.target !== e.currentTarget) return
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
+        }}
+      >
+        <div className="orow-main">
+          {hasTitle ? (
+            <>
+              <div className="oname">{title}</div>
+              <div className="ocode">
+                <CopyButton text={s.trackCode} showText textClassName="ocode-text" />
+              </div>
+            </>
+          ) : (
+            <div className="oname-row">
+              <CopyButton text={s.trackCode} showText textClassName="oname oname-code" />
+            </div>
+          )}
+        </div>
+        <div className="orow-side">
+          <span className={`pill pill-${s.status}`}>{labels[s.status] ?? s.status}</span>
+          {meta && <span className="ometa">{meta}</span>}
+        </div>
+        <span className="orow-chev" aria-hidden><ChevronRight size={16} /></span>
       </div>
 
-      {hasTitle && (
-        <div className="sc-code">
-          <CopyText text={s.trackCode}>{s.trackCode}<Copy size={12} /></CopyText>
-          {s.phone && s.phone !== userPhone && <span className="sc-phone">· {s.phone}</span>}
+      {open && (
+        <div className="odetail" style={stepColor}>
+          {idx >= 0 && (
+            <ol className="sc-track sc-track-labeled" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
+              {STEP_ORDER.map((k, i) => {
+                const d = i <= idx ? stepDates[i] : null
+                return (
+                  <li key={k} className={`sc-step${i < idx || (i === idx && s.status === 'PICKED_UP') ? ' done' : ''}${i === idx && s.status !== 'PICKED_UP' ? ' cur' : ''}`} title={d ? `${labels[k]} · ${fullDate(d)}` : labels[k]}>
+                    <span className="sc-bar" />
+                    <span className="sc-step-lbl">{labels[k]}</span>
+                    <time dateTime={d ?? undefined}>{d ? shortDate(d) : ' '}</time>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+
+          <div className="odetail-foot">
+            <p className="sc-status odetail-status">
+              <b>{headline}</b>
+              {sub && <span>{sub}</span>}
+              {s.phone && s.phone !== userPhone && <span className="sc-phone">· {s.phone}</span>}
+            </p>
+            {canDelete && (
+              <div className="sc-menu-wrap">
+                <button className="sc-more" onClick={() => setMenu(m => !m)} aria-label={t.moreActions} aria-expanded={menu} disabled={deleting}>
+                  <MoreHorizontal size={18} />
+                </button>
+                {menu && (
+                  <>
+                    <div className="sc-menu-bg" onClick={() => setMenu(false)} />
+                    <div className="sc-menu" role="menu">
+                      <button role="menuitem" onClick={() => { setMenu(false); onDelete() }}>
+                        <Trash2 size={15} />{s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {s.adminNote && <p className="sc-note">{t.adminNote}: {s.adminNote}</p>}
         </div>
       )}
-
-      {s.status !== 'PICKED_UP' && idx >= 0 ? (
-        <button type="button" className="sc-status sc-status-btn" aria-expanded={open} onClick={() => setOpen(o => !o)}
-          aria-label={`${labels[s.status] ?? s.status} — ${open ? 'явцыг хаах' : 'явцыг харах'}`}>
-          <b>{headline}</b>
-          {sub && <span>{sub}</span>}
-          <ChevronDown size={16} className="sc-chev" aria-hidden />
-        </button>
-      ) : (
-        <p className="sc-status">
-          <b>{headline}</b>
-          {sub && <span>{sub}</span>}
-        </p>
-      )}
-
-      {open && s.status !== 'PICKED_UP' && idx >= 0 && (
-        <ol className="sc-track sc-track-labeled" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
-          {STEP_ORDER.map((k, i) => {
-            const d = i <= idx ? stepDates[i] : null
-            return (
-              <li key={k} className={`sc-step${i < idx ? ' done' : ''}${i === idx ? ' cur' : ''}`} title={d ? `${labels[k]} · ${fullDate(d)}` : labels[k]}>
-                <span className="sc-bar" />
-                <span className="sc-step-lbl">{labels[k]}</span>
-                <time dateTime={d ?? undefined}>{d ? shortDate(d) : ' '}</time>
-              </li>
-            )
-          })}
-        </ol>
-      )}
-
-      {s.adminNote && <p className="sc-note">{t.adminNote}: {s.adminNote}</p>}
-    </article>
-  )
-}
-
-function CopyText({ text, children, style }: { text: string; children: React.ReactNode; style?: React.CSSProperties }) {
-  function copy(e: React.MouseEvent) {
-    e.stopPropagation()
-    navigator.clipboard.writeText(text)
-    toast.success('Хуулагдлаа')
-  }
-  return (
-    <span onClick={copy} title="Хуулах" style={{ cursor: 'pointer', ...style }}>
-      {children}
-    </span>
+    </div>
   )
 }
 
@@ -1013,34 +1044,15 @@ export default function OrdersClient({
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="orders-list-anchor" style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
+        {/* Tabs — 5 таб хэвээр, pill + inline тоо; багтахгүй бол хэвтээ scroll */}
+        <div className="orders-list-anchor ochips" role="tablist">
           {TABS.map(tab => {
             const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
             const active = activeTab === tab.key
             return (
-              <button key={tab.key} onClick={() => switchTab(tab.key)} style={{
-                position: 'relative',
-                padding: '0.5rem 0.25rem', borderRadius: '8px', border: '1px solid',
-                borderColor: active ? 'var(--accent)' : 'var(--border)',
-                background: active ? 'var(--accent)' : 'var(--surface)',
-                color: active ? 'var(--on-accent)' : 'var(--muted)',
-                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                textAlign: 'center', lineHeight: 1.3,
-                transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-              }}>
+              <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => switchTab(tab.key)} className={`ochip${active ? ' on' : ''}`}>
                 {tab.label}
-                {count > 0 && (
-                  <span style={{
-                    position: 'absolute', top: '-6px', right: '-4px',
-                    background: active ? 'var(--on-accent)' : 'var(--accent)',
-                    color: active ? 'var(--accent)' : 'var(--on-accent)',
-                    fontSize: '0.6rem', fontWeight: 700,
-                    minWidth: 16, height: 16, borderRadius: '100px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 3px', lineHeight: 1,
-                  }}>{count}</span>
-                )}
+                {count > 0 && <b>{count}</b>}
               </button>
             )
           })}
@@ -1137,12 +1149,15 @@ export default function OrdersClient({
                 </motion.div>
               ))}
 
-              {viewMode === 'list' ? paged.map((s, si) => (
+              {viewMode === 'list' ? paged.length > 0 && (
+                <div className="olist">
+                {paged.map((s, si) => (
                 <motion.div
                   key={s.id}
-                  initial={{ opacity: 0, y: 16 }}
+                  className="olist-item"
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: Math.min(si * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ duration: 0.3, delay: Math.min(si * 0.03, 0.3), ease: [0.22, 1, 0.36, 1] }}
                 >
                 <ShipmentCard
                   s={s}
@@ -1156,7 +1171,9 @@ export default function OrdersClient({
                   onDelete={() => { setNavPopup(null); setConfirmDelete(s.id) }}
                 />
                 </motion.div>
-              )) : pagedDateGroups.map(g => (
+                ))}
+                </div>
+              ) : pagedDateGroups.map(g => (
                 <div key={g.date} className="card" style={{ overflow: 'hidden' }}>
                   <div
                     onClick={() => setExpandedDate(expandedDate === g.date ? null : g.date)}
@@ -1190,9 +1207,9 @@ export default function OrdersClient({
                           borderBottom: si < g.items.length - 1 ? '1px solid var(--border)' : 'none',
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, overflow: 'hidden' }}>
-                            <CopyText text={s.trackCode} style={{ fontFamily: 'monospace', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {s.trackCode}
-                            </CopyText>
+                            <span style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                              <CopyButton text={s.trackCode} showText textStyle={{ fontFamily: 'monospace', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', minWidth: 0 }} />
+                            </span>
                             <span className={`badge badge-${s.status}`} style={{ fontSize: '0.62rem', padding: '0.15rem 0.5rem', flexShrink: 0 }}>{STATUS_LABEL[s.status] ?? s.status}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>

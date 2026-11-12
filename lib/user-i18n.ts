@@ -129,6 +129,11 @@ const MN = {
   relDays: '{n} хоногийн өмнө',
   relWeeks: '{n} долоо хоногийн өмнө',
   relMonths: '{n} сарын өмнө',
+  // Компакт мөрийн богино хугацаа («2 өдөр»)
+  relShortToday: 'Өнөөдөр',
+  relShortDays: '{n} өдөр',
+  showProgress: 'явцыг харах',
+  hideProgress: 'явцыг хаах',
 
   // Delete-all modal
   deleteAllTitle: '⚠ Бүгдийг устгах',
@@ -304,6 +309,10 @@ const EN: Partial<UserDict> = {
   relDays: '{n} days ago',
   relWeeks: '{n} weeks ago',
   relMonths: '{n} months ago',
+  relShortToday: 'Today',
+  relShortDays: '{n} d',
+  showProgress: 'show progress',
+  hideProgress: 'hide progress',
 
   deleteAllTitle: '⚠ Delete all',
   deleteIrreversible: 'This cannot be undone. Type УСТГАХ to continue:',
@@ -473,6 +482,10 @@ const CN: Partial<UserDict> = {
   relDays: '{n}天前',
   relWeeks: '{n}周前',
   relMonths: '{n}个月前',
+  relShortToday: '今天',
+  relShortDays: '{n}天',
+  showProgress: '查看进度',
+  hideProgress: '收起进度',
 
   deleteAllTitle: '⚠ 全部删除',
   deleteIrreversible: '此操作无法撤销。请输入 УСТГАХ 以继续：',

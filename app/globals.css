@@ -2426,3 +2426,107 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 .ereen-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
 .ereen-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 600px) { .ereen-chip { min-height: 44px; } }
+
+/* ── Миний захиалгууд: компакт мөр v2 (cards-v2 mock) ───────────────────────── */
+/* Таб: 5 таб хэвээр, pill + inline тоо; 390px-д багтахгүй бол хэвтээ scroll */
+.ochips {
+  display: flex; gap: 0.4rem; overflow-x: auto; margin-bottom: 0.75rem;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.ochips::-webkit-scrollbar { display: none; }
+.ochip {
+  flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  border-radius: 100px; padding: 0.38rem 0.72rem; font: inherit; font-size: 0.75rem; font-weight: 600;
+  min-height: 34px; line-height: 1; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ochip b { font-weight: 700; margin-left: 0.2rem; font-variant-numeric: tabular-nums; }
+.ochip.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+/* Нэг цагаан жагсаалт, мөрүүд divider-тэй */
+.olist {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.olist-item { border-bottom: 1px solid var(--border); }
+.olist-item:last-child { border-bottom: none; }
+.orow {
+  display: flex; align-items: center; gap: 0.15rem;
+  width: 100%; min-height: 60px; padding: 0 2px 0 14px;
+  background: transparent; border: none;
+  text-align: left; color: inherit; position: relative; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.orow:hover { background: color-mix(in srgb, var(--surface2) 65%, var(--surface)); }
+.orow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.orow.is-arrived { background: color-mix(in srgb, var(--accent-light) 70%, var(--surface)); }
+.orow.is-arrived:hover { background: var(--accent-light); }
+.orow.is-picked { background: transparent; }
+.orow.is-picked .oname { color: var(--muted); font-weight: 600; }
+.orow.is-open { background: var(--surface2); }
+.orow-main { flex: 1; min-width: 0; padding: 6px 2px 6px 0; }
+.oname {
+  font-size: 0.875rem; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.oname-row { display: flex; align-items: center; min-width: 0; }
+.oname-row .oname { flex: 0 1 auto; min-width: 0; }
+.oname-code { font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; font-size: 0.82rem; cursor: pointer; }
+.ocode {
+  display: flex; align-items: center; margin-top: -2px; min-width: 0; height: 28px;
+  color: var(--muted); font-size: 0.72rem;
+}
+.ocode-text {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; letter-spacing: -0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; cursor: pointer;
+}
+.ocode-text:hover { color: var(--text); }
+.copy-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: flex-start;
+  width: 44px; height: 44px; margin: -8px -10px -8px 0;
+  padding: 0 0 0 4px;
+  border: none; background: none; border-radius: 10px; color: #8a827a; cursor: pointer;
+}
+/* Mock-ийн hover дэвсгэр 44px талбайгаар нэрийн мөр рүү давж харагддаг тул зөвхөн өнгө солино */
+.copy-btn:hover { color: var(--text); }
+.copy-btn:focus-visible { color: var(--text); outline: 2px solid var(--accent); outline-offset: -8px; }
+.copy-btn.is-copied { color: var(--green); }
+.copy-btn svg { width: 16px; height: 16px; display: block; }
+.orow-side {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+  gap: 3px; padding: 8px 0; min-width: 0;
+}
+.pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.65rem; font-weight: 700; line-height: 1; letter-spacing: 0.01em;
+  padding: 0.22rem 0.45rem; border-radius: 100px; white-space: nowrap;
+  background: var(--surface2); color: var(--muted);
+}
+.pill-REGISTERED { background: var(--surface2); color: var(--muted); }
+.orow.is-arrived .pill-REGISTERED { background: color-mix(in srgb, var(--surface) 70%, var(--surface2)); }
+.pill-EREEN_ARRIVED { background: color-mix(in srgb, var(--orange) 12%, var(--surface2)); color: var(--orange); }
+.pill-ARRIVED { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); }
+.pill-PICKED_UP { background: color-mix(in srgb, var(--green) 12%, var(--surface)); color: var(--green); }
+.ometa { font-size: 0.68rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+.orow.is-arrived .ometa { color: var(--text); font-weight: 700; }
+.orow.is-picked .ometa { color: var(--green); }
+.orow-chev {
+  flex-shrink: 0; width: 28px; display: flex; align-items: center; justify-content: center;
+  color: var(--placeholder);
+}
+.orow-chev svg { width: 16px; height: 16px; transition: transform 0.15s; }
+.orow.is-open .orow-chev svg { transform: rotate(90deg); }
+
+/* Дэлгэсэн хэсэг: 4 шатны явц (.sc-track дахин ашиглана) + төлвийн өгүүлбэр + устгах цэс */
+.odetail {
+  padding: 2px 14px 12px 14px;
+  background: color-mix(in srgb, var(--surface2) 55%, var(--surface));
+}
+.oitem-ARRIVED .odetail { background: color-mix(in srgb, var(--accent-light) 70%, var(--surface)); }
+.odetail .sc-track.sc-track-labeled { margin: 0.4rem 0 0.35rem; }
+.odetail-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.odetail-status { flex: 1; min-width: 0; margin: 0; }
+.odetail .sc-menu-wrap { margin: 0 -0.35rem 0 0; }
+.odetail .sc-note { margin-top: 0.4rem; }
