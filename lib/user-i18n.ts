@@ -132,6 +132,12 @@ const MN = {
   // Компакт мөрийн богино хугацаа («2 өдөр»)
   relShortToday: 'Өнөөдөр',
   relShortDays: '{n} өдөр',
+  // /orders таб — богино (5 таб нэг мөрөнд, scroll-гүй)
+  tabAll: 'Бүгд',
+  tabRegistered: 'Бүртгэл',
+  tabEreen: 'Эрээн',
+  tabArrived: 'Ирсэн',
+  tabPicked: 'Авсан',
   showProgress: 'явцыг харах',
   hideProgress: 'явцыг хаах',
 
@@ -311,6 +317,11 @@ const EN: Partial<UserDict> = {
   relMonths: '{n} months ago',
   relShortToday: 'Today',
   relShortDays: '{n} d',
+  tabAll: 'All',
+  tabRegistered: 'New',
+  tabEreen: 'Ereen',
+  tabArrived: 'Arrived',
+  tabPicked: 'Done',
   showProgress: 'show progress',
   hideProgress: 'hide progress',
 
@@ -484,6 +495,11 @@ const CN: Partial<UserDict> = {
   relMonths: '{n}个月前',
   relShortToday: '今天',
   relShortDays: '{n}天',
+  tabAll: '全部',
+  tabRegistered: '登记',
+  tabEreen: '二连',
+  tabArrived: '已到',
+  tabPicked: '已取',
   showProgress: '查看进度',
   hideProgress: '收起进度',
 

@@ -395,12 +395,15 @@ export default function OrdersClient({
   const [lang, setLang] = useUserLang()
   const t = dict(lang)
   const vipPct = loyalty?.vip?.pct ?? 0
+  const TAB_SHORT: Record<string, string> = { ALL: t.tabAll, REGISTERED: t.tabRegistered, EREEN_ARRIVED: t.tabEreen, ARRIVED: t.tabArrived, PICKED_UP: t.tabPicked }
   // Батч горимд: Эрээний шат нуугдаж, ARRIVED нь "УБ руу ачигдсан" нэртэй болно.
   // Каргогийн өөрийн тохируулсан нэр (arrivedLabel/ereemLabel) бүх хэлэнд хэвээр.
-  const { map: STATUS_LABEL, all: allLabel } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
+  const { map: STATUS_LABEL } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
   const TABS = BASE_TABS
     .filter(tab => !(batchMode && tab.key === 'EREEN_ARRIVED'))
-    .map(tab => tab.key === 'ALL' ? { ...tab, label: allLabel } : { ...tab, label: STATUS_LABEL[tab.key] ?? tab.label })
+    // Табын богино нэр (зөвхөн UI) — 5 таб 320px-д scroll-гүй багтана. Батч горимд ARRIVED нь
+    // «УБ руу ачигдсан» гэх мэт өөр утгатай тул тэр үед статусын нэрийг хэвээр (4 таб, илүү зайтай).
+    .map(tab => ({ ...tab, label: tab.key === 'ARRIVED' && batchMode ? (STATUS_LABEL.ARRIVED ?? tab.label) : TAB_SHORT[tab.key] }))
   const [shipments, setShipments] = useState(initialShipments)
   // Апп арын дэвсгэрт удаан байгаад буцаж нээгдэхэд жагсаалтыг шинэчилнэ — хуучин төлөв (жш буцаагдсан
   // «Ирсэн») харагдахгүй. 1 минутаас дээш нуугдсан бол л, нэг удаагийн хүсэлт.
@@ -1045,13 +1048,14 @@ export default function OrdersClient({
         </div>
 
         {/* Tabs — 5 таб хэвээр, pill + inline тоо; багтахгүй бол хэвтээ scroll */}
-        <div className="orders-list-anchor ochips" role="tablist">
+        <div className="orders-list-anchor ochips" role="tablist" style={{ ['--ochip-cols' as string]: TABS.length } as React.CSSProperties}>
           {TABS.map(tab => {
             const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
             const active = activeTab === tab.key
             return (
-              <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => switchTab(tab.key)} className={`ochip${active ? ' on' : ''}`}>
-                {tab.label}
+              <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => switchTab(tab.key)} className={`ochip${active ? ' on' : ''}`}
+                aria-label={count > 0 ? `${tab.label} ${count}` : tab.label} title={tab.label}>
+                <span className="ochip-lbl">{tab.label}</span>
                 {count > 0 && <b>{count}</b>}
               </button>
             )
