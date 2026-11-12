@@ -2430,34 +2430,37 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 /* ── Миний захиалгууд: компакт мөр v2 (cards-v2 mock) ───────────────────────── */
 /* Таб: 5 таб хэвээр, pill + inline тоо; 390px-д багтахгүй бол хэвтээ scroll */
 .ochips {
-  /* 5 таб нэг мөрөнд, scroll-гүй: тэнцүү 5 багана, бүтэн өргөн */
-  display: grid; grid-template-columns: repeat(var(--ochip-cols, 5), minmax(0, 1fr)); gap: 5px;
-  width: 100%; margin-bottom: 0.75rem;
+  /* 5 таб нэг мөрөнд, scroll-гүй: тэнцүү 5 багана, бүтэн өргөн.
+     padding: булангийн badge (top:-6px, right:-4px) мөрийн дээд/баруун захаас давж таслагдахгүй */
+  display: grid; grid-template-columns: repeat(var(--ochip-cols, 5), minmax(0, 1fr)); gap: 6px;
+  width: 100%; padding: 6px 4px 0; margin-bottom: 0.75rem;
 }
 .ochip {
-  /* Харагдах өндөр 38px; 44px дарах талбайг ::before-оор дээш/доош 3px сунгана */
-  position: relative; min-width: 0; min-height: 38px; padding: 0 0.35rem;
-  display: inline-flex; align-items: center; justify-content: center; gap: 0.2rem;
+  /* Нэг мөр, харагдах өндөр 38px; 44px дарах талбайг ::before-оор дээш/доош 3px сунгана.
+     overflow: visible — badge таслагдахгүй; ellipsis зөвхөн нэр дээр */
+  position: relative; min-width: 0; min-height: 38px; padding: 0 4px;
+  display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); background: var(--surface); color: var(--muted);
   border-radius: 100px; font: inherit; font-size: 0.8125rem; font-weight: 600; line-height: 1;
-  cursor: pointer; white-space: nowrap; overflow: hidden;
+  cursor: pointer; white-space: nowrap;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .ochip::before { content: ""; position: absolute; left: 0; right: 0; top: -3px; bottom: -3px; }
-.ochip-lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.ochip b { flex-shrink: 0; font-size: 0.6875rem; font-weight: 600; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.ochip-lbl { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ochip.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-/* Утсан дээр (≤480px) багана 56–68px — «Бүртгэл 12» нэг мөрөнд багтахгүй тул тоог нэрийн доор
-   жижгээр тавина: 44px өндөр (дарах талбай ч 44px), нэр бүтэн харагдана */
-@media (max-width: 480px) {
-  .ochip { flex-direction: column; gap: 2px; min-height: 44px; padding: 0 3px; border-radius: 14px; }
-  .ochip::before { display: none; }
-  .ochip b { font-size: 0.6875rem; line-height: 1; }
+/* Тоо — булангийн badge (PR #14-өөс өмнөх BASE_TABS загвар) */
+.ochip-badge {
+  position: absolute; top: -6px; right: -4px; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 3px; border-radius: 100px;
+  background: var(--accent); color: var(--on-accent);
+  font-size: 0.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
+.ochip.on .ochip-badge { background: var(--on-accent); color: var(--accent); }
 @media (max-width: 360px) {
-  .ochips { gap: 4px; }
-  .ochip { padding: 0 2px; font-size: 0.75rem; }
-  .ochip b { font-size: 0.625rem; }
+  .ochips { gap: 5px; }
+  .ochip { padding: 0 2px; font-size: 0.72rem; letter-spacing: -0.01em; }
 }
 
 /* Нэг цагаан жагсаалт, мөрүүд divider-тэй */

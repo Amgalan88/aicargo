@@ -402,8 +402,8 @@ export default function OrdersClient({
   const TABS = BASE_TABS
     .filter(tab => !(batchMode && tab.key === 'EREEN_ARRIVED'))
     // Табын богино нэр (зөвхөн UI) — 5 таб 320px-д scroll-гүй багтана. Батч горимд ARRIVED нь
-    // «УБ руу ачигдсан» гэх мэт өөр утгатай тул тэр үед статусын нэрийг хэвээр (4 таб, илүү зайтай).
-    .map(tab => ({ ...tab, label: tab.key === 'ARRIVED' && batchMode ? (STATUS_LABEL.ARRIVED ?? tab.label) : TAB_SHORT[tab.key] }))
+    // «УБ руу ачигдсан» утгатай тул богино «Ачигдсан» (мөрийн пил дээр бүтэн статусын нэр хэвээр).
+    .map(tab => ({ ...tab, label: tab.key === 'ARRIVED' && batchMode ? t.tabArrivedBatch : TAB_SHORT[tab.key] }))
   const [shipments, setShipments] = useState(initialShipments)
   // Апп арын дэвсгэрт удаан байгаад буцаж нээгдэхэд жагсаалтыг шинэчилнэ — хуучин төлөв (жш буцаагдсан
   // «Ирсэн») харагдахгүй. 1 минутаас дээш нуугдсан бол л, нэг удаагийн хүсэлт.
@@ -1056,7 +1056,7 @@ export default function OrdersClient({
               <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => switchTab(tab.key)} className={`ochip${active ? ' on' : ''}`}
                 aria-label={count > 0 ? `${tab.label} ${count}` : tab.label} title={tab.label}>
                 <span className="ochip-lbl">{tab.label}</span>
-                {count > 0 && <b>{count}</b>}
+                {count > 0 && <span className="ochip-badge" aria-hidden>{count}</span>}
               </button>
             )
           })}
