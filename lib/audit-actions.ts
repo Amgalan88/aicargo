@@ -42,6 +42,8 @@ export const AUDIT_ACTIONS: Record<string, { label: string; routine?: boolean; t
   'dispatch:reopen': { label: 'Ачилт дахин нээсэн', tone: 'yellow' },
   'dispatch:delete': { label: 'Ачилт устгасан', tone: 'red' },
   'billing:renewed': { label: 'Вэбсайтын төлбөр сунгагдсан', tone: 'green' },
+  'loyalty:settings': { label: 'Урамшууллын тохиргоо өөрчилсөн', tone: 'purple' },
+  'loyalty:vip-manual': { label: 'Гараар VIP оноосон/цуцалсан', tone: 'purple' },
 }
 
 export const ROUTINE_ACTIONS = Object.entries(AUDIT_ACTIONS).filter(([, v]) => v.routine).map(([k]) => k)

@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import NavLogo from './components/NavLogo'
-import { Reveal, Stagger, StaggerItem, AnimatedNumber } from './components/motion'
+import { Reveal, Stagger, StaggerItem, CountUpStat } from './components/motion'
 import {
   Globe, Package, FileSpreadsheet, Sparkles, Bell, BarChart3, Monitor, Search, Check, Gift,
   Warehouse as WarehouseIcon, ArrowRight, Factory, Wrench, User, X, Smartphone, HandCoins,
@@ -164,7 +164,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
     <div className="lp-stats">
       {statItems.map(s => (
         <div key={s.label}>
-          <b><AnimatedNumber value={s.v} suffix="+" /></b>
+          <b><CountUpStat value={s.v} suffix="+" /></b>
           <span>{s.label}</span>
         </div>
       ))}
@@ -199,7 +199,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               <a href="#pricing" className="lp-nav-hide-sm">Үнэ</a>
               <a href="#track" className="lp-nav-hide-sm">Ачаа шалгах</a>
               <ThemeToggle storageKey="landing-theme" />
-              <Link href="/login">Нэвтрэх</Link>
+              <Link href="/login" className="link-tap">Нэвтрэх</Link>
               <Link href="/signup-cargo" className="btn btn-sm" style={{ whiteSpace: 'nowrap' }}>Карго нээх</Link>
             </>
           )}
@@ -248,7 +248,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             <ul className="lp-assure">
               <li><Check size={14} strokeWidth={3} />Карт шаардлагагүй</li>
               <li><Check size={14} strokeWidth={3} />Суулгах шаардлагагүй</li>
-              <li><button onClick={() => setDemoOpen(true)} className="lp-demo-link"><Monitor size={14} />Демо үзэх</button></li>
+              <li><button onClick={() => setDemoOpen(true)} className="lp-demo-link link-tap"><Monitor size={14} />Демо үзэх</button></li>
             </ul>
           </Reveal>
         </section>
@@ -409,7 +409,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 </details>
               ))}
               <p className="lp-faq-more">
-                <MessageCircleQuestion size={15} />Өөр асуулт байна уу? <a href={`tel:${PHONE}`}>{PHONE}</a> дугаарт залгаарай
+                <MessageCircleQuestion size={15} />Өөр асуулт байна уу? <a href={`tel:${PHONE}`} className="link-tap" style={{ padding: "0 4px" }}>{PHONE}</a> дугаарт залгаарай
               </p>
             </div>
           </div>
@@ -434,7 +434,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
               <h2><Search size={20} strokeWidth={2.4} />Хэрэглэгч үү? Ачаагаа шалгаарай</h2>
               <p>
                 Аль ч каргогийн ачааг трак кодоор шалгана ·{' '}
-                <Link href="/register">Хэрэглэгчээр бүртгүүлэх</Link>
+                <Link href="/register" className="link-tap">Хэрэглэгчээр бүртгүүлэх</Link>
               </p>
             </div>
             <div className="lp-track-form">
@@ -458,7 +458,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                   {result.cargo?.name && (
                     <div className="card-row"><span className="label">Карго</span><strong style={{ color: 'var(--accent)' }}>{result.cargo.name}</strong></div>
                   )}
-                  <div className="card-row"><span className="label">Трак код</span><strong style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{result.trackCode}</strong></div>
+                  <div className="card-row"><span className="label">Трак код</span><strong style={{ fontFamily: 'monospace', fontSize: 'var(--fs-sm)' }}>{result.trackCode}</strong></div>
                   <div className="card-row"><span className="label">Статус</span><span className={`badge badge-${result.status}`}>{STATUS_LABEL[result.status] ?? result.status}</span></div>
                   {result.adminPrice && (
                     <div className="card-row"><span className="label">Төлбөр</span><strong style={{ color: 'var(--accent)' }}>₮{Number(result.adminPrice).toLocaleString()}</strong></div>
@@ -466,7 +466,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                   {result.updatedAt && (
                     <div className="card-row">
                       <span className="label">Огноо</span>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                      <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>
                         {new Date(result.updatedAt).toLocaleDateString('mn-MN', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                       </span>
                     </div>

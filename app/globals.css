@@ -329,6 +329,11 @@ textarea.input { resize: vertical; }
 /* ── MESSAGES ── */
 .msg-error   { font-size: 0.82rem; color: var(--danger); margin-top: 0.5rem; }
 .msg-success { font-size: 0.82rem; color: var(--green);  margin-top: 0.5rem; }
+.scan-warning {
+  background: color-mix(in srgb, var(--yellow) 14%, transparent);
+  border-left: 4px solid var(--yellow);
+  color: var(--yellow);
+}
 
 /* ── SECTION TITLE ── */
 .section-title {
@@ -932,7 +937,9 @@ textarea.input { resize: vertical; }
 /* Hero */
 .lp-hero { position: relative; max-width: 880px; margin: 0 auto; padding: clamp(2rem, 5vw, 3.25rem) 5% 1rem; text-align: center; }
 .lp-hero > * { position: relative; }
-.lp-hero-glow { position: absolute !important; inset: -10% -30% 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 60% 55% at 50% 40%, rgba(180,83,47,0.12), transparent 70%); }
+/* Өмнө нь inset -30% → hero-оос 160% өргөн, утсан дээр хуудсыг 507px болгодог байв. Одоо hero-гийн өргөнд багтана;
+   ellipse 96% = хуучин 160%×60% тул туяа адилхан харагдана */
+.lp-hero-glow { position: absolute !important; inset: -10% 0 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 96% 55% at 50% 40%, rgba(180,83,47,0.12), transparent 70%); }
 .lp-pill {
   display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 1.2rem;
   font-size: var(--fs-xs); font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em;
@@ -1735,6 +1742,8 @@ button.lp-offer { text-align: left; font: inherit; cursor: pointer; width: 100%;
 .onotice-sum { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
 .onotice-sum small { font-size: var(--fs-xs); color: var(--muted); }
 .onotice-sum b { font-size: 1.05rem; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.onotice-sum .onotice-was { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); margin-right: 0.3rem; }
+.sc-status .sc-est { display: block; font-size: var(--fs-xs); color: var(--muted); font-weight: 400; }
 .onotice-chev { flex-shrink: 0; color: var(--accent); opacity: 0.7; }
 .orders-list-anchor { scroll-margin-top: 72px; }
 @keyframes onotice-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
@@ -2224,3 +2233,329 @@ html[data-brand="mgl"][data-theme="night"] .badge-ARRIVED { background: #FF8200;
 
 /* Зөвхөн утасны (stack) хүснэгтэд харагдах элемент — эхний багана нуугдахад */
 .data-table .st-show { display: none; }
+
+/* ════════ Миний урамшуулал v2 (compact) — app/orders/loyalty/* ════════ */
+:root { --lh-gold: var(--accent); --lh-track: color-mix(in srgb, var(--accent) 12%, var(--surface2)); --lh-ease: cubic-bezier(.22,1,.36,1); --lh-pop: cubic-bezier(.34,1.56,.64,1); }
+html[data-brand="mgl"] { --lh-gold: #FF8200; }
+.lh { position: relative; margin: 0.75rem 0; border-radius: var(--radius-lg); background: linear-gradient(150deg, var(--accent-light) 0%, var(--surface) 70%); border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border)); box-shadow: var(--shadow); overflow: hidden; }
+.lh .num { font-variant-numeric: tabular-nums; }
+.lh-main { display: grid; gap: 0.5rem; padding: 0.65rem 3rem 0.7rem 0.85rem; }
+.lh-x { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.lh-x svg { transition: transform .25s var(--lh-ease); }
+.lh-x[aria-expanded="true"] svg { transform: rotate(180deg); }
+.lh-x:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+.lh-row { display: flex; align-items: center; gap: 0.55rem; min-height: 28px; min-width: 0; }
+.lh-badge { flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.3rem; height: 26px; padding: 0 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; background: var(--accent); color: var(--on-accent); }
+.lh-badge.locked { background: var(--surface2); color: var(--muted); }
+.lh-badge.max { box-shadow: 0 0 0 2px color-mix(in srgb, var(--lh-gold) 60%, var(--surface)); }
+.lh-coin { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-light); color: var(--accent); }
+.lh-k { font-size: 0.95rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.lh-k em { font-style: normal; color: var(--accent); }
+.lh-m { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; font-weight: 400; }
+.lh-bar { position: relative; height: 18px; }
+.lh-bar.labels { height: 30px; }
+.lh-rail { position: absolute; left: 6px; right: 6px; top: 6px; height: 6px; border-radius: 99px; background: var(--lh-track); overflow: hidden; }
+.lh-fill, .lh-pfill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 99px; transition: width 1100ms var(--lh-ease); }
+.lh-fill { background: var(--accent); }
+.lh-pfill { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent) 40%, transparent) 0 3px, transparent 3px 6px); }
+.lh-tk { position: absolute; top: 3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border-strong); transition: background .3s, border-color .3s; }
+.lh-tk.on { background: var(--accent); border-color: var(--accent); }
+.lh-tk.nx { border-color: var(--accent); }
+.lh-tk b { position: absolute; top: 13px; left: 50%; transform: translateX(-50%); font-size: 0.6rem; font-weight: 700; color: var(--muted); line-height: 1; }
+.lh-tk.on b, .lh-tk.nx b { color: var(--accent); }
+.lh-hint { position: relative; overflow: hidden; display: flex; align-items: center; gap: 0.4rem; min-height: 30px; padding: 0.3rem 0.6rem; border-radius: 8px; font-size: var(--fs-sm); font-weight: 600; line-height: 1.25; }
+.lh-hint.ok { background: color-mix(in srgb, var(--green) 11%, transparent); color: var(--green); }
+.lh-hint.ok.shine::after { content: ""; position: absolute; inset: 0; transform: translateX(-120%); background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.6) 50%, transparent 80%); animation: lh-shimmer 2.6s var(--lh-ease) 1.2s infinite; }
+.lh-hint.warn { background: color-mix(in srgb, var(--orange) 10%, transparent); color: var(--orange); }
+.lh-hint.info { background: var(--surface2); color: var(--muted); }
+.lh-hint.cta { padding: 0; background: none; }
+.lh-hint.cta .btn { width: 100%; min-height: 44px; font-size: var(--fs-sm); animation: lh-pulse 2.2s ease-out 1.2s infinite; }
+.lh-sep { height: 1px; background: var(--border); margin: 0 -0.1rem; }
+.lh-vsep { display: none; }
+.lh-col { display: grid; gap: 0.45rem; min-width: 0; }
+.lh-more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s var(--lh-ease); }
+.lh-more.open { grid-template-rows: 1fr; }
+.lh-more > div { overflow: hidden; }
+.lh-det { display: grid; gap: 0.7rem; padding: 0.7rem 0.85rem 0.85rem; border-top: 1px solid var(--border); font-size: var(--fs-xs); }
+.lh-det h4 { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 0.3rem; }
+.lh-tiers, .lh-facts { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.lh-tier { display: inline-flex; gap: 0.3rem; align-items: center; height: 26px; padding: 0 0.55rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-weight: 600; white-space: nowrap; }
+.lh-tier.on { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.lh-tier.nx { border-style: dashed; border-color: var(--accent); }
+.lh-facts span { height: 24px; display: inline-flex; align-items: center; padding: 0 0.5rem; border-radius: 6px; background: var(--surface2); color: var(--muted); font-weight: 600; }
+.lh-rc { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0; border-top: 1px dashed var(--border); }
+.lh-rc:first-of-type { border-top: 0; }
+.lh-plus { color: var(--green); font-weight: 800; }
+.lh-note { color: var(--muted); margin: 0; }
+.lh-in { opacity: 0; transform: translateY(6px); animation: lh-in .36s var(--lh-ease) forwards; animation-delay: calc(var(--i, 0) * 60ms); }
+.lh .bump { display: inline-block; animation: lh-bump .5s var(--lh-pop); }
+.lh-ovl { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1.5rem; background: rgba(20,14,10,.55); backdrop-filter: blur(3px); animation: lh-fade .22s linear; }
+.lh-pop { position: relative; width: min(340px, 100%); text-align: center; padding: 1.75rem 1.25rem 1.25rem; border-radius: 20px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); animation: lh-pop-in .45s var(--lh-pop); }
+.lh-medal { position: relative; width: 112px; height: 112px; margin: -0.25rem auto 0.9rem; border-radius: 50%; display: grid; place-content: center; color: var(--on-accent); background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.32), transparent 45%), var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lh-gold) 55%, var(--surface)), 0 14px 32px -10px var(--accent); animation: lh-medal .62s var(--lh-pop) both .08s; isolation: isolate; }
+.lh-medal b { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+.lh-medal small { font-size: 0.72rem; font-weight: 700; opacity: .9; }
+.lh-medal::before { content: ""; position: absolute; inset: -14px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--lh-gold) 45%, transparent) 0%, transparent 70%); z-index: -1; animation: lh-glow 1.8s ease-in-out infinite; }
+.lh-pop h2 { font-size: 1.3rem; font-weight: 800; margin: 0 0 0.35rem; }
+.lh-pop p { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; margin: 0 0 1rem; }
+.lh-pop p b { color: var(--text); }
+.lh-toast { position: fixed; left: 50%; top: 14px; z-index: 990; transform: translate(-50%, -160%); display: flex; align-items: center; gap: 0.55rem; padding: 0.6rem 0.95rem; border-radius: 999px; background: var(--text); color: var(--bg); font-size: var(--fs-sm); font-weight: 700; box-shadow: var(--shadow-lg); transition: transform .38s var(--lh-pop); pointer-events: none; }
+.lh-toast.show { transform: translate(-50%, 0); }
+.lh-toast .plus { color: #4ade80; }
+@keyframes lh-in { to { opacity: 1; transform: none; } }
+@keyframes lh-fade { from { opacity: 0; } }
+@keyframes lh-pop-in { from { transform: scale(.9) translateY(10px); } }
+@keyframes lh-shimmer { 0% { transform: translateX(-120%); } 60%, 100% { transform: translateX(120%); } }
+@keyframes lh-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent); } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes lh-medal { 0% { transform: scale(.4) rotate(-12deg); opacity: 0; } 60% { transform: scale(1.08) rotate(3deg); opacity: 1; } 100% { transform: none; } }
+@keyframes lh-glow { 0%, 100% { transform: scale(.92); opacity: .7; } 50% { transform: scale(1.08); opacity: 1; } }
+@keyframes lh-bump { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+/* Сүүлийн мөрийн зөвлөмж ⌄ товчны доор орохгүй тул баруун тийш сунгана (урт ₮ дүн нэг мөрөнд багтана) */
+.lh-main > .lh-hint:last-child, .lh-main > .lh-col:last-child > .lh-hint:last-child { margin-right: -2.15rem; }
+/* 2 багана: /orders-ийн багана ~580px тул viewport биш картын өөрийн өргөнөөр (≥640px) — нарийн бол утасных шиг дараалсан */
+.lh { container-type: inline-size; }
+@container (min-width: 640px) {
+  .lh-main.both { grid-template-columns: 1fr 1px 1fr; column-gap: 1rem; align-items: start; padding: 0.85rem 3.25rem 0.9rem 1rem; }
+  .lh-main.both .lh-vsep { display: block; background: var(--border); align-self: stretch; }
+  .lh-main.both .lh-sep { display: none; }
+  .lh-main.both > .lh-col:last-child > .lh-hint:last-child { margin-right: 0; }
+}
+@container (min-width: 480px) {
+  .lh-det { grid-template-columns: 1fr 1fr 1fr; column-gap: 1.25rem; padding: 0.8rem 1rem 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lh-in { animation: none; opacity: 1; transform: none; }
+  .lh-hint.ok.shine::after, .lh-hint.cta .btn, .lh-medal::before, .lh-medal, .lh .bump, .lh-ovl, .lh-pop { animation: none; }
+  .lh-fill, .lh-pfill, .lh-more, .lh-toast, .lh-x svg, .lh-tk { transition: none; }
+}
+
+/* ── Ачаа олгосны дараах карт + 10 сек «Буцаах» (UX аудит #1) ── */
+.handover-done { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.85rem 1rem; border: 1px solid color-mix(in srgb, var(--green) 45%, var(--border)); background: color-mix(in srgb, var(--green) 8%, var(--surface)); border-radius: 12px; }
+.handover-done-title { font-weight: 700; color: var(--green); font-size: var(--fs-md, 1rem); line-height: 1.3; }
+.handover-done-sub { font-size: var(--fs-sm, 0.875rem); color: var(--muted); margin-top: 0.15rem; font-variant-numeric: tabular-nums; }
+.handover-undo { flex-shrink: 0; min-height: 44px; padding: 0 1rem; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.handover-undo:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+/* ── /admin «Өнөөдөр» самбар + 404/алдааны хуудас (UX аудит #3) ── */
+.admin-home { max-width: 760px; }
+.admin-home-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+@media (min-width: 900px) { .admin-home-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } .admin-home { max-width: 1040px; } }
+.admin-stat { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.9rem 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; color: var(--text); text-decoration: none; min-height: 112px; transition: border-color 0.12s; }
+.admin-stat:hover { border-color: var(--accent); }
+.admin-stat-label { font-size: var(--fs-sm); color: var(--muted); }
+.admin-stat-value { font-size: 1.5rem; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.admin-stat-value small { font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+.admin-stat-sub { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.admin-stat-warn { border-color: var(--danger); }
+.admin-stat-warn .admin-stat-label, .admin-stat-warn .admin-stat-value { color: var(--danger); }
+.admin-home-h2 { font-size: 1rem; font-weight: 700; margin: 1.5rem 0 0.6rem; }
+.admin-home-primary { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; min-height: 48px; text-decoration: none; }
+.admin-home-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin-top: 0.6rem; }
+@media (min-width: 900px) { .admin-home-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.admin-home-action { display: flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 44px; padding: 0 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-weight: 600; font-size: var(--fs-sm); text-decoration: none; text-align: center; }
+.admin-home-action:hover { border-color: var(--accent); color: var(--accent); }
+.sys-page { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding: 2rem 1.25rem; text-align: center; }
+.sys-page-code { font-size: 3rem; font-weight: 800; color: var(--accent); line-height: 1; margin: 0; }
+.sys-page-title { font-size: 1.35rem; font-weight: 700; margin: 0; }
+.sys-page-text { color: var(--muted); max-width: 360px; margin: 0 0 0.6rem; }
+.sys-page-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.9rem; color: var(--accent); font-weight: 600; }
+
+/* ── Хэрэглэгчийн карт: намхан, статус товч + дэлгэх явц (UX аудит #4) ── */
+.sc { padding: 0.7rem 0.95rem 0.6rem; }
+.sc-status.sc-status-btn { width: 100%; margin: 0.15rem 0 0; padding: 0.35rem 1.6rem 0.2rem 0; min-height: 36px; position: relative; background: none; border: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.sc-status-btn .sc-chev { position: absolute; right: 0; top: 50%; transform: translateY(-50%); color: var(--muted); transition: transform 0.15s; }
+.sc-status-btn[aria-expanded="true"] .sc-chev { transform: translateY(-50%) rotate(180deg); }
+.sc-track.sc-track-labeled { margin: 0.5rem 0 0.2rem; }
+.sc-step-lbl { display: block; margin-top: 0.45rem; font-size: 0.75rem; line-height: 1.2; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-step.cur .sc-step-lbl { color: var(--c); font-weight: 700; }
+.sc-track-labeled .sc-step time { margin-top: 0.15rem; }
+.sc-PICKED_UP { padding: 0.6rem 0.95rem; }
+
+/* ── Бараа бүртгэх форм (UX аудит #5) ── */
+.req { color: var(--danger); font-weight: 700; }
+.add-help { font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
+.add-x { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--surface2); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: -0.4rem -0.4rem -0.4rem 0; }
+.add-x:hover { color: var(--text); }
+.input.input-error { border-color: var(--danger); }
+.add-err { margin: 0.35rem 0 0; }
+.add-err-link { background: none; border: none; padding: 0 0.15rem; min-height: 24px; color: var(--accent); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+.add-hint { margin: 0.45rem 0 0; text-align: center; font-size: var(--fs-sm); color: var(--muted); }
+@media (max-width: 600px) {
+  .add-sheet { top: auto !important; bottom: 0 !important; left: 0 !important; transform: none !important; width: 100% !important; max-width: none !important; border-radius: 18px 18px 0 0 !important; max-height: 92vh; overflow-y: auto; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important; }
+  .add-sheet::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--border); margin: -0.6rem auto 0.9rem; }
+}
+
+/* ── Товшилтын бүс ≥44px (UX аудит #6) ── */
+.link-tap { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
+.lp-demo-link.link-tap { padding: 0 8px; margin-left: -8px; }
+.lp .nav-links button[aria-label="Харагдацын горим солих"] { width: 44px !important; height: 44px !important; }
+.lp-footer-grid a, .lp-footer-grid button { min-height: 44px; }
+.lp-footer-grid > div:not(.lp-footer-brand) { gap: 0; }
+.lp-footer-bottom a { display: inline-flex; align-items: center; min-height: 44px; }
+
+/* ── Нүүр (landing) хуудасны бичгийн хэмжээг токен руу буулгах (UX аудит #7, зөвхөн .lp дотор) ──
+   Утга бичвэр: --fs-xs(12) / --fs-sm(13) / --fs-base(14.4) / --fs-md(16) / --fs-lg(20); гарчиг: h1 + нэг h2 хэмжээ.
+   Доод хязгаар 12px. aria-hidden жижиг дэлгэцийн дүрслэл (hero mock) зориуд жижиг тул хөндөөгүй. */
+.lp .nav-links a:not(.btn), .lp .nav-links button:not(.btn) { font-size: var(--fs-sm); }
+.lp-lead { font-size: var(--fs-md); }
+@media (min-width: 768px) { .lp-lead { font-size: var(--fs-lg); } }
+.lp-head h2, .lp-final h2, .lp-wh-title, .lp-stats b, .lp-plan-price b { font-size: clamp(1.6rem, 3.8vw, 2.35rem); }
+.lp-role-head h3, .lp-plan h3, .lp-step h3, .lp-step-n, .lp-modal h3 { font-size: var(--fs-lg); }
+.lp-wh-flow b, .lp-wh-card-tag, .lp-step-time { font-size: var(--fs-xs); }
+@media (max-width: 720px) {
+  .lp-step h3 { font-size: var(--fs-base); }
+  .lp-step-n { font-size: var(--fs-md); }
+  .lp-step-time { font-size: var(--fs-xs); }
+}
+
+/* Олголт: бүлэг/мөрийн толгой нь гараар ажилладаг <button> (UX аудит #8) */
+.handover-row-btn { width: 100%; border: 0; font: inherit; color: inherit; text-align: left; }
+.handover-row-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.handover-row-give { align-self: center; margin: 0.35rem 0.9rem 0.35rem 0.2rem; min-height: 40px; flex-shrink: 0; }
+@media (max-width: 600px) { .handover-row-give { min-height: 44px; } }
+.handover-row-btn .status-group-count { white-space: nowrap; }
+@media (max-width: 600px) {
+  .handover-row-btn { padding-left: 0.8rem !important; gap: 0.35rem !important; }
+  .handover-row-btn .hs-idx { display: none; }
+  .handover-row-give { margin-right: 0.6rem; padding: 0.5rem 0.75rem; }
+}
+
+/* Эрээн import: огнооны chip (UX аудит #9) */
+.ereen-date { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; font-size: var(--fs-sm); color: var(--muted); }
+.ereen-date-lbl { margin-right: 0.2rem; }
+.ereen-chip { min-height: 36px; padding: 0.3rem 0.8rem; border-radius: 100px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.ereen-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.ereen-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 600px) { .ereen-chip { min-height: 44px; } }
+
+/* ── Миний захиалгууд: компакт мөр v2 (cards-v2 mock) ───────────────────────── */
+/* Таб: 5 багана нэг мөрөнд, scroll-гүй. Каргогийн өөрийн нэр (жш «Дарханд ирсэн») 2 мөр хүртэл багтана.
+   Баганын жинг OrdersClient (tabCols) нэрийн уртаар inline тавина; энд fallback нь тэнцүү багана */
+.ochips {
+  /* padding: булангийн badge (top:-8px, right:-3px) мөрийн дээд/баруун захаас давж таслагдахгүй.
+     align-items: stretch (grid default) — нэг таб 2 мөр болбол бүх таб ижил өндөртэй */
+  display: grid; grid-template-columns: repeat(var(--ochip-cols, 5), minmax(0, 1fr)); gap: 5px;
+  width: 100%; padding: 8px 3px 0; margin-bottom: 0.75rem;
+}
+.ochip {
+  /* Өндөр 44px (дарах талбай, 2 мөр багтана). Дээд padding 9px — булангийн badge нэртэй давхцахгүй.
+     overflow: visible — badge таслагдахгүй; line-clamp зөвхөн нэр дээр */
+  position: relative; min-width: 0; min-height: 44px; padding: 9px 4px 4px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  border-radius: 9px; font: inherit; font-size: 0.8125rem; font-weight: 600; line-height: 1.15;
+  cursor: pointer; text-align: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ochip-lbl {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  min-width: 0; max-width: 100%; overflow: hidden;
+  white-space: normal; overflow-wrap: normal; hyphens: manual; text-wrap: balance;
+}
+.ochip.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+/* Тоо — булангийн badge (PR #14-өөс өмнөх BASE_TABS загвар) */
+.ochip-badge {
+  position: absolute; top: -8px; right: -3px; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 3px; border-radius: 100px;
+  background: var(--accent); color: var(--on-accent);
+  font-size: 0.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.ochip.on .ochip-badge { background: var(--on-accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+@media (max-width: 360px) {
+  .ochips { gap: 4px; }
+  .ochip { padding: 9px 2px 4px; font-size: 0.6875rem; letter-spacing: -0.015em; border-radius: 8px; }
+}
+/* Багтахгүй үед (OrdersClient хэмжиж data-fit тавина): 1 = жижиг үсэг, 2 = үгийг таслаж багтаана */
+.ochips[data-fit="1"], .ochips[data-fit="2"] { gap: 3px; }
+.ochips[data-fit="1"] .ochip, .ochips[data-fit="2"] .ochip { padding: 9px 2px 4px; font-size: 0.625rem; letter-spacing: -0.02em; }
+.ochips[data-fit="2"] { grid-template-columns: repeat(var(--ochip-cols, 5), minmax(0, 1fr)) !important; }
+.ochips[data-fit="2"] .ochip-lbl { overflow-wrap: anywhere; }
+
+/* Нэг цагаан жагсаалт, мөрүүд divider-тэй */
+.olist {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.olist-item { border-bottom: 1px solid var(--border); }
+.olist-item:last-child { border-bottom: none; }
+.orow {
+  display: flex; align-items: center; gap: 0.15rem;
+  width: 100%; min-height: 60px; padding: 0 2px 0 14px;
+  background: transparent; border: none;
+  text-align: left; color: inherit; position: relative; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.orow:hover { background: color-mix(in srgb, var(--surface2) 65%, var(--surface)); }
+.orow:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.orow.is-arrived { background: color-mix(in srgb, var(--accent-light) 70%, var(--surface)); }
+.orow.is-arrived:hover { background: var(--accent-light); }
+.orow.is-picked { background: transparent; }
+.orow.is-picked .oname { color: var(--muted); font-weight: 600; }
+.orow.is-open { background: var(--surface2); }
+.orow-main { flex: 1; min-width: 0; padding: 6px 2px 6px 0; }
+.oname {
+  font-size: 0.875rem; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.oname-row { display: flex; align-items: center; min-width: 0; }
+.oname-row .oname { flex: 0 1 auto; min-width: 0; }
+.oname-code { font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; font-size: 0.82rem; cursor: pointer; }
+.ocode {
+  display: flex; align-items: center; margin-top: -2px; min-width: 0; height: 28px;
+  color: var(--muted); font-size: 0.72rem;
+}
+.ocode-text {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; letter-spacing: -0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; cursor: pointer;
+}
+.ocode-text:hover { color: var(--text); }
+.copy-btn {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: flex-start;
+  width: 44px; height: 44px; margin: -8px -10px -8px 0;
+  padding: 0 0 0 4px;
+  border: none; background: none; border-radius: 10px; color: #8a827a; cursor: pointer;
+}
+/* Mock-ийн hover дэвсгэр 44px талбайгаар нэрийн мөр рүү давж харагддаг тул зөвхөн өнгө солино */
+.copy-btn:hover { color: var(--text); }
+.copy-btn:focus-visible { color: var(--text); outline: 2px solid var(--accent); outline-offset: -8px; }
+.copy-btn.is-copied { color: var(--green); }
+.copy-btn svg { width: 16px; height: 16px; display: block; }
+.orow-side {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+  gap: 3px; padding: 8px 0; min-width: 0;
+}
+.pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.65rem; font-weight: 700; line-height: 1; letter-spacing: 0.01em;
+  padding: 0.22rem 0.45rem; border-radius: 100px; white-space: nowrap;
+  background: var(--surface2); color: var(--muted);
+}
+.pill-REGISTERED { background: var(--surface2); color: var(--muted); }
+.orow.is-arrived .pill-REGISTERED { background: color-mix(in srgb, var(--surface) 70%, var(--surface2)); }
+.pill-EREEN_ARRIVED { background: color-mix(in srgb, var(--orange) 12%, var(--surface2)); color: var(--orange); }
+.pill-ARRIVED { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); }
+.pill-PICKED_UP { background: color-mix(in srgb, var(--green) 12%, var(--surface)); color: var(--green); }
+.ometa { font-size: 0.68rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+.orow.is-arrived .ometa { color: var(--text); font-weight: 700; }
+.orow.is-picked .ometa { color: var(--green); }
+.orow-chev {
+  flex-shrink: 0; width: 28px; display: flex; align-items: center; justify-content: center;
+  color: var(--placeholder);
+}
+.orow-chev svg { width: 16px; height: 16px; transition: transform 0.15s; }
+.orow.is-open .orow-chev svg { transform: rotate(90deg); }
+
+/* Дэлгэсэн хэсэг: 4 шатны явц (.sc-track дахин ашиглана) + төлвийн өгүүлбэр + устгах цэс */
+.odetail {
+  padding: 2px 14px 12px 14px;
+  background: color-mix(in srgb, var(--surface2) 55%, var(--surface));
+}
+.oitem-ARRIVED .odetail { background: color-mix(in srgb, var(--accent-light) 70%, var(--surface)); }
+.odetail .sc-track.sc-track-labeled { margin: 0.4rem 0 0.35rem; }
+.odetail-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.odetail-status { flex: 1; min-width: 0; margin: 0; }
+.odetail .sc-menu-wrap { margin: 0 -0.35rem 0 0; }
+.odetail .sc-note { margin-top: 0.4rem; }
