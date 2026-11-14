@@ -642,14 +642,14 @@ export default function OrdersClient({
     }
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'center' }}>
-        <button onClick={() => { setNavPopup(null); setPage(p => Math.max(1, p - 1)) }} disabled={page === 1} style={{
+        <button className="pager-btn" onClick={() => { setNavPopup(null); setPage(p => Math.max(1, p - 1)) }} disabled={page === 1} style={{
           width: 32, height: 32, borderRadius: '8px', border: '1px solid var(--border)',
           background: 'var(--surface)', cursor: page === 1 ? 'not-allowed' : 'pointer',
           opacity: page === 1 ? 0.4 : 1, fontSize: '0.9rem', color: 'var(--text)',
         }}>‹</button>
         {pages.map((p, i) => p === '...'
           ? <span key={`e${i}`} style={{ fontSize: '0.78rem', color: 'var(--muted)', padding: '0 0.1rem' }}>…</span>
-          : <button key={p} onClick={() => { setNavPopup(null); setPage(p) }} style={{
+          : <button key={p} className="pager-btn" onClick={() => { setNavPopup(null); setPage(p) }} style={{
             width: 32, height: 32, borderRadius: '8px', border: '1px solid',
             borderColor: p === page ? 'var(--accent)' : 'var(--border)',
             background: p === page ? 'var(--accent)' : 'var(--surface)',
@@ -657,7 +657,7 @@ export default function OrdersClient({
             cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
           }}>{p}</button>
         )}
-        <button onClick={() => { setNavPopup(null); setPage(p => Math.min(totalPages, p + 1)) }} disabled={page === totalPages} style={{
+        <button className="pager-btn" onClick={() => { setNavPopup(null); setPage(p => Math.min(totalPages, p + 1)) }} disabled={page === totalPages} style={{
           width: 32, height: 32, borderRadius: '8px', border: '1px solid var(--border)',
           background: 'var(--surface)', cursor: page === totalPages ? 'not-allowed' : 'pointer',
           opacity: page === totalPages ? 0.4 : 1, fontSize: '0.9rem', color: 'var(--text)',
@@ -674,7 +674,7 @@ export default function OrdersClient({
         <Link href="/" style={{ minWidth: 0, overflow: 'hidden' }}><NavLogo name={cargoName || undefined} logoUrl={logoUrl || undefined} /></Link>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.1rem', flexShrink: 0 }}>
           <NavItem label={t.navFaq} short={t.navFaqShort}>
-            <button onClick={() => setNavPopup(navPopup === 'faq' ? null : 'faq')} title={t.faqTooltip} style={{
+            <button className="nav-hit" onClick={() => setNavPopup(navPopup === 'faq' ? null : 'faq')} title={t.faqTooltip} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 38, height: 38, borderRadius: '50%',
               background: 'none', border: 'none', cursor: 'pointer',
@@ -686,7 +686,7 @@ export default function OrdersClient({
             </button>
           </NavItem>
           <NavItem label={t.navSearch} short={t.navSearchShort}>
-            <button onClick={() => setNavPopup(navPopup === 'nameless' ? null : 'nameless')} title={t.namelessTooltip} style={{
+            <button className="nav-hit" onClick={() => setNavPopup(navPopup === 'nameless' ? null : 'nameless')} title={t.namelessTooltip} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 38, height: 38, borderRadius: '50%',
               background: 'none', border: 'none', cursor: 'pointer',
@@ -699,7 +699,7 @@ export default function OrdersClient({
           </NavItem>
           {linkOrders && linkOn && (
             <NavItem label={t.navLinks} short={t.navLinksShort}>
-              <Link href="/links" title={t.navLinks} aria-label={t.navLinks} style={{
+              <Link href="/links" className="nav-hit" title={t.navLinks} aria-label={t.navLinks} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 width: 38, height: 38, borderRadius: '50%', color: 'var(--muted)',
               }}>
@@ -711,7 +711,7 @@ export default function OrdersClient({
           )}
           <NavItem label={t.navProfile} short={t.navProfileShort}>
           <div style={{ position: 'relative' }}>
-            <button onClick={() => setNavPopup(navPopup === 'profile' ? null : 'profile')} title={userName} style={{
+            <button className="nav-hit" onClick={() => setNavPopup(navPopup === 'profile' ? null : 'profile')} title={userName} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 38, height: 38, borderRadius: '50%',
               background: 'none', border: 'none', cursor: 'pointer',
@@ -723,8 +723,8 @@ export default function OrdersClient({
               </svg>
             </button>
             {navPopup === 'profile' && (
-              <div style={{
-                position: 'fixed', top: '3.5rem', right: '1rem',
+              <div className="menu-pop" style={{
+                position: 'fixed', top: 'calc(3.5rem + env(safe-area-inset-top, 0px))', right: 'max(1rem, env(safe-area-inset-right, 0px))',
                 background: 'var(--surface)', border: '1px solid var(--border)',
                 borderRadius: '10px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                 minWidth: 200, padding: '0.75rem 1rem', zIndex: 1000,
@@ -743,8 +743,8 @@ export default function OrdersClient({
                       {phoneVerified ? (
                         <>
                           <span style={{ fontSize: '0.72rem', color: 'var(--green)', fontWeight: 700 }}>✓ {t.phoneOk}</span>
-                          <button type="button" aria-label={t.phoneChange} title={t.phoneChange}
-                            style={{ display: 'inline-flex', padding: 4, border: 0, background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                          <button type="button" className="nav-hit" aria-label={t.phoneChange} title={t.phoneChange}
+                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 4, border: 0, background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
                             onClick={() => { setNavPopup(null); setPhoneOpen(true) }}><Pencil size={13} /></button>
                         </>
                       ) : (
@@ -771,7 +771,7 @@ export default function OrdersClient({
                     <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{t.language}</span>
                     <div style={{ display: 'flex', gap: 4, marginTop: '0.35rem' }}>
                       {(['mn', 'en', 'cn'] as UserLang[]).map(l => (
-                        <button key={l} onClick={async () => { if (l !== lang && await confirmAsync(LANG_CONFIRM[l])) setLang(l) }} style={{
+                        <button key={l} className="hit" onClick={async () => { if (l !== lang && await confirmAsync(LANG_CONFIRM[l])) setLang(l) }} style={{
                           flex: 1, padding: '0.3rem 0.5rem', borderRadius: 8,
                           border: '1px solid', cursor: 'pointer', fontFamily: 'inherit',
                           fontSize: '0.75rem', fontWeight: 700,
@@ -864,7 +864,7 @@ export default function OrdersClient({
 
       {/* Delete all modal */}
       {deleteAllModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))' }}>
           <div onClick={() => setDeleteAllModal(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
           <div style={{
             position: 'relative', background: 'var(--surface)', borderRadius: '16px',

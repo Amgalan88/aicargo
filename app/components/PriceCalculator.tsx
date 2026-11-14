@@ -70,7 +70,7 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
 
   return (
     <div className="card" style={{ marginTop: '1.5rem', overflow: 'hidden' }}>
-      <button onClick={() => setOpen(o => !o)} style={{
+      <button className="hit" onClick={() => setOpen(o => !o)} style={{
         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0.85rem 1.1rem', background: 'none', border: 'none', cursor: 'pointer',
         fontFamily: 'inherit', color: 'var(--text)',
@@ -111,7 +111,7 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
             <>
               <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.6rem' }}>
                 {(['cm', 'mm'] as const).map(u => (
-                  <button key={u} type="button" onClick={() => setUnit(u)} style={{
+                  <button key={u} type="button" className="hit" onClick={() => setUnit(u)} style={{
                     padding: '0.25rem 0.8rem', borderRadius: 100, border: '1px solid',
                     cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700,
                     borderColor: unit === u ? 'var(--accent)' : 'var(--border)',
@@ -136,7 +136,7 @@ export default function PriceCalculator({ priceCubic, priceWeight, priceWeightUn
                   value={kg} onChange={e => setKg(e.target.value)}
                   style={{ padding: '0.45rem 0.6rem', fontSize: '0.9rem', flex: 1, minWidth: 0 }} />
                 {(['kg', 't'] as const).map(u => (
-                  <button key={u} type="button" onClick={() => setWUnit(u)} style={{
+                  <button key={u} type="button" className="hit" onClick={() => setWUnit(u)} style={{
                     padding: '0 0.7rem', borderRadius: 100, border: '1px solid',
                     cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0,
                     borderColor: wUnit === u ? 'var(--accent)' : 'var(--border)',
