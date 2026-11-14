@@ -1,22 +1,27 @@
 export default function OrdersLoading() {
-  const widths = ['55%', '40%', '60%', '45%', '50%', '38%', '55%', '42%']
+  // Matches the compact order list (chips + ~60px rows) so the list does not jump in when data arrives.
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto', padding: '1.5rem 1rem' }}>
-      {/* Header skeleton */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <div className="skeleton-line" style={{ height: 18, width: 120 }} />
-        <div className="skeleton-line" style={{ height: 34, width: 120, borderRadius: 8 }} />
+    <div className="page orders-page" aria-hidden>
+      <div className="orders-head">
+        <div className="skeleton-line" style={{ height: 22, width: 168, borderRadius: 6 }} />
+        <div className="skeleton-line" style={{ height: 44, width: 112, borderRadius: 8 }} />
       </div>
-
-      {/* Cards skeleton */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {widths.map((w, i) => (
-          <div key={i} className="card" style={{ padding: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-              <div className="skeleton-line" style={{ height: 14, width: w }} />
-              <div className="skeleton-line" style={{ height: 20, width: 72, borderRadius: 20 }} />
+      <div className="skeleton-line" style={{ height: 44, width: '100%', borderRadius: 10, marginBottom: '0.9rem' }} />
+      <div className="ochips">
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="skeleton-line" style={{ height: 44, borderRadius: 9 }} />
+        ))}
+      </div>
+      <div className="olist">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="olist-item">
+            <div className="orow" style={{ cursor: 'default' }}>
+              <div className="orow-main">
+                <div className="skeleton-line" style={{ height: 14, width: `${46 + (i % 3) * 14}%` }} />
+                <div className="skeleton-line" style={{ height: 12, width: '52%', marginTop: 8 }} />
+              </div>
+              <div className="skeleton-line" style={{ height: 18, width: 72, borderRadius: 100, flexShrink: 0 }} />
             </div>
-            <div className="skeleton-line" style={{ height: 12, width: '35%' }} />
           </div>
         ))}
       </div>

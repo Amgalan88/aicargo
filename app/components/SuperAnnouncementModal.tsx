@@ -41,7 +41,7 @@ export default function SuperAnnouncementModal({ endpoint = 'admin' }: { endpoin
         position: 'fixed', inset: 0, zIndex: 9100,
         background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '1rem',
+        padding: 'max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))',
         backdropFilter: 'blur(2px)',
       }}
     >
@@ -69,6 +69,7 @@ export default function SuperAnnouncementModal({ endpoint = 'admin' }: { endpoin
 
         <button
           onClick={dismiss}
+          className="modal-x"
           aria-label="Хаах"
           style={{
             position: 'absolute', top: '0.75rem', right: '0.75rem',
@@ -83,7 +84,9 @@ export default function SuperAnnouncementModal({ endpoint = 'admin' }: { endpoin
           <img
             src={banner.imageUrl}
             alt=""
-            style={{ width: '100%', borderRadius: 10, marginBottom: '1rem', maxHeight: 240, objectFit: 'cover' }}
+            width={1200}
+            height={675}
+            style={{ width: '100%', height: 'auto', aspectRatio: '16 / 9', maxHeight: 240, objectFit: 'cover', display: 'block', background: 'var(--surface2)', borderRadius: 10, marginBottom: '1rem' }}
           />
         )}
 

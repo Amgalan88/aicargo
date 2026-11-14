@@ -10,7 +10,7 @@ export default function TermsPage() {
       <nav className="nav">
         <Link href="/"><NavLogo /></Link>
       </nav>
-      <div className="page" style={{ maxWidth: 640, fontSize: '0.88rem', lineHeight: 1.75 }}>
+      <div className="page" style={{ maxWidth: '66ch', fontSize: '0.88rem', lineHeight: 1.75 }}>
         <h1 className="section-title">Үйлчилгээний нөхцөл</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>Сүүлд шинэчилсэн: 2026 оны 7 сар</p>
 

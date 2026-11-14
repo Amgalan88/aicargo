@@ -1,18 +1,18 @@
 'use client'
-import { motion, useInView, useMotionValue, useSpring, useTransform } from 'framer-motion'
-import { useEffect, useRef, ReactNode } from 'react'
+import { motion, useInView, useMotionValue, useSpring } from 'framer-motion'
+import { useEffect, useRef, useState, ReactNode } from 'react'
 
-/* ── Хөдөлгөөнгүй горим шалгах hook ── */
+/* ── Хөдөлгөөнгүй горим. SSR болон эхний render false — дараа нь сонсогч шинэчилнэ. ── */
 export function usePrefersReducedMotion() {
-  const ref = useRef(false)
+  const [reduced, setReduced] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    ref.current = mq.matches
-    const fn = (e: MediaQueryListEvent) => { ref.current = e.matches }
-    mq.addEventListener('change', fn)
-    return () => mq.removeEventListener('change', fn)
+    const on = () => setReduced(mq.matches)
+    on()
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
   }, [])
-  return ref.current
+  return reduced
 }
 
 /* ── Scroll-reveal wrapper ── */
@@ -31,6 +31,8 @@ export function Reveal({
   className?: string
   style?: React.CSSProperties
 }) {
+  const reduce = usePrefersReducedMotion()
+  if (reduce) return <div className={className} style={style}>{children}</div>
   return (
     <motion.div
       className={className}
@@ -57,6 +59,8 @@ export function Stagger({
   style?: React.CSSProperties
   gap?: number
 }) {
+  const reduce = usePrefersReducedMotion()
+  if (reduce) return <div className={className} style={style}>{children}</div>
   return (
     <motion.div
       className={className}
@@ -80,6 +84,8 @@ export function StaggerItem({
   className?: string
   style?: React.CSSProperties
 }) {
+  const reduce = usePrefersReducedMotion()
+  if (reduce) return <div className={className} style={style}>{children}</div>
   return (
     <motion.div
       className={className}
@@ -109,19 +115,31 @@ export function AnimatedNumber({
   style?: React.CSSProperties
 }) {
   const ref = useRef<HTMLSpanElement>(null)
+  const reduce = usePrefersReducedMotion()
   const inView = useInView(ref, { once: true, margin: '-20px' })
-  const mv = useMotionValue(0)
-  const spring = useSpring(mv, { duration: duration * 1000, bounce: 0 })
-  const display = useTransform(spring, (v) => Math.round(v).toLocaleString('en-US') + suffix)
+  const finalText = Math.round(value).toLocaleString('en-US') + suffix
 
   useEffect(() => {
-    if (inView) mv.set(value)
-  }, [inView, value, mv])
+    const el = ref.current
+    if (!el || reduce || !inView) return
+    let raf = 0
+    const from = value * 0.85
+    const t0 = performance.now()
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / (duration * 1000))
+      const eased = 1 - Math.pow(1 - k, 3)
+      el.textContent = Math.round(from + (value - from) * eased).toLocaleString('en-US') + suffix
+      if (k < 1) raf = requestAnimationFrame(step)
+      else el.textContent = finalText
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [inView, reduce, value, suffix, duration, finalText])
 
   return (
-    <motion.span ref={ref} className={className} style={style}>
-      {display}
-    </motion.span>
+    <span ref={ref} className={className} style={{ fontVariantNumeric: 'tabular-nums', ...style }}>
+      {finalText}
+    </span>
   )
 }
 
@@ -137,6 +155,7 @@ export function TiltCard({
   style?: React.CSSProperties
   max?: number
 }) {
+  const reduce = usePrefersReducedMotion()
   const ref = useRef<HTMLDivElement>(null)
   const rx = useMotionValue(0)
   const ry = useMotionValue(0)
@@ -157,6 +176,7 @@ export function TiltCard({
     ry.set(0)
   }
 
+  if (reduce) return <div className={className} style={style}>{children}</div>
   return (
     <motion.div
       ref={ref}

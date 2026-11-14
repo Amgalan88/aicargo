@@ -42,7 +42,7 @@ export default function ThemeToggle({ labeled = false, storageKey = 'theme' }: {
       onClick={cycle}
       title={theme ? `${LABEL[theme]} — дарж солино` : ''}
       aria-label="Харагдацын горим солих"
-      className={labeled ? 'an-act' : undefined}
+      className={labeled ? 'an-act' : 'nav-hit'}
       style={labeled ? { visibility: theme ? 'visible' : 'hidden' } : {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: 38, height: 38, borderRadius: '50%',

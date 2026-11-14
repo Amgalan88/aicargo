@@ -118,7 +118,10 @@ html {
 
 body {
   font-family: var(--font-sans, 'Segoe UI'), 'Segoe UI', system-ui, -apple-system, sans-serif;
-  font-feature-settings: 'cv11', 'ss01';
+  /* kern stays on when feature-settings is set; tnum keeps prices, weights, counts and codes aligned */
+  font-kerning: normal;
+  font-feature-settings: 'kern' 1, 'tnum' 1, 'cv11', 'ss01';
+  font-variant-numeric: tabular-nums;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -761,7 +764,7 @@ textarea.input { resize: vertical; }
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 95;
     background: var(--nav-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border-top: 1px solid var(--border);
-    padding: 0.3rem 0.25rem calc(0.3rem + env(safe-area-inset-bottom));
+    padding: 0.3rem max(0.25rem, env(safe-area-inset-right)) calc(0.3rem + env(safe-area-inset-bottom)) max(0.25rem, env(safe-area-inset-left));
   }
   .an-tab {
     flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -1383,7 +1386,7 @@ button.lp-offer { text-align: left; font: inherit; cursor: pointer; width: 100%;
 @media (max-width: 640px) {
   .lp-sticky {
     display: flex; gap: 0.5rem; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
-    padding: 0.6rem 4% calc(0.6rem + env(safe-area-inset-bottom));
+    padding: 0.6rem max(4%, env(safe-area-inset-right)) calc(0.6rem + env(safe-area-inset-bottom)) max(4%, env(safe-area-inset-left));
     background: var(--nav-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border-top: 1px solid var(--border);
     transform: translateY(110%); transition: transform 0.25s cubic-bezier(.22,1,.36,1);
@@ -1395,7 +1398,7 @@ button.lp-offer { text-align: left; font: inherit; cursor: pointer; width: 100%;
 }
 
 /* Демо модал */
-.lp-modal-bg { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.lp-modal-bg { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); }
 .lp-modal { position: relative; width: 100%; max-width: 410px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 1.5rem; box-shadow: var(--shadow-lg); }
 .lp-modal-x { position: absolute; top: 0.6rem; right: 0.6rem; }
 .lp-modal h3 { display: flex; align-items: center; gap: 0.45rem; font-size: 1.1rem; font-weight: 800; margin-bottom: 0.4rem; }
@@ -1670,7 +1673,7 @@ button.lp-offer { text-align: left; font: inherit; cursor: pointer; width: 100%;
 .sc-step.cur time { color: var(--c); font-weight: 700; }
 .sc-ARRIVED .sc-step.cur .sc-bar::after { box-shadow: 0 0 0 3px var(--accent-light), 0 0 0 5px color-mix(in srgb, var(--c) 25%, transparent); }
 
-.sc-status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.1rem 0.5rem; font-size: var(--fs-base); line-height: 1.45; }
+.sc-status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.1rem 0.5rem; font-size: var(--fs-base); line-height: 1.65; }
 .sc-status b { font-weight: 600; color: var(--text); }
 .sc-status span { font-size: var(--fs-sm); color: var(--muted); }
 .sc-EREEN_ARRIVED .sc-status b { color: var(--blue); }
@@ -2068,7 +2071,7 @@ mark.rq-ph { background: color-mix(in srgb, var(--yellow) 22%, transparent); col
 .aps-tutor { display: flex; align-items: center; gap: 0.35rem; width: 100%; margin-top: 0.45rem; padding: 0.45rem 0; border: none; border-top: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: left; }
 
 /* ═══ Эрээнд агуулахтай болох — холбогдох цонх ═══ */
-.pc-bg { position: fixed; inset: 0; z-index: 10070; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 1rem; }
+.pc-bg { position: fixed; inset: 0; z-index: 10070; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left)); }
 .pc { position: relative; width: 100%; max-width: 380px; background: var(--surface); border-radius: 18px; padding: 1.5rem 1.25rem 1.25rem; box-shadow: var(--shadow-lg); text-align: center; animation: an-up 0.22s cubic-bezier(.22,1,.36,1); }
 .pc h3 { font-size: 1.1rem; font-weight: 800; margin: 0 0 0.35rem; }
 .pc-sub { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; margin: 0 0 1rem; }
@@ -2298,7 +2301,7 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 .lh-pop h2 { font-size: 1.3rem; font-weight: 800; margin: 0 0 0.35rem; }
 .lh-pop p { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; margin: 0 0 1rem; }
 .lh-pop p b { color: var(--text); }
-.lh-toast { position: fixed; left: 50%; top: 14px; z-index: 990; transform: translate(-50%, -160%); display: flex; align-items: center; gap: 0.55rem; padding: 0.6rem 0.95rem; border-radius: 999px; background: var(--text); color: var(--bg); font-size: var(--fs-sm); font-weight: 700; box-shadow: var(--shadow-lg); transition: transform .38s var(--lh-pop); pointer-events: none; }
+.lh-toast { position: fixed; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); z-index: 990; transform: translate(-50%, -160%); display: flex; align-items: center; gap: 0.55rem; padding: 0.6rem 0.95rem; border-radius: 999px; background: var(--text); color: var(--bg); font-size: var(--fs-sm); font-weight: 700; box-shadow: var(--shadow-lg); transition: transform .38s var(--lh-pop); pointer-events: none; }
 .lh-toast.show { transform: translate(-50%, 0); }
 .lh-toast .plus { color: #4ade80; }
 @keyframes lh-in { to { opacity: 1; transform: none; } }
@@ -2505,10 +2508,10 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 .oname-code { font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; font-size: 0.82rem; cursor: pointer; }
 .ocode {
   display: flex; align-items: center; margin-top: -2px; min-width: 0; height: 28px;
-  color: var(--muted); font-size: 0.72rem;
+  color: var(--muted); font-size: 0.75rem;
 }
 .ocode-text {
-  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; letter-spacing: -0.02em;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace; letter-spacing: 0.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; cursor: pointer;
 }
 .ocode-text:hover { color: var(--text); }
@@ -2538,7 +2541,7 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 .pill-EREEN_ARRIVED { background: color-mix(in srgb, var(--orange) 12%, var(--surface2)); color: var(--orange); }
 .pill-ARRIVED { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent); }
 .pill-PICKED_UP { background: color-mix(in srgb, var(--green) 12%, var(--surface)); color: var(--green); }
-.ometa { font-size: 0.68rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+.ometa { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.2; white-space: nowrap; }
 .orow.is-arrived .ometa { color: var(--text); font-weight: 700; }
 .orow.is-picked .ometa { color: var(--green); }
 .orow-chev {
@@ -2559,3 +2562,45 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 .odetail-status { flex: 1; min-width: 0; margin: 0; }
 .odetail .sc-menu-wrap { margin: 0 -0.35rem 0 0; }
 .odetail .sc-note { margin-top: 0.4rem; }
+
+/* ── Design terms (kerning, tracking, leading, widows, touch, safe area, motion) ──
+   Brand colors stay sRGB hex so tenant themes and contrast notes do not shift.
+   Tabular figures are inherited from body (font-variant-numeric + tnum). */
+.oname-code, .sc-code, .sr-code { letter-spacing: 0.01em; }
+h1, h2, h3, .section-title, .page-head h1, .lp-head h2, .lp-final h2, .sc-title {
+  text-wrap: balance;
+}
+p, .sc-note, .lp-lead, .lp-faq-body, .empty-state p, .sys-page-text, .al-detail, .rq-live-text {
+  text-wrap: pretty;
+}
+.page > p, .lp-lead, .lp-faq-body, .sc-note, .sys-page-text, .empty-state p, .al-detail, .rq-live-text {
+  max-width: 66ch;
+  line-height: 1.65;
+}
+/* Sparse full-viewport states sit a little above the geometric middle (optical centre). */
+.sys-page { padding-bottom: max(2rem, 10vh); }
+/* Menus grow from the control that opened them and can be interrupted. */
+.sc-menu, .popover, .menu-pop {
+  transform-origin: top right;
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.14s ease, transform 0.16s cubic-bezier(.22, 1, .36, 1);
+}
+@starting-style {
+  .sc-menu, .popover, .menu-pop { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
+.orow:active { background: var(--surface2); }
+.ochip:not(.on):active { background: var(--surface2); }
+.an-tab:active, .an-sheet-item:active { background: var(--surface2); }
+@media (max-width: 640px) {
+  .input, textarea.input { min-height: 44px; }
+  .nav-hit, .icon-btn, .sc-more, .orders-del, .modal-x, .ins-x, .tu-x, .pc-x, .hit,
+  .pager button, .pager-btn, .an-tab, .seg > button, .seg > a, .oview-seg button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .icon-btn, .sc-more, .orders-del, .modal-x, .ins-x, .tu-x, .pc-x, .pager button, .pager-btn {
+    width: 44px;
+    height: 44px;
+  }
+}
