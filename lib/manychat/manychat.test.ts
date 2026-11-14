@@ -8,6 +8,7 @@ import { handleReplyGuard } from './reply-guard'
 import { DeferWake, handleIngress, processQueueMessage, recoverUnpublished, wakeRetry, type WakeFetch } from './service'
 import { MemoryStore, createSqlStore, type GatewayStore, type PublishFn, type Sql } from './store'
 import { coalesceText, filterText, parseIngressBody, validateWebhookUrl } from './policy'
+import { manychatMigrationSql, manychatRollbackSql, sqlStatements } from '../../scripts/manychat-ddl'
 
 const SECRET = 'test-manychat-secret'
 const WEBHOOK_KEY = 'test-webhook-key'
@@ -97,9 +98,11 @@ describe('ingress gates', () => {
     const denied = await handleIngress(message('where is it?'), 'Bearer wrong', deps(store, 0, publish))
     assert.equal(denied.status, 401)
 
-    const off = await handleIngress(message('where is it?'), AUTH, deps(store, 0, publish, enabledEnv({ MANYCHAT_GATEWAY_ENABLED: 'TRUE' })))
-    assert.equal(off.status, 200)
-    assert.equal(off.body.reason, 'disabled')
+    for (const flag of ['TRUE', '1', ' true ', 'true ', undefined]) {
+      const off = await handleIngress(message('where is it?'), AUTH, deps(store, 0, publish, enabledEnv({ MANYCHAT_GATEWAY_ENABLED: flag })))
+      assert.equal(off.status, 200)
+      assert.equal(off.body.reason, 'disabled')
+    }
     assert.equal(store.counted('1234567890'), 0)
 
     const host = await handleIngress(message('where is it?'), AUTH, { ...deps(store, 0, publish), hostSlug: 'other' })
@@ -860,6 +863,123 @@ describe('postgres ledger', () => {
     assert.equal(Number(rows.rows[0].count), 0)
     await db.close()
   })
+
+  it('replays one SQL finish, rejects a late sent after 120s, and does not grant a colliding claim id', async () => {
+    const db = new PGlite()
+    await db.exec(manychatMigrationSql())
+    const store = createSqlStore(pgliteSql(db))
+    const t0 = Date.parse('2026-11-06T00:00:00.000Z')
+    let batchId = ''
+    await handleIngress(message('sql finish?', { contact_id: '555010', event_id: 'pg-finish' }), AUTH, deps(store, t0, async id => { batchId = id }))
+    await processQueueMessage({ batchId }, {
+      env: enabledEnv(),
+      now: () => t0 + COALESCE_MS,
+      db: store,
+      fetch: async () => ({ status: 204 }),
+    })
+    const revision = Number((await db.query<{ revision: number }>(`SELECT "revision" FROM "ManychatBatch" WHERE "id" = $1`, [batchId])).rows[0].revision)
+    const claim = await handleReplyGuard('claim', {
+      batch_id: batchId, revision, claim_id: 'claim-sqlfin1',
+    }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS))
+    assert.equal(claim.body.grant, true)
+    const sent = await handleReplyGuard('finish', {
+      batch_id: batchId,
+      revision,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-sql01',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS + 10))
+    assert.equal(sent.status, 200)
+    assert.equal(sent.body.replay, false)
+    assert.equal(sent.body.grant, false)
+    const replay = await handleReplyGuard('finish', {
+      batch_id: batchId,
+      revision,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-sql01',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS + 11))
+    assert.equal(replay.status, 200)
+    assert.equal(replay.body.replay, true)
+    const flipped = await handleReplyGuard('finish', {
+      batch_id: batchId,
+      revision,
+      reservation_id: claim.body.reservation_id,
+      finish_id: 'finish-sql02',
+      outcome: 'not_sent',
+    }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS + 12))
+    assert.equal(flipped.status, 409)
+    assert.equal(flipped.body.error, 'finish_mismatch')
+    assert.equal(flipped.body.outcome, 'sent')
+    const kept = await db.query<{ state: string }>(`SELECT "state" FROM "ManychatReplyReservation" WHERE "id" = $1`, [claim.body.reservation_id])
+    assert.equal(kept.rows[0].state, 'sent')
+
+    let expiringId = ''
+    await handleIngress(message('sql expiry?', { contact_id: '555011', event_id: 'pg-exp' }), AUTH, deps(store, t0, async id => { expiringId = id }))
+    await processQueueMessage({ batchId: expiringId }, {
+      env: enabledEnv(),
+      now: () => t0 + COALESCE_MS,
+      db: store,
+      fetch: async () => ({ status: 204 }),
+    })
+    const expiringRevision = Number((await db.query<{ revision: number }>(`SELECT "revision" FROM "ManychatBatch" WHERE "id" = $1`, [expiringId])).rows[0].revision)
+    const expiring = await handleReplyGuard('claim', {
+      batch_id: expiringId, revision: expiringRevision, claim_id: 'claim-sqlexp1',
+    }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS))
+    assert.equal(expiring.body.grant, true)
+    const late = await handleReplyGuard('finish', {
+      batch_id: expiringId,
+      revision: expiringRevision,
+      reservation_id: expiring.body.reservation_id,
+      finish_id: 'finish-sqlex1',
+      outcome: 'sent',
+    }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS + RESERVATION_TTL_MS))
+    assert.equal(late.status, 409)
+    assert.equal(late.body.error, 'expired')
+    const again = await handleReplyGuard('claim', {
+      batch_id: expiringId, revision: expiringRevision, claim_id: 'claim-sqlexp2',
+    }, GUARD_AUTH, guardDeps(store, t0 + COALESCE_MS + RESERVATION_TTL_MS))
+    assert.equal(again.body.grant, false)
+    assert.equal(again.body.reason, 'expired')
+
+    const otherId = '22222222-2222-4222-8222-222222222222'
+    await db.exec(`INSERT INTO "ManychatSubscriberLock" ("tenant", "pageId", "subscriberId", "revision", "latestBatchId") VALUES ('${TENANT}', '${PAGE_ID}', '555012', 1, '${otherId}')`)
+    await db.exec(`INSERT INTO "ManychatBatch" ("id", "tenant", "pageId", "subscriberId", "state", "scheduleState", "openedAt", "deliverAfter", "lastInputText", "messageCount", "updatedAt", "publishAttempts", "revision") VALUES ('${otherId}', '${TENANT}', '${PAGE_ID}', '555012', 'delivered', 'enqueued', '2026-11-06T00:00:00.000Z', '2026-11-06T00:00:05.000Z', 'other', 1, '2026-11-06T00:00:00.000Z', 0, 1)`)
+    let hidden = false
+    const hiding = hideFirstClaimLookup(pgliteSql(db), () => hidden, value => { hidden = value })
+    const collided = await handleReplyGuard('claim', {
+      batch_id: otherId, revision: 1, claim_id: 'claim-sqlfin1',
+    }, GUARD_AUTH, guardDeps(createSqlStore(hiding), t0 + COALESCE_MS))
+    assert.equal(hidden, true)
+    assert.equal(collided.status, 409)
+    assert.equal(collided.body.error, 'claim_id_mismatch')
+    assert.equal(collided.body.grant, false)
+    const extras = await db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM "ManychatReplyReservation" WHERE "batchId" = $1`, [otherId])
+    assert.equal(Number(extras.rows[0].count), 0)
+    await db.close()
+  })
+
+  it('applies the gateway migration twice and rolls it back on embedded Postgres', async () => {
+    const db = new PGlite()
+    const apply = sqlStatements(manychatMigrationSql())
+    const rollback = sqlStatements(manychatRollbackSql())
+    assert.ok(apply.length >= 4)
+    assert.ok(rollback.length >= 4)
+    for (const sql of apply) await db.exec(sql)
+    for (const sql of apply) await db.exec(sql)
+    const present = await db.query<{ tablename: string }>(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'Manychat%' ORDER BY tablename`)
+    assert.deepEqual(present.rows.map(row => row.tablename), [
+      'ManychatAdmission',
+      'ManychatBatch',
+      'ManychatReplyReservation',
+      'ManychatSubscriberLock',
+    ])
+    for (const sql of rollback) await db.exec(sql)
+    for (const sql of rollback) await db.exec(sql)
+    const gone = await db.query<{ tablename: string }>(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'Manychat%'`)
+    assert.equal(gone.rows.length, 0)
+    await db.close()
+  })
 })
 
 const GUARD_SECRET = 'test-reply-guard-secret'
@@ -892,10 +1012,6 @@ describe('reply guard', () => {
     store.readReply = async () => { hits += 1; throw new Error('db') }
     store.claimReply = async () => { hits += 1; throw new Error('db') }
     store.finishReply = async () => { hits += 1; throw new Error('db') }
-    const disabled = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, claim_id: 'claim-disabled' }, GUARD_AUTH, guardDeps(store, 0, guardEnv({ MANYCHAT_GATEWAY_ENABLED: 'false' })))
-    assert.equal(disabled.status, 403)
-    assert.equal(disabled.body.error, 'disabled')
-    assert.equal(disabled.body.grant, false)
     const missing = await handleReplyGuard('revision', { batch_id: '00000000-0000-4000-8000-000000000001' }, GUARD_AUTH, guardDeps(store, 0, enabledEnv()))
     assert.equal(missing.status, 503)
     assert.equal(missing.body.error, 'not_configured')
@@ -905,9 +1021,17 @@ describe('reply guard', () => {
     assert.equal(botKey.status, 401)
     const webhookKey = await handleReplyGuard('finish', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, reservation_id: '00000000-0000-4000-8000-000000000002', finish_id: 'finish-webhook', outcome: 'sent' }, `Bearer ${WEBHOOK_KEY}`, guardDeps(store, 0))
     assert.equal(webhookKey.status, 401)
-    const untrusted = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, claim_id: 'claim-scope', tenant: TENANT, page_id: PAGE_ID }, GUARD_AUTH, guardDeps(store, 0))
-    assert.equal(untrusted.status, 400)
-    assert.equal(untrusted.body.error, 'untrusted_field')
+    for (const extra of [{ tenant: TENANT }, { page_id: PAGE_ID }, { webhook_url: 'https://evil.example' }, { owner: 'caller' }, { text: 'hello' }, { gate: { decision: 'forward' } }]) {
+      const untrusted = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, claim_id: 'claim-scope', ...extra }, GUARD_AUTH, guardDeps(store, 0))
+      assert.equal(untrusted.status, 400)
+      assert.equal(untrusted.body.error, 'untrusted_field')
+    }
+    for (const flag of ['false', 'TRUE', '1', ' true ', undefined]) {
+      const disabled = await handleReplyGuard('claim', { batch_id: '00000000-0000-4000-8000-000000000001', revision: 1, claim_id: 'claim-disabled' }, GUARD_AUTH, guardDeps(store, 0, guardEnv({ MANYCHAT_GATEWAY_ENABLED: flag })))
+      assert.equal(disabled.status, 403)
+      assert.equal(disabled.body.error, 'disabled')
+      assert.equal(disabled.body.grant, false)
+    }
     assert.equal(hits, 0)
   })
 
@@ -1126,6 +1250,20 @@ describe('reply guard', () => {
     assert.equal(result.body.error, 'unavailable')
   })
 })
+
+function hideFirstClaimLookup(inner: Sql, hidden: () => boolean, setHidden: (value: boolean) => void): Sql {
+  const wrap = (sql: Sql): Sql => ({
+    query: async (text, params) => {
+      if (!hidden() && text.includes('FROM "ManychatReplyReservation" WHERE "claimId"')) {
+        setHidden(true)
+        return []
+      }
+      return sql.query(text, params)
+    },
+    transaction: fn => sql.transaction(tx => fn(wrap(tx))),
+  })
+  return wrap(inner)
+}
 
 function pgliteSql(db: PGlite): Sql {
   return {

@@ -675,11 +675,17 @@ function millis(value: unknown): number {
 }
 
 function isUnique(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const code = (error as { code?: string }).code
-  if (code === '23505' || code === 'P2002') return true
-  const message = (error as { message?: string }).message ?? ''
-  return message.includes('23505') || message.includes('Unique constraint')
+  const seen = new Set<unknown>()
+  let current: unknown = error
+  while (current && typeof current === 'object' && !seen.has(current)) {
+    seen.add(current)
+    const record = current as { code?: string; message?: string; meta?: { code?: string }; cause?: unknown }
+    if (record.code === '23505' || record.code === 'P2002' || record.meta?.code === '23505') return true
+    const message = record.message ?? ''
+    if (message.includes('23505') || message.includes('unique constraint') || message.includes('Unique constraint')) return true
+    current = record.cause
+  }
+  return false
 }
 
 export function createSqlStore(db: Sql): GatewayStore {
@@ -689,7 +695,17 @@ export function createSqlStore(db: Sql): GatewayStore {
     claim: (batchId, now) => db.transaction(tx => claimSql(tx, batchId, now)),
     confirmSend: (batchId, now) => db.transaction(tx => confirmSendSql(tx, batchId, now)),
     readReply: (batchId, subscriberId, now) => db.transaction(tx => readReplySql(tx, batchId, subscriberId, now)),
-    claimReply: input => db.transaction(tx => claimReplySql(tx, input)),
+    claimReply: async input => {
+      try {
+        return await db.transaction(tx => claimReplySql(tx, input))
+      } catch (error) {
+        // A unique violation aborts the Postgres transaction, so the loser
+        // cannot read the winner in that same transaction. Roll back, then
+        // read. This never inserts and never returns a grant.
+        if (!isUnique(error)) throw error
+        return db.transaction(tx => resolveClaimConflictSql(tx, input))
+      }
+    },
     finishReply: input => db.transaction(tx => finishReplySql(tx, input)),
     markOutcome: (batchId, state, now) => markOutcomeSql(db, batchId, state, now),
     listRecoverable: now => listRecoverableSql(db, now),
@@ -1265,23 +1281,12 @@ async function claimReplySql(tx: Sql, input: ReplyClaimInput): Promise<ReplyClai
   }
   const reservationId = randomUUID()
   const expiresAt = input.now + RESERVATION_TTL_MS
-  try {
-    await tx.query(
-      `INSERT INTO "ManychatReplyReservation"
-        ("id", "tenant", "pageId", "subscriberId", "batchId", "revision", "claimId", "state", "finishId", "reservedAt", "expiresAt", "finishedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'reserved', NULL, $8::timestamptz, $9::timestamptz, NULL)`,
-      [reservationId, batch.tenant, batch.pageId, batch.subscriberId, batch.id, input.revision, input.claimId, stamp(input.now), stamp(expiresAt)],
-    )
-  } catch (error) {
-    if (!isUnique(error)) throw error
-    const winner = await tx.query(
-      `SELECT * FROM "ManychatReplyReservation"
-       WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3 AND "revision" = $4`,
-      [batch.tenant, batch.pageId, batch.subscriberId, input.revision],
-    )
-    if (!winner[0]) throw error
-    return denyReservation(reservationFromRow(winner[0]), batchView, cursor.revision, cursor.latestBatchId, false)
-  }
+  await tx.query(
+    `INSERT INTO "ManychatReplyReservation"
+      ("id", "tenant", "pageId", "subscriberId", "batchId", "revision", "claimId", "state", "finishId", "reservedAt", "expiresAt", "finishedAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'reserved', NULL, $8::timestamptz, $9::timestamptz, NULL)`,
+    [reservationId, batch.tenant, batch.pageId, batch.subscriberId, batch.id, input.revision, input.claimId, stamp(input.now), stamp(expiresAt)],
+  )
   return {
     kind: 'grant',
     reservationId,
@@ -1291,6 +1296,35 @@ async function claimReplySql(tx: Sql, input: ReplyClaimInput): Promise<ReplyClai
     claimId: input.claimId,
     expiresAt,
   }
+}
+
+async function resolveClaimConflictSql(tx: Sql, input: ReplyClaimInput): Promise<ReplyClaim> {
+  const peeked = await tx.query(
+    `SELECT "id", "tenant", "pageId", "subscriberId" FROM "ManychatBatch" WHERE "id" = $1`,
+    [input.batchId],
+  )
+  const row = peeked[0]
+  if (!row) return { kind: 'missing' }
+  if (String(row.tenant) !== TENANT || String(row.pageId) !== PAGE_ID) return { kind: 'forbidden_scope' }
+  if (input.subscriberId && input.subscriberId !== String(row.subscriberId)) return { kind: 'forbidden_subscriber' }
+  const cursor = await lockReplyContact(tx, String(row.tenant), String(row.pageId), String(row.subscriberId), input.now)
+  const batchView = { id: String(row.id), subscriberId: String(row.subscriberId) }
+  const byClaimRows = await tx.query(`SELECT * FROM "ManychatReplyReservation" WHERE "claimId" = $1 FOR UPDATE`, [input.claimId])
+  if (byClaimRows[0]) {
+    const held = reservationFromRow(byClaimRows[0])
+    if (held.batchId !== batchView.id || held.revision !== input.revision || held.subscriberId !== batchView.subscriberId || held.tenant !== String(row.tenant) || held.pageId !== String(row.pageId)) {
+      return { kind: 'claim_id_mismatch' }
+    }
+    return denyReservation(held, batchView, cursor.revision, cursor.latestBatchId, true)
+  }
+  const byRevisionRows = await tx.query(
+    `SELECT * FROM "ManychatReplyReservation"
+     WHERE "tenant" = $1 AND "pageId" = $2 AND "subscriberId" = $3 AND "revision" = $4
+     FOR UPDATE`,
+    [row.tenant, row.pageId, row.subscriberId, input.revision],
+  )
+  if (byRevisionRows[0]) return denyReservation(reservationFromRow(byRevisionRows[0]), batchView, cursor.revision, cursor.latestBatchId, false)
+  throw new Error('claim_conflict_unresolved')
 }
 
 async function finishReplySql(tx: Sql, input: ReplyFinishInput): Promise<ReplyFinish> {

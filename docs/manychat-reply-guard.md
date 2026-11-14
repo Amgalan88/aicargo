@@ -1,6 +1,8 @@
 # ManyChat reply guard
 
-Code and test contract for the downstream routine. This is not a production activation. The gateway stays off unless `MANYCHAT_GATEWAY_ENABLED` is exactly `true`. The migration is unapplied. The queue topic is not created by tests. The live direct ManyChat path is unchanged.
+Code and test contract for the downstream routine. This is not a production activation. The gateway stays off unless `MANYCHAT_GATEWAY_ENABLED` is exactly the string `true` (no other value, including surrounding whitespace, turns it on). The migration is unapplied. The queue topic is not created by tests. The live direct ManyChat path is unchanged.
+
+Schema, operator only: `scripts/add-manychat-gateway.ts` applies `prisma/migrations/20261106120000_manychat_gateway/migration.sql`. Every statement is `IF NOT EXISTS`, so running it again is safe. Rollback, also operator only: `scripts/sql/2026-11-manychat-gateway-rollback.sql`. Tests apply those statements to embedded Postgres and do not open a hosted database.
 
 The webhook is a wake. It is not a customer reply. One wake does not guarantee one customer reply across all time.
 

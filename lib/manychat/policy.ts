@@ -33,7 +33,7 @@ export interface GatewayConfig {
 
 export function readConfig(env: NodeJS.ProcessEnv): GatewayConfig {
   return {
-    enabled: env.MANYCHAT_GATEWAY_ENABLED?.trim() === 'true',
+    enabled: env.MANYCHAT_GATEWAY_ENABLED === 'true',
     secret: env.MANYCHAT_GATEWAY_SECRET?.trim() ?? '',
     webhookUrl: env.CARGO_SUPPORTER_WEBHOOK_URL?.trim() ?? '',
     webhookKey: env.CARGO_SUPPORTER_WEBHOOK_KEY?.trim() ?? '',
