@@ -25,8 +25,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import ChangePassword from '../components/ChangePassword'
 import MyPhone from '../components/MyPhone'
 import { useUserLang } from '../components/useUserLang'
-import { StaggerItem } from '../components/motion'
-import { motion } from 'framer-motion'
+import { useInitialEnter } from '../components/useInitialEnter'
 import { toast } from 'sonner'
 import CopyButton from '../components/CopyButton'
 import { dict, fmt, statusLabels, LANG_CONFIRM, UserLang, type UserDict } from '@/lib/user-i18n'
@@ -624,6 +623,9 @@ export default function OrdersClient({
     (activeTab === 'ALL' || b.status === activeTab) &&
     (!q || b.shipments.some(s => s.trackCode.toUpperCase().includes(q)) || b.phone.includes(q))
   )
+  const enterRow = useInitialEnter(paged, s => s.id)
+  const enterBatch = useInitialEnter(filteredBatches, b => b.id)
+  const enterDate = useInitialEnter(pagedDateGroups, g => g.date)
 
   function switchTab(key: string) { setActiveTab(key); setPage(1); setExpandedDate(null); setNavPopup(null) }
   function switchView(mode: 'list' | 'byDate') { setViewMode(mode); setPage(1); setExpandedDate(null); setNavPopup(null) }
@@ -1119,11 +1121,10 @@ export default function OrdersClient({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.5rem' }}>
               {/* Багц ачаанууд — нэг карт, дарахад track кодууд дэлгэгдэнэ */}
               {filteredBatches.map((b, bi) => (
-                <motion.div
+                <div
                   key={`batch-${b.id}`}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: Math.min(bi * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
+                  className={enterBatch(b.id, bi) ? 'row-enter' : undefined}
+                  style={enterBatch(b.id, bi) ? { ['--i' as string]: bi } : undefined}
                 >
                 <div className={`order-card order-card-${b.status}`}>
                   <div
@@ -1189,18 +1190,16 @@ export default function OrdersClient({
                     )}
                   </div>
                 </div>
-                </motion.div>
+                </div>
               ))}
 
               {viewMode === 'list' ? paged.length > 0 && (
                 <div className="olist">
                 {paged.map((s, si) => (
-                <motion.div
+                <div
                   key={s.id}
-                  className="olist-item"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: Math.min(si * 0.03, 0.3), ease: [0.22, 1, 0.36, 1] }}
+                  className={`olist-item${enterRow(s.id, si) ? ' row-enter' : ''}`}
+                  style={enterRow(s.id, si) ? { ['--i' as string]: si } : undefined}
                 >
                 <ShipmentCard
                   s={s}
@@ -1213,11 +1212,11 @@ export default function OrdersClient({
                   deleting={deleting === s.id}
                   onDelete={() => { setNavPopup(null); setConfirmDelete(s.id) }}
                 />
-                </motion.div>
+                </div>
                 ))}
                 </div>
               ) : pagedDateGroups.map(g => (
-                <div key={g.date} className="card" style={{ overflow: 'hidden' }}>
+                <div key={g.date} className={`card${enterDate(g.date, pagedDateGroups.indexOf(g)) ? ' row-enter' : ''}`} style={{ overflow: 'hidden', ...(enterDate(g.date, pagedDateGroups.indexOf(g)) ? { ['--i' as string]: pagedDateGroups.indexOf(g) } : {}) }}>
                   <div
                     onClick={() => setExpandedDate(expandedDate === g.date ? null : g.date)}
                     style={{
@@ -1266,7 +1265,7 @@ export default function OrdersClient({
                               )
                             })()}
                             {(s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
-                              <button onClick={() => setConfirmDelete(s.id)} disabled={deleting === s.id}
+                              <button onClick={() => setConfirmDelete(s.id)} disabled={deleting === s.id} className="hit-pad"
                                 title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.8rem', padding: '0.1rem 0.2rem', lineHeight: 1, opacity: deleting === s.id ? 0.4 : 1 }}>
                                 <Trash2 size={14} strokeWidth={2} />

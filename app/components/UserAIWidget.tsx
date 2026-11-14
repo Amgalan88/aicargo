@@ -241,7 +241,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
 
           {/* Header */}
           <div style={{
-            padding: '10px 14px',
+            padding: 'calc(10px + env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) 10px max(14px, env(safe-area-inset-left, 0px))',
             background: 'var(--surface)',
             borderBottom: '1px solid var(--border)',
             display: 'flex', alignItems: 'center', gap: 10,
@@ -471,7 +471,7 @@ export default function UserAIWidget({ userName, cargoName, suggestions = [] }: 
 
           {/* Input bar */}
           <div style={{
-            padding: '8px 10px 10px',
+            padding: '8px max(10px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))',
             borderTop: '1px solid var(--border)',
             background: 'var(--surface)',
             flexShrink: 0,

@@ -1,6 +1,8 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import type { LoyaltyConfig, VipTier } from '@/lib/loyalty-core'
+import Combobox from '@/app/components/Combobox'
+import { suggestCustomers } from '@/app/components/customer-suggest'
 
 // Урамшуулал: Тохиргоо (горим асаах, хувь) · Хэрэглэгчид (VIP жагсаалт, гараар оноох) · Сарын тайлан
 type Tab = 'settings' | 'customers' | 'report'
@@ -151,7 +153,8 @@ function CustomersTab() {
   return (
     <div>
       <form onSubmit={e => { e.preventDefault(); load(q) }} style={{ display: 'flex', gap: '0.5rem', maxWidth: 420, marginBottom: '0.35rem' }}>
-        <input className="input" placeholder="Утасны дугаар" aria-describedby="vip-search-hint" inputMode="numeric" value={q} onChange={e => setQ(e.target.value)} />
+        <Combobox ariaLabel="Утасны дугаар" placeholder="Утасны дугаар" inputMode="numeric" describedBy="vip-search-hint" value={q} onChange={setQ} load={suggestCustomers}
+          onPick={opt => load(opt.value)} />
         <button className="btn" type="submit" style={{ flexShrink: 0 }}>Хайх</button>
       </form>
       <p id="vip-search-hint" style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: '0 0 1rem' }}>8 оронтой дугаар оруулбал шинэ хэрэглэгчид VIP оноож болно.</p>

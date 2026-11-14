@@ -58,7 +58,8 @@ export default function ConfirmDialog({
           style={{
             position: 'fixed', inset: 0, zIndex: 1200,
             background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 'max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))',
           }}
         >
           <motion.div

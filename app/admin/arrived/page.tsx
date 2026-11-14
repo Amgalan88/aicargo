@@ -9,6 +9,9 @@ import { parsePhone } from '@/lib/phone'
 import { cleanTrackCode, parseArrivedCode } from '@/lib/track-code'
 import OwnerChangesNote, { type OwnerChange } from '../OwnerChangesNote'
 import { alreadyArrivedMessage } from '@/lib/arrival-scan'
+import Combobox from '@/app/components/Combobox'
+import { suggestCustomers } from '@/app/components/customer-suggest'
+import { useInitialEnter } from '@/app/components/useInitialEnter'
 
 function fmtDT(iso: string) {
   const d = new Date(iso)
@@ -375,6 +378,8 @@ export default function ArrivedPage() {
     setTimeout(() => trackRef.current?.focus(), 50)
   }
 
+  const enterToday = useInitialEnter(todayList, t => t.display)
+
   return (
     <div className="page-wide">
       <h1 className="section-title">Ирсэн</h1>
@@ -463,9 +468,8 @@ export default function ArrivedPage() {
         <div>
           <h2 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.8rem' }}>Бүртгэгдсэн бараа хайх</h2>
           <form onSubmit={search} style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
-            <input className="input" placeholder="Утасны дугаар эсвэл трак код"
-              value={searchQ} onChange={e => { setSearchQ(e.target.value); setSearchResults(null) }}
-              style={{ minWidth: 0 }} />
+            <Combobox ariaLabel="Утасны дугаар эсвэл трак код" placeholder="Утасны дугаар эсвэл трак код"
+              value={searchQ} onChange={v => { setSearchQ(v); setSearchResults(null) }} load={suggestCustomers} />
             <button className="btn" type="submit" disabled={searching || !searchQ.trim()} style={{ flexShrink: 0 }}>
               {searching ? '...' : 'Хайх'}
             </button>
@@ -505,8 +509,8 @@ export default function ArrivedPage() {
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <span style={{ fontFamily: 'monospace', fontWeight: 700, flex: 1 }}>{s.trackCode}</span>
                                     {s.adminPrice && <span style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>₮{Number(s.adminPrice).toLocaleString()}</span>}
-                                    <button onClick={() => openEdit(s)} title="Засах" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
-                                    <button onClick={() => revert(s.id)} title="Буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
+                                    <button onClick={() => openEdit(s)} title="Засах" className="hit-pad" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
+                                    <button onClick={() => revert(s.id)} title="Буцаах" className="hit-pad" aria-label="Буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
                                   </div>
                                   {s.adminNote && <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.1rem' }}>{s.adminNote}</div>}
                                 </div>
@@ -527,8 +531,8 @@ export default function ArrivedPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontFamily: 'monospace', fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.trackCode}</span>
                         {s.adminPrice && <span style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>₮{Number(s.adminPrice).toLocaleString()}</span>}
-                        <button onClick={() => openEdit(s)} title="Засах" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
-                        <button onClick={() => revert(s.id)} title="Буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
+                        <button onClick={() => openEdit(s)} title="Засах" className="hit-pad" style={iconBtn} aria-label="Засах"><Pencil size={15} strokeWidth={2} /></button>
+                        <button onClick={() => revert(s.id)} title="Буцаах" className="hit-pad" aria-label="Буцаах" style={{ ...iconBtn, color: 'var(--danger)' }}>↩</button>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.1rem', color: 'var(--muted)', fontSize: '0.78rem' }}>
                         <span style={{ flexShrink: 0 }}>
@@ -562,7 +566,8 @@ export default function ArrivedPage() {
               </div>
               <div className="card" style={{ overflow: 'hidden' }}>
                 {todayList.map((t, i) => (
-                  <div key={`${t.display}-${i}`} style={{
+                  <div key={`${t.display}-${i}`} className={enterToday(t.display, i) ? 'row-enter' : undefined} style={{
+                    ...(enterToday(t.display, i) ? { ['--i' as string]: i } : {}),
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '0.38rem 0.9rem', gap: '0.6rem',
                     borderBottom: i < todayList.length - 1 ? '1px solid var(--border)' : 'none',

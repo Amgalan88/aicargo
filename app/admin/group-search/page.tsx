@@ -1,6 +1,8 @@
 'use client'
 import { Phone, User, Package } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import Combobox from '@/app/components/Combobox'
+import { suggestBranches } from '@/app/components/customer-suggest'
 
 function getStatusLabel(arrivedLabel?: string | null, ereemLabel?: string | null): Record<string, string> {
   return {
@@ -26,6 +28,8 @@ interface Result {
 
 export default function GroupSearchPage() {
   const [q, setQ] = useState('')
+  const [branch, setBranch] = useState('')
+  const [branchId, setBranchId] = useState<number | null>(null)
   const [results, setResults] = useState<Result[] | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -44,7 +48,9 @@ export default function GroupSearchPage() {
     setError('')
     setResults(null)
     try {
-      const res = await fetch(`/api/admin/group-search?q=${encodeURIComponent(val)}`)
+      const params = new URLSearchParams({ q: val })
+      if (branchId) params.set('cargoId', String(branchId))
+      const res = await fetch(`/api/admin/group-search?${params}`)
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
       if (data.length === 0) setError('Үр дүн олдсонгүй.')
@@ -66,7 +72,13 @@ export default function GroupSearchPage() {
       </div>
 
       <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          <Combobox ariaLabel="Салбар" placeholder="Салбар"
+            value={branch}
+            onChange={v => { setBranch(v); setBranchId(null) }}
+            load={suggestBranches}
+            onPick={opt => { setBranch(opt.label); setBranchId(Number(opt.id)) }} />
+          <div style={{ display: 'flex', gap: '0.6rem' }}>
           <input
             className="input"
             placeholder="JT5364974054841"
@@ -79,6 +91,7 @@ export default function GroupSearchPage() {
           <button className="btn" onClick={search} disabled={loading} style={{ flexShrink: 0 }}>
             {loading ? '...' : 'Хайх'}
           </button>
+          </div>
         </div>
         {error && <p className="msg-error" style={{ marginTop: '0.75rem' }}>{error}</p>}
       </div>

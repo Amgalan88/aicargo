@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useHandoverQuote, HandoverLoyaltyPanel } from './HandoverLoyalty'
 import HandoverDone, { type HandoverDoneInfo } from './HandoverDone'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
+import Combobox from '@/app/components/Combobox'
+import { suggestCustomers } from '@/app/components/customer-suggest'
 
 interface Shipment {
   id: number
@@ -199,8 +201,9 @@ export default function HandoverPage() {
       {mode === 'search' && (
         <>
           <form onSubmit={search} style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.5rem', maxWidth: 420 }}>
-            <input className="input" placeholder="Утасны дугаар эсвэл трак код" required
-              value={q} onChange={e => setQ(e.target.value)} />
+            <Combobox ariaLabel="Утасны дугаар эсвэл трак код" placeholder="Утасны дугаар эсвэл трак код" required
+              value={q} onChange={setQ} load={suggestCustomers}
+              onPick={opt => { void loadSearch(opt.value) }} />
             <button className="btn" type="submit" disabled={loading} style={{ flexShrink: 0 }}>Хайх</button>
           </form>
 

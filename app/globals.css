@@ -2603,4 +2603,74 @@ p, .sc-note, .lp-lead, .lp-faq-body, .empty-state p, .sys-page-text, .al-detail,
     width: 44px;
     height: 44px;
   }
+  /* Icon-only controls stay visually small; the pseudo grows the hit area to 44px. */
+  .hit-pad, .lo-icon, .sr-del, .st-x, .st-icon, .whv-copy, .whv-lb-top button,
+  .lp .nav-links button[aria-label="Харагдацын горим солих"] { position: relative; }
+  .hit-pad::after, .lo-icon::after, .sr-del::after, .st-x::after, .st-icon::after,
+  .al-search > button::after, .pw-eye::after, .whv-copy::after, .whv-lb-top button::after,
+  .lp .nav-links button[aria-label="Харагдацын горим солих"]::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Monospace faces do not ship Inter's cv11/ss01. Restate tnum so a face that
+   ignores unknown features does not fall back to proportional digits. */
+.mono, .oname-code, .ocode-text, .sc-code, .sr-code, .order-card-track,
+.admin-item-date, .hm-mono, .lk-mono, .lo-phone, .lo-mono, .bp-mono,
+.data-table .mono, .copy-cell.mono, .st-staff-name span,
+.sc-title span, .sc-code > span:first-child,
+[style*="monospace"] {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "kern" 1, "tnum" 1;
+}
+
+/* Staff combobox (branch / customer). */
+.cb { position: relative; flex: 1; min-width: 0; width: 100%; }
+.cb .input { width: 100%; }
+.cb-list {
+  position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 0.25rem; list-style: none;
+  max-height: 240px; overflow: auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow-lg);
+}
+.cb-opt {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0.05rem;
+  width: 100%; min-height: 44px; text-align: left; border: none; background: none;
+  padding: 0.35rem 0.65rem; border-radius: 8px; cursor: pointer;
+  font: inherit; color: var(--text);
+}
+.cb-opt[aria-selected="true"], .cb-opt:hover { background: var(--accent-light); }
+.cb-opt small { color: var(--muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+
+/* Order rows: fade/slide on the first paint only. 16ms × 9 + 150ms ≈ 294ms. */
+@keyframes row-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.row-enter {
+  animation: row-enter 150ms cubic-bezier(.22, 1, .36, 1) both;
+  animation-delay: calc(min(var(--i, 0), 9) * 16ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-enter { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
+/* Toasts and floating panels sit above the home indicator (and the admin tab bar). */
+[data-sonner-toaster][data-y-position="bottom"] {
+  bottom: max(16px, env(safe-area-inset-bottom)) !important;
+}
+@media (max-width: 640px) {
+  body:has(.an-tabbar) [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+  }
+  body:has(.lp-sticky.on) [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+  }
 }

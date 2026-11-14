@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { Search, Users } from 'lucide-react'
 import { PageHeader, Pagination, SortTh, useSort, CopyCell } from '@/app/components/ui'
+import Combobox from '@/app/components/Combobox'
+import { suggestCustomers } from '@/app/components/customer-suggest'
 
 interface User {
   id: number
@@ -58,9 +60,10 @@ export default function UsersPage() {
       <PageHeader title="Хэрэглэгчид" count={total} countLabel="хэрэглэгч" />
 
       <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem', maxWidth: 420 }}>
-        <input className="input" placeholder="Нэр эсвэл утасны дугаар"
-          value={q} onChange={e => setQ(e.target.value)}
-          style={{ minWidth: 0 }} />
+        <Combobox ariaLabel="Нэр эсвэл утасны дугаар" placeholder="Нэр эсвэл утасны дугаар"
+          value={q} onChange={setQ}
+          load={async (query, signal) => (await suggestCustomers(query, signal)).map(o => ({ ...o, value: o.label }))}
+          onPick={opt => { setPage(1); setSearch(opt.value); load(opt.value, 1) }} />
         <button className="btn" type="submit" disabled={loading} style={{ flexShrink: 0 }}>
           <Search size={16} />{loading ? '...' : 'Хайх'}
         </button>

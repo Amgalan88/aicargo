@@ -6,6 +6,9 @@ import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { looksLikeOrderNumber } from '@/lib/track-code'
 import SkeletonTable from '@/app/components/SkeletonTable'
 import { PageHeader, Pagination, SortTh, useSort, CopyCell } from '@/app/components/ui'
+import Combobox from '@/app/components/Combobox'
+import { suggestCustomers } from '@/app/components/customer-suggest'
+import { useInitialEnter } from '@/app/components/useInitialEnter'
 
 interface Row {
   id: number
@@ -96,6 +99,7 @@ export default function RegisteredPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const { sorted, sort, toggle } = useSort<Row, SortKey>(rows, (r, k) =>
     k === 'track' ? r.trackCode : k === 'name' ? r.user?.name : k === 'phone' ? phoneOf(r) : r.createdAt)
+  const enter = useInitialEnter(sorted, r => r.id)
 
   return (
     <div className="page-wide">
@@ -107,7 +111,8 @@ export default function RegisteredPage() {
       />
 
       <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem', maxWidth: 420 }}>
-        <input className="input" placeholder="Утас, нэр эсвэл трак код..." value={q} onChange={e => setQ(e.target.value)} />
+        <Combobox ariaLabel="Утас, нэр эсвэл трак код" placeholder="Утас, нэр эсвэл трак код..." value={q} onChange={setQ} load={suggestCustomers}
+          onPick={opt => { setPage(1); setSearch(opt.value); load(1, opt.value) }} />
         <button className="btn" type="submit" style={{ flexShrink: 0 }}><Search size={16} />Хайх</button>
       </form>
 
@@ -149,7 +154,7 @@ export default function RegisteredPage() {
               </thead>
               <tbody>
                 {sorted.map((r, i) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} className={enter(r.id, i) ? 'row-enter' : undefined} style={enter(r.id, i) ? { ['--i' as string]: i } : undefined}>
                     <td className="st-hide">
                       <input type="checkbox" aria-label={`${r.trackCode} сонгох`} checked={picked.has(r.id)} onChange={() => togglePick(r.id)}
                         style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }} />

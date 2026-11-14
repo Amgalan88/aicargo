@@ -2,6 +2,9 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AnimatedNumber } from '@/app/components/motion'
+import { useInitialEnter } from '@/app/components/useInitialEnter'
+import Combobox from '@/app/components/Combobox'
+import { suggestCustomers } from '@/app/components/customer-suggest'
 
 interface Shipment {
   id: number; trackCode: string; phone: string | null
@@ -81,6 +84,7 @@ function ReportPageInner() {
   const filteredCount = filteredDates.reduce((s, g) => s + g.count, 0)
   const totalPages = Math.max(1, Math.ceil(filteredDates.length / PAGE))
   const pagedDates = filteredDates.slice((page - 1) * PAGE, page * PAGE)
+  const enter = useInitialEnter(pagedDates, g => g.date)
 
   return (
     <div className="page-wide" style={{ maxWidth: 600 }}>
@@ -119,12 +123,14 @@ function ReportPageInner() {
         )}
 
         <div style={{ display: 'flex', gap: '0.6rem', maxWidth: 400 }}>
-          <input
-            className="input"
+          <Combobox
+            ariaLabel="Утасны дугаар"
             placeholder="Утасны дугаар (заавал биш)"
+            inputMode="numeric"
             value={phone}
-            onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
-            onKeyDown={e => e.key === 'Enter' && search()}
+            onChange={v => setPhone(v.replace(/\D/g, '').slice(0, 8))}
+            load={suggestCustomers}
+            onPick={opt => { setPhone(opt.value); void search({ phone: opt.value }) }}
           />
           <button className="btn" onClick={() => search()} disabled={loading} style={{ flexShrink: 0 }}>
             {loading ? '...' : 'Харах'}
@@ -163,7 +169,7 @@ function ReportPageInner() {
           ) : (
             <div className="card" style={{ overflow: 'hidden' }}>
               {pagedDates.map((g, i) => (
-                <div key={g.date}>
+                <div key={g.date} className={enter(g.date, i) ? 'row-enter' : undefined} style={enter(g.date, i) ? { ['--i' as string]: i } : undefined}>
                   <div
                     onClick={() => setExpanded(expanded === g.date ? null : g.date)}
                     style={{
