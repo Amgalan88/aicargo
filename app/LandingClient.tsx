@@ -431,7 +431,7 @@ export default function LandingClient({ cargo }: { cargo?: CargoInfo | null }) {
       {/* Teaser chat popup */}
       {AI_SUPPORT_ENABLED && aiOpen && (
         <div style={{
-          position: 'fixed', bottom: 72, right: 16, zIndex: 999,
+          position: 'fixed', bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))', right: 'max(16px, env(safe-area-inset-right, 0px))', zIndex: 999,
           width: 312,
           background: 'var(--bg)',
           border: '1px solid var(--border)',

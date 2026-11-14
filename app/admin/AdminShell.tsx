@@ -15,7 +15,7 @@ function BlockingOverlay({ cargoName, overdueDays, paidUntil }: { cargoName: str
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.82)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1rem', overflowY: 'auto',
+      padding: 'max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))', overflowY: 'auto',
     }}>
       <div style={{
         background: 'var(--bg)', borderRadius: 16, padding: '2rem',
@@ -42,7 +42,7 @@ function WarningBanner({ cargoName, paidUntil, daysToBlock, onClose }: { cargoNa
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.65)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1rem', overflowY: 'auto',
+      padding: 'max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))', overflowY: 'auto',
     }}>
       <div style={{
         background: 'var(--bg)', borderRadius: 16, padding: '2rem',

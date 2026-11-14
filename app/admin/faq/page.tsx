@@ -78,7 +78,7 @@ export default function FaqPage() {
                 <p style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.3rem' }}>{f.question}</p>
                 <p style={{ fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.5 }}>{f.answer}</p>
               </div>
-              <button onClick={() => del(f.id)} disabled={deleting === f.id} title="Устгах" style={{
+              <button onClick={() => del(f.id)} disabled={deleting === f.id} title="Устгах" className="hit-pad" style={{
                 background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)',
                 fontSize: '0.85rem', padding: '0.1rem 0.25rem', borderRadius: '4px', flexShrink: 0,
                 opacity: deleting === f.id ? 0.4 : 1,

@@ -58,7 +58,7 @@ export default function NamelessSearch({ open, onClose, t }: { open: boolean; on
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1001 }} aria-hidden />
       <div style={{
-        position: 'fixed', top: '3.5rem', right: '1rem', bottom: '1rem', zIndex: 1002,
+        position: 'fixed', top: 'calc(3.5rem + env(safe-area-inset-top, 0px))', right: 'max(1rem, env(safe-area-inset-right, 0px))', bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))', zIndex: 1002,
         width: 300, maxHeight: 620, display: 'flex', flexDirection: 'column',
         background: 'var(--surface)', border: '1px solid var(--border)',
         borderRadius: '12px', boxShadow: '0 6px 24px rgba(0,0,0,0.14)',

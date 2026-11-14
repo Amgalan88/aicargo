@@ -5,6 +5,8 @@ import { toast } from 'sonner'
 import { Link2, ExternalLink, Copy, Search, Phone } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { LINK_STATUS, linkHost, money, type LinkStatus } from '@/lib/link-orders'
+import Combobox from '@/app/components/Combobox'
+import { suggestCustomers } from '@/app/components/customer-suggest'
 
 interface Item {
   id: number; userId: number | null; name: string; phone: string; url: string; quantity: number; note: string | null; imageUrl: string | null
@@ -99,7 +101,8 @@ export default function LinkOrdersPage() {
       <div className="lo-bar">
         <form className="lo-search" onSubmit={e => { e.preventDefault(); setQuery(q.trim()) }}>
           <Search size={16} />
-          <input className="input" placeholder="Утас эсвэл нэрээр хайх" value={q} onChange={e => setQ(e.target.value)} />
+          <Combobox ariaLabel="Утас эсвэл нэрээр хайх" placeholder="Утас эсвэл нэрээр хайх" value={q} onChange={setQ} load={suggestCustomers}
+            onPick={opt => setQuery(opt.value)} />
         </form>
         <button type="button" className={`lo-chip${status === 'CANCELLED' ? ' on' : ''}`} onClick={() => setStatus(s => (s === 'CANCELLED' ? null : 'CANCELLED'))}>
           Цуцалсан {data.counts.CANCELLED ?? 0}
@@ -152,7 +155,7 @@ function ItemRow({ it, act }: { it: Item; act: (ids: number[], action: string, e
       <div className="lo-item-main">
         <div className="lo-item-top">
           <a href={it.url} target="_blank" rel="noopener noreferrer" className="lo-link"><Link2 size={14} />{linkHost(it.url)}<ExternalLink size={12} /></a>
-          <button type="button" className="lo-icon" aria-label="Линк хуулах" title="Линк хуулах" onClick={() => navigator.clipboard.writeText(it.url).then(() => toast.success('Линк хуулагдлаа')).catch(() => {})}><Copy size={13} /></button>
+          <button type="button" className="lo-icon hit-pad" aria-label="Линк хуулах" title="Линк хуулах" onClick={() => navigator.clipboard.writeText(it.url).then(() => toast.success('Линк хуулагдлаа')).catch(() => {})}><Copy size={13} /></button>
           <span className={`lo-st lo-${st.tone}`}>{st.label}</span>
         </div>
         <div className="lo-meta-row">

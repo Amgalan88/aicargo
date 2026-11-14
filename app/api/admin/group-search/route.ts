@@ -21,11 +21,13 @@ export async function GET(req: NextRequest) {
     select: { id: true, name: true },
   })
   const cargoIds = groupCargos.map((c: any) => c.id)
+  const requested = Number(req.nextUrl.searchParams.get('cargoId') || '')
+  const ids = Number.isInteger(requested) && cargoIds.includes(requested) ? [requested] : cargoIds
   const cargoNameMap: Record<number, string> = Object.fromEntries(groupCargos.map((c: any) => [c.id, c.name]))
 
   const shipments = await prisma.shipment.findMany({
     where: {
-      cargoId: { in: cargoIds },
+      cargoId: { in: ids },
       archived: false,
       trackCode: { contains: q.toUpperCase(), mode: 'insensitive' },
     },

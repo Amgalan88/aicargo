@@ -43,6 +43,7 @@ function BannerPreviewModal({ banner, onClose }: { banner: Banner; onClose: () =
         <button
           onClick={onClose}
           aria-label="Хаах"
+          className="hit-pad"
           style={{
             position: 'absolute', top: '0.75rem', right: '0.75rem',
             background: 'var(--surface2)', border: 'none', cursor: 'pointer',

@@ -5,6 +5,9 @@ import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { toast } from 'sonner'
 import { useState, useEffect, useCallback } from 'react'
 import SkeletonTable from '@/app/components/SkeletonTable'
+import Combobox from '@/app/components/Combobox'
+import { suggestCustomers } from '@/app/components/customer-suggest'
+import { useInitialEnter } from '@/app/components/useInitialEnter'
 
 interface Row {
   id: number
@@ -78,6 +81,7 @@ function BatchHistory() {
   useEffect(() => { load() }, [])
 
   const total = batches.reduce((s, b) => s + Number(b.price), 0)
+  const enter = useInitialEnter(batches, b => b.id)
 
 
   return (
@@ -85,12 +89,14 @@ function BatchHistory() {
       <h1 className="section-title">Олгосон багцууд</h1>
 
       <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', maxWidth: 400 }}>
-        <input
-          className="input"
+        <Combobox
+          ariaLabel="Утасны дугаараар хайх"
           placeholder="Утасны дугаараар хайх"
+          inputMode="numeric"
           value={q}
-          onChange={e => setQ(e.target.value.replace(/\D/g, '').slice(0, 8))}
-          onKeyDown={e => e.key === 'Enter' && load(q)}
+          onChange={v => setQ(v.replace(/\D/g, '').slice(0, 8))}
+          load={suggestCustomers}
+          onPick={opt => load(opt.value)}
         />
         <button className="btn" onClick={() => load(q)} disabled={loading} style={{ flexShrink: 0 }}>
           {loading ? '...' : 'Хайх'}
@@ -115,7 +121,7 @@ function BatchHistory() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {batches.map(b => (
-            <div key={b.id} className="card" style={{ overflow: 'hidden' }}>
+            <div key={b.id} className={`card${enter(b.id, batches.indexOf(b)) ? ' row-enter' : ''}`} style={{ overflow: 'hidden', ...(enter(b.id, batches.indexOf(b)) ? { ['--i' as string]: batches.indexOf(b) } : {}) }}>
               <div
                 onClick={() => setExpanded(expanded === b.id ? null : b.id)}
                 style={{
@@ -254,6 +260,7 @@ function ClassicHistory() {
 
   const { sorted: sortedRows, sort, toggle: toggleSort } = useSort<Row, 'phone' | 'track' | 'date' | 'price'>(rows, (r, k) =>
     k === 'phone' ? r.phone : k === 'track' ? r.trackCode : k === 'date' ? r.updatedAt : (r.adminPrice == null ? null : Number(r.adminPrice)))
+  const enterRow = useInitialEnter(sortedRows, r => r.id)
   return (
     <div className="page-wide">
       {/* Tabs */}
@@ -284,7 +291,8 @@ function ClassicHistory() {
           </div>
 
           <form onSubmit={handleListSearch} style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.25rem', maxWidth: 420 }}>
-            <input className="input" placeholder="Утас эсвэл трак код..." value={q} onChange={e => setQ(e.target.value)} />
+            <Combobox ariaLabel="Утас эсвэл трак код" placeholder="Утас эсвэл трак код..." value={q} onChange={setQ} load={suggestCustomers}
+              onPick={opt => { setListPage(1); setSearch(opt.value); loadList(1, opt.value) }} />
             <button className="btn" type="submit" style={{ flexShrink: 0 }}>Хайх</button>
           </form>
 
@@ -307,7 +315,7 @@ function ClassicHistory() {
                   </thead>
                   <tbody>
                     {sortedRows.map((r, i) => (
-                      <tr key={r.id}>
+                      <tr key={r.id} className={enterRow(r.id, i) ? 'row-enter' : undefined} style={enterRow(r.id, i) ? { ['--i' as string]: i } : undefined}>
                         <td className="st-hide" style={{ color: 'var(--muted)' }}>{(listPage - 1) * PAGE_SIZE + i + 1}</td>
                         <td data-label="Утас" style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{r.phone ? <CopyCell value={r.phone} /> : '—'}</td>
                         <td className="mono st-title"><CopyCell value={r.trackCode} /></td>
@@ -371,10 +379,10 @@ function ClassicHistory() {
             <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label style={{ fontSize: '0.75rem' }}>Утасны дугаар (заавал биш)</label>
-                <input className="input" placeholder="99001122" value={rPhone}
-                  style={{ width: 160 }}
-                  onChange={e => setRPhone(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                  onKeyDown={e => e.key === 'Enter' && loadReport()} />
+                <Combobox ariaLabel="Утасны дугаар" placeholder="99001122" inputMode="numeric" value={rPhone}
+                  onChange={v => setRPhone(v.replace(/\D/g, '').slice(0, 8))}
+                  load={suggestCustomers}
+                  onPick={opt => { setRPhone(opt.value); }} />
               </div>
               <button className="btn" onClick={loadReport} disabled={rLoading} style={{ height: 40 }}>
                 {rLoading ? '...' : 'Харах'}
