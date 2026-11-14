@@ -178,7 +178,8 @@ export const LOYALTY_DDL: string[] = [
   `CREATE TRIGGER "LoyaltyLedger_append_only" BEFORE UPDATE OR DELETE ON "LoyaltyLedger"
     FOR EACH ROW EXECUTE FUNCTION "loyalty_ledger_append_only"()`,
 
-  // Supabase Data API (anon/authenticated)-аас хаана. Апп нь хүснэгтийн эзэн ролиор (Prisma) холбогддог тул нөлөөлөхгүй
+  // Эдгээр 5 хүснэгт. Бүх public хүснэгт, sequence, функц болон дараа нь үүсэх хүснэгт: scripts/enable-rls.ts
+  // (RLS + anon/authenticated эрх хасах). Энд зөвхөн RLS — давтан ажиллуулахад хортой биш.
   `ALTER TABLE "LoyaltySettings" ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE "LoyaltyAccount" ENABLE ROW LEVEL SECURITY`,
   `ALTER TABLE "LoyaltyLedger" ENABLE ROW LEVEL SECURITY`,
