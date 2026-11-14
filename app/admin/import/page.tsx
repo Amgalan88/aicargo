@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
+import { parsePhone } from '@/lib/phone'
 import StaleEreen from './StaleEreen'
 import { ResultRow, type ResultShipment } from './ShipmentResults'
 import { cleanTrackCode, isTrackCode, parseTrackCode } from '@/lib/track-code'
@@ -52,9 +53,12 @@ export default function ImportPage() {
   const [page, setPage] = useState(1)
   const [saving, setSaving] = useState(false)
   // Эрээнд ирсэн огноо ('' = өнөөдөр)
-  const [ereenDate, setEreenDate] = useState('')
+  // Анхны сонголт = өнөөдөр (UB). Хадгалахын өмнө админ огноог баталгаажуулна (чимээгүй хадгалахгүй)
+  const [ereenDate, setEreenDate] = useState(() => todayUB())
+  const [pickDate, setPickDate] = useState(false)
   const [done, setDone] = useState<number | null>(null)
   const [duplicates, setDuplicates] = useState<string[]>([])
+  const [alreadyArrived, setAlreadyArrived] = useState<{ list: string[]; count: number }>({ list: [], count: 0 })
   const [ownerChanges, setOwnerChanges] = useState<{ list: OwnerChange[]; count: number }>({ list: [], count: 0 })
   const [error, setError] = useState('')
   const [lastAdded, setLastAdded] = useState('')
@@ -118,12 +122,12 @@ export default function ImportPage() {
         const rawParsedAll = data
           .map(row => {
             const col1 = String(row[1] ?? '').trim()
-            const isPhone = /^\d{8}$/.test(col1)
+            const parsedPhone = parsePhone(col1)
             return {
               raw: String(row[0] ?? '').trim(),
               trackCode: parseTrackCode(row[0]) ?? cleanTrackCode(row[0]),
               phoneRaw: col1,
-              phone: isPhone ? col1 : undefined,
+              phone: parsedPhone ?? undefined,
             }
           })
           .filter(r => r.raw)
@@ -261,6 +265,16 @@ export default function ImportPage() {
 
   async function save() {
     if (rows.length === 0) return
+    // Эрээнд ирсэн огноо заавал — өнөөдрөөр чимээгүй хадгалахгүй (хадгалсны дараа буруу огноо засагдахгүй асуудал)
+    if (!ereenDate) { setError('Эрээнд ирсэн огноог сонгоно уу'); return }
+    // Өнөөдөр урьдчилан сонгогдсон тул огноог заавал баталгаажуулна — буруу огноогоор чимээгүй хадгалахаас сэргийлнэ
+    const rel = ereenDate === todayUB() ? 'Өнөөдөр' : ereenDate === daysAgoUB(1) ? 'Өчигдөр'
+      : `${Math.round((Date.parse(todayUB()) - Date.parse(ereenDate)) / 86400_000)} хоногийн өмнө`
+    if (!await confirmAsync({
+      title: `${rows.length} ачаа «Эрээнд ирсэн» болгох уу?`,
+      message: `Огноо: ${ereenDate.replace(/-/g, '.')} (${rel})\nОгноо буруу бол «Болих» дараад өөрчилнө үү.`,
+      confirmLabel: 'Огноо зөв — хадгалах', danger: false,
+    })) return
     setSaving(true)
     setError('')
     try {
@@ -269,14 +283,15 @@ export default function ImportPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rows: rows.map(r => ({ trackCode: r.trackCode, status: 'EREEN_ARRIVED', phone: r.phone })),
-          ...(ereenDate && ereenDate !== todayUB() ? { ereenDate } : {}),
+          ereenDate,
         }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Алдаа гарлаа'); return }
       setDone(data.count)
-      setEreenDate('')
+      setEreenDate(todayUB()); setPickDate(false)
       setDuplicates(data.duplicates ?? [])
+      setAlreadyArrived({ list: data.alreadyArrived ?? [], count: data.alreadyArrivedCount ?? 0 })
       setOwnerChanges({ list: data.ownerChanges ?? [], count: data.ownerChangeCount ?? 0 })
       setRows([])
       setLastAdded('')
@@ -545,6 +560,16 @@ export default function ImportPage() {
               </span>
             </div>
           )}
+          {alreadyArrived.count > 0 && (
+            <div className="card-row scan-warning" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.3rem' }}>
+              <strong style={{ fontSize: '0.78rem' }}>
+                ⚠ {alreadyArrived.count} бараа аль хэдийн ирсэн/олгогдсон байсан — өөрчлөгдөөгүй:
+              </strong>
+              <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', lineHeight: 1.6 }}>
+                {alreadyArrived.list.join(', ')}{alreadyArrived.count > alreadyArrived.list.length ? '…' : ''}
+              </span>
+            </div>
+          )}
           <OwnerChangesNote changes={ownerChanges.list} count={ownerChanges.count} />
         </div>
       )}
@@ -554,12 +579,29 @@ export default function ImportPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Нийт {rows.length} бараа</span>
             {/* Эрээнд ирсэн огноо — жш 23-нд ирснийг 25-нд оруулбал 23 гэж сонгоно (30 хоногийн дотор) */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
-              Эрээнд ирсэн огноо
-              <input type="date" className="input" value={ereenDate || todayUB()} min={daysAgoUB(30)} max={todayUB()}
-                onChange={e => setEreenDate(e.target.value)}
-                style={{ width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.82rem' }} />
-            </label>
+            {/* Нэг товшилтоор: Өнөөдөр / Өчигдөр / Сонгох (browser-ийн mm/dd/yyyy-г шууд харуулахгүй).
+                Огноог чимээгүй өнөөдрөөр бөглөхгүй — ажилтан өөрөө сонгоно (хадгалсны дараа буруу огноо асуудал) */}
+            <div className="ereen-date" role="radiogroup" aria-label="Эрээнд ирсэн огноо" data-testid="ereen-date">
+              <span className="ereen-date-lbl">Эрээнд ирсэн огноо <span style={{ color: 'var(--danger)' }}>*</span></span>
+              {([['Өнөөдөр', todayUB()], ['Өчигдөр', daysAgoUB(1)]] as const).map(([lbl, d]) => (
+                <button key={lbl} type="button" role="radio" aria-checked={ereenDate === d && !pickDate}
+                  className={`ereen-chip${ereenDate === d && !pickDate ? ' on' : ''}`}
+                  onClick={() => { setPickDate(false); setEreenDate(d); setError('') }}>{lbl}</button>
+              ))}
+              {(() => { const custom = pickDate || (!!ereenDate && ereenDate !== todayUB() && ereenDate !== daysAgoUB(1)); return (
+                <>
+                  <button type="button" role="radio" aria-checked={custom} className={`ereen-chip${custom ? ' on' : ''}`}
+                    onClick={() => { setPickDate(true); setTimeout(() => (document.getElementById('ereen-date-input') as HTMLInputElement | null)?.showPicker?.(), 0) }}>
+                    {custom && ereenDate ? `${Number(ereenDate.slice(5, 7))}/${Number(ereenDate.slice(8, 10))}` : 'Сонгох'}
+                  </button>
+                  {custom && (
+                    <input id="ereen-date-input" type="date" className="input" aria-label="Огноо сонгох" value={ereenDate} required min={daysAgoUB(30)} max={todayUB()}
+                      onChange={e => setEreenDate(e.target.value)}
+                      style={{ width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.82rem' }} />
+                  )}
+                </>
+              ) })()}
+            </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={() => { setRows([]); setPage(1); inputRef.current?.focus() }} style={{
                 background: 'none', border: '1px solid var(--border)', borderRadius: '8px',
@@ -568,8 +610,8 @@ export default function ImportPage() {
               }}>
                 Цэвэрлэх
               </button>
-              <button className="btn" onClick={save} disabled={saving} style={{ fontSize: '0.83rem', padding: '0.45rem 1.1rem' }}>
-                {saving ? '...' : `Хадгалах (${rows.length})`}
+              <button className="btn" onClick={save} disabled={saving || !ereenDate} title={!ereenDate ? 'Эрээнд ирсэн огноог сонгоно уу' : undefined} style={{ fontSize: '0.83rem', padding: '0.45rem 1.1rem' }}>
+                {saving ? '...' : !ereenDate ? 'Огноо сонгоно уу' : `Хадгалах (${rows.length})`}
               </button>
             </div>
           </div>

@@ -51,3 +51,37 @@ export async function recordDeletions(
     })),
   })
 }
+
+// Хэрэглэгч урьдчилан бүртгүүлсэн (Эрээнээс өмнө үүссэн, эзэнтэй) ачаа — устгахад бүрмөсөн устгахгүй,
+// «Бүртгүүлсэн» төлөвт буцаана. Админы шинээр үүсгэсэн эзэнгүй/хожим үүссэн бичлэг л устгагдана.
+export function wasPreRegistered(r: Snapshot): boolean {
+  if (!r.user) return false
+  if (!r.ereenArrivedAt) return true
+  return r.createdAt.getTime() < r.ereenArrivedAt.getTime() - 60_000
+}
+
+// Эрээний ачааг «устгах» — түүх бичээд, урьдчилан бүртгэлтэйг REGISTERED болгож, бусдыг устгана.
+// Буцаах тоо: { deleted, reverted }
+export async function removeEreenShipments(
+  tx: Prisma.TransactionClient,
+  cargoId: number,
+  targets: Snapshot[],
+  actor: { id: number; name: string },
+  source: DeletionSource,
+  note?: string | null,
+): Promise<{ deleted: number; reverted: number }> {
+  if (!targets.length) return { deleted: 0, reverted: 0 }
+  await recordDeletions(tx, cargoId, targets, actor, source, note)
+  const keep = targets.filter(wasPreRegistered).map(t => t.id)
+  const drop = targets.filter(t => !wasPreRegistered(t)).map(t => t.id)
+  const reverted = keep.length
+    ? (await tx.shipment.updateMany({
+        where: { id: { in: keep }, cargoId, status: 'EREEN_ARRIVED' },
+        data: { status: 'REGISTERED', ereenArrivedAt: null },
+      })).count
+    : 0
+  const deleted = drop.length
+    ? (await tx.shipment.deleteMany({ where: { id: { in: drop }, cargoId, status: 'EREEN_ARRIVED' } })).count
+    : 0
+  return { deleted, reverted }
+}

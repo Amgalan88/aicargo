@@ -5,8 +5,10 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import ArrivalCheck from '../dispatch/ArrivalCheck'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
+import { parsePhone } from '@/lib/phone'
 import { cleanTrackCode, parseArrivedCode } from '@/lib/track-code'
 import OwnerChangesNote, { type OwnerChange } from '../OwnerChangesNote'
+import { alreadyArrivedMessage } from '@/lib/arrival-scan'
 
 function fmtDT(iso: string) {
   const d = new Date(iso)
@@ -25,6 +27,7 @@ interface SearchResult {
 }
 
 interface TodayEntry { display: string; isPhone: boolean; description: string }
+interface PriorArrival { trackCode: string; status: string; arrivedAt: string | null; adminPrice: string | null }
 
 function CopyPhone({ phone }: { phone: string }) {
   const [copied, setCopied] = useState(false)
@@ -85,6 +88,7 @@ export default function ArrivedPage() {
   const xlsxRef = useRef<HTMLInputElement>(null)
   const [xlsxMsg, setXlsxMsg] = useState('')
   const [xlsxLoading, setXlsxLoading] = useState(false)
+  const [xlsxAlready, setXlsxAlready] = useState<{ list: PriorArrival[]; count: number }>({ list: [], count: 0 })
   const [ownerChanges, setOwnerChanges] = useState<{ list: OwnerChange[]; count: number }>({ list: [], count: 0 })
 
   // Огноогоор bulk буцаах
@@ -150,13 +154,14 @@ export default function ArrivedPage() {
         const parsedAll = data
           .map(row => {
             const phoneRaw = String(row[1] ?? '').trim()
+            const phoneParsed = parsePhone(phoneRaw)
             // "5,500", "5 500₮" гэх мэт текстээр бичсэн үнийг ч уншина (өмнө нь үнэгүй болдог байсан)
             const priceRaw = typeof row[2] === 'number' ? row[2] : Number(String(row[2] ?? '').replace(/[^\d.]/g, ''))
             return {
               raw: String(row[0] ?? '').trim(),
               trackCode: parseArrivedCode(row[0]) ?? '',
               phoneRaw,
-              phone: /^\d{8}$/.test(phoneRaw) ? phoneRaw : undefined,
+              phone: phoneParsed ?? undefined,
               price: !isNaN(priceRaw) && priceRaw > 0 ? priceRaw : undefined,
             }
           })
@@ -195,6 +200,7 @@ export default function ArrivedPage() {
           if (!proceed) return
         } else if (!await confirmAsync(`${byCode.size} бараа Ирсэн статустай болгох уу?${unpriced ? `\n\n⚠ ${unpriced} ачаа үнэгүй орно.` : ''}`)) return
         setXlsxLoading(true)
+        setXlsxAlready({ list: [], count: 0 })
         const res = await fetch('/api/admin/arrived', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -203,7 +209,8 @@ export default function ArrivedPage() {
         setXlsxLoading(false)
         if (res.ok) {
           const d = await res.json()
-          setXlsxMsg(`✓ ${d.count} бараа Ирсэн статустай болсон`
+          setXlsxAlready({ list: [...(d.alreadyArrived ?? []), ...(d.pickedUp ?? [])], count: (d.alreadyArrivedCount ?? 0) + (d.pickedUpCount ?? 0) })
+          setXlsxMsg(`✓ ${d.count} бараа шинээр Ирсэн статустай болсон`
             + (d.dispatch ? ` · Тулгалт: ${d.dispatch.inCount} сонгосонд байсан${d.dispatch.extraCount ? ` · ⚠ ${d.dispatch.extraCount} сонгосонд байгаагүй: ${d.dispatch.extra.slice(0, 5).join(', ')}${d.dispatch.extraCount > 5 ? '…' : ''}` : ''}` : ''))
           if (d.dispatch) setCheckTick(t => t + 1)
           setOwnerChanges({ list: d.ownerChanges ?? [], count: d.ownerChangeCount ?? 0 })
@@ -437,6 +444,20 @@ export default function ArrivedPage() {
         {revertMsg && <span style={{ fontSize: '0.8rem', color: revertMsg.startsWith('✓') ? 'var(--accent)' : 'var(--danger)' }}>{revertMsg}</span>}
       </div>
 
+      {xlsxAlready.count > 0 && (
+        <details className="scan-warning" role="alert" style={{ borderRadius: 'var(--radius-sm)', padding: '0.5rem 0.8rem', marginTop: '-0.5rem', marginBottom: '1.25rem', fontSize: '0.8rem' }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+            ⚠ {xlsxAlready.count} бараа аль хэдийн ирсэн байсан — ирсэн огноо, үнэ, төлөв өөрчлөгдөөгүй
+          </summary>
+          <ul style={{ margin: '0.4rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
+            {xlsxAlready.list.map(x => (
+              <li key={x.trackCode}><span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{x.trackCode}</span> — {alreadyArrivedMessage(x)}</li>
+            ))}
+            {xlsxAlready.count > xlsxAlready.list.length && <li>…</li>}
+          </ul>
+        </details>
+      )}
+
       <div className="arrived-grid">
         {/* Col 1 — Search + Today list */}
         <div>
@@ -661,8 +682,16 @@ export default function ArrivedPage() {
             </button>
           </form>
 
+          {result?.alreadyArrived && (
+            <div className="card scan-warning" role="alert" style={{ marginTop: '1.2rem', padding: '0.75rem 1rem' }}>
+              <strong style={{ display: 'block', fontSize: '0.95rem' }}>⚠ {result.warning}</strong>
+              <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                Ирсэн огноо, үнэ, төлөв өөрчлөгдөөгүй. Үнэ засах бол хайлтаас ✎ дарна уу.
+              </span>
+            </div>
+          )}
           {result && (
-            <div className="card" style={{ marginTop: '1.2rem' }}>
+            <div className="card" style={{ marginTop: result.alreadyArrived ? '0.5rem' : '1.2rem' }}>
               {result.inDispatch !== undefined && (
                 <div className="card-row">
                   <span className="label">Тулгалт</span>

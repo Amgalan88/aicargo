@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   if (q) {
     where.OR = [
       { trackCode: { contains: q.toUpperCase() } },
+      { phone: { contains: q } },
       { user: { phone: { contains: q } } },
       { user: { name: { contains: q } } },
     ]
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
         trackCode: true,
         description: true,
         createdAt: true,
+        phone: true,
         user: { select: { name: true, phone: true } },
       },
     }),
@@ -62,7 +64,7 @@ export async function DELETE(req: NextRequest) {
     await tx.adminAuditLog.create({
       data: {
         cargoId, userId: admin.userId, userName: admin.name, action: 'shipment:registered-deleted',
-        detail: `${targets.length} ачаа · ${targets.map(t => `${t.trackCode}${t.user?.phone ? ' · ' + t.user.phone : ''}`).join(', ')}`.slice(0, 1000),
+        detail: `${targets.length} ачаа · ${targets.map(t => `${t.trackCode}${(t.phone ?? t.user?.phone) ? ' · ' + (t.phone ?? t.user?.phone) : ''}`).join(', ')}`.slice(0, 1000),
       },
     })
     return targets

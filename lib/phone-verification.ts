@@ -16,9 +16,8 @@ export type StartResult =
   | { ok: false; error: 'badPhone' | 'phoneTaken' | 'needsMove' | 'noAccount' | 'cantMove' | 'unavailable' | 'tooMany' }
 
 // Монгол дугаар 8 оронтой; зай, зураас, +976-г хасна
-export function normalizePhone(raw: string) {
-  return raw.replace(/\D/g, '').replace(/^976(?=\d{8}$)/, '')
-}
+import { normalizePhone } from './phone'
+export { normalizePhone }
 
 // SMS илгээхээс өмнө бүх шалгалтыг хийнэ — хэрэглэгч 150₮-өө дэмий төлөхгүй
 export async function startVerification(rawPhone: string, cargoId: number | null, purpose: Purpose = 'signup', selfUserId?: number): Promise<StartResult> {

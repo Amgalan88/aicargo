@@ -7,6 +7,7 @@ import { parseTrackCode, parseArrivedCode } from '@/lib/track-code'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { resolveImportOwners } from '@/lib/import-owner'
 import { importLimitError } from '@/lib/import-limits'
+import { isArrivedOrLater } from '@/lib/arrival-scan'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -82,6 +83,19 @@ export async function POST(req: NextRequest) {
   if (limitError) return NextResponse.json({ error: limitError }, { status: 429 })
   const duplicates = existingRows.filter(s => s.status === 'EREEN_ARRIVED').map(s => s.trackCode)
 
+  // Устгагдаад дахин орж буй ачаа: Excel-д утасгүй бол устгалын түүхэн дэх анхны эзний утсыг ашиглана
+  const missing = codes.filter(c => !existingByCode.has(c) && !rowByCode.get(c)!.phone)
+  if (missing.length) {
+    const dels = await prisma.shipmentDeletion.findMany({
+      where: { cargoId, trackCode: { in: missing }, phone: { not: null } },
+      orderBy: { deletedAt: 'desc' }, select: { trackCode: true, phone: true },
+    })
+    for (const d of dels) {
+      const r = rowByCode.get(d.trackCode)!
+      if (!r.phone && d.phone) rowByCode.set(d.trackCode, { ...r, phone: d.phone })
+    }
+  }
+
   // Эзэн: Excel-ийн утас давуу, утасгүй бол бүртгүүлсэн хэрэглэгч хэвээр (lib/import-owner, arrived route-той ижил)
   const { phones, userIds, changes } = await resolveImportOwners(
     cargoId, codes, new Map(codes.map(c => [c, rowByCode.get(c)!.phone])), existingByCode,
@@ -92,6 +106,10 @@ export async function POST(req: NextRequest) {
   const duplicateRows = rows.length - notCodes.length - codes.length
 
   const now = new Date()
+  // Эрээнд ирсэн огноо ЗААВАЛ — хоосон бол өнөөдрөөр чимээгүй хадгалахгүй
+  if (statuses.includes('EREEN_ARRIVED') && !body.ereenDate) {
+    return NextResponse.json({ error: 'Эрээнд ирсэн огноог сонгоно уу' }, { status: 400 })
+  }
   // Эрээнд ирсэн огноо: админ сонговол тэр өдөр (жш 23-нд ирснийг 25-нд оруулах), үгүй бол одоо
   const ereenAt = ereenArrivedAtFrom(body.ereenDate, now)
   if (!ereenAt) return NextResponse.json({ error: 'Огноо буруу — өнөөдрөөс 30 хоногийн дотор сонгоно уу' }, { status: 400 })
@@ -138,8 +156,11 @@ export async function POST(req: NextRequest) {
       + (ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''),
   })
 
+  // Ирсэн/олгосон ачааг дээрх upsert хөндөөгүй — шинээр орсонд тооцохгүй
+  const alreadyArrived = codes.filter(c => isArrivedOrLater(existingByCode.get(c)?.status))
   return NextResponse.json({
-    count: codes.length, duplicates, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    count: codes.length - alreadyArrived.length, duplicates, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    alreadyArrived: alreadyArrived.slice(0, 200), alreadyArrivedCount: alreadyArrived.length,
     duplicateRows, ownerChanges: ownerChanges.slice(0, 200), ownerChangeCount: ownerChanges.length,
   })
 }

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized } from '@/lib/auth'
 import { parseTrackCode } from '@/lib/track-code'
 import { logAdminAction } from '@/lib/audit'
-import { userRegistrationLimitError } from '@/lib/import-limits'
+import { registerShipmentForUser } from '@/lib/register-shipment'
 
 export async function GET(req: NextRequest) {
   const user = await getVerifiedUserFromRequest(req)
@@ -105,47 +105,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Та гараад дахин нэвтэрнэ үү' }, { status: 403 })
   }
 
-  // Нэг хэрэглэгч скриптээр мянга мянган код бүртгэхээс хамгаална
-  const limitError = await userRegistrationLimitError(authUser.userId)
-  if (limitError) return NextResponse.json({ error: limitError }, { status: 429 })
-
-  const existing = await prisma.shipment.findUnique({
-    where: { trackCode_cargoId: { trackCode: code, cargoId } },
+  const result = await registerShipmentForUser({
+    userId: authUser.userId,
+    cargoId,
+    phone: userRecord?.phone ?? null,
+    trackCode: code,
+    description: typeof description === 'string' ? (description || null) : null,
   })
-
-  if (existing) {
-    if (existing.userId && existing.userId !== authUser.userId) {
-      return NextResponse.json({ error: 'Энэ трак код өөр хэрэглэгчид бүртгэлтэй байна' }, { status: 409 })
-    }
-    if (existing.userId === authUser.userId) {
-      return NextResponse.json({ error: 'Энэ трак код таны бүртгэлд аль хэдийн байна' }, { status: 409 })
-    }
-    // Хэрэглэгч жагсаалтаасаа хассан (эсвэл карго утсаар бүртгэсэн) барааг дахин холбоно.
-    // updatedAt-ыг хөдөлгөхгүй (raw SQL) — олгосон бараанд энэ нь олгосон огноо тул
-    // дахин бүртгэхэд админы олголт, тайлан дээр „өнөөдөр олгосон“ болж хувирдаг байсан
-    const linked = await prisma.$executeRaw`
-      UPDATE "Shipment" SET "userId" = ${authUser.userId},
-        "description" = ${description || existing.description},
-        "phone" = ${existing.phone || userRecord?.phone || null}
-      WHERE "id" = ${existing.id} AND "userId" IS NULL`
-    if (!linked) {
-      return NextResponse.json({ error: 'Энэ трак код өөр хэрэглэгчид бүртгэлтэй байна' }, { status: 409 })
-    }
-    const updated = await prisma.shipment.findUnique({ where: { id: existing.id } })
-    return NextResponse.json(updated)
-  }
-
-  // Create new shipment
-  const shipment = await prisma.shipment.create({
-    data: {
-      trackCode: code,
-      description: description || null,
-      status: 'REGISTERED',
-      userId: authUser.userId,
-      phone: userRecord?.phone,
-      cargoId,
-    },
-  })
-
-  return NextResponse.json(shipment, { status: 201 })
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+  return NextResponse.json(result.shipment, { status: result.status })
 }

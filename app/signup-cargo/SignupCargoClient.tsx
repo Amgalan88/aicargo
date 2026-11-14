@@ -116,7 +116,7 @@ export default function SignupCargoClient() {
       <nav className="nav">
         <Link href="/"><NavLogo /></Link>
         <div className="nav-links">
-          <Link href="/login">Нэвтрэх</Link>
+          <Link href="/login" className="link-tap">Нэвтрэх</Link>
         </div>
       </nav>
 
@@ -210,7 +210,7 @@ export default function SignupCargoClient() {
                 }}>
                   <input type="checkbox" checked={form[f.key]}
                     onChange={e => set(f.key, e.target.checked)}
-                    style={{ accentColor: 'var(--accent)', marginTop: 3, flexShrink: 0 }} />
+                    style={{ accentColor: 'var(--accent)', marginTop: 1, flexShrink: 0, width: 20, height: 20 }} />
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.87rem', marginBottom: 2 }}>
                       {f.icon} {f.title}

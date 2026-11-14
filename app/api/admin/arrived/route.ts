@@ -1,15 +1,19 @@
 ﻿import { NextRequest, NextResponse, after } from 'next/server'
+import type { Prisma } from '@prisma/client'
+import { recordPriceChange } from '@/lib/loyalty'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { logAdminAction, auditLater } from '@/lib/audit'
 import { notifyArrivedForCargo } from '@/lib/push'
 import { parseArrivedCode } from '@/lib/track-code'
+import { parsePhone } from '@/lib/phone'
 import { resolveImportOwners } from '@/lib/import-owner'
 import { ubDayRange } from '@/lib/ub-date'
 import { importLimitError } from '@/lib/import-limits'
 import { openDispatchId, markArrivals } from '@/lib/dispatch'
 import { recordDeletions, DELETION_SNAPSHOT_SELECT, createdWithArrival } from '@/lib/shipment-deletion'
+import { scanArrival, ArrivalScanConflictError, ARRIVED_OR_LATER, parseScanPrice, partitionArrivalImport } from '@/lib/arrival-scan'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -52,28 +56,43 @@ export async function PUT(req: NextRequest) {
   const { phones, userIds, changes } = await resolveImportOwners(
     cargoId, codes, new Map(codes.map(c => [c, rowByCode.get(c)!.phone])), existingByCode,
   )
-  const prices = codes.map(c => { const p = rowByCode.get(c)!.price; return typeof p === 'number' ? p : null })
   // Олгогдсон ачааг хөндөхгүй тул эзэн нь ч солигдохгүй
   const ownerChanges = changes.filter(x => existingByCode.get(x.trackCode)?.status !== 'PICKED_UP')
   const duplicateRows = rows.length - notCodes.length - codes.length
+  const { fresh, alreadyArrived, pickedUp } = partitionArrivalImport(codes, existingByCode)
 
   const now = new Date()
-  await prisma.$executeRaw`
-    INSERT INTO "Shipment" ("trackCode", status, "arrivedAt", "adminPrice", phone, "cargoId", "userId", "createdAt", "updatedAt")
-    SELECT t.code, 'ARRIVED'::"Status", ${now}, t.price, t.phone, ${cargoId}, t.userId, ${now}, ${now}
-    FROM unnest(${codes}::text[], ${prices}::numeric[], ${phones}::text[], ${userIds}::int[]) AS t(code, price, phone, userId)
-    ON CONFLICT ("trackCode", "cargoId") DO UPDATE SET
-      status = 'ARRIVED',
-      "arrivedAt" = ${now},
-      "adminPrice" = EXCLUDED."adminPrice",
-      phone = EXCLUDED.phone,
-      "userId" = EXCLUDED."userId",
-      "updatedAt" = ${now}
-    WHERE "Shipment".status != 'PICKED_UP'
-  `
+  const idx = new Map(codes.map((c, i) => [c, i]))
+  if (fresh.length) {
+    const prices = fresh.map(c => parseScanPrice(rowByCode.get(c)!.price) ?? null)
+    await prisma.$executeRaw`
+      INSERT INTO "Shipment" ("trackCode", status, "arrivedAt", "adminPrice", phone, "cargoId", "userId", "createdAt", "updatedAt")
+      SELECT t.code, 'ARRIVED'::"Status", ${now}, t.price, t.phone, ${cargoId}, t.userId, ${now}, ${now}
+      FROM unnest(${fresh}::text[], ${prices}::numeric[], ${fresh.map(c => phones[idx.get(c)!])}::text[], ${fresh.map(c => userIds[idx.get(c)!])}::int[]) AS t(code, price, phone, userId)
+      ON CONFLICT ("trackCode", "cargoId") DO UPDATE SET
+        status = 'ARRIVED',
+        "arrivedAt" = ${now},
+        -- Excel-д үнэ байвал давуу, хоосон бол байсан үнэ хэвээр
+        "adminPrice" = COALESCE(EXCLUDED."adminPrice", "Shipment"."adminPrice"),
+        phone = EXCLUDED.phone,
+        "userId" = EXCLUDED."userId",
+        "updatedAt" = ${now}
+      WHERE "Shipment".status NOT IN ('ARRIVED', 'PICKED_UP')
+    `
+  }
+  // Аль хэдийн Ирсэн: ирсэн огноо, үнэ, төлөв хэвээр — зөвхөн Excel-ийн утсаар эзэн солигдоно (1 трак = 1 эзэн)
+  const arrivedOwnerChanges = ownerChanges.filter(x => existingByCode.get(x.trackCode)?.status === 'ARRIVED')
+  if (arrivedOwnerChanges.length) {
+    const oc = arrivedOwnerChanges.map(x => x.trackCode)
+    await prisma.$executeRaw`
+      UPDATE "Shipment" s SET phone = t.phone, "userId" = t.userId
+      FROM unnest(${oc}::text[], ${oc.map(c => phones[idx.get(c)!])}::text[], ${oc.map(c => userIds[idx.get(c)!])}::int[]) AS t(code, phone, userId)
+      WHERE s."cargoId" = ${cargoId} AND s."trackCode" = t.code AND s.status = 'ARRIVED'
+    `
+  }
 
   checkCrossCargoOnImport(
-    [...rowByCode.values()].map(r => ({ trackCode: r.trackCode, phone: r.phone?.trim() || null, status: 'ARRIVED' })),
+    [...rowByCode.values()].map(r => ({ trackCode: r.trackCode, phone: parsePhone(r.phone), status: 'ARRIVED' })),
     cargoId
   ).catch(console.error)
 
@@ -84,19 +103,23 @@ export async function PUT(req: NextRequest) {
     .map(x => ({ userId: x.userId, trackCode: x.code }))
   if (arrivedNew.length) after(() => notifyArrivedForCargo(cargoId, arrivedNew))
 
-  // PICKED_UP статустай мөрүүд WHERE-д тааруулагдаагүй тул бодитоор шинэчлэгдээгүй
-  const skipped = codes.filter(c => existingByCode.get(c)?.status === 'PICKED_UP').length
   // Олон ачааг НЭГ бичлэгээр
   auditLater({
     cargoId, userId: admin.userId, userName: admin.name,
     action: 'shipment:import-arrived',
-    detail: `${codes.length - skipped} ачаа${skipped ? ` (${skipped} олгогдсон тул алгассан)` : ''}${ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''}`,
+    detail: `${fresh.length} ачаа${alreadyArrived.length ? ` (${alreadyArrived.length} аль хэдийн ирсэн — огноо, үнэ хөндөөгүй)` : ''}${pickedUp.length ? ` (${pickedUp.length} олгогдсон тул алгассан)` : ''}${ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''}`,
   })
   // Ачилт сонгосон бол (туршилт): ачилтад байсныг ✓, байгаагүйг «илүү» болгоно
   const dispatchId = body.dispatchId ? await openDispatchId(cargoId, body.dispatchId) : null
   const dispatch = dispatchId ? await markArrivals(dispatchId, codes) : null
+  const prior = (c: string) => {
+    const s = existingByCode.get(c)!
+    return { trackCode: c, status: s.status, arrivedAt: s.arrivedAt, adminPrice: s.adminPrice }
+  }
   return NextResponse.json({
-    count: codes.length - skipped, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    count: fresh.length, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    alreadyArrived: alreadyArrived.slice(0, 200).map(prior), alreadyArrivedCount: alreadyArrived.length,
+    pickedUp: pickedUp.slice(0, 200).map(prior), pickedUpCount: pickedUp.length,
     duplicateRows, ownerChanges: ownerChanges.slice(0, 200), ownerChangeCount: ownerChanges.length,
     ...(dispatch ? { dispatch: { inCount: dispatch.inDispatch.length, extra: dispatch.extra.slice(0, 200), extraCount: dispatch.extra.length } } : {}),
   })
@@ -115,63 +138,58 @@ export async function POST(req: NextRequest) {
   const code = parseArrivedCode(trackCode)
   if (!code) return NextResponse.json({ error: 'Трак код хоосон эсвэл хэт урт байна (60 тэмдэгт хүртэл)' }, { status: 400 })
 
-  // Try to find existing shipment to get user's phone
-  const existing = await prisma.shipment.findUnique({
-    where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-    include: { user: { select: { phone: true } } },
-  })
-
-  if (existing?.status === 'PICKED_UP') {
-    return NextResponse.json({ error: 'Энэ бараа аль хэдийн олгогдсон байна' }, { status: 400 })
+  const cargoId = admin.cargoId!
+  const include = { user: { select: { name: true, phone: true } } } as const
+  let scan
+  try {
+    scan = await scanArrival({
+      find: () => prisma.shipment.findUnique({ where: { trackCode_cargoId: { trackCode: code, cargoId } }, include }),
+      // Эзэн: админы бичсэн утас давуу (Excel импорттой ижил дүрэм — lib/import-owner)
+      owner: async existing => {
+        const o = await resolveImportOwners(
+          cargoId, [code], new Map([[code, manualPhone ? String(manualPhone) : null]]),
+          new Map(existing ? [[code, existing]] : []),
+        )
+        return { phone: o.phones[0], userId: o.userIds[0] }
+      },
+      create: data => prisma.shipment.create({ data: { ...data, trackCode: code, cargoId }, include }),
+      updateIfNotArrived: async (id, data) => {
+        const { count } = await prisma.shipment.updateMany({
+          where: { id, cargoId, status: { notIn: [...ARRIVED_OR_LATER] } }, data,
+        })
+        return count ? prisma.shipment.findUnique({ where: { id }, include }) : null
+      },
+    }, { price: adminPrice, note: adminNote })
+  } catch (e) {
+    if (e instanceof ArrivalScanConflictError) return NextResponse.json({ error: e.message }, { status: 409 })
+    throw e
   }
 
-  // Эзэн: админы бичсэн утас давуу (Excel импорттой ижил дүрэм — lib/import-owner)
-  const owners = await resolveImportOwners(
-    admin.cargoId!, [code], new Map([[code, manualPhone ? String(manualPhone) : null]]),
-    new Map(existing ? [[code, existing]] : []),
-  )
-  const resolvedPhone = owners.phones[0]
-  const resolvedUserId = owners.userIds[0]
+  const dispatchId = dispatchRaw ? await openDispatchId(cargoId, dispatchRaw) : null
 
-  const shipment = await prisma.shipment.upsert({
-    where: { trackCode_cargoId: { trackCode: code, cargoId: admin.cargoId! } },
-    update: {
-      status: 'ARRIVED',
-      arrivedAt: new Date(),
-      adminPrice: adminPrice ? Number(adminPrice) : null,
-      adminNote: adminNote || null,
-      phone: resolvedPhone,
-      userId: resolvedUserId,
-    },
-    create: {
-      trackCode: code,
-      status: 'ARRIVED',
-      arrivedAt: new Date(),
-      adminPrice: adminPrice ? Number(adminPrice) : null,
-      adminNote: adminNote || null,
-      phone: resolvedPhone,
-      cargoId: admin.cargoId!,
-      ...(resolvedUserId ? { userId: resolvedUserId } : {}),
-    },
-    include: { user: { select: { name: true, phone: true } } },
-  })
+  if (scan.kind === 'already-arrived') {
+    const body = { ...scan.shipment, alreadyArrived: true, warning: scan.message }
+    if (dispatchId && scan.shipment.status === 'ARRIVED') {
+      const m = await markArrivals(dispatchId, [scan.shipment.trackCode])
+      return NextResponse.json({ ...body, inDispatch: m.inDispatch.length === 1 })
+    }
+    return NextResponse.json(body)
+  }
 
-  checkCrossCargoOnImport([{ trackCode: code, phone: resolvedPhone, status: 'ARRIVED' }], admin.cargoId!).catch(console.error)
+  const shipment = scan.shipment
+  checkCrossCargoOnImport([{ trackCode: code, phone: shipment.phone, status: 'ARRIVED' }], cargoId).catch(console.error)
 
-  // Шинээр ирсэн бол эзэнд нь push (үнэ засахад дахин очихгүй)
-  if (shipment.userId && existing?.status !== 'ARRIVED') {
-    const cargoId = admin.cargoId!
+  if (shipment.userId) {
     after(() => notifyArrivedForCargo(cargoId, [{ userId: shipment.userId, trackCode: shipment.trackCode }]))
   }
 
   auditLater({
-    cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,
+    cargoId, userId: admin.userId, userName: admin.name,
     action: 'shipment:register-arrived',
-    detail: `${code}${resolvedPhone ? ' · ' + resolvedPhone : ''}${adminPrice ? ' · ' + Number(adminPrice).toLocaleString() + '₮' : ''}`,
+    detail: `${code}${shipment.phone ? ' · ' + shipment.phone : ''}${shipment.adminPrice != null ? ' · ' + Number(shipment.adminPrice).toLocaleString() + '₮' : ''}`,
   })
 
   // Ачилт сонгосон бол (туршилт): энэ код ачилтад байсан эсэх
-  const dispatchId = dispatchRaw ? await openDispatchId(admin.cargoId!, dispatchRaw) : null
   if (dispatchId) {
     const m = await markArrivals(dispatchId, [shipment.trackCode])
     return NextResponse.json({ ...shipment, inDispatch: m.inDispatch.length === 1 })
@@ -189,18 +207,43 @@ export async function PATCH(req: NextRequest) {
 
   const before = await prisma.shipment.findFirst({
     where: { id: Number(id), cargoId: admin.cargoId! },
-    select: { trackCode: true, adminPrice: true, phone: true, adminNote: true, status: true, updatedAt: true },
+    select: { trackCode: true, adminPrice: true, phone: true, adminNote: true, status: true, updatedAt: true, userId: true, user: { select: { phone: true } } },
   })
-  const shipment = await prisma.shipment.update({
-    where: { id: Number(id), cargoId: admin.cargoId! },
-    data: {
-      // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
-      ...(before?.status === 'PICKED_UP' ? { updatedAt: before.updatedAt } : {}),
-      adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
-      adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
-      phone: phone !== undefined ? (phone || null) : undefined,
-    },
+  // Утас солибол эзэн нь ч солигдоно (1 трак = 1 эзэн) — өмнө нь зөвхөн phone талбар солигдож
+  // хуучин хэрэглэгчид харагдсаар байв. Олгосон ачааны эзнийг хөндөхгүй.
+  let newUserId: number | null | undefined
+  let newPhone: string | null | undefined = phone !== undefined ? (phone || null) : undefined
+  if (before && phone && before.status !== 'PICKED_UP') {
+    const owners = await resolveImportOwners(admin.cargoId!, [before.trackCode], new Map([[before.trackCode, String(phone)]]), new Map([[before.trackCode, before]]))
+    if (parsePhone(phone)) { newPhone = owners.phones[0]; newUserId = owners.userIds[0] }
+  }
+  // Үнэ өөрчлөгдвөл түүхэнд бичнэ; олгосон ачаа бол урамшууллын зөрүүг (оноо) нөхөн бичнэ — нэг транзакцид, ачааг түгжээд
+  const cargoId = admin.cargoId!
+  const shipment = await prisma.$transaction(async tx => {
+    const [locked] = await tx.$queryRaw<{ id: number; trackCode: string; status: string; adminPrice: Prisma.Decimal | null; receiptId: number | null }[]>`
+      SELECT id, "trackCode", status::text AS status, "adminPrice", "receiptId" FROM "Shipment"
+      WHERE id = ${Number(id)} AND "cargoId" = ${cargoId} FOR UPDATE`
+    if (!locked) return null // өөр каргоны / устсан ачаа — 404
+    const updated = await tx.shipment.update({
+      where: { id: Number(id), cargoId },
+      data: {
+        // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
+        ...(locked.status === 'PICKED_UP' ? { updatedAt: before?.updatedAt } : {}),
+        adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
+        adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
+        phone: newPhone,
+        ...(newUserId !== undefined ? { userId: newUserId } : {}),
+      },
+    })
+    if (adminPrice !== undefined) {
+      await recordPriceChange(tx, {
+        cargoId, actor: { id: admin.userId, name: admin.name, phone: null }, shipment: locked,
+        newPrice: updated.adminPrice == null ? null : Number(updated.adminPrice),
+      })
+    }
+    return updated
   })
+  if (!shipment) return NextResponse.json({ error: 'Ачаа олдсонгүй' }, { status: 404 })
 
   // Мөнгө, эзэнтэй холбоотой тул юунаас юу болсныг хадгална
   if (before) {
@@ -209,6 +252,7 @@ export async function PATCH(req: NextRequest) {
     if (Number(before.adminPrice ?? 0) !== Number(shipment.adminPrice ?? 0)) changes.push(`үнэ ${tg(before.adminPrice)} → ${tg(shipment.adminPrice)}`)
     if ((before.phone ?? '') !== (shipment.phone ?? '')) changes.push(`утас ${before.phone || '—'} → ${shipment.phone || '—'}`)
     if ((before.adminNote ?? '') !== (shipment.adminNote ?? '')) changes.push('тэмдэглэл')
+    if ((before.userId ?? null) !== (shipment.userId ?? null)) changes.push(`эзэн ${before.user?.phone || '—'} → ${shipment.userId ? shipment.phone : 'бүртгэлгүй'}`)
     if (changes.length) {
       auditLater({
         cargoId: admin.cargoId!, userId: admin.userId, userName: admin.name,

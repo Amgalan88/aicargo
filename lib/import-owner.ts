@@ -4,14 +4,16 @@
 // авахдаа тэр утсаа хэлж, олголтод тэр утсаар хайдаг. Тэр утастай хэрэглэгч байвал түүнд,
 // үгүй бол утсаар л (userId-гүй) хадгална — өмнө нь бүртгүүлсэн хүний жагсаалтаас гарна.
 //
-// Онцгой тохиолдол:
-//   • Excel-д утасгүй мөр — одоогийн эзэн (бүртгүүлсэн хэрэглэгч) хэвээр.
-//   • Линк захиалгаар карго өөрөө захиалсан код — захиалагч хэвээр (Taobao хаягт
-//     каргоны өөрийн утас бичигдсэн байж болно).
+// Дүрэм: системд 1 трак = 1 утас/эзэн. Excel-ийн утас ҮРГЭЛЖ давуу (линк захиалгатай
+// ачаа ч мөн — өмнө нь линк захиалагч хэвээр үлддэг байсан тул хуучин хүнд харагдсаар байв).
+// Excel-д утасгүй (эсвэл буруу) мөр — одоогийн эзэн хэвээр.
+// Утсыг normalizePhone-оор цэвэрлэнэ ("9911 2233", "+976…" өмнө нь утасгүй гэж тооцогдож
+// хуучин эзэн хэвээр үлддэг байсан).
 //
 // Эзэн солигдсон ачааг буцааж, админд жагсаалтаар харуулна.
 
 import { prisma } from './prisma'
+import { parsePhone } from './phone'
 
 export interface OwnerChange { trackCode: string; from: string; to: string }
 
@@ -24,15 +26,8 @@ export async function resolveImportOwners(
   existingByCode: Map<string, Existing>,
 ): Promise<{ phones: (string | null)[]; userIds: (number | null)[]; changes: OwnerChange[] }> {
   const excelOf = (code: string) => {
-    const p = excelPhoneByCode.get(code)?.trim() ?? ''
-    return /^\d{8}$/.test(p) ? p : null
+    return parsePhone(excelPhoneByCode.get(code))
   }
-
-  const linkRows = await prisma.linkOrder.findMany({
-    where: { cargoId, trackCode: { in: codes }, userId: { not: null } },
-    select: { trackCode: true },
-  })
-  const linkOwned = new Set(linkRows.map(r => r.trackCode))
 
   // Эзэн болох утаснуудын хэрэглэгчийг НЭГ query-гээр
   const lookup = new Set<string>()
@@ -54,10 +49,14 @@ export async function resolveImportOwners(
     const ex = existingByCode.get(code)
     const excel = excelOf(code)
     const current = ex?.user?.phone || ex?.phone || null
-    if (excel && !(linkOwned.has(code) && ex?.userId)) {
+    if (excel) {
+      // Y-ийн бүртгэл энэ каргод байвал түүнд, үгүй бол userId = null — хуучин эзний жагсаалтаас гарна
+      const newUserId = userIdByPhone.get(excel) ?? null
       phones.push(excel)
-      userIds.push(userIdByPhone.get(excel) ?? null)
-      if (current && current !== excel) changes.push({ trackCode: code, from: current, to: excel })
+      userIds.push(newUserId)
+      if ((current && current !== excel) || (ex?.userId && ex.userId !== newUserId)) {
+        changes.push({ trackCode: code, from: current ?? '—', to: excel })
+      }
     } else {
       const phone = current || excel
       phones.push(phone)

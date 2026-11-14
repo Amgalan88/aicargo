@@ -1,8 +1,10 @@
 'use client'
-import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Copy, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
+import { Package, Boxes, Trash2, Ellipsis as MoreHorizontal, Search, PackageCheck, ChevronRight, X, LockKeyhole, Pencil } from 'lucide-react'
+import LoyaltyHub from './loyalty/LoyaltyHub'
+import { vipDiscountMnt, type CustomerLoyaltyView } from '@/lib/loyalty-core'
 import type { EreenAddress } from '@/lib/ereen-address'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SiteFooter from '../components/SiteFooter'
@@ -26,6 +28,7 @@ import { useUserLang } from '../components/useUserLang'
 import { StaggerItem } from '../components/motion'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import CopyButton from '../components/CopyButton'
 import { dict, fmt, statusLabels, LANG_CONFIRM, UserLang, type UserDict } from '@/lib/user-i18n'
 
 
@@ -52,6 +55,20 @@ interface Shipment {
   ereenArrivedAt?: string | null
   arrivedAt?: string | null
   batchId?: number | null
+  receiptId?: number | null
+}
+
+// Олгосон ачааны бодит төлсөн дүн (баримтаас, app/orders/page.tsx → lib/loyalty.paidByShipment)
+export interface ShipmentPaid { receiptId: number; paidMnt: number; vipPct: number; pointsRedeemed: number; itemCount: number }
+
+// Картанд харуулах дүн: Ирсэн → VIP-ийн урьдчилсан хөнгөлөлттэй, Олгосон → баримтын төлсөн дүн
+interface Amount { gross: number; final: number; kind: 'est' | 'paid' | null; receiptId?: number }
+function amountOf(s: Shipment, vipPct: number, paid?: Record<number, ShipmentPaid>): Amount {
+  const gross = s.adminPrice ? Number(s.adminPrice) : 0
+  if (s.status === 'ARRIVED' && vipPct > 0 && gross > 0) return { gross, final: gross - vipDiscountMnt(gross, vipPct), kind: 'est' }
+  const p = s.status === 'PICKED_UP' ? paid?.[s.id] : undefined
+  if (p) return { gross, final: p.paidMnt, kind: 'paid', receiptId: p.receiptId }
+  return { gross, final: gross, kind: null }
 }
 
 interface UserBatch {
@@ -65,14 +82,28 @@ interface UserBatch {
   shipments: { id: number; trackCode: string }[]
 }
 
+// Огноог үргэлж Улаанбаатарын цагаар (UTC+8, DST-гүй) — server (Vercel = UTC) ба browser-ийн
+// local цаг ялгаатай үед SSR/hydration таарахгүй байсан (React #418). getUTC* + 8ц = UB цаг.
+const UB_OFFSET_MS = 8 * 3600_000
+const ub = (iso: string | number) => new Date(new Date(iso).getTime() + UB_OFFSET_MS)
+const p2 = (n: number) => String(n).padStart(2, '0')
+
 function fmtDT(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear().toString().slice(2)}.${d.getMonth()+1}.${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
+  const d = ub(iso)
+  return `${d.getUTCFullYear().toString().slice(2)}.${d.getUTCMonth()+1}.${d.getUTCDate()} ${d.getUTCHours()}:${p2(d.getUTCMinutes())}`
 }
 
 const STEP_ORDER = ['REGISTERED', 'EREEN_ARRIVED', 'ARRIVED', 'PICKED_UP'] as const
+// Жагсаалтын дараалал: авахад бэлэн → Эрээнд → бүртгүүлсэн → олгосон (UX аудит #4). Тухайн бүлэгт өмнөх эрэмбэ хэвээр
+const LIST_PRIORITY: Record<string, number> = { ARRIVED: 0, EREEN_ARRIVED: 1, REGISTERED: 2, PICKED_UP: 3 }
+const byListPriority = <T extends { status: string }>(list: T[]) =>
+  list.map((x, i) => [x, i] as const).sort((a, b) => (LIST_PRIORITY[a[0].status] ?? 9) - (LIST_PRIORITY[b[0].status] ?? 9) || a[1] - b[1]).map(([x]) => x)
 const STEP_COLOR: Record<string, string> = {
   REGISTERED: 'var(--muted)', EREEN_ARRIVED: 'var(--blue)', ARRIVED: 'var(--yellow)', PICKED_UP: 'var(--green)',
+}
+// Компакт мөрийн явцын өнгө = пилийн өнгө (Эрээнд улбар шар, Ирсэн accent) — багц картын ShipSteps хэвээр
+const ROW_COLOR: Record<string, string> = {
+  REGISTERED: 'var(--muted)', EREEN_ARRIVED: 'var(--orange)', ARRIVED: 'var(--accent)', PICKED_UP: 'var(--green)',
 }
 
 // Ачаа аль шатанд явж байгааг 4 алхамтай зурвасаар харуулна — badge-аас илүү ойлгомжтой
@@ -108,20 +139,28 @@ function relTime(iso: string, t: UserDict): string {
 }
 
 function fullDate(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const d = ub(iso)
+  return `${d.getUTCFullYear()}.${p2(d.getUTCMonth() + 1)}.${p2(d.getUTCDate())} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`
 }
 
 function shortDate(iso: string) {
-  const d = new Date(iso)
-  const sameYear = d.getFullYear() === new Date().getFullYear()
-  return sameYear ? `${d.getMonth() + 1}/${d.getDate()}` : `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`
+  const d = ub(iso)
+  const sameYear = d.getUTCFullYear() === ub(Date.now()).getUTCFullYear()
+  return sameYear ? `${d.getUTCMonth() + 1}/${d.getUTCDate()}` : `${d.getUTCFullYear()}.${d.getUTCMonth() + 1}.${d.getUTCDate()}`
 }
 
-// Хэрэглэгчийн ачааны карт: гарчиг = юу болох нь (тайлбар), доор нь нэг өгүүлбэрээр хаана явааг хэлнэ.
-// Төлөв нэг л удаа — цэгэн явц + хүний хэлээрх мөр. "Ирсэн" нь цорын ганц үйлдэл шаардах төлөв тул тодорно.
-function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
+// «2 өдөр» маягийн богино хугацаа — компакт мөрийн баруун талд (яг огноо нь дэлгэсэн явц дээр)
+function shortAge(iso: string, t: UserDict): string {
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  return d < 1 ? t.relShortToday : fmt(t.relShortDays, { n: d })
+}
+
+// Хэрэглэгчийн ачааны компакт мөр (~60px): зүүн = нэр + трак (хуулах), баруун = төлвийн пил + дүн/хугацаа.
+// Мөр дарахад 4 шатны явц, төлвийн өгүүлбэр, тэмдэглэл, устгах цэс доор нь дэлгэгдэнэ.
+function ShipmentCard({ s, amt, vipPct, t, labels, cur, userPhone, deleting, onDelete }: {
   s: Shipment
+  amt: Amount
+  vipPct: number
   t: UserDict
   labels: Record<string, string>
   cur: string
@@ -130,6 +169,8 @@ function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
   onDelete: () => void
 }) {
   const [menu, setMenu] = useState(false)
+  // Явцыг анхдагчаар нууна — мөр намхан, статус + хугацаа нэг харцаар. Товшиж дэлгэнэ
+  const [open, setOpen] = useState(false)
   const idx = STEP_ORDER.indexOf(s.status as typeof STEP_ORDER[number])
   const price = s.adminPrice ? `${cur}${Number(s.adminPrice).toLocaleString()}` : null
   const title = s.description?.trim() || s.trackCode
@@ -144,89 +185,125 @@ function ShipmentCard({ s, t, labels, cur, userPhone, deleting, onDelete }: {
   ]
 
   let headline: React.ReactNode
-  let sub: string | null = null
+  let sub: React.ReactNode = null
+  let meta: React.ReactNode = null
+  const money = (n: number) => `${cur}${Math.round(n).toLocaleString()}`
+  const struck = amt.final !== amt.gross && amt.gross > 0 ? <s style={{ color: 'var(--muted)', fontWeight: 400 }}>{money(amt.gross)}</s> : null
   if (s.status === 'REGISTERED') {
     headline = t.stWaitEreen
     sub = fmt(t.stRegistered, { r: relTime(s.createdAt, t) })
+    meta = shortAge(s.createdAt, t)
   } else if (s.status === 'EREEN_ARRIVED') {
     headline = labels.EREEN_ARRIVED
     sub = relTime(s.ereenArrivedAt ?? s.updatedAt, t)
+    meta = shortAge(s.ereenArrivedAt ?? s.updatedAt, t)
   } else if (s.status === 'ARRIVED') {
     headline = <>{labels.ARRIVED}!</>
-    sub = price ? fmt(t.stPay, { p: price }) : t.stReady
+    sub = !price ? t.stReady : amt.kind === 'est'
+      ? <>{struck} {fmt(t.stPay, { p: money(amt.final) })}<small className="sc-est">{fmt(t.vipEst, { pct: vipPct })}</small></>
+      : fmt(t.stPay, { p: price })
+    // Төлөх дүн (VIP-тэй бол урьдчилсан хөнгөлөлттэй дүн)
+    meta = price ? money(amt.final) : null
   } else if (s.status === 'PICKED_UP') {
     headline = fmt(t.stPicked, { d: shortDate(s.updatedAt) })
-    sub = price
+    sub = amt.kind === 'paid'
+      ? <>{struck} {money(amt.final)} · {fmt(t.paidReceipt, { n: amt.receiptId ?? '' })}</>
+      : price
+    meta = amt.kind === 'paid' ? money(amt.final) : (price ?? shortDate(s.updatedAt))
   } else {
     headline = labels[s.status] ?? s.status
   }
 
+  const toggle = () => { setMenu(false); setOpen(o => !o) }
+  const rowCls = [
+    'orow',
+    s.status === 'ARRIVED' ? 'is-arrived' : '',
+    s.status === 'PICKED_UP' ? 'is-picked' : '',
+    open ? 'is-open' : '',
+  ].filter(Boolean).join(' ')
+  const stepColor = { ['--c' as string]: ROW_COLOR[s.status] ?? 'var(--muted)' } as React.CSSProperties
+
   return (
-    <article className={`sc sc-${s.status}`}>
-      <div className="sc-top">
-        <h3 className="sc-title">
-          {hasTitle ? title : <CopyText text={s.trackCode}>{s.trackCode}</CopyText>}
-        </h3>
-        {canDelete && (
-          <div className="sc-menu-wrap">
-            <button className="sc-more" onClick={() => setMenu(m => !m)} aria-label={t.moreActions} aria-expanded={menu} disabled={deleting}>
-              <MoreHorizontal size={18} />
-            </button>
-            {menu && (
-              <>
-                <div className="sc-menu-bg" onClick={() => setMenu(false)} />
-                <div className="sc-menu" role="menu">
-                  <button role="menuitem" onClick={() => { setMenu(false); onDelete() }}>
-                    <Trash2 size={15} />{s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
+    <div className={`oitem oitem-${s.status}`} data-shipment-id={s.id}>
+      <div
+        className={rowCls}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        aria-label={`${title} — ${labels[s.status] ?? s.status} — ${open ? t.hideProgress : t.showProgress}`}
+        onClick={toggle}
+        onKeyDown={e => {
+          if (e.target !== e.currentTarget) return
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
+        }}
+      >
+        <div className="orow-main">
+          {hasTitle ? (
+            <>
+              <div className="oname">{title}</div>
+              <div className="ocode">
+                <CopyButton text={s.trackCode} showText textClassName="ocode-text" />
+              </div>
+            </>
+          ) : (
+            <div className="oname-row">
+              <CopyButton text={s.trackCode} showText textClassName="oname oname-code" />
+            </div>
+          )}
+        </div>
+        <div className="orow-side">
+          <span className={`pill pill-${s.status}`}>{labels[s.status] ?? s.status}</span>
+          {meta && <span className="ometa">{meta}</span>}
+        </div>
+        <span className="orow-chev" aria-hidden><ChevronRight size={16} /></span>
       </div>
 
-      {hasTitle && (
-        <div className="sc-code">
-          <CopyText text={s.trackCode}>{s.trackCode}<Copy size={12} /></CopyText>
-          {s.phone && s.phone !== userPhone && <span className="sc-phone">· {s.phone}</span>}
+      {open && (
+        <div className="odetail" style={stepColor}>
+          {idx >= 0 && (
+            <ol className="sc-track sc-track-labeled" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
+              {STEP_ORDER.map((k, i) => {
+                const d = i <= idx ? stepDates[i] : null
+                return (
+                  <li key={k} className={`sc-step${i < idx || (i === idx && s.status === 'PICKED_UP') ? ' done' : ''}${i === idx && s.status !== 'PICKED_UP' ? ' cur' : ''}`} title={d ? `${labels[k]} · ${fullDate(d)}` : labels[k]}>
+                    <span className="sc-bar" />
+                    <span className="sc-step-lbl">{labels[k]}</span>
+                    <time dateTime={d ?? undefined}>{d ? shortDate(d) : ' '}</time>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+
+          <div className="odetail-foot">
+            <p className="sc-status odetail-status">
+              <b>{headline}</b>
+              {sub && <span>{sub}</span>}
+              {s.phone && s.phone !== userPhone && <span className="sc-phone">· {s.phone}</span>}
+            </p>
+            {canDelete && (
+              <div className="sc-menu-wrap">
+                <button className="sc-more" onClick={() => setMenu(m => !m)} aria-label={t.moreActions} aria-expanded={menu} disabled={deleting}>
+                  <MoreHorizontal size={18} />
+                </button>
+                {menu && (
+                  <>
+                    <div className="sc-menu-bg" onClick={() => setMenu(false)} />
+                    <div className="sc-menu" role="menu">
+                      <button role="menuitem" onClick={() => { setMenu(false); onDelete() }}>
+                        <Trash2 size={15} />{s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {s.adminNote && <p className="sc-note">{t.adminNote}: {s.adminNote}</p>}
         </div>
       )}
-
-      {s.status !== 'PICKED_UP' && idx >= 0 && (
-        <ol className="sc-track" aria-label={`${idx + 1}/4: ${labels[s.status] ?? s.status}`}>
-          {STEP_ORDER.map((k, i) => {
-            const d = i <= idx ? stepDates[i] : null
-            return (
-              <li key={k} className={`sc-step${i < idx ? ' done' : ''}${i === idx ? ' cur' : ''}`} title={d ? `${labels[k]} · ${fullDate(d)}` : labels[k]}>
-                <span className="sc-bar" />
-                <time dateTime={d ?? undefined}>{d ? shortDate(d) : ' '}</time>
-              </li>
-            )
-          })}
-        </ol>
-      )}
-
-      <p className="sc-status">
-        <b>{headline}</b>
-        {sub && <span>{sub}</span>}
-      </p>
-
-      {s.adminNote && <p className="sc-note">{t.adminNote}: {s.adminNote}</p>}
-    </article>
-  )
-}
-
-function CopyText({ text, children, style }: { text: string; children: React.ReactNode; style?: React.CSSProperties }) {
-  function copy(e: React.MouseEvent) {
-    e.stopPropagation()
-    navigator.clipboard.writeText(text)
-    toast.success('Хуулагдлаа')
-  }
-  return (
-    <span onClick={copy} title="Хуулах" style={{ cursor: 'pointer', ...style }}>
-      {children}
-    </span>
+    </div>
   )
 }
 
@@ -275,6 +352,8 @@ export default function OrdersClient({
   linkOrdersOn = false,
   batches = [],
   aiSuggestions = [],
+  loyalty = null,
+  paid = {},
 }: {
   shipments: Shipment[]
   userName: string
@@ -308,16 +387,61 @@ export default function OrdersClient({
   linkOrdersOn?: boolean
   batches?: UserBatch[]
   aiSuggestions?: string[]
+  // Карго урамшуулал (оноо / VIP) асаасан бол
+  loyalty?: CustomerLoyaltyView | null
+  paid?: Record<number, ShipmentPaid>
 }) {
   const router = useRouter()
   const [lang, setLang] = useUserLang()
   const t = dict(lang)
+  const vipPct = loyalty?.vip?.pct ?? 0
+  const TAB_SHORT: Record<string, string> = { ALL: t.tabAll, REGISTERED: t.tabRegistered, EREEN_ARRIVED: t.tabEreen, ARRIVED: t.tabArrived, PICKED_UP: t.tabPicked }
   // Батч горимд: Эрээний шат нуугдаж, ARRIVED нь "УБ руу ачигдсан" нэртэй болно.
   // Каргогийн өөрийн тохируулсан нэр (arrivedLabel/ereemLabel) бүх хэлэнд хэвээр.
-  const { map: STATUS_LABEL, all: allLabel } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
+  const { map: STATUS_LABEL } = statusLabels(lang, { arrivedLabel, ereemLabel, batchMode })
   const TABS = BASE_TABS
     .filter(tab => !(batchMode && tab.key === 'EREEN_ARRIVED'))
-    .map(tab => tab.key === 'ALL' ? { ...tab, label: allLabel } : { ...tab, label: STATUS_LABEL[tab.key] ?? tab.label })
+    // Табын нэр: каргогийн admin-ы тохируулсан нэр (ereemLabel/arrivedLabel, зөвхөн mn — statusLabels-тай ижил
+    // дүрэм) байвал түүнийг (STATUS_LABEL) харуулна, 2 мөр хүртэл багтана. Тохируулаагүй бол богино default
+    // (Эрээн / Ирсэн; батч горимд «Ачигдсан»). Бүгд/Бүртгэл/Авсан үргэлж богино.
+    .map(tab => {
+      const custom = lang === 'mn'
+        ? (tab.key === 'ARRIVED' ? arrivedLabel : tab.key === 'EREEN_ARRIVED' ? ereemLabel : null)?.trim()
+        : null
+      const label = custom ? (STATUS_LABEL[tab.key] || custom).trim()
+        : tab.key === 'ARRIVED' && batchMode ? t.tabArrivedBatch : TAB_SHORT[tab.key]
+      return { ...tab, label }
+    })
+  // Баганын өргөн: нэрийн урттай жинтэй (fr), гэхдээ хамгийн урт үгээс нарийсахгүй (min-content) — урт нэр
+  // («Улаанбаатарт ирсэн») илүү зай авч 2 мөрт багтана, «Бүгд/Авсан» бага зай авна, үг дундуураа тасрахгүй.
+  // Жин = max(5, хамгийн урт үг, 0.6 × нэрийн урт).
+  const tabLabelsKey = TABS.map(tab => tab.label).join('|')
+  const tabCols = TABS.map(tab => {
+    const words = tab.label.split(/\s+/)
+    const wgt = Math.max(5, ...words.map(w => w.length), Math.ceil(tab.label.length * 0.6))
+    return `minmax(min-content, ${wgt}fr)`
+  }).join(' ')
+  // Нарийн дэлгэцэнд (320px) урт нэрс багтахгүй бол үсгийг шат дараалан жижигрүүлнэ: 1 = жижиг үсэг,
+  // 2 = сүүлийн арга, үгийг дундуур нь таслана. Scroll хэзээ ч гарахгүй.
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const [tabFit, setTabFit] = useState(0)
+  useLayoutEffect(() => {
+    const el = tabsRef.current
+    if (!el) return
+    const measure = () => {
+      let lvl = 0
+      for (; lvl < 2; lvl++) {
+        el.dataset.fit = String(lvl)
+        if (el.scrollWidth <= el.clientWidth + 1) break
+      }
+      el.dataset.fit = String(lvl)
+      setTabFit(lvl)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [tabLabelsKey])
   const [shipments, setShipments] = useState(initialShipments)
   // Апп арын дэвсгэрт удаан байгаад буцаж нээгдэхэд жагсаалтыг шинэчилнэ — хуучин төлөв (жш буцаагдсан
   // «Ирсэн») харагдахгүй. 1 минутаас дээш нуугдсан бол л, нэг удаагийн хүсэлт.
@@ -370,12 +494,14 @@ export default function OrdersClient({
   const [addForm, setAddForm] = useState({ trackCode: '', description: '' })
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
+  // Давхардсан (өөрийн жагсаалтад байгаа) трак код — «Харах →» холбоосоор жагсаалтаас олж харуулна
+  const [addDupCode, setAddDupCode] = useState<string | null>(null)
   const [addedCodes, setAddedCodes] = useState<string[]>([])
   const addInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (addOpen) setTimeout(() => addInputRef.current?.focus(), 100)
-    else { setAddForm({ trackCode: '', description: '' }); setAddError(''); setAddedCodes([]) }
+    else { setAddForm({ trackCode: '', description: '' }); setAddError(''); setAddDupCode(null); setAddedCodes([]) }
   }, [addOpen])
 
 
@@ -386,7 +512,7 @@ export default function OrdersClient({
     // Захиалгын дугаар Эрээнд бараг таарахгүй — бүртгэхийн өмнө заавал асууна (ховор тохиолдолд агуулах ийм кодоор бүртгэдэг тул хаахгүй)
     if (looksLikeOrderNumber(cleanTrackCode(addForm.trackCode)) && !await confirmAsync(t.orderNoConfirm)) return
     setAddLoading(true)
-    setAddError('')
+    setAddError(''); setAddDupCode(null)
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -394,7 +520,12 @@ export default function OrdersClient({
     })
     const data = await res.json()
     setAddLoading(false)
-    if (!res.ok) { setAddError(data.error); return }
+    if (!res.ok) {
+      setAddError(data.error || 'Бүртгэж чадсангүй. Дахин оролдоно уу.')
+      const code = cleanTrackCode(addForm.trackCode)
+      if (res.status === 409 && shipments.some(x => x.trackCode === code)) setAddDupCode(code)
+      return
+    }
     setShipments(prev => [data, ...prev])
     setAddedCodes(prev => [data.trackCode, ...prev])
     setAddForm({ trackCode: '', description: '' })
@@ -461,15 +592,15 @@ export default function OrdersClient({
   const afterSearch = soloShipments
     .filter(s => !searchQ.trim() || s.trackCode.toLowerCase().includes(searchQ.trim().toLowerCase()) || (s.phone || '').includes(searchQ.trim()))
 
-  const filtered = activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab)
+  const filtered = byListPriority(activeTab === 'ALL' ? afterSearch : afterSearch.filter(s => s.status === activeTab))
 
   // Өдрөөр бүлэглэсэн харагдац — сонгосон таб/хайлтад тааруулсан жагсаалтыг
   // огноогоор (сүүлийнхээс эхлээд) бүлэглэнэ, admin/report-той адил хэлбэр.
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Shipment[]>()
     for (const s of filtered) {
-      const d = new Date(s.updatedAt)
-      const key = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+      const d = ub(s.updatedAt)
+      const key = `${d.getUTCFullYear()}.${p2(d.getUTCMonth() + 1)}.${p2(d.getUTCDate())}`
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(s)
     }
@@ -478,9 +609,9 @@ export default function OrdersClient({
       .map(([date, items]) => ({
         date,
         items,
-        total: items.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0),
+        total: items.reduce((sum, s) => sum + amountOf(s, vipPct, paid).final, 0),
       }))
-  }, [filtered])
+  }, [filtered, vipPct, paid])
 
   const totalPages = viewMode === 'byDate'
     ? Math.max(1, Math.ceil(groupedByDate.length / PAGE_SIZE))
@@ -804,7 +935,7 @@ export default function OrdersClient({
       {addOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200 }}>
           <div onClick={() => setAddOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
-          <div style={{
+          <div className="add-sheet" role="dialog" aria-modal="true" aria-label={t.addTitle} style={{
             position: 'absolute', top: '6%', left: '50%',
             transform: 'translateX(-50%)',
             background: 'var(--surface)', borderRadius: '16px',
@@ -814,34 +945,37 @@ export default function OrdersClient({
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{t.addTitle}</h2>
-              <button onClick={() => setAddOpen(false)} style={{
-                background: 'var(--surface2)', border: 'none', cursor: 'pointer',
-                width: 32, height: 32, borderRadius: '50%', fontSize: '1rem',
-                color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>✕</button>
+              <button type="button" className="add-x" aria-label="Хаах" onClick={() => setAddOpen(false)}><X size={18} /></button>
             </div>
             <form onSubmit={submitAdd}>
               <div className="form-group">
-                <label>{t.trackCode}</label>
-                <input ref={addInputRef} className="input" placeholder={t.trackCodePh} required
+                <label htmlFor="add-track">{t.trackCode} <span className="req" aria-hidden>*</span></label>
+                <input id="add-track" ref={addInputRef} className={`input${addError ? ' input-error' : ''}`} placeholder={t.trackCodePh} required
+                  aria-invalid={!!addError} aria-describedby={addError ? 'add-err' : undefined}
                   value={addForm.trackCode}
-                  onChange={e => setAddForm({ ...addForm, trackCode: e.target.value })} />
+                  onChange={e => { setAddForm({ ...addForm, trackCode: e.target.value }); if (addError) { setAddError(''); setAddDupCode(null) } }} />
+                {addError && (
+                  <p id="add-err" className="msg-error add-err" role="alert">
+                    {addError}
+                    {addDupCode && <> <button type="button" className="add-err-link" onClick={() => { setAddOpen(false); setActiveTab('ALL'); setSearchQ(addDupCode); setPage(1) }}>Харах →</button></>}
+                  </p>
+                )}
                 {/* Захиалгын дугаар (260926-…) оруулбал Эрээнд хэзээ ч таарахгүй — сануулна */}
                 {looksLikeOrderNumber(cleanTrackCode(addForm.trackCode)) && (
                   <p style={{ fontSize: '0.75rem', color: 'var(--orange)', lineHeight: 1.45, margin: '0.35rem 0 0' }}>⚠ {t.orderNoWarn}</p>
                 )}
               </div>
               <div className="form-group">
-                <label>{t.description}</label>
-                <textarea className="input" placeholder={t.descriptionPh} rows={2} required
+                <label htmlFor="add-desc">{t.description} <span className="req" aria-hidden>*</span> <small className="add-help">{t.descriptionHelp}</small></label>
+                <textarea id="add-desc" className="input" placeholder={t.descriptionPh} rows={2} required
                   value={addForm.description}
-                  onChange={e => setAddForm({ ...addForm, description: e.target.value })} />
+                  onChange={e => { setAddForm({ ...addForm, description: e.target.value }); if (addError && !addDupCode) setAddError('') }} />
               </div>
-              {addError && <p className="msg-error">{addError}</p>}
               <button className="btn" type="submit" disabled={addLoading || !addForm.trackCode.trim() || !addForm.description.trim()}
                 style={{ width: '100%', marginTop: '0.25rem' }}>
                 {addLoading ? t.saving : t.registerBtn}
               </button>
+              {!addLoading && (!addForm.trackCode.trim() || !addForm.description.trim()) && <p className="add-hint">{t.addFillHint}</p>}
             </form>
             {addedCodes.length > 0 && (
               <div style={{ marginTop: '1rem' }}>
@@ -892,6 +1026,8 @@ export default function OrdersClient({
           const arrived = shipments.filter(s => s.status === 'ARRIVED')
           const total = arrived.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
           if (arrived.length === 0) return null
+          // LoyaltyHub-тай ижил: нийт дүнгээс VIP % (олгох үед нэг баримтаар тооцогдоно — урьдчилсан)
+          const estDiscount = vipDiscountMnt(total, vipPct)
           // Мэдэгдэл маягийн мөр — "амьд" цэгтэй, дарахад ирсэн ачааны таб нээгдэнэ
           return (
             <button
@@ -904,14 +1040,24 @@ export default function OrdersClient({
               </span>
               {total > 0 && (
                 <span className="onotice-sum">
-                  <small>{t.totalPayment}</small>
-                  <b>{CUR}{total.toLocaleString()}</b>
+                  <small>{t.totalPayment}{estDiscount > 0 ? ` · VIP ${vipPct}%` : ''}</small>
+                  {estDiscount > 0
+                    ? <b><s className="onotice-was">{CUR}{total.toLocaleString()}</s>{CUR}{(total - estDiscount).toLocaleString()}</b>
+                    : <b>{CUR}{total.toLocaleString()}</b>}
                 </span>
               )}
               <ChevronRight size={18} className="onotice-chev" />
             </button>
           )
         })()}
+
+        <LoyaltyHub
+          loyalty={loyalty}
+          arrivedTotal={shipments.filter(s => s.status === 'ARRIVED').reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)}
+          arrivedCount={shipments.filter(s => s.status === 'ARRIVED').length}
+          phone={userPhone}
+          onVerifyPhone={() => setPhoneOpen(true)}
+        />
 
         {/* Search */}
         <div className="osearch-row">
@@ -939,34 +1085,17 @@ export default function OrdersClient({
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="orders-list-anchor" style={{ display: 'grid', gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '0.3rem', marginBottom: '1rem' }}>
+        {/* Tabs — 5 таб нэг мөрөнд, scroll-гүй; каргогийн өөрийн нэр 2 мөр хүртэл */}
+        <div ref={tabsRef} data-fit={tabFit} className="orders-list-anchor ochips" role="tablist" style={{ gridTemplateColumns: tabCols, ['--ochip-cols' as string]: TABS.length } as React.CSSProperties}>
           {TABS.map(tab => {
             const count = tab.key === 'ALL' ? afterSearch.length : afterSearch.filter(s => s.status === tab.key).length
             const active = activeTab === tab.key
             return (
-              <button key={tab.key} onClick={() => switchTab(tab.key)} style={{
-                position: 'relative',
-                padding: '0.5rem 0.25rem', borderRadius: '8px', border: '1px solid',
-                borderColor: active ? 'var(--accent)' : 'var(--border)',
-                background: active ? 'var(--accent)' : 'var(--surface)',
-                color: active ? 'var(--on-accent)' : 'var(--muted)',
-                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                textAlign: 'center', lineHeight: 1.3,
-                transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-              }}>
-                {tab.label}
-                {count > 0 && (
-                  <span style={{
-                    position: 'absolute', top: '-6px', right: '-4px',
-                    background: active ? 'var(--on-accent)' : 'var(--accent)',
-                    color: active ? 'var(--accent)' : 'var(--on-accent)',
-                    fontSize: '0.6rem', fontWeight: 700,
-                    minWidth: 16, height: 16, borderRadius: '100px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 3px', lineHeight: 1,
-                  }}>{count}</span>
-                )}
+              <button key={tab.key} type="button" role="tab" aria-selected={active} onClick={() => switchTab(tab.key)} className={`ochip${active ? ' on' : ''}`}
+                aria-label={count > 0 ? `${tab.label} ${count}` : tab.label} title={tab.label}>
+                {/* «Тяньжинь-д» зураасан дээр тасрахгүй (U+2011 non-breaking hyphen); title/aria-д жинхэнэ нэр */}
+                <span className="ochip-lbl">{tab.label.replace(/-/g, '\u2011')}</span>
+                {count > 0 && <span className="ochip-badge" aria-hidden>{count}</span>}
               </button>
             )
           })}
@@ -1063,15 +1192,20 @@ export default function OrdersClient({
                 </motion.div>
               ))}
 
-              {viewMode === 'list' ? paged.map((s, si) => (
+              {viewMode === 'list' ? paged.length > 0 && (
+                <div className="olist">
+                {paged.map((s, si) => (
                 <motion.div
                   key={s.id}
-                  initial={{ opacity: 0, y: 16 }}
+                  className="olist-item"
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: Math.min(si * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ duration: 0.3, delay: Math.min(si * 0.03, 0.3), ease: [0.22, 1, 0.36, 1] }}
                 >
                 <ShipmentCard
                   s={s}
+                  amt={amountOf(s, vipPct, paid)}
+                  vipPct={vipPct}
                   t={t}
                   labels={STATUS_LABEL}
                   cur={CUR}
@@ -1080,7 +1214,9 @@ export default function OrdersClient({
                   onDelete={() => { setNavPopup(null); setConfirmDelete(s.id) }}
                 />
                 </motion.div>
-              )) : pagedDateGroups.map(g => (
+                ))}
+                </div>
+              ) : pagedDateGroups.map(g => (
                 <div key={g.date} className="card" style={{ overflow: 'hidden' }}>
                   <div
                     onClick={() => setExpandedDate(expandedDate === g.date ? null : g.date)}
@@ -1114,15 +1250,21 @@ export default function OrdersClient({
                           borderBottom: si < g.items.length - 1 ? '1px solid var(--border)' : 'none',
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, overflow: 'hidden' }}>
-                            <CopyText text={s.trackCode} style={{ fontFamily: 'monospace', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {s.trackCode}
-                            </CopyText>
+                            <span style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                              <CopyButton text={s.trackCode} showText textStyle={{ fontFamily: 'monospace', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', minWidth: 0 }} />
+                            </span>
                             <span className={`badge badge-${s.status}`} style={{ fontSize: '0.62rem', padding: '0.15rem 0.5rem', flexShrink: 0 }}>{STATUS_LABEL[s.status] ?? s.status}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
-                            <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
-                              {s.adminPrice ? `${CUR}${Number(s.adminPrice).toLocaleString()}` : '—'}
-                            </span>
+                            {(() => {
+                              const a = amountOf(s, vipPct, paid)
+                              return (
+                                <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
+                                  {a.final !== a.gross && <s style={{ color: 'var(--muted)', fontWeight: 400, marginRight: 4 }}>{CUR}{a.gross.toLocaleString()}</s>}
+                                  {s.adminPrice ? `${CUR}${Math.round(a.final).toLocaleString()}` : '—'}
+                                </span>
+                              )
+                            })()}
                             {(s.status === 'REGISTERED' || s.status === 'PICKED_UP' || s.status === 'EREEN_ARRIVED') && (
                               <button onClick={() => setConfirmDelete(s.id)} disabled={deleting === s.id}
                                 title={s.status === 'PICKED_UP' ? t.archiveTooltip : t.deleteTooltip}

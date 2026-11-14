@@ -6,6 +6,7 @@ interface StaleItem {
   trackCode: string
   phone: string | null
   name: string | null
+  userOwned?: boolean
   description: string | null
   since: string
   sinceApprox: boolean
@@ -32,6 +33,8 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
   const [msg, setMsg] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
+  const [newDate, setNewDate] = useState('')
+  const [dating, setDating] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -126,6 +129,26 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
     setMsg(`✓ ${data.count} ачаа устгагдлаа${data.skipped ? ` (${data.skipped} нь төлөв өөрчлөгдсөн тул алгаслаа)` : ''}`)
   }
 
+  // Сонгосон ачааны Эрээнд ирсэн огноог засах
+  async function changeDate() {
+    if (!selected.size || !newDate) return
+    if (!window.confirm(`${selected.size} ачааны Эрээнд ирсэн огноог ${newDate} болгох уу?`)) return
+    setDating(true)
+    const res = await fetch('/api/admin/ereen/stale', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [...selected], date: newDate }),
+    })
+    const data = await res.json().catch(() => ({}))
+    setDating(false)
+    await load()
+    onDeleted()
+    setMsg(res.ok ? `✓ ${data.count} ачааны огноо ${newDate} боллоо` : (data.error || 'Алдаа гарлаа'))
+  }
+
+  const selectedItems = (items ?? []).filter(i => selected.has(i.id))
+  const ownedCount = selectedItems.filter(i => i.userOwned).length
+
   const daysColor = (days: number) => days >= 60 ? 'var(--danger)' : days >= 30 ? 'var(--yellow)' : 'var(--text)'
 
   return (
@@ -156,6 +179,14 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
                   background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit', padding: 0,
                 }}>сонголт цуцлах</button></>
               )}
+            </span>
+            <span style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+              <input type="date" className="input" value={newDate} onChange={e => setNewDate(e.target.value)}
+                aria-label="Шинэ Эрээнд ирсэн огноо" style={{ width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.8rem' }} />
+              <button type="button" onClick={changeDate} disabled={!selected.size || !newDate || dating} style={{
+                background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '0.45rem 0.8rem',
+                fontSize: '0.8rem', cursor: selected.size && newDate ? 'pointer' : 'not-allowed', fontFamily: 'inherit', color: 'var(--text)',
+              }}>{dating ? '...' : 'Огноо солих'}</button>
             </span>
             <button onClick={openConfirm} disabled={!selected.size || deleting} style={{
               background: selected.size ? 'var(--danger)' : 'var(--surface2)', color: selected.size ? 'var(--on-accent)' : 'var(--muted)',
@@ -235,8 +266,14 @@ export default function StaleEreen({ label, onDeleted }: { label: string; onDele
             <h3 style={{ margin: '0 0 0.75rem', fontSize: '1rem', fontWeight: 700, color: 'var(--danger)' }}>⚠ {selected.size} ачаа устгагдана</h3>
             <div style={{ fontSize: '0.84rem', lineHeight: 1.6, marginBottom: '0.9rem' }}>
               <div>Хугацаа: <b>{summary}</b></div>
+              <div>Нийт: <b>{selected.size}</b> ачаа · хэрэглэгчийн бүртгүүлсэн: <b>{ownedCount}</b></div>
+              {ownedCount > 0 && (
+                <div style={{ color: 'var(--yellow)' }}>
+                  Хэрэглэгчийн бүртгүүлсэн {ownedCount} ачаа устгагдахгүй, «Бүртгүүлсэн» төлөвт буцна. Огноо буруу бол устгахын оронд «Огноо солих»-ыг ашиглана уу.
+                </div>
+              )}
               <div style={{ color: 'var(--muted)' }}>
-                "{label}" төлөвтэй эдгээр ачаа бүрмөсөн устгагдана. Устгасан ачаа бүр түүхэнд хадгалагдах тул трак кодоор хайхад
+                "{label}" төлөвтэй, эзэнгүй ачаа бүрмөсөн устгагдана. Устгасан ачаа бүр түүхэнд хадгалагдах тул трак кодоор хайхад
                 хэзээ, хэн устгасан нь харагдана.
               </div>
             </div>
