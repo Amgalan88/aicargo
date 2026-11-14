@@ -729,3 +729,72 @@ model ShipmentPriceChange {
   @@index([receiptId])
   @@index([cargoId, shipmentId])
 }
+
+// ManyChat PRE-AI gateway. Rows are the durable outbox and rolling-window ledger.
+// The migration is not applied by opening a pull request.
+model ManychatSubscriberLock {
+  tenant        String
+  pageId        String
+  subscriberId  String
+  revision      Int     @default(0)
+  latestBatchId String?
+
+  @@id([tenant, pageId, subscriberId])
+}
+
+model ManychatBatch {
+  id                  String    @id
+  tenant              String
+  pageId              String
+  subscriberId        String
+  state               String
+  scheduleState       String
+  openedAt            DateTime
+  deliverAfter        DateTime
+  lastInputText       String
+  eventId             String?
+  messageCount        Int
+  updatedAt           DateTime
+  deliveryAttemptedAt DateTime?
+  publishAttempts     Int       @default(0)
+  lastError           String?
+  revision            Int       @default(0)
+
+  @@index([tenant, pageId, subscriberId, state, deliverAfter])
+}
+
+model ManychatAdmission {
+  id           String   @id
+  tenant       String
+  pageId       String
+  subscriberId String
+  eventKey     String?  @unique
+  textKey      String?
+  kind         String
+  counted      Boolean
+  reason       String
+  batchId      String?
+  admittedAt   DateTime
+
+  @@index([tenant, pageId, subscriberId, admittedAt])
+  @@index([textKey, admittedAt])
+}
+
+// One customer-send reservation per contact revision. Not applied with this pull request.
+model ManychatReplyReservation {
+  id           String    @id
+  tenant       String
+  pageId       String
+  subscriberId String
+  batchId      String
+  revision     Int
+  claimId      String    @unique
+  state        String
+  finishId     String?
+  reservedAt   DateTime
+  expiresAt    DateTime
+  finishedAt   DateTime?
+
+  @@unique([tenant, pageId, subscriberId, revision])
+  @@index([batchId])
+}
