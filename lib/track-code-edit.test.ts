@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { planTrackCodeEdit } from './track-code-edit'
+import { planStaffEdit, planTrackCodeEdit } from './track-code-edit'
 
 const mine = { id: 7, trackCode: 'YT8853194305559', cargoId: 3 }
 
@@ -59,6 +59,53 @@ describe('staff track-code edit (mocked, no database)', () => {
       assert.equal(wrongCargo.status, 404)
       assert.equal(missing.error, 'Ачаа олдсонгүй')
     }
+  })
+
+  it('saves price and tracking code together', () => {
+    const r = planStaffEdit({
+      shipment: mine, callerCargoId: 3, existingIdInCargo: null,
+      trackCode: 'sf5141065336093', adminPrice: '4500',
+    })
+    assert.deepEqual(r, { ok: true, trackCode: 'SF5141065336093', price: 4500 })
+  })
+
+  it('saves a price without touching the tracking code', () => {
+    const r = planStaffEdit({
+      shipment: mine, callerCargoId: 3, existingIdInCargo: null,
+      adminPrice: 1200,
+    })
+    assert.deepEqual(r, { ok: true, price: 1200 })
+    assert.equal('trackCode' in r, false)
+  })
+
+  it('saves a tracking code without touching the price', () => {
+    const r = planStaffEdit({
+      shipment: mine, callerCargoId: 3, existingIdInCargo: null,
+      trackCode: 'DPK365098423720',
+    })
+    assert.deepEqual(r, { ok: true, trackCode: 'DPK365098423720' })
+    assert.equal('price' in r, false)
+  })
+
+  it('rejects a negative or non-numeric price', () => {
+    for (const adminPrice of [-1, '-5', 'abc', '₮-10']) {
+      const r = planStaffEdit({
+        shipment: mine, callerCargoId: 3, existingIdInCargo: null,
+        trackCode: mine.trackCode, adminPrice,
+      })
+      assert.equal(r.ok, false)
+      if (!r.ok) {
+        assert.equal(r.status, 400)
+        assert.equal(r.error, 'Үнэ 0 буюу түүнээс их тоо байна')
+      }
+    }
+  })
+
+  it('keeps zero and treats a blank price as no price', () => {
+    const zero = planStaffEdit({ shipment: mine, callerCargoId: 3, existingIdInCargo: null, adminPrice: '0' })
+    const blank = planStaffEdit({ shipment: mine, callerCargoId: 3, existingIdInCargo: null, adminPrice: '  ' })
+    assert.deepEqual(zero, { ok: true, price: 0 })
+    assert.deepEqual(blank, { ok: true, price: null })
   })
 
   it('allows a code that exists only in another cargo', () => {

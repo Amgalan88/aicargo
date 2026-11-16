@@ -7,7 +7,7 @@ import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { logAdminAction, auditLater } from '@/lib/audit'
 import { notifyArrivedForCargo } from '@/lib/push'
 import { parseArrivedCode } from '@/lib/track-code'
-import { planTrackCodeEdit } from '@/lib/track-code-edit'
+import { parseStaffPrice, planTrackCodeEdit } from '@/lib/track-code-edit'
 import { parsePhone } from '@/lib/phone'
 import { resolveImportOwners } from '@/lib/import-owner'
 import { ubDayRange } from '@/lib/ub-date'
@@ -224,6 +224,12 @@ export async function PATCH(req: NextRequest) {
     if (!planned.ok) return NextResponse.json({ error: planned.error }, { status: planned.status })
     nextTrack = { code: planned.code, changed: planned.changed }
   }
+  let nextPrice: number | null = null
+  if (adminPrice !== undefined) {
+    const parsed = parseStaffPrice(adminPrice)
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
+    nextPrice = parsed.price
+  }
   // Утас солибол эзэн нь ч солигдоно (1 трак = 1 эзэн) — өмнө нь зөвхөн phone талбар солигдож
   // хуучин хэрэглэгчид харагдсаар байв. Олгосон ачааны эзнийг хөндөхгүй.
   let newUserId: number | null | undefined
@@ -251,7 +257,7 @@ export async function PATCH(req: NextRequest) {
         // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл, трак засахад хөдлөхгүй
         ...(locked.status === 'PICKED_UP' ? { updatedAt: before?.updatedAt } : {}),
         ...(nextTrack?.changed ? { trackCode: nextTrack.code } : {}),
-        adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
+        ...(adminPrice !== undefined ? { adminPrice: nextPrice } : {}),
         adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
         phone: newPhone,
         ...(newUserId !== undefined ? { userId: newUserId } : {}),
@@ -260,7 +266,7 @@ export async function PATCH(req: NextRequest) {
     if (adminPrice !== undefined) {
       await recordPriceChange(tx, {
         cargoId, actor: { id: admin.userId, name: admin.name, phone: null }, shipment: locked,
-        newPrice: updated.adminPrice == null ? null : Number(updated.adminPrice),
+        newPrice: nextPrice ?? null,
       })
     }
     return updated

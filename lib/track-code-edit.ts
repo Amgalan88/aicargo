@@ -25,3 +25,48 @@ export function planTrackCodeEdit(input: {
   }
   return { ok: true, code, changed: code !== input.shipment.trackCode }
 }
+
+// Хоосон бол үнэгүй (null). 0 зөвшөөрнө. Сөрөг, тоо биш утгыг татгалзана.
+// Хадгалах хэлбэр нь одоогийн үнэ хадгалалттай адил: Number (бутархайг тоймлохгүй).
+export function parseStaffPrice(raw: unknown): { ok: true; price: number | null } | { ok: false; error: string } {
+  if (raw === null || raw === undefined) return { ok: true, price: null }
+  const s = String(raw).trim().replace(/₮/g, '').replace(/,/g, '')
+  if (!s) return { ok: true, price: null }
+  const n = Number(s)
+  if (!Number.isFinite(n) || n < 0) return { ok: false, error: 'Үнэ 0 буюу түүнээс их тоо байна' }
+  return { ok: true, price: n }
+}
+
+export type StaffEditPlan =
+  | { ok: true; trackCode?: string; price?: number | null }
+  | { ok: false; status: 400 | 404 | 409; error: string }
+
+/** trackCode / adminPrice байхгүй (undefined) бол тэр талбарыг хөндөхгүй. */
+export function planStaffEdit(input: {
+  shipment: { id: number; trackCode: string; cargoId: number } | null
+  callerCargoId: number
+  trackCode?: unknown
+  adminPrice?: unknown
+  existingIdInCargo: number | null
+}): StaffEditPlan {
+  if (!input.shipment || input.shipment.cargoId !== input.callerCargoId) {
+    return { ok: false, status: 404, error: 'Ачаа олдсонгүй' }
+  }
+  const out: { ok: true; trackCode?: string; price?: number | null } = { ok: true }
+  if (input.trackCode !== undefined) {
+    const code = planTrackCodeEdit({
+      raw: input.trackCode,
+      shipment: input.shipment,
+      callerCargoId: input.callerCargoId,
+      existingIdInCargo: input.existingIdInCargo,
+    })
+    if (!code.ok) return code
+    if (code.changed) out.trackCode = code.code
+  }
+  if (input.adminPrice !== undefined) {
+    const price = parseStaffPrice(input.adminPrice)
+    if (!price.ok) return { ok: false, status: 400, error: price.error }
+    out.price = price.price
+  }
+  return out
+}
