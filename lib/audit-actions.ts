@@ -10,7 +10,7 @@ export const AUDIT_ACTIONS: Record<string, { label: string; routine?: boolean; t
   'shipment:handover': { label: 'Олгосон', routine: true, tone: 'green' },
   'shipment:import': { label: 'Excel импорт', tone: 'blue' },
   'shipment:import-arrived': { label: 'Excel импорт (Ирсэн)', tone: 'blue' },
-  'shipment:edit': { label: 'Ачааны үнэ / утас зассан', tone: 'yellow' },
+  'shipment:edit': { label: 'Ачааны үнэ / утас / трак зассан', tone: 'yellow' },
   'shipment:revert-arrived': { label: 'Ирсэн ачааг Эрээнд буцаасан', tone: 'yellow' },
   'shipment:revert-pickup': { label: 'Олгосон ачааг буцаасан', tone: 'yellow' },
   'shipment:user-removed': { label: 'Хэрэглэгч ачаагаа жагсаалтаасаа хассан', tone: 'muted' },

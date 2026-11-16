@@ -84,8 +84,9 @@ export default function ArrivedPage() {
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null)
   const [searching, setSearching] = useState(false)
   const [editing, setEditing] = useState<SearchResult | null>(null)
-  const [editForm, setEditForm] = useState({ adminPrice: '', adminNote: '', phone: '' })
+  const [editForm, setEditForm] = useState({ trackCode: '', adminPrice: '', adminNote: '', phone: '' })
   const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState('')
   const [todayList, setTodayList] = useState<TodayEntry[]>([])
   const [todayStats, setTodayStats] = useState({ count: 0, total: 0, noPrice: 0 })
   const xlsxRef = useRef<HTMLInputElement>(null)
@@ -230,7 +231,9 @@ export default function ArrivedPage() {
 
   function openEdit(s: SearchResult) {
     setEditing(s)
+    setEditError('')
     setEditForm({
+      trackCode: s.trackCode,
       adminPrice: s.adminPrice ? String(s.adminPrice) : '',
       adminNote: s.adminNote ?? '',
       phone: s.phone ?? '',
@@ -240,17 +243,18 @@ export default function ArrivedPage() {
   async function saveEdit() {
     if (!editing) return
     setEditLoading(true)
+    setEditError('')
     const res = await fetch('/api/admin/arrived', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: editing.id, ...editForm }),
-    })
+    }).catch(() => null)
     setEditLoading(false)
-    if (res.ok) {
-      const updated = await res.json()
-      setSearchResults(prev => prev?.map(s => s.id === editing.id ? { ...s, adminPrice: updated.adminPrice, adminNote: updated.adminNote, phone: updated.phone } : s) ?? null)
-      setEditing(null)
-    }
+    if (!res) { setEditError('Сүлжээний алдаа'); return }
+    const updated = await res.json().catch(() => ({}))
+    if (!res.ok) { setEditError(updated.error || 'Хадгалж чадсангүй'); return }
+    setSearchResults(prev => prev?.map(s => s.id === editing.id ? { ...s, trackCode: updated.trackCode, adminPrice: updated.adminPrice, adminNote: updated.adminNote, phone: updated.phone } : s) ?? null)
+    setEditing(null)
   }
 
   async function revert(id: number) {
@@ -737,6 +741,10 @@ export default function ArrivedPage() {
           <div className="card" style={{ width: '100%', maxWidth: 380, padding: '1.5rem' }}>
             <h3 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: 700 }}>Засах — <span style={{ fontFamily: 'monospace' }}>{editing.trackCode}</span></h3>
             <div className="form-group">
+              <label>Трак код</label>
+              <input className="input" aria-label="Трак код" spellCheck={false} value={editForm.trackCode} onChange={e => setEditForm(f => ({ ...f, trackCode: e.target.value }))} style={{ fontFamily: 'monospace' }} />
+            </div>
+            <div className="form-group">
               <label>Утас</label>
               <input className="input" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="99001122" />
             </div>
@@ -748,6 +756,7 @@ export default function ArrivedPage() {
               <label>Тайлбар</label>
               <textarea className="input" rows={2} value={editForm.adminNote} onChange={e => setEditForm(f => ({ ...f, adminNote: e.target.value }))} placeholder="Тэмдэглэл..." />
             </div>
+            {editError && <p className="msg-error" role="alert">{editError}</p>}
             <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.5rem' }}>
               <button className="btn" onClick={saveEdit} disabled={editLoading} style={{ flex: 1 }}>{editLoading ? 'Хадгалж байна...' : 'Хадгалах'}</button>
               <button onClick={() => setEditing(null)} style={{ flex: 1, padding: '0.6rem', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem' }}>Болих</button>

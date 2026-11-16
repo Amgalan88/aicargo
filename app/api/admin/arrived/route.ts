@@ -7,6 +7,7 @@ import { checkCrossCargoOnImport } from '@/lib/notifications'
 import { logAdminAction, auditLater } from '@/lib/audit'
 import { notifyArrivedForCargo } from '@/lib/push'
 import { parseArrivedCode } from '@/lib/track-code'
+import { planTrackCodeEdit } from '@/lib/track-code-edit'
 import { parsePhone } from '@/lib/phone'
 import { resolveImportOwners } from '@/lib/import-owner'
 import { ubDayRange } from '@/lib/ub-date'
@@ -202,13 +203,27 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { id, adminPrice, adminNote, phone } = await req.json()
+  const { id, adminPrice, adminNote, phone, trackCode } = await req.json()
   if (!id) return NextResponse.json({ error: 'ID шаардлагатай' }, { status: 400 })
 
   const before = await prisma.shipment.findFirst({
     where: { id: Number(id), cargoId: admin.cargoId! },
     select: { trackCode: true, adminPrice: true, phone: true, adminNote: true, status: true, updatedAt: true, userId: true, user: { select: { phone: true } } },
   })
+  // Трак код: бүртгэлтэй ижил цэвэрлэгээ, давхардал зөвхөн энэ карго. Өөр каргоны id — 404.
+  let nextTrack: { code: string; changed: boolean } | null = null
+  if (trackCode !== undefined) {
+    if (!before) return NextResponse.json({ error: 'Ачаа олдсонгүй' }, { status: 404 })
+    const owned = { id: Number(id), trackCode: before.trackCode, cargoId: admin.cargoId! }
+    const preview = planTrackCodeEdit({ raw: trackCode, shipment: owned, callerCargoId: owned.cargoId, existingIdInCargo: null })
+    if (!preview.ok) return NextResponse.json({ error: preview.error }, { status: preview.status })
+    const taken = preview.changed
+      ? await prisma.shipment.findFirst({ where: { cargoId: owned.cargoId, trackCode: preview.code, NOT: { id: owned.id } }, select: { id: true } })
+      : null
+    const planned = planTrackCodeEdit({ raw: trackCode, shipment: owned, callerCargoId: owned.cargoId, existingIdInCargo: taken?.id ?? null })
+    if (!planned.ok) return NextResponse.json({ error: planned.error }, { status: planned.status })
+    nextTrack = { code: planned.code, changed: planned.changed }
+  }
   // Утас солибол эзэн нь ч солигдоно (1 трак = 1 эзэн) — өмнө нь зөвхөн phone талбар солигдож
   // хуучин хэрэглэгчид харагдсаар байв. Олгосон ачааны эзнийг хөндөхгүй.
   let newUserId: number | null | undefined
@@ -219,16 +234,23 @@ export async function PATCH(req: NextRequest) {
   }
   // Үнэ өөрчлөгдвөл түүхэнд бичнэ; олгосон ачаа бол урамшууллын зөрүүг (оноо) нөхөн бичнэ — нэг транзакцид, ачааг түгжээд
   const cargoId = admin.cargoId!
-  const shipment = await prisma.$transaction(async tx => {
+  let shipment
+  try {
+  shipment = await prisma.$transaction(async tx => {
     const [locked] = await tx.$queryRaw<{ id: number; trackCode: string; status: string; adminPrice: Prisma.Decimal | null; receiptId: number | null }[]>`
       SELECT id, "trackCode", status::text AS status, "adminPrice", "receiptId" FROM "Shipment"
       WHERE id = ${Number(id)} AND "cargoId" = ${cargoId} FOR UPDATE`
     if (!locked) return null // өөр каргоны / устсан ачаа — 404
+    if (nextTrack?.changed) {
+      const clash = await tx.shipment.findFirst({ where: { cargoId, trackCode: nextTrack.code, NOT: { id: Number(id) } }, select: { id: true } })
+      if (clash) throw Object.assign(new Error('track-dup'), { code: 'TRACK_DUP' })
+    }
     const updated = await tx.shipment.update({
       where: { id: Number(id), cargoId },
       data: {
-        // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл засахад хөдлөхгүй
+        // Олгосон ачааны updatedAt = олгосон огноо — үнэ, тэмдэглэл, трак засахад хөдлөхгүй
         ...(locked.status === 'PICKED_UP' ? { updatedAt: before?.updatedAt } : {}),
+        ...(nextTrack?.changed ? { trackCode: nextTrack.code } : {}),
         adminPrice: adminPrice !== undefined ? (adminPrice ? Number(adminPrice) : null) : undefined,
         adminNote: adminNote !== undefined ? (adminNote || null) : undefined,
         phone: newPhone,
@@ -243,12 +265,20 @@ export async function PATCH(req: NextRequest) {
     }
     return updated
   })
+  } catch (e) {
+    const code = (e as { code?: string } | null)?.code
+    if (code === 'TRACK_DUP' || code === 'P2002') {
+      return NextResponse.json({ error: 'Энэ трак код энэ каргод бүртгэлтэй байна' }, { status: 409 })
+    }
+    throw e
+  }
   if (!shipment) return NextResponse.json({ error: 'Ачаа олдсонгүй' }, { status: 404 })
 
   // Мөнгө, эзэнтэй холбоотой тул юунаас юу болсныг хадгална
   if (before) {
     const tg = (v: unknown) => (v == null ? 'үнэгүй' : '₮' + Math.round(Number(v)).toLocaleString('en-US'))
     const changes: string[] = []
+    if (before.trackCode !== shipment.trackCode) changes.push(`трак ${before.trackCode} → ${shipment.trackCode}`)
     if (Number(before.adminPrice ?? 0) !== Number(shipment.adminPrice ?? 0)) changes.push(`үнэ ${tg(before.adminPrice)} → ${tg(shipment.adminPrice)}`)
     if ((before.phone ?? '') !== (shipment.phone ?? '')) changes.push(`утас ${before.phone || '—'} → ${shipment.phone || '—'}`)
     if ((before.adminNote ?? '') !== (shipment.adminNote ?? '')) changes.push('тэмдэглэл')
