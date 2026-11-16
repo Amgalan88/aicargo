@@ -17,32 +17,38 @@ interface Shipment {
   updatedAt: string
 }
 
-function TrackCodeEditor({ code, editing, draft, error, busy, onStart, onDraft, onSave, onCancel }: {
+function ShipmentEditor({ code, editing, draftCode, draftPrice, error, busy, onStart, onCode, onPrice, onSave, onCancel }: {
   code: string
   editing: boolean
-  draft: string
+  draftCode: string
+  draftPrice: string
   error: string
   busy: boolean
   onStart: () => void
-  onDraft: (value: string) => void
+  onCode: (value: string) => void
+  onPrice: (value: string) => void
   onSave: () => void
   onCancel: () => void
 }) {
   if (editing) {
     return (
-      <form onSubmit={e => { e.preventDefault(); onSave() }} style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center', flex: 1, minWidth: 0 }}>
-        <input className="input" aria-label="Трак код" value={draft} autoFocus spellCheck={false} onChange={e => onDraft(e.target.value)}
-          style={{ fontFamily: 'monospace', flex: '1 1 8rem', minWidth: 0, width: 'auto' }} />
-        <button className="btn btn-sm" type="submit" disabled={busy}>{busy ? '...' : 'Хадгалах'}</button>
-        <button type="button" onClick={onCancel} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '0.35rem 0.7rem', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted)' }}>Болих</button>
-        {error && <span role="alert" style={{ flexBasis: '100%', color: 'var(--danger)', fontSize: '0.75rem' }}>{error}</span>}
+      <form onSubmit={e => { e.preventDefault(); onSave() }} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1, minWidth: 0 }}>
+        <input className="input" aria-label="Трак код" value={draftCode} autoFocus spellCheck={false} onChange={e => onCode(e.target.value)}
+          style={{ fontFamily: 'monospace', width: '100%' }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
+          <input className="input" type="number" min="0" inputMode="decimal" aria-label="Үнэ" value={draftPrice} onChange={e => onPrice(e.target.value)}
+            placeholder="0" style={{ width: '8rem', flex: '0 1 8rem' }} />
+          <button className="btn btn-sm" type="submit" disabled={busy}>{busy ? '...' : 'Хадгалах'}</button>
+          <button type="button" onClick={onCancel} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '0.35rem 0.7rem', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted)' }}>Болих</button>
+        </div>
+        {error && <span role="alert" style={{ color: 'var(--danger)', fontSize: '0.75rem' }}>{error}</span>}
       </form>
     )
   }
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.15rem', minWidth: 0, maxWidth: '100%' }}>
       <strong style={{ fontFamily: 'monospace', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{code}</strong>
-      <button type="button" className="hit-pad" aria-label={`${code} трак код засах`} title="Трак код засах" onClick={onStart}
+      <button type="button" className="hit-pad" aria-label={`${code} засах`} title="Засах" onClick={onStart}
         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '0.2rem' }}>
         <Pencil size={15} strokeWidth={2} />
       </button>
@@ -85,40 +91,57 @@ export default function HandoverPage() {
   const [summaryPage, setSummaryPage] = useState(1)
   const [expandedPhone, setExpandedPhone] = useState<string | null>(null)
   const [today, setToday] = useState<TodayStats | null>(null)
-  const [trackEdit, setTrackEdit] = useState<{ id: number; draft: string } | null>(null)
-  const [trackError, setTrackError] = useState('')
-  const [trackBusy, setTrackBusy] = useState(false)
+  const [rowEdit, setRowEdit] = useState<{ id: number; code: string; price: string } | null>(null)
+  const [rowError, setRowError] = useState('')
+  const [rowBusy, setRowBusy] = useState(false)
 
-  function patchTrack(id: number, trackCode: string) {
-    setShipments(prev => prev.map(s => s.id === id ? { ...s, trackCode } : s))
-    setScanned(prev => prev.map(s => s.id === id ? { ...s, trackCode } : s))
-    setSummary(prev => prev && ({
-      ...prev,
-      groups: prev.groups.map(g => ({ ...g, shipments: g.shipments.map(s => s.id === id ? { ...s, trackCode } : s) })),
-    }))
+  function patchRow(id: number, trackCode: string, adminPrice: number | null) {
+    const apply = (s: Shipment) => s.id === id ? { ...s, trackCode, adminPrice } : s
+    setShipments(prev => prev.map(apply))
+    setScanned(prev => prev.map(apply))
+    setSummary(prev => {
+      if (!prev) return prev
+      let valueDelta = 0
+      const groups = prev.groups.map(g => {
+        const old = g.shipments.find(s => s.id === id)
+        const shipments = g.shipments.map(apply)
+        if (!old) return { ...g, shipments }
+        const delta = (Number(adminPrice) || 0) - (Number(old.adminPrice) || 0)
+        valueDelta += delta
+        return { ...g, shipments, total: g.total + delta }
+      })
+      return { ...prev, groups, totalValue: prev.totalValue + valueDelta }
+    })
   }
-  async function saveTrack() {
-    if (!trackEdit) return
-    setTrackBusy(true); setTrackError('')
+  async function saveRow() {
+    if (!rowEdit) return
+    setRowBusy(true); setRowError('')
     const res = await fetch('/api/admin/arrived', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: trackEdit.id, trackCode: trackEdit.draft }),
+      body: JSON.stringify({ id: rowEdit.id, trackCode: rowEdit.code, adminPrice: rowEdit.price }),
     }).catch(() => null)
-    setTrackBusy(false)
-    if (!res) { setTrackError('Сүлжээний алдаа'); return }
+    setRowBusy(false)
+    if (!res) { setRowError('Сүлжээний алдаа'); return }
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) { setTrackError(data.error || 'Хадгалж чадсангүй'); return }
-    patchTrack(trackEdit.id, data.trackCode)
-    setTrackEdit(null)
+    if (!res.ok) { setRowError(data.error || 'Хадгалж чадсангүй'); return }
+    patchRow(rowEdit.id, data.trackCode, data.adminPrice == null ? null : Number(data.adminPrice))
+    setRowEdit(null)
   }
-  function trackEditor(s: Shipment) {
-    const editing = trackEdit?.id === s.id
+  function startRowEdit(s: Shipment) {
+    setRowError('')
+    setRowEdit({ id: s.id, code: s.trackCode, price: s.adminPrice != null ? String(s.adminPrice) : '' })
+  }
+  function shipmentEditor(s: Shipment) {
+    const editing = rowEdit?.id === s.id
     return (
-      <TrackCodeEditor code={s.trackCode} editing={editing} draft={editing ? trackEdit.draft : s.trackCode}
-        error={editing ? trackError : ''} busy={trackBusy && editing}
-        onStart={() => { setTrackError(''); setTrackEdit({ id: s.id, draft: s.trackCode }) }}
-        onDraft={v => setTrackEdit({ id: s.id, draft: v })}
-        onSave={saveTrack} onCancel={() => { setTrackEdit(null); setTrackError('') }} />
+      <ShipmentEditor code={s.trackCode} editing={editing}
+        draftCode={editing ? rowEdit.code : s.trackCode}
+        draftPrice={editing ? rowEdit.price : (s.adminPrice != null ? String(s.adminPrice) : '')}
+        error={editing ? rowError : ''} busy={rowBusy && editing}
+        onStart={() => startRowEdit(s)}
+        onCode={v => setRowEdit(cur => cur && cur.id === s.id ? { ...cur, code: v } : cur)}
+        onPrice={v => setRowEdit(cur => cur && cur.id === s.id ? { ...cur, price: v } : cur)}
+        onSave={saveRow} onCancel={() => { setRowEdit(null); setRowError('') }} />
     )
   }
 
@@ -307,15 +330,15 @@ export default function HandoverPage() {
                     <div key={s.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                          {trackEditor(s)}
-                          {trackEdit?.id !== s.id && <>
+                          {shipmentEditor(s)}
+                          {rowEdit?.id !== s.id && <>
                             <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{s.phone ?? '—'}</span>
                             <span className="admin-item-date">{fmtDT(s.updatedAt)}</span>
                           </>}
                         </div>
-                        {s.adminNote && trackEdit?.id !== s.id && <div style={{ fontSize: '0.8rem', color: 'var(--accent)', marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.adminNote}</div>}
+                        {s.adminNote && rowEdit?.id !== s.id && <div style={{ fontSize: '0.8rem', color: 'var(--accent)', marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.adminNote}</div>}
                       </div>
-                      {trackEdit?.id !== s.id && <>
+                      {rowEdit?.id !== s.id && <>
                         <span style={{ fontWeight: 700, color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontSize: '0.9rem' }}>
                           {s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}
                         </span>
@@ -356,10 +379,10 @@ export default function HandoverPage() {
                         {isOpen && items.map((s) => (
                           <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              {trackEditor(s)}
-                              {s.adminNote && trackEdit?.id !== s.id && <div style={{ fontSize: '0.78rem', color: 'var(--accent)', marginTop: '0.1rem' }}>{s.adminNote}</div>}
+                              {shipmentEditor(s)}
+                              {s.adminNote && rowEdit?.id !== s.id && <div style={{ fontSize: '0.78rem', color: 'var(--accent)', marginTop: '0.1rem' }}>{s.adminNote}</div>}
                             </div>
-                            {trackEdit?.id !== s.id && <>
+                            {rowEdit?.id !== s.id && <>
                               <span style={{ fontWeight: 700, color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontSize: '0.88rem' }}>
                                 {s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}
                               </span>
@@ -455,17 +478,17 @@ export default function HandoverPage() {
                     borderBottom: i < scanned.length - 1 ? '1px solid var(--border)' : 'none',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
-                      {trackEdit?.id === s.id ? trackEditor(s) : <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{s.trackCode}</span>}
-                      {trackEdit?.id !== s.id && s.phone && <span style={{ color: 'var(--muted)' }}>{s.phone}</span>}
-                      {trackEdit?.id !== s.id && s.adminNote && <span style={{ color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.adminNote}</span>}
+                      {rowEdit?.id === s.id ? shipmentEditor(s) : <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{s.trackCode}</span>}
+                      {rowEdit?.id !== s.id && s.phone && <span style={{ color: 'var(--muted)' }}>{s.phone}</span>}
+                      {rowEdit?.id !== s.id && s.adminNote && <span style={{ color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.adminNote}</span>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                      {trackEdit?.id !== s.id && <>
+                      {rowEdit?.id !== s.id && <>
                         <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
                           {s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}
                         </span>
-                        <button type="button" className="hit-pad" aria-label={`${s.trackCode} трак код засах`} title="Трак код засах"
-                          onClick={() => { setTrackError(''); setTrackEdit({ id: s.id, draft: s.trackCode }) }}
+                        <button type="button" className="hit-pad" aria-label={`${s.trackCode} засах`} title="Засах"
+                          onClick={() => startRowEdit(s)}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.2rem' }}>
                           <Pencil size={15} strokeWidth={2} />
                         </button>
@@ -544,8 +567,8 @@ export default function HandoverPage() {
                         fontSize: '0.82rem', gap: '0.5rem', background: 'var(--bg)',
                       }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          {trackEditor(s)}
-                          {s.description && trackEdit?.id !== s.id && <span style={{ color: 'var(--muted)', marginLeft: '0.5rem' }}>{s.description}</span>}
+                          {shipmentEditor(s)}
+                          {s.description && rowEdit?.id !== s.id && <span style={{ color: 'var(--muted)', marginLeft: '0.5rem' }}>{s.description}</span>}
                         </div>
                         <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600, flexShrink: 0 }}>
                           {s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}
