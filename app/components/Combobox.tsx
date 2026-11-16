@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useId, useRef, useState } from 'react'
-import { reduceComboKey, type ComboKeyState } from '@/lib/combobox-keys'
+import { reduceComboKey, shouldShowSuggestions, type ComboKeyState } from '@/lib/combobox-keys'
 import type { ComboOption } from './customer-suggest'
 
 const DEBOUNCE_MS = 200
@@ -36,7 +36,10 @@ export default function Combobox({
   const [options, setOptions] = useState<ComboOption[]>([])
   const [active, setActive] = useState(-1)
   const loadRef = useRef(load)
+  const inputRef = useRef<HTMLInputElement>(null)
   const skipQuery = useRef<string | null>(null)
+  // Enter / pick / blur. Stops a suggestion response from opening over the controls below.
+  const suppressOpen = useRef(false)
   loadRef.current = load
 
   useEffect(() => {
@@ -57,7 +60,8 @@ export default function Combobox({
         if (ac.signal.aborted) return
         setOptions(next)
         setActive(-1)
-        setOpen(next.length > 0)
+        const focused = document.activeElement === inputRef.current
+        setOpen(shouldShowSuggestions({ focused, suppressed: suppressOpen.current, count: next.length }))
       }).catch(() => {})
     }, DEBOUNCE_MS)
     return () => {
@@ -74,6 +78,7 @@ export default function Combobox({
   function choose(index: number) {
     const opt = options[index]
     if (!opt) return
+    suppressOpen.current = true
     skipQuery.current = opt.value
     onChange(opt.value)
     onPick?.(opt)
@@ -89,6 +94,7 @@ export default function Combobox({
       metaKey: e.metaKey,
       composing: e.nativeEvent.isComposing,
     })
+    if (result.action.type === 'commit' || result.action.type === 'select') suppressOpen.current = true
     setOpen(result.state.open)
     setActive(result.state.active)
     if (result.action.type === 'select') choose(result.action.index)
@@ -110,14 +116,15 @@ export default function Combobox({
         aria-activedescendant={activeId}
         aria-describedby={describedBy}
         placeholder={placeholder}
+        ref={inputRef}
         value={value}
         required={required}
         inputMode={inputMode}
         autoComplete="off"
         spellCheck={false}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => { suppressOpen.current = false; onChange(e.target.value) }}
         onKeyDown={onKeyDown}
-        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onBlur={() => { suppressOpen.current = true; setOpen(false) }}
       />
       {expanded && (
         <ul className="cb-list" id={listId} role="listbox" aria-label={ariaLabel}>

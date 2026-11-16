@@ -87,6 +87,15 @@ export function reduceComboKey(state: ComboKeyState, key: string, mods: ComboKey
   return { state: current, action: IDLE, prevent: false }
 }
 
+/**
+ * Suggestions only while the field is focused and the user has not just committed
+ * (Enter / pick). A late response must not reopen the list over the price field
+ * or the delete button under the search box.
+ */
+export function shouldShowSuggestions(input: { focused: boolean; suppressed: boolean; count: number }): boolean {
+  return input.focused && !input.suppressed && input.count > 0
+}
+
 /** The mocked (or live) option a select action points at. */
 export function selectedOption<T>(options: readonly T[], action: ComboAction): T | null {
   if (action.type !== 'select') return null
