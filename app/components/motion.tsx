@@ -79,10 +79,12 @@ export function StaggerItem({
   children,
   className,
   style,
+  y = 18,
 }: {
   children: ReactNode
   className?: string
   style?: React.CSSProperties
+  y?: number
 }) {
   const reduce = usePrefersReducedMotion()
   if (reduce) return <div className={className} style={style}>{children}</div>
@@ -91,8 +93,8 @@ export function StaggerItem({
       className={className}
       style={style}
       variants={{
-        hidden: { opacity: 0, y: 18 },
-        show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+        hidden: { opacity: 0, y },
+        show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.25, 1, 0.5, 1] } },
       }}
     >
       {children}

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import NavLogo from './components/NavLogo'
 import { Reveal, Stagger, StaggerItem, CountUpStat } from './components/motion'
 import {
@@ -9,13 +10,15 @@ import {
   MessageCircleQuestion, Clock, ShieldCheck, CreditCard, Phone, GraduationCap, ArrowUpRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { warehousePath, cloudinaryThumb, formatMnt } from '@/lib/warehouse'
+import { warehousePath, cloudinaryThumb } from '@/lib/warehouse'
 import HeroMockup from './components/HeroMockup'
+import RouteMap from './components/RouteMap'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import PartnerMarquee from './components/PartnerMarquee'
 import ThemeToggle from './components/ThemeToggle'
-import SeasonalBackdrop from './components/SeasonalBackdrop'
 import { PartnerContactModal } from './components/PartnerContact'
+import { LANDING_IMAGES, type LandingPhoto } from '@/lib/landing-media'
+import './landing.css'
 
 const STATUS_LABEL: Record<string, string> = {
   REGISTERED: 'Бүртгүүлсэн',
@@ -28,7 +31,8 @@ const FB_URL = 'https://www.facebook.com/share/1BSw6dQ22F/'
 const PHONE = '85205258'
 const PRICE = '₮50,000'
 
-// Өмнө → одоо: карго эзний өдөр тутмын өвдөлт ба AiCargo-гийн хариу (богино, нэг харцаар)
+const HERO_TILES = Array.from({ length: 40 }, (_, i) => (i % 8) * 0.04 + Math.floor(i / 8) * 0.055)
+
 const PAINS: { icon: ReactNode; before: string; after: string }[] = [
   { icon: <FileSpreadsheet size={16} />, before: 'Трак кодыг гараар шивнэ', after: 'Excel-ээс нэг товчоор' },
   { icon: <Phone size={16} />, before: 'Өдөрт хэдэн арван дуудлага', after: 'Хэрэглэгч ачаагаа өөрөө харна' },
@@ -45,11 +49,18 @@ const FOR_ADMIN = [
 const FOR_USER = [
   { icon: <Globe size={18} />, title: 'Таны нэртэй вэб', desc: 'Утсанд апп шиг' },
   { icon: <Package size={18} />, title: 'Ачаа хянах', desc: 'Эрээн → УБ → Авсан' },
-  // AI туслах түр хаалттай үед оронд нь утасны мэдэгдэл (lib/ai-feature-flag)
   AI_SUPPORT_ENABLED
     ? { icon: <Sparkles size={18} />, title: 'AI туслах', desc: '24/7 хариулна' }
     : { icon: <Bell size={18} />, title: 'Утсанд мэдэгдэл', desc: 'Ачаа ирэхэд шууд' },
   { icon: <Smartphone size={18} />, title: 'Утсаар шалгах', desc: 'Бүртгэлгүйгээр' },
+]
+
+const JOURNEY: { title: string; photo: LandingPhoto }[] = [
+  { title: 'Хятадаас Эрээнд ирнэ', photo: LANDING_IMAGES.steps.china },
+  { title: 'Эрээнд ангилж, баглана', photo: LANDING_IMAGES.steps.pack },
+  { title: 'Машинаар Монгол руу', photo: LANDING_IMAGES.steps.truck },
+  { title: 'УБ-д буулгаж, системд бүртгэнэ', photo: LANDING_IMAGES.steps.register },
+  { title: 'Хэрэглэгч вэбээс хараад авна', photo: LANDING_IMAGES.steps.pickup },
 ]
 
 const STEPS = [
@@ -80,17 +91,46 @@ function SectionHead({ eyebrow, title, sub }: { eyebrow?: string; title: ReactNo
 
 function CopyChip({ label, value }: { label: string; value: string }) {
   return (
-    <button className="lp-copychip" onClick={() => { navigator.clipboard.writeText(value); toast.success('Хуулагдлаа') }}>
+    <button type="button" className="lp-copychip" onClick={() => { navigator.clipboard.writeText(value); toast.success('Хуулагдлаа') }}>
       <span>{label}</span>{value}
     </button>
   )
 }
 
-export default function MarketingLanding({ stats, partnerCargos = [], warehouses = [], superPreview = false }: {
+function Cover({ photo, sizes, priority = false, className }: { photo: LandingPhoto; sizes: string; priority?: boolean; className?: string }) {
+  return (
+    <Image
+      src={photo.src}
+      alt={photo.alt}
+      fill
+      sizes={sizes}
+      priority={priority}
+      className={className}
+      style={{ objectPosition: photo.objectPosition ?? 'center' }}
+    />
+  )
+}
+
+function FeatureList({ items }: { items: { icon: ReactNode; title: string; desc: string }[] }) {
+  return (
+    <ul className="lx-m-list">
+      {items.map(it => (
+        <li key={it.title}>
+          <span className="lx-m-ic">{it.icon}</span>
+          <b>{it.title}</b>
+          <small>{it.desc}</small>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+export default function MarketingLanding({ stats, partnerCargos = [], warehouses = [], superPreview = false, fontClass = '' }: {
   stats: { cargos: number; users: number; shipments: number }
   partnerCargos?: PartnerCargo[]
   warehouses?: Warehouse[]
   superPreview?: boolean
+  fontClass?: string
 }) {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<any>(null)
@@ -98,18 +138,24 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   const [loading, setLoading] = useState(false)
   const [demoOpen, setDemoOpen] = useState(false)
   const [showSticky, setShowSticky] = useState(false)
+  const [navSolid, setNavSolid] = useState(false)
   const heroCta = useRef<HTMLDivElement>(null)
   const featuredWh = warehouses.find(w => w.imageUrl) ?? warehouses[0]
-  // Эрээнд агуулахтай болох — цахим гэрээний оронд шууд холбогдоно (утас, WeChat)
   const [contactOpen, setContactOpen] = useState(false)
 
-  // Утсанд: hero-гийн CTA дэлгэцээс гарахад доод талд CTA зурвас гарна
   useEffect(() => {
     const el = heroCta.current
     if (!el || !('IntersectionObserver' in window)) return
     const io = new IntersectionObserver(([e]) => setShowSticky(!e.isIntersecting && e.boundingClientRect.top < 0))
     io.observe(el)
     return () => io.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const onScroll = () => setNavSolid(window.scrollY > 24)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   useEffect(() => {
@@ -136,7 +182,6 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
     }
   }
 
-  // Google-д зориулсан бүтэцлэгдсэн өгөгдөл: байгууллага + SaaS бүтээгдэхүүн, үнэ
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -183,86 +228,142 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
   ]
 
   return (
-    <div className="lp">
-      <SeasonalBackdrop />
+    <div className={`lx${fontClass ? ` ${fontClass}` : ''}`}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      {/* ── NAV ── */}
-      <nav className="nav">
-        <NavLogo />
-        <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '1.1rem', marginLeft: 'auto', flexShrink: 0 }}>
-          {superPreview ? (
-            <Link href="/super" className="btn btn-sm">← Super admin</Link>
-          ) : (
-            <>
-              <a href="#features" className="lp-nav-hide-sm">Боломжууд</a>
-              <a href="#pricing" className="lp-nav-hide-sm">Үнэ</a>
-              <a href="#track" className="lp-nav-hide-sm">Ачаа шалгах</a>
-              <ThemeToggle storageKey="landing-theme" />
-              <Link href="/login" className="link-tap">Нэвтрэх</Link>
-              <Link href="/signup-cargo" className="btn btn-sm" style={{ whiteSpace: 'nowrap' }}>Карго нээх</Link>
-            </>
-          )}
+      <header className="lx-hero">
+        <div className="lx-hero-media" aria-hidden>
+          <Cover photo={LANDING_IMAGES.hero} sizes="100vw" priority className="lx-hero-photo" />
+          <div className="lx-hero-shade" />
         </div>
-      </nav>
+        <div className="lx-tiles" aria-hidden>
+          {HERO_TILES.map((delay, i) => (
+            <span key={i} className="lx-tile" style={{ animationDelay: `${delay}s` }} />
+          ))}
+        </div>
 
-      <main>
-        {/* ── HERO ── */}
-        <section className="lp-hero">
-          <div className="lp-hero-glow" aria-hidden />
-          <Reveal y={14}>
-            <span className="lp-pill"><Sparkles size={13} strokeWidth={2.5} />{AI_SUPPORT_ENABLED ? 'Монголын анхны AI-суурьтай карго платформ' : 'Эрээнээс олголт хүртэл — нэг системд'}</span>
-          </Reveal>
-          <Reveal y={22} delay={0.08}>
-            <h1 className="lp-h1">
+        <nav className={`nav${navSolid ? ' lx-nav-solid' : ''}`}>
+          <NavLogo />
+          <div className="nav-links">
+            {superPreview ? (
+              <Link href="/super" className="btn btn-sm">← Super admin</Link>
+            ) : (
+              <>
+                <a href="#features" className="lp-nav-hide-sm">Боломжууд</a>
+                <a href="#pricing" className="lp-nav-hide-sm">Үнэ</a>
+                <a href="#track" className="lp-nav-hide-sm">Ачаа шалгах</a>
+                <ThemeToggle storageKey="landing-theme" />
+                <Link href="/login" className="link-tap">Нэвтрэх</Link>
+                <Link href="/signup-cargo" className="btn btn-sm" style={{ whiteSpace: 'nowrap' }}>Карго нээх</Link>
+              </>
+            )}
+          </div>
+        </nav>
+
+        <div className="lx-hero-grid">
+          <div className="lx-hero-copy">
+            {AI_SUPPORT_ENABLED && (
+              <span className="lx-kicker"><Sparkles size={13} strokeWidth={2.5} />Монголын анхны AI-суурьтай карго платформ</span>
+            )}
+            <h1 className="lx-h1">
               Карго бизнесээ<br />
               <span>5 минутад онлайн</span> болго
             </h1>
-          </Reveal>
-          <Reveal y={22} delay={0.16}>
-            <p className="lp-lead">
+            <p className="lx-lead">
               Өөрийн нэртэй вэбсайт, ачаа бүртгэл, олголт — бүгд нэг дор.
               Эрээнд ачаа хүлээн авах агуулах ч эндээс.
             </p>
-          </Reveal>
-          <Reveal y={22} delay={0.24}>
-            {/* Хоёр үйлчилгээ — зочин өөрт хэрэгтэйгээ шууд сонгоно */}
-            <div className="lp-offers" ref={heroCta}>
-              <Link href="/signup-cargo" className="lp-offer lp-offer-main">
-                <span className="lp-offer-ic"><Globe size={20} /></span>
-                <span className="lp-offer-txt"><b>Каргогоо үнэгүй нээх</b><small>Вэбсайт + систем · 30 хоног үнэгүй</small></span>
-                <ArrowRight size={18} className="lp-offer-go" />
+            <div className="lx-offers" ref={heroCta}>
+              <Link href="/signup-cargo" className="lx-offer lx-offer-main">
+                <span className="lx-offer-ic"><Globe size={20} /></span>
+                <span className="lx-offer-txt"><b>Каргогоо үнэгүй нээх</b><small>Вэбсайт + систем · 30 хоног үнэгүй</small></span>
+                <ArrowRight size={18} className="lx-offer-go" />
               </Link>
-              <button type="button" onClick={() => setContactOpen(true)} className="lp-offer">
-                <span className="lp-offer-ic"><WarehouseIcon size={20} /></span>
-                <span className="lp-offer-txt"><b>Эрээнд агуулахтай болох</b><small>Хувь хүн ч болно · шууд холбогдоно</small></span>
-                <ArrowRight size={18} className="lp-offer-go" />
+              <button type="button" onClick={() => setContactOpen(true)} className="lx-offer">
+                <span className="lx-offer-ic"><WarehouseIcon size={20} /></span>
+                <span className="lx-offer-txt"><b>Эрээнд агуулахтай болох</b><small>Хувь хүн ч болно · шууд холбогдоно</small></span>
+                <ArrowRight size={18} className="lx-offer-go" />
               </button>
-              {/* Карго бизнесийн сургалт (Cargo Hub) — /surgalt руу шилжинэ (next.config) */}
-              <a href="/surgalt" target="_blank" rel="noopener noreferrer" className="lp-offer">
-                <span className="lp-offer-ic"><GraduationCap size={20} /></span>
-                <span className="lp-offer-txt"><b>Карго бизнес сурах</b><small>48 хичээл · ₮120,000 · <span style={{ whiteSpace: 'nowrap' }}>4 нь үнэгүй</span></small></span>
-                <ArrowUpRight size={18} className="lp-offer-go" />
+              <a href="/surgalt" target="_blank" rel="noopener noreferrer" className="lx-offer">
+                <span className="lx-offer-ic"><GraduationCap size={20} /></span>
+                <span className="lx-offer-txt"><b>Карго бизнес сурах</b><small>48 хичээл · ₮120,000 · <span style={{ whiteSpace: 'nowrap' }}>4 нь үнэгүй</span></small></span>
+                <ArrowUpRight size={18} className="lx-offer-go" />
               </a>
             </div>
-            <ul className="lp-assure">
+            <ul className="lx-assure">
               <li><Check size={14} strokeWidth={3} />Карт шаардлагагүй</li>
               <li><Check size={14} strokeWidth={3} />Суулгах шаардлагагүй</li>
-              <li><button onClick={() => setDemoOpen(true)} className="lp-demo-link link-tap"><Monitor size={14} />Демо үзэх</button></li>
+              <li><button type="button" onClick={() => setDemoOpen(true)} className="lp-demo-link link-tap"><Monitor size={14} />Демо үзэх</button></li>
             </ul>
-          </Reveal>
-        </section>
+          </div>
+          <div className="lx-hero-map">
+            <RouteMap />
+          </div>
+        </div>
+      </header>
 
-        <section className="lp-mock">
-          <Reveal y={28} delay={0.2}><HeroMockup /></Reveal>
-        </section>
+      <section className="lx-statement" aria-label="Уриа">
+        <h2>Эрээнээс олголт хүртэл — нэг системд</h2>
+      </section>
 
-        {/* ── ИТГЭЛ: түншүүд + тоо ── */}
+      <main>
         {partnerCargos.length > 0
           ? <PartnerMarquee cargos={partnerCargos} total={stats.cargos}>{statsRow}</PartnerMarquee>
           : statsRow && <section className="lp-sec lp-sec-line">{statsRow}</section>}
 
-        {/* ── АСУУДАЛ → ШИЙДЭЛ ── */}
+        <section className="lx-journey" aria-label="Ачааны аялал">
+          <div className="lx-steps">
+            {JOURNEY.map((step, i) => (
+              <article key={step.title} className="lx-step">
+                <Cover photo={step.photo} sizes="(max-width: 980px) 78vw, 20vw" className="lx-step-img" />
+                <div className="lx-step-shade" aria-hidden />
+                <span className="lx-step-n">{i + 1}</span>
+                <h3 className="lx-step-title">{step.title}</h3>
+                <Link href="/signup-cargo" className="lx-step-cta" aria-label={`${step.title} — Каргогоо үнэгүй нээх`}>
+                  Каргогоо үнэгүй нээх
+                </Link>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="lx-product" aria-label="Админ болон Миний ачаа">
+          <HeroMockup showJourney={false} />
+        </section>
+
+        <section id="features" className="lp-sec lx-features">
+          <div className="lp-wrap">
+            <SectionHead eyebrow="Боломжууд" title="Карго болон хэрэглэгч — хоёуланд нь" />
+            <div className="lx-masonry">
+              <article className="lx-m lx-m-tall">
+                <Cover photo={LANDING_IMAGES.masonry.admin} sizes="(max-width: 800px) 100vw, 55vw" className="lx-m-img" />
+                <div className="lx-m-shade" aria-hidden />
+                <div className="lx-m-body">
+                  <h3>Каргогийн админд</h3>
+                  <p className="lx-m-note">Компьютер, утас хоёуланд</p>
+                  <FeatureList items={FOR_ADMIN} />
+                </div>
+              </article>
+              <article className="lx-m">
+                <Cover photo={LANDING_IMAGES.masonry.user} sizes="(max-width: 800px) 100vw, 42vw" className="lx-m-img" />
+                <div className="lx-m-shade" aria-hidden />
+                <div className="lx-m-body">
+                  <h3>Таны хэрэглэгчдэд</h3>
+                  <p className="lx-m-note">Апп татах шаардлагагүй</p>
+                  <FeatureList items={FOR_USER} />
+                </div>
+              </article>
+              <article className="lx-m">
+                <Cover photo={LANDING_IMAGES.masonry.wide} sizes="(max-width: 800px) 100vw, 42vw" className="lx-m-img" />
+                <div className="lx-m-shade" aria-hidden />
+                <div className="lx-m-body">
+                  <p className="lx-m-quote">Өөрийн нэртэй вэбсайт, ачаа бүртгэл, олголт — бүгд нэг дор.</p>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
         <section className="lp-sec lp-sec-alt">
           <div className="lp-wrap">
             <SectionHead
@@ -282,39 +383,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
-        {/* ── БОЛОМЖУУД: хоёр талд ── */}
-        <section id="features" className="lp-sec">
-          <div className="lp-wrap">
-            <SectionHead
-              eyebrow="Боломжууд"
-              title="Карго болон хэрэглэгч — хоёуланд нь"
-            />
-            <div className="lp-roles">
-              {[
-                { key: 'admin', icon: <Wrench size={18} />, title: 'Каргогийн админд', note: 'Компьютер, утас хоёуланд', items: FOR_ADMIN },
-                { key: 'user', icon: <User size={18} />, title: 'Таны хэрэглэгчдэд', note: 'Апп татах шаардлагагүй', items: FOR_USER },
-              ].map(r => (
-                <Reveal key={r.key} y={20} className={`lp-role lp-role-${r.key}`}>
-                  <div className="lp-role-head">
-                    <span className="lp-role-icon">{r.icon}</span>
-                    <div><h3>{r.title}</h3><small>{r.note}</small></div>
-                  </div>
-                  <ul>
-                    {r.items.map(it => (
-                      <li key={it.title}>
-                        <span className="lp-feat-ic">{it.icon}</span>
-                        <b>{it.title}</b><small>{it.desc}</small>
-                      </li>
-                    ))}
-                  </ul>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── ХЭРХЭН ЭХЛЭХ ── */}
-        <section className="lp-sec lp-sec-alt">
+        <section className="lp-sec">
           <div className="lp-wrap">
             <SectionHead eyebrow="Эхлэхэд" title="3 алхам, 5 минут" />
             <Stagger className="lp-steps" gap={0.12}>
@@ -330,8 +399,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
-        {/* ── ҮНЭ ── */}
-        <section id="pricing" className="lp-sec">
+        <section id="pricing" className="lp-sec lp-sec-alt">
           <div className="lp-wrap">
             <SectionHead eyebrow="Үнэ" title="Энгийн, ил тод үнэ" sub="Нуусан төлбөргүй · хүссэн үедээ зогсооно" />
             <div className={`lp-plans${featuredWh ? '' : ' lp-plans-one'}`}>
@@ -362,42 +430,36 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
           </div>
         </section>
 
-        {/* ── ЭРЭЭНИЙ АГУУЛАХ ── */}
-        {featuredWh && (() => {
-          return (
-            <section id="warehouse" className="lp-wh">
-              <div className="lp-wh-inner lp-wh-grid">
-                <Reveal y={20}>
-                  <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><WarehouseIcon size={15} strokeWidth={2.2} /> Нэмэлт үйлчилгээ · Эрээн</div>
-                  <h2 className="lp-wh-title">Эрээн дэх түнш агуулахууд</h2>
-                  <p className="lp-wh-lead">Ачаа хүлээн авч, баглаад Гааль хүртэл хүргэнэ. Хувь хүн ч болно, карго нээх шаардлагагүй.</p>
-                  <button type="button" onClick={() => setContactOpen(true)} className="btn lp-wh-cta">Холбогдох <ArrowRight size={16} /></button>
-                </Reveal>
-
-                {/* Агуулах бүр — зураг, үнэ; дарахад дэлгэрэнгүй хуудас */}
-                <div className="lp-wh-cards">
-                  {warehouses.map(w => (
-                    <Link key={w.id} href={warehousePath(w)} className="lp-wh-card">
-                      <span className="lp-wh-card-img">
-                        {w.imageUrl
-                          // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={cloudinaryThumb(w.imageUrl, 400)} alt={w.name} loading="lazy" />
-                          : <Factory size={28} strokeWidth={1.6} />}
-                      </span>
-                      <span className="lp-wh-card-body">
-                        <span className="lp-wh-card-name">{w.name}</span>
-                        <span className="lp-wh-card-fee">Зураг, үйлчилгээтэй танилцах</span>
-                      </span>
-                      <ArrowRight size={17} className="lp-wh-card-go" />
-                    </Link>
-                  ))}
-                </div>
+        {featuredWh && (
+          <section id="warehouse" className="lp-wh">
+            <div className="lp-wh-inner lp-wh-grid">
+              <Reveal y={20}>
+                <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><WarehouseIcon size={15} strokeWidth={2.2} /> Нэмэлт үйлчилгээ · Эрээн</div>
+                <h2 className="lp-wh-title">Эрээн дэх түнш агуулахууд</h2>
+                <p className="lp-wh-lead">Ачаа хүлээн авч, баглаад Гааль хүртэл хүргэнэ. Хувь хүн ч болно, карго нээх шаардлагагүй.</p>
+                <button type="button" onClick={() => setContactOpen(true)} className="btn lp-wh-cta">Холбогдох <ArrowRight size={16} /></button>
+              </Reveal>
+              <div className="lp-wh-cards">
+                {warehouses.map(w => (
+                  <Link key={w.id} href={warehousePath(w)} className="lp-wh-card">
+                    <span className="lp-wh-card-img">
+                      {w.imageUrl
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={cloudinaryThumb(w.imageUrl, 400)} alt={w.name} loading="lazy" />
+                        : <Factory size={28} strokeWidth={1.6} />}
+                    </span>
+                    <span className="lp-wh-card-body">
+                      <span className="lp-wh-card-name">{w.name}</span>
+                      <span className="lp-wh-card-fee">Зураг, үйлчилгээтэй танилцах</span>
+                    </span>
+                    <ArrowRight size={17} className="lp-wh-card-go" />
+                  </Link>
+                ))}
               </div>
-            </section>
-          )
-        })()}
+            </div>
+          </section>
+        )}
 
-        {/* ── FAQ ── */}
         <section className="lp-sec">
           <div className="lp-wrap lp-faq-wrap">
             <SectionHead eyebrow="Асуулт хариулт" title="Түгээмэл асуултууд" />
@@ -409,25 +471,23 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                 </details>
               ))}
               <p className="lp-faq-more">
-                <MessageCircleQuestion size={15} />Өөр асуулт байна уу? <a href={`tel:${PHONE}`} className="link-tap" style={{ padding: "0 4px" }}>{PHONE}</a> дугаарт залгаарай
+                <MessageCircleQuestion size={15} />Өөр асуулт байна уу? <a href={`tel:${PHONE}`} className="link-tap" style={{ padding: '0 4px' }}>{PHONE}</a> дугаарт залгаарай
               </p>
             </div>
           </div>
         </section>
 
-        {/* ── ЭЦСИЙН CTA ── */}
         <section className="lp-final-wrap">
           <Reveal y={20} className="lp-final">
             <h2>Каргогоо өнөөдөр онлайн болго</h2>
             <p>30 хоног үнэгүй · Карт шаардлагагүй · 5 минутад бэлэн</p>
             <div className="lp-cta-row">
               <Link href="/signup-cargo" className="btn btn-lg lp-final-btn">Каргогоо үнэгүй нээх <ArrowRight size={18} /></Link>
-              <button onClick={() => setDemoOpen(true)} className="btn-ghost btn-lg lp-final-ghost"><Monitor size={17} />Демо үзэх</button>
+              <button type="button" onClick={() => setDemoOpen(true)} className="btn-ghost btn-lg lp-final-ghost"><Monitor size={17} />Демо үзэх</button>
             </div>
           </Reveal>
         </section>
 
-        {/* ── АЧАА ШАЛГАХ (эцсийн хэрэглэгчдэд) ── */}
         <section id="track" className="lp-track">
           <div className="lp-track-inner">
             <div className="lp-track-text">
@@ -448,7 +508,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
                   onKeyDown={e => e.key === 'Enter' && search()}
                   style={{ minWidth: 0 }}
                 />
-                <button className="btn" onClick={search} disabled={loading} style={{ flexShrink: 0 }}>
+                <button type="button" className="btn" onClick={search} disabled={loading} style={{ flexShrink: 0 }}>
                   {loading ? '...' : 'Шалгах'}
                 </button>
               </div>
@@ -479,10 +539,9 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
       </main>
       {contactOpen && <PartnerContactModal onClose={() => setContactOpen(false)} />}
 
-      {/* ── FOOTER ── */}
-      <footer className="lp-footer">
-        <div className="lp-footer-grid">
-          <div className="lp-footer-brand">
+      <footer className="lx-footer">
+        <div className="lx-footer-grid">
+          <div className="lx-footer-brand">
             <NavLogo />
             <p>Карго компанид зориулсан ачаа бүртгэл, хяналтын систем — Эрээнээс олголт хүртэл.</p>
           </div>
@@ -492,7 +551,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             <a href="#pricing">Үнэ</a>
             {featuredWh && <Link href="/warehouses">Эрээний агуулахууд</Link>}
             <a href="/surgalt" target="_blank" rel="noopener noreferrer">Карго сургалт</a>
-            <button onClick={() => setDemoOpen(true)}>Демо</button>
+            <button type="button" onClick={() => setDemoOpen(true)}>Демо</button>
           </div>
           <div>
             <h4>Хэрэглэгчдэд</h4>
@@ -511,7 +570,7 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
             )}
           </div>
         </div>
-        <div className="lp-footer-bottom">
+        <div className="lx-footer-bottom">
           <span>© 2026 &quot;Бизнес интеллижэнс&quot; ХХК · Бүх эрх хуулиар хамгаалагдсан</span>
           <span>
             <Link href="/terms">Үйлчилгээний нөхцөл</Link>
@@ -520,19 +579,17 @@ export default function MarketingLanding({ stats, partnerCargos = [], warehouses
         </div>
       </footer>
 
-      {/* ── Утасны доод CTA ── */}
       {!superPreview && (
         <div className={`lp-sticky${showSticky ? ' on' : ''}`} aria-hidden={!showSticky}>
           <Link href="/signup-cargo" className="btn" tabIndex={showSticky ? 0 : -1}>Каргогоо үнэгүй нээх <ArrowRight size={16} /></Link>
-          <button className="btn-ghost" onClick={() => setDemoOpen(true)} tabIndex={showSticky ? 0 : -1} aria-label="Демо үзэх"><Monitor size={17} /></button>
+          <button type="button" className="btn-ghost" onClick={() => setDemoOpen(true)} tabIndex={showSticky ? 0 : -1} aria-label="Демо үзэх"><Monitor size={17} /></button>
         </div>
       )}
 
-      {/* ── Демо орчны модал ── */}
       {demoOpen && (
         <div className="lp-modal-bg" onClick={() => setDemoOpen(false)}>
           <div className="lp-modal" role="dialog" aria-modal="true" aria-label="Демо орчин" onClick={e => e.stopPropagation()}>
-            <button className="icon-btn lp-modal-x" onClick={() => setDemoOpen(false)} aria-label="Хаах"><X size={17} /></button>
+            <button type="button" className="icon-btn lp-modal-x" onClick={() => setDemoOpen(false)} aria-label="Хаах"><X size={17} /></button>
             <h3><Monitor size={18} strokeWidth={2.2} />Демо орчин</h3>
             <p>
               Бодит систем — админ болон хэрэглэгчийн аль алины нүдээр туршаарай.
