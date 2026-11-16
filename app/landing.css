@@ -254,14 +254,105 @@
 }
 @keyframes lx-dash { to { stroke-dashoffset: -40; } }
 
+/* Утас: бүхэл hero (гарчиг, маршрут, машин, цагаан зурвас) нэг дэлгэцэнд. */
 @media (max-width: 860px) {
-  .lx-hero { min-height: 0; padding-bottom: 4.6rem; }
-  .lx-hero-grid { grid-template-columns: 1fr; padding-top: 5.5rem; gap: 0.4rem; }
-  .lx-hero-shade {
-    background: linear-gradient(180deg, rgba(7, 24, 51, 0.78) 0%, rgba(7, 24, 51, 0.58) 46%, rgba(7, 24, 51, 0.82) 100%);
+  .lx-hero {
+    min-height: 100svh;
+    padding-bottom: 3.55rem;
   }
-  .lx-hero-map { margin-top: 0.4rem; }
-  .lx-h1 { font-size: clamp(2.15rem, 9.2vw, 2.8rem); }
+  .lx-hero-photo {
+    object-position: 74% 86% !important;
+    transform: scale(1.18) translate3d(2%, -5%, 0);
+    transform-origin: 70% 78%;
+  }
+  .lx-hero-shade {
+    background:
+      linear-gradient(180deg, rgba(7, 24, 51, 0.78) 0%, rgba(7, 24, 51, 0.55) 34%, rgba(7, 24, 51, 0.34) 68%, rgba(7, 24, 51, 0.62) 100%),
+      linear-gradient(90deg, rgba(7, 24, 51, 0.42) 0%, rgba(7, 24, 51, 0.12) 58%, rgba(7, 24, 51, 0) 100%);
+  }
+  .lx-hero-grid {
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "kicker"
+      "title"
+      "lead"
+      "map"
+      "offers"
+      "assure";
+    grid-template-rows: auto auto auto minmax(132px, 1fr) auto auto;
+    align-items: center;
+    align-content: stretch;
+    gap: 0.4rem;
+    padding: calc(3.55rem + env(safe-area-inset-top)) 0.9rem 0.15rem;
+  }
+  .lx-hero-copy { display: contents; animation: none; }
+  .lx-kicker { grid-area: kicker; margin-bottom: 0; }
+  .lx-h1 {
+    grid-area: title;
+    font-size: clamp(1.48rem, 6.5vw, 1.95rem);
+    line-height: 1.02;
+    margin: 0;
+  }
+  .lx-lead {
+    grid-area: lead;
+    max-width: none;
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+  .lx-hero-map {
+    grid-area: map;
+    margin: 0;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+  }
+  .lx-map { width: 100%; height: 100%; max-height: none; }
+  .lx-stop-label { font-size: 22px; }
+  .lx-route-base { stroke-width: 2.6; }
+  .lx-route-dash { stroke-width: 3.2; stroke-dasharray: 2.4 3.6; }
+  .lx-offers {
+    grid-area: offers;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    max-width: none;
+  }
+  .lx-offer-main { grid-column: 1 / -1; }
+  .lx-offer { padding: 0.42rem 0.55rem; gap: 0.45rem; border-radius: 12px; }
+  .lx-offer b { font-size: 0.8rem; line-height: 1.2; }
+  .lx-offer small { font-size: 0.66rem; line-height: 1.25; margin-top: 0; }
+  .lx-offers .lx-offer:not(.lx-offer-main) small { display: none; }
+  .lx-offer-ic { width: 28px; height: 28px; border-radius: 8px; }
+  .lx-offer-ic svg, .lx-offer-go { width: 16px; height: 16px; }
+  .lx-assure {
+    grid-area: assure;
+    margin: 0;
+    gap: 0.05rem 0.7rem;
+    font-size: 0.74rem;
+  }
+}
+@media (max-width: 860px) and (prefers-reduced-motion: no-preference) {
+  .lx-hero-photo {
+    animation:
+      lx-hero-in-m 1.7s var(--lx-ease) both,
+      lx-hero-drift-m 20s ease-in-out 1.7s infinite alternate;
+  }
+  .lx-h1, .lx-lead { animation: lx-in-left 0.95s var(--lx-ease) both; }
+  .lx-offers, .lx-assure { animation: lx-in-left 0.95s var(--lx-ease) 0.05s both; }
+  .lx-hero-map { animation: lx-in-right 0.95s var(--lx-ease) 0.08s both; }
+}
+@keyframes lx-hero-in-m {
+  from { transform: scale(1.32) translate3d(2%, -3%, 0); }
+  to { transform: scale(1.18) translate3d(2%, -5%, 0); }
+}
+@keyframes lx-hero-drift-m {
+  from { transform: scale(1.18) translate3d(2%, -5%, 0); }
+  to { transform: scale(1.24) translate3d(0.6%, -6%, 0); }
 }
 
 /* Цагаан давхцал */
@@ -284,6 +375,18 @@
   letter-spacing: 0.055em;
   text-transform: uppercase;
   line-height: 1.35;
+}
+@media (max-width: 860px) {
+  .lx-statement {
+    width: min(880px, calc(100% - 1rem));
+    margin-top: -2.85rem;
+    padding: 0.78rem 0.7rem 0.82rem;
+  }
+  .lx-statement h2 {
+    font-size: clamp(0.7rem, 3.05vw, 0.88rem);
+    letter-spacing: 0.03em;
+    line-height: 1.28;
+  }
 }
 
 /* Түншүүд */
