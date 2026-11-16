@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { reduceComboKey, selectedOption, type ComboKeyState } from './combobox-keys'
+import { reduceComboKey, selectedOption, shouldShowSuggestions, type ComboKeyState } from './combobox-keys'
 
 const people = [
   { id: '1', name: 'Болд', phone: '99110001', branch: 'Кино үйлдвэр' },
@@ -87,6 +87,13 @@ describe('combobox keyboard', () => {
     const empty = reduceComboKey(closed(0), 'ArrowDown')
     assert.equal(empty.state.open, false)
     assert.equal(empty.prevent, false)
+  })
+
+  it('does not reopen suggestions over a price field or delete button after Enter', () => {
+    assert.equal(shouldShowSuggestions({ focused: true, suppressed: true, count: 2 }), false)
+    assert.equal(shouldShowSuggestions({ focused: false, suppressed: false, count: 2 }), false)
+    assert.equal(shouldShowSuggestions({ focused: true, suppressed: false, count: 0 }), false)
+    assert.equal(shouldShowSuggestions({ focused: true, suppressed: false, count: 2 }), true)
   })
 
   it('Tab closes an open list without taking the key', () => {
