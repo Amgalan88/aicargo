@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     const all = await prisma.shipment.findMany({
       where: { status: 'ARRIVED', cargoId: admin.cargoId! },
-      select: { id: true, trackCode: true, description: true, adminPrice: true, phone: true, adminNote: true },
+      select: { id: true, trackCode: true, description: true, adminPrice: true, phone: true, adminNote: true, status: true, arrivedAt: true, updatedAt: true, createdAt: true },
       orderBy: { phone: 'asc' },
     })
 

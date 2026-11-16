@@ -2412,6 +2412,22 @@ html[data-brand="mgl"] { --lh-gold: #FF8200; }
 
 /* Олголт: бүлэг/мөрийн толгой нь гараар ажилладаг <button> (UX аудит #8) */
 .handover-row-btn { width: 100%; border: 0; font: inherit; color: inherit; text-align: left; }
+.ho-row { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.7rem 0.85rem; min-width: 0; }
+.ho-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ho-meta time { font-weight: 600; }
+.ho-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.ho-read { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+.ho-code { font-family: ui-monospace, monospace; font-weight: 700; font-size: 0.9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.01em; }
+.ho-amt { margin-left: auto; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.ho-form { display: flex; flex-direction: column; gap: 0.55rem; min-width: 0; }
+.ho-field { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.ho-field > span { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.ho-money { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.ho-money > b { flex-shrink: 0; color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ho-money .input { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+.ho-actions { display: flex; gap: 0.5rem; align-items: center; }
+.ho-actions .btn, .ho-actions .btn-ghost { flex: 1; min-height: 44px; justify-content: center; }
+.ho-actions .hit-pad { flex-shrink: 0; }
 .handover-row-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .handover-row-give { align-self: center; margin: 0.35rem 0.9rem 0.35rem 0.2rem; min-height: 40px; flex-shrink: 0; }
 @media (max-width: 600px) { .handover-row-give { min-height: 44px; } }
