@@ -32,6 +32,13 @@ function whenOf(s: Shipment) {
   return s.arrivedAt || s.updatedAt || s.createdAt || ''
 }
 
+function dateKey(s: Shipment) {
+  const raw = whenOf(s)
+  if (!raw) return ''
+  const d = new Date(raw)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-CA')
+}
+
 function RowContext({ s }: { s: Shipment }) {
   const when = whenOf(s)
   return (
@@ -211,7 +218,7 @@ export default function HandoverPage() {
     setShipments(data)
     setSelected(data.map((s: Shipment) => s.id)) // auto-select all (олгохын өмнө баталгаажуулах цонх гарна)
     // ≤10 ачаа бол огнооны бүлгүүдийг нээлттэй харуулна — ажилтан юу олгож буйгаа харна
-    if (data.length <= 10) setExpandedDates(new Set(data.map((s: Shipment) => new Date(s.updatedAt).toLocaleDateString('en-CA'))))
+    if (data.length <= 10) setExpandedDates(new Set(data.map((s: Shipment) => dateKey(s))))
   }
 
   function toggle(id: number) {
@@ -367,13 +374,15 @@ export default function HandoverPage() {
                   ))
                   const byDate = new Map<string, Shipment[]>()
                   for (const s of shipments) {
-                    const d = new Date(s.updatedAt).toLocaleDateString('en-CA')
+                    const d = dateKey(s)
                     if (!byDate.has(d)) byDate.set(d, [])
                     byDate.get(d)!.push(s)
                   }
                   return Array.from(byDate.entries()).map(([date, items]) => {
-                    const d = new Date(date)
-                    const label = `${d.getFullYear().toString().slice(2)}.${d.getMonth()+1}.${d.getDate()}`
+                    const parsed = date ? new Date(date) : null
+                    const label = parsed && !Number.isNaN(parsed.getTime())
+                      ? `${parsed.getFullYear().toString().slice(2)}.${parsed.getMonth()+1}.${parsed.getDate()}`
+                      : 'Огноогүй'
                     const dayTotal = items.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
                     const isOpen = expandedDates.has(date)
                     function toggleDate() {
