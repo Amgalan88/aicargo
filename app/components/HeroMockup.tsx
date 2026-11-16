@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import CargoJourney from './CargoJourney'
+import { Stagger, StaggerItem, usePrefersReducedMotion } from './motion'
 import { ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Bell, CheckCircle2, Truck, Search } from 'lucide-react'
 
 const ROWS = [
@@ -44,27 +45,26 @@ function Steps({ idx, color }: { idx: number; color: string }) {
   )
 }
 
-export default function HeroMockup() {
+export default function HeroMockup({ showJourney = true }: { showJourney?: boolean }) {
   const [t, setT] = useState(0)
+  const reduce = usePrefersReducedMotion()
 
   useEffect(() => {
-    const ok = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (!ok) return
+    if (reduce) return
     const id = setInterval(() => setT(i => (i + 1) % TOASTS.length), 3200)
     return () => clearInterval(id)
-  }, [])
+  }, [reduce])
 
   const toast = TOASTS[t]
   const ToastIcon = toast.icon
 
   return (
     <div className="hm" aria-hidden>
-      {/* ── Ачааны бодит аялал: Хятад → Эрээн → машин → УБ → хэрэглэгч ── */}
-      <CargoJourney />
+      {showJourney && <CargoJourney />}
 
-      <div className="hm-stage">
+      <Stagger className="hm-stage" gap={0.14}>
         {/* ── Компьютер: админ ── */}
-        <div className="hm-desk">
+        <StaggerItem y={50} className="hm-desk">
           <div className="hm-bar">
             <span className="hm-dots"><i /><i /><i /></span>
             <span className="hm-url">tanaikargo.aicargo.mn/admin</span>
@@ -106,10 +106,10 @@ export default function HeroMockup() {
               </div>
             </div>
           </div>
-        </div>
+        </StaggerItem>
 
         {/* ── Утас: хэрэглэгч ── */}
-        <div className="hm-phone">
+        <StaggerItem y={50} className="hm-phone">
           <div className="hm-notch" />
           <div className="hm-phone-head">
             <strong>Миний ачаа</strong>
@@ -129,7 +129,7 @@ export default function HeroMockup() {
               {c.price && <div className="hm-price">Төлбөр <b>{c.price}</b></div>}
             </div>
           ))}
-        </div>
+        </StaggerItem>
 
         {/* ── Ээлжлэх мэдэгдэл ── */}
         <div className="hm-toast-slot">
@@ -137,10 +137,10 @@ export default function HeroMockup() {
             <motion.div
               key={t}
               className="hm-toast"
-              initial={{ opacity: 0, y: 10, scale: 0.96 }}
+              initial={reduce ? false : { opacity: 0, y: 10, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              exit={reduce ? undefined : { opacity: 0, y: -8, scale: 0.98 }}
+              transition={{ duration: reduce ? 0 : 0.35, ease: [0.25, 1, 0.5, 1] }}
             >
               <span className="hm-toast-icon" style={{ color: toast.color, background: `color-mix(in srgb, ${toast.color} 12%, transparent)` }}>
                 <ToastIcon size={16} strokeWidth={2.2} />
@@ -152,7 +152,7 @@ export default function HeroMockup() {
             </motion.div>
           </AnimatePresence>
         </div>
-      </div>
+      </Stagger>
     </div>
   )
 }

@@ -1,9 +1,15 @@
+import { Manrope } from 'next/font/google'
 import { getAuthUser } from '@/lib/auth'
 import { getCargoFromSubdomain } from '@/lib/cargo-context'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import LandingClient from './LandingClient'
 import MarketingLanding from './MarketingLanding'
+
+const landingFont = Manrope({
+  subsets: ['cyrillic', 'latin'],
+  display: 'swap',
+})
 
 export const revalidate = 0
 
@@ -54,6 +60,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
       partnerCargos={JSON.parse(JSON.stringify(partnerCargos))}
       warehouses={warehouseCards}
       superPreview={superPreview}
+      fontClass={landingFont.className}
     />
   )
 }
