@@ -6,6 +6,7 @@ import HandoverDone, { type HandoverDoneInfo } from './HandoverDone'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import Combobox from '@/app/components/Combobox'
 import { suggestCustomers } from '@/app/components/customer-suggest'
+import { closeHandoverEdit, initialHandoverEdit, isRowEditing, openHandoverEdit } from '@/lib/handover-edit-state'
 
 interface Shipment {
   id: number
@@ -14,45 +15,31 @@ interface Shipment {
   adminPrice: number | null
   adminNote: string | null
   phone: string | null
-  updatedAt: string
+  updatedAt?: string
+  arrivedAt?: string | null
+  createdAt?: string
+  status?: string
 }
 
-function ShipmentEditor({ code, editing, draftCode, draftPrice, error, busy, onStart, onCode, onPrice, onSave, onCancel }: {
-  code: string
-  editing: boolean
-  draftCode: string
-  draftPrice: string
-  error: string
-  busy: boolean
-  onStart: () => void
-  onCode: (value: string) => void
-  onPrice: (value: string) => void
-  onSave: () => void
-  onCancel: () => void
-}) {
-  if (editing) {
-    return (
-      <form onSubmit={e => { e.preventDefault(); onSave() }} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1, minWidth: 0 }}>
-        <input className="input" aria-label="Трак код" value={draftCode} autoFocus spellCheck={false} onChange={e => onCode(e.target.value)}
-          style={{ fontFamily: 'monospace', width: '100%' }} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
-          <input className="input" type="number" min="0" inputMode="decimal" aria-label="Үнэ" value={draftPrice} onChange={e => onPrice(e.target.value)}
-            placeholder="0" style={{ width: '8rem', flex: '0 1 8rem' }} />
-          <button className="btn btn-sm" type="submit" disabled={busy}>{busy ? '...' : 'Хадгалах'}</button>
-          <button type="button" onClick={onCancel} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '0.35rem 0.7rem', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted)' }}>Болих</button>
-        </div>
-        {error && <span role="alert" style={{ color: 'var(--danger)', fontSize: '0.75rem' }}>{error}</span>}
-      </form>
-    )
-  }
+const STATUS_LABEL: Record<string, string> = {
+  REGISTERED: 'Бүртгүүлсэн',
+  EREEN_ARRIVED: 'Эрээнд ирсэн',
+  ARRIVED: 'Ирсэн',
+  PICKED_UP: 'Олгосон',
+}
+
+function whenOf(s: Shipment) {
+  return s.arrivedAt || s.updatedAt || s.createdAt || ''
+}
+
+function RowContext({ s }: { s: Shipment }) {
+  const when = whenOf(s)
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.15rem', minWidth: 0, maxWidth: '100%' }}>
-      <strong style={{ fontFamily: 'monospace', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>{code}</strong>
-      <button type="button" className="hit-pad" aria-label={`${code} засах`} title="Засах" onClick={onStart}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '0.2rem' }}>
-        <Pencil size={15} strokeWidth={2} />
-      </button>
-    </span>
+    <div className="ho-meta">
+      {when && <time dateTime={when}>{fmtDT(when)}</time>}
+      {s.status && <span className={`badge badge-${s.status}`}>{STATUS_LABEL[s.status] ?? s.status}</span>}
+      {s.adminNote && <span className="ho-note">Тайлбар: {s.adminNote}</span>}
+    </div>
   )
 }
 
@@ -91,7 +78,7 @@ export default function HandoverPage() {
   const [summaryPage, setSummaryPage] = useState(1)
   const [expandedPhone, setExpandedPhone] = useState<string | null>(null)
   const [today, setToday] = useState<TodayStats | null>(null)
-  const [rowEdit, setRowEdit] = useState<{ id: number; code: string; price: string } | null>(null)
+  const [rowEdit, setRowEdit] = useState(initialHandoverEdit)
   const [rowError, setRowError] = useState('')
   const [rowBusy, setRowBusy] = useState(false)
 
@@ -125,23 +112,70 @@ export default function HandoverPage() {
     const data = await res.json().catch(() => ({}))
     if (!res.ok) { setRowError(data.error || 'Хадгалж чадсангүй'); return }
     patchRow(rowEdit.id, data.trackCode, data.adminPrice == null ? null : Number(data.adminPrice))
-    setRowEdit(null)
+    setRowEdit(closeHandoverEdit())
   }
   function startRowEdit(s: Shipment) {
     setRowError('')
-    setRowEdit({ id: s.id, code: s.trackCode, price: s.adminPrice != null ? String(s.adminPrice) : '' })
+    setRowEdit(openHandoverEdit(s))
   }
-  function shipmentEditor(s: Shipment) {
-    const editing = rowEdit?.id === s.id
+  function cancelRowEdit() {
+    setRowError('')
+    setRowEdit(closeHandoverEdit())
+  }
+  function renderRow(s: Shipment, extra?: { onDelete?: () => void; checked?: boolean; onCheck?: () => void }) {
+    const editing = isRowEditing(rowEdit, s.id)
+    const draft = editing && rowEdit ? rowEdit : null
     return (
-      <ShipmentEditor code={s.trackCode} editing={editing}
-        draftCode={editing ? rowEdit.code : s.trackCode}
-        draftPrice={editing ? rowEdit.price : (s.adminPrice != null ? String(s.adminPrice) : '')}
-        error={editing ? rowError : ''} busy={rowBusy && editing}
-        onStart={() => startRowEdit(s)}
-        onCode={v => setRowEdit(cur => cur && cur.id === s.id ? { ...cur, code: v } : cur)}
-        onPrice={v => setRowEdit(cur => cur && cur.id === s.id ? { ...cur, price: v } : cur)}
-        onSave={saveRow} onCancel={() => { setRowEdit(null); setRowError('') }} />
+      <div className="ho-row" data-testid={editing ? 'handover-edit' : 'handover-read'}>
+        <RowContext s={s} />
+        {draft ? (
+          <form className="ho-form" onSubmit={e => { e.preventDefault(); saveRow() }}>
+            <label className="ho-field">
+              <span>Трак код</span>
+              <input className="input" aria-label="Трак код" value={draft.code} spellCheck={false}
+                onChange={e => setRowEdit(cur => cur && cur.id === s.id ? { ...cur, code: e.target.value } : cur)}
+                style={{ fontFamily: 'monospace' }} />
+            </label>
+            <label className="ho-field">
+              <span>Үнэ ₮</span>
+              <span className="ho-money">
+                <b aria-hidden>₮</b>
+                <input className="input" inputMode="decimal" aria-label="Үнэ" value={draft.price} placeholder="0"
+                  onChange={e => setRowEdit(cur => cur && cur.id === s.id ? { ...cur, price: e.target.value } : cur)} />
+              </span>
+            </label>
+            <div className="ho-actions">
+              <button className="btn" type="submit" disabled={rowBusy}>{rowBusy ? '...' : 'Хадгалах'}</button>
+              <button className="btn-ghost" type="button" onClick={cancelRowEdit}>Болих</button>
+              {extra?.onDelete && (
+                <button type="button" className="hit-pad" aria-label={`${s.trackCode} устгах`} title="Устгах" onClick={extra.onDelete}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.2rem' }}>✕</button>
+              )}
+            </div>
+            {rowError && <span role="alert" style={{ color: 'var(--danger)', fontSize: '0.75rem' }}>{rowError}</span>}
+          </form>
+        ) : (
+          <div className="ho-read">
+            <strong className="ho-code">{s.trackCode}</strong>
+            <span className="ho-amt">{s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}</span>
+            <button type="button" className="hit-pad" aria-label={`${s.trackCode} засах`} title="Засах" onClick={() => startRowEdit(s)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '0.2rem' }}>
+              <Pencil size={15} strokeWidth={2} />
+            </button>
+            {extra?.onDelete && (
+              <button type="button" className="hit-pad" aria-label={`${s.trackCode} устгах`} title="Устгах" onClick={extra.onDelete}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '0.2rem' }}>✕</button>
+            )}
+            {extra?.onCheck && (
+              <label style={{ display: 'inline-flex', flexShrink: 0 }}>
+                <input type="checkbox" aria-label={`${s.trackCode} сонгох`} checked={!!extra.checked} onChange={extra.onCheck}
+                  style={{ width: 18, height: 18, accentColor: 'var(--accent)', cursor: 'pointer' }} />
+              </label>
+            )}
+          </div>
+        )}
+        {!editing && s.description && <div className="ho-note" style={{ color: 'var(--muted)', fontSize: '0.78rem' }}>{s.description}</div>}
+      </div>
     )
   }
 
@@ -169,7 +203,7 @@ export default function HandoverPage() {
     const term = query.trim()
     if (!term) return
     setQ(term)
-    setLoading(true); setError(''); setShipments([]); setSelected([]); setDone(null); setExpandedDates(new Set())
+    setLoading(true); setError(''); setShipments([]); setSelected([]); setDone(null); setExpandedDates(new Set()); setRowEdit(closeHandoverEdit())
     const res = await fetch(`/api/admin/handover?q=${encodeURIComponent(term)}`).catch(() => null)
     const data = res ? await res.json().catch(() => ({})) : {}
     setLoading(false); setSearched(true)
@@ -327,26 +361,8 @@ export default function HandoverPage() {
                 {(() => {
                   const isPhoneSearch = /^\d{8}$/.test(q.trim())
                   if (!isPhoneSearch) return shipments.map(s => (
-                    <div key={s.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-                          {shipmentEditor(s)}
-                          {rowEdit?.id !== s.id && <>
-                            <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>{s.phone ?? '—'}</span>
-                            <span className="admin-item-date">{fmtDT(s.updatedAt)}</span>
-                          </>}
-                        </div>
-                        {s.adminNote && rowEdit?.id !== s.id && <div style={{ fontSize: '0.8rem', color: 'var(--accent)', marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.adminNote}</div>}
-                      </div>
-                      {rowEdit?.id !== s.id && <>
-                        <span style={{ fontWeight: 700, color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontSize: '0.9rem' }}>
-                          {s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}
-                        </span>
-                        <label style={{ display: 'inline-flex', flexShrink: 0 }}>
-                          <input type="checkbox" aria-label={`${s.trackCode} сонгох`} checked={selected.includes(s.id)} onChange={() => toggle(s.id)}
-                            style={{ width: 18, height: 18, accentColor: 'var(--accent)', cursor: 'pointer' }} />
-                        </label>
-                      </>}
+                    <div key={s.id} className="card">
+                      {renderRow(s, { checked: selected.includes(s.id), onCheck: () => toggle(s.id) })}
                     </div>
                   ))
                   const byDate = new Map<string, Shipment[]>()
@@ -361,6 +377,7 @@ export default function HandoverPage() {
                     const dayTotal = items.reduce((sum, s) => sum + (s.adminPrice ? Number(s.adminPrice) : 0), 0)
                     const isOpen = expandedDates.has(date)
                     function toggleDate() {
+                      setRowEdit(closeHandoverEdit())
                       setExpandedDates(prev => {
                         const next = new Set(prev)
                         isOpen ? next.delete(date) : next.add(date)
@@ -377,20 +394,8 @@ export default function HandoverPage() {
                           {dayTotal > 0 && <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '0.88rem' }}>₮{dayTotal.toLocaleString()}</span>}
                         </button>
                         {isOpen && items.map((s) => (
-                          <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              {shipmentEditor(s)}
-                              {s.adminNote && rowEdit?.id !== s.id && <div style={{ fontSize: '0.78rem', color: 'var(--accent)', marginTop: '0.1rem' }}>{s.adminNote}</div>}
-                            </div>
-                            {rowEdit?.id !== s.id && <>
-                              <span style={{ fontWeight: 700, color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', flexShrink: 0, fontSize: '0.88rem' }}>
-                                {s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}
-                              </span>
-                              <label style={{ display: 'inline-flex', flexShrink: 0 }}>
-                                <input type="checkbox" aria-label={`${s.trackCode} сонгох`} checked={selected.includes(s.id)} onChange={() => toggle(s.id)}
-                                  style={{ width: 18, height: 18, accentColor: 'var(--accent)', cursor: 'pointer' }} />
-                              </label>
-                            </>}
+                          <div key={s.id} style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
+                            {renderRow(s, { checked: selected.includes(s.id), onCheck: () => toggle(s.id) })}
                           </div>
                         ))}
                       </div>
@@ -472,32 +477,8 @@ export default function HandoverPage() {
 
               <div className="card" style={{ overflow: 'hidden', marginBottom: '0.75rem' }}>
                 {scanned.map((s, i) => (
-                  <div key={s.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '0.55rem 1rem', gap: '0.5rem', fontSize: '0.83rem',
-                    borderBottom: i < scanned.length - 1 ? '1px solid var(--border)' : 'none',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
-                      {rowEdit?.id === s.id ? shipmentEditor(s) : <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{s.trackCode}</span>}
-                      {rowEdit?.id !== s.id && s.phone && <span style={{ color: 'var(--muted)' }}>{s.phone}</span>}
-                      {rowEdit?.id !== s.id && s.adminNote && <span style={{ color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.adminNote}</span>}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                      {rowEdit?.id !== s.id && <>
-                        <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600 }}>
-                          {s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}
-                        </span>
-                        <button type="button" className="hit-pad" aria-label={`${s.trackCode} засах`} title="Засах"
-                          onClick={() => startRowEdit(s)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.2rem' }}>
-                          <Pencil size={15} strokeWidth={2} />
-                        </button>
-                      </>}
-                      <button type="button" className="hit-pad" aria-label={`${s.trackCode} устгах`} title="Устгах" onClick={() => setScanned(prev => prev.filter(r => r.id !== s.id))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0.2rem' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}>✕</button>
-                    </div>
+                  <div key={s.id} style={{ borderBottom: i < scanned.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    {renderRow(s, { onDelete: () => setScanned(prev => prev.filter(r => r.id !== s.id)) })}
                   </div>
                 ))}
               </div>
@@ -535,7 +516,7 @@ export default function HandoverPage() {
                 background: expandedPhone === g.phone ? 'var(--surface2)' : 'var(--surface)',
               }}>
                 <button type="button" className="handover-row-btn" aria-expanded={expandedPhone === g.phone}
-                  onClick={() => setExpandedPhone(expandedPhone === g.phone ? null : g.phone)} style={{
+                  onClick={() => { setRowEdit(closeHandoverEdit()); setExpandedPhone(expandedPhone === g.phone ? null : g.phone) }} style={{
                   flex: 1, minWidth: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '0.75rem 0.6rem 0.75rem 1.2rem', minHeight: 44,
@@ -561,18 +542,10 @@ export default function HandoverPage() {
                   <div style={{ flexBasis: '100%', borderTop: '1px solid var(--border)' }}>
                     {g.shipments.map((s, si) => (
                       <div key={s.id} style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '0.5rem 1.2rem 0.5rem 2.8rem',
                         borderBottom: si < g.shipments.length - 1 ? '1px solid var(--border)' : 'none',
-                        fontSize: '0.82rem', gap: '0.5rem', background: 'var(--bg)',
+                        background: 'var(--bg)',
                       }}>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          {shipmentEditor(s)}
-                          {s.description && rowEdit?.id !== s.id && <span style={{ color: 'var(--muted)', marginLeft: '0.5rem' }}>{s.description}</span>}
-                        </div>
-                        <span style={{ color: s.adminPrice ? 'var(--accent)' : 'var(--muted)', fontWeight: 600, flexShrink: 0 }}>
-                          {s.adminPrice ? `₮${Number(s.adminPrice).toLocaleString()}` : '—'}
-                        </span>
+                        {renderRow(s)}
                       </div>
                     ))}
                   </div>
@@ -584,7 +557,7 @@ export default function HandoverPage() {
           {summary.totalGroups > 20 && (
             <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'center', alignItems: 'center', marginTop: '1rem' }}>
               {Array.from({ length: Math.ceil(summary.totalGroups / 20) }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => { setExpandedPhone(null); loadSummary(p) }} style={{
+                <button key={p} onClick={() => { setRowEdit(closeHandoverEdit()); setExpandedPhone(null); loadSummary(p) }} style={{
                   padding: '0.3rem 0.65rem', borderRadius: '6px',
                   border: `1px solid ${summaryPage === p ? 'var(--accent)' : 'var(--border)'}`,
                   background: summaryPage === p ? 'var(--accent)' : 'var(--surface)',
