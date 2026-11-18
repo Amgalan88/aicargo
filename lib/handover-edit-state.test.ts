@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { closeHandoverEdit, initialHandoverEdit, isRowEditing, openHandoverEdit } from './handover-edit-state'
+import { closeHandoverEdit, handoverPhoneGroupLabel, initialHandoverEdit, isRowEditing, openHandoverEdit } from './handover-edit-state'
 
 const row = { id: 9, trackCode: 'YT8853194305559', adminPrice: 2500, arrivedAt: '2026-11-09T02:00:00.000Z' }
 
@@ -28,5 +28,14 @@ describe('handover edit starts closed (mocked, no database)', () => {
     assert.equal(isRowEditing(other, 9), false)
     assert.equal(isRowEditing(other, 10), true)
     assert.equal(isRowEditing(closeHandoverEdit(), 10), false)
+  })
+})
+
+describe('phone-less handover group label (mocked, no database)', () => {
+  it('labels the dash bucket as phone-less cargo', () => {
+    assert.deepEqual(handoverPhoneGroupLabel('—'), { label: 'Утасгүй ачаа', phoneLess: true })
+    assert.deepEqual(handoverPhoneGroupLabel(null), { label: 'Утасгүй ачаа', phoneLess: true })
+    assert.deepEqual(handoverPhoneGroupLabel('  '), { label: 'Утасгүй ачаа', phoneLess: true })
+    assert.deepEqual(handoverPhoneGroupLabel('99001122'), { label: '99001122', phoneLess: false })
   })
 })

@@ -108,6 +108,25 @@ describe('staff track-code edit (mocked, no database)', () => {
     assert.deepEqual(blank, { ok: true, price: null })
   })
 
+  it('rejects a short or symbolic code and still saves a legacy code unchanged', () => {
+    const short = planTrackCodeEdit({ raw: '8888', shipment: mine, callerCargoId: 3, existingIdInCargo: null })
+    const junk = planTrackCodeEdit({ raw: ':88282727/₮', shipment: mine, callerCargoId: 3, existingIdInCargo: null })
+    assert.equal(short.ok, false)
+    assert.equal(junk.ok, false)
+    if (!short.ok && !junk.ok) {
+      assert.equal(short.status, 400)
+      assert.equal(junk.error, 'Трак код 6–60 тэмдэгт, зөвхөн үсэг, тоо, зураас байна')
+    }
+    const legacy = { id: 7, trackCode: '8888', cargoId: 3 }
+    const kept = planTrackCodeEdit({ raw: ' 8888 ', shipment: legacy, callerCargoId: 3, existingIdInCargo: null })
+    assert.deepEqual(kept, { ok: true, code: '8888', changed: false })
+    const priced = planStaffEdit({
+      shipment: legacy, callerCargoId: 3, existingIdInCargo: null,
+      trackCode: '8888', adminPrice: '2500',
+    })
+    assert.deepEqual(priced, { ok: true, price: 2500 })
+  })
+
   it('allows a code that exists only in another cargo', () => {
     const r = planTrackCodeEdit({
       raw: 'DPK365098423720',

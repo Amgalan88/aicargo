@@ -59,13 +59,16 @@ export function parseTrackCode(raw: unknown): string | null {
   return isTrackCode(c) ? c : salvage(raw)
 }
 
-// "Ирсэн" бүртгэл — зарим карго төлбөр, барааг кодгүйгээр бичдэг ("АЧАА ЗАДЛАХ ТӨЛБӨР", "БУДАА"),
-// тиймээс чөлөөт текстийг зөвшөөрнө; зөвхөн угтвар, Монгол гарын кодыг засаж, хэт урт заавар текстийг татгалзана
+// "Ирсэн" бүртгэл. Эхлээд жинхэнэ трак кодыг (угтвар, QR, Монгол гар) parseTrackCode-оор авна.
+// Тэр нь биш бол зөвхөн үсэг, тоо, '-' — тайрч, 6–60 тэмдэгт. "8888", ":88282727/₮", зайтай
+// тайлбар ("АЧАА ЗАДЛАХ ТӨЛБӨР") трак код биш тул татгалзана.
+const ARRIVED_FREE_TEXT = /^[\p{L}0-9-]{6,60}$/u
+
 export function parseArrivedCode(raw: unknown): string | null {
   const strict = parseTrackCode(raw)
   if (strict) return strict
   const text = String(raw ?? '').trim().replace(/\s+/g, ' ').toUpperCase()
-  return text && text.length <= 60 ? text : null
+  return ARRIVED_FREE_TEXT.test(text) ? text : null
 }
 
 // Pinduoduo захиалгын дугаар (трак код биш): ОНСАРӨДӨР-15 орон, жш 260928-554654789241184 — зураасгүй ч бичигддэг.

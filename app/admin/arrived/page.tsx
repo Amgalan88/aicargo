@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx'
 import { parsePhone } from '@/lib/phone'
 import { cleanTrackCode, parseArrivedCode } from '@/lib/track-code'
 import OwnerChangesNote, { type OwnerChange } from '../OwnerChangesNote'
-import { alreadyArrivedMessage } from '@/lib/arrival-scan'
+import { alreadyArrivedMessage, noPriceLabel, skippedNoPhoneLabel } from '@/lib/arrival-scan'
 import Combobox from '@/app/components/Combobox'
 import { suggestCustomers } from '@/app/components/customer-suggest'
 import { useInitialEnter } from '@/app/components/useInitialEnter'
@@ -93,6 +93,8 @@ export default function ArrivedPage() {
   const [xlsxMsg, setXlsxMsg] = useState('')
   const [xlsxLoading, setXlsxLoading] = useState(false)
   const [xlsxAlready, setXlsxAlready] = useState<{ list: PriorArrival[]; count: number }>({ list: [], count: 0 })
+  const [xlsxSkipped, setXlsxSkipped] = useState<string[]>([])
+  const [xlsxNoPrice, setXlsxNoPrice] = useState(0)
   const [ownerChanges, setOwnerChanges] = useState<{ list: OwnerChange[]; count: number }>({ list: [], count: 0 })
 
   // Огноогоор bulk буцаах
@@ -171,10 +173,10 @@ export default function ArrivedPage() {
           })
           .filter(r => r.raw)
         const notCodes = parsedAll.filter(r => !r.trackCode)
-        if (parsedAll.length === notCodes.length) { setXlsxMsg(`Трак код олдсонгүй${notCodes.length ? ` — эхний баганад: "${notCodes[0].raw.slice(0, 30)}"…` : ''}`); return }
+        if (parsedAll.length === notCodes.length) { setXlsxSkipped([]); setXlsxNoPrice(0); setXlsxMsg(`Трак код олдсонгүй${notCodes.length ? ` — эхний баганад: "${notCodes[0].raw.slice(0, 30)}"…` : ''}`); return }
         if (notCodes.length > 0) {
           const ex = notCodes.slice(0, 5).map(r => `"${r.raw.slice(0, 40)}"`).join('\n')
-          const proceed = await confirmAsync(`⚠ ${notCodes.length} мөр хэт урт (60+ тэмдэгт) тул алгасна:\n\n${ex}${notCodes.length > 5 ? '\n...' : ''}\n\nҮлдсэн ${parsedAll.length - notCodes.length} трак кодыг оруулах уу?`)
+          const proceed = await confirmAsync(`⚠ ${notCodes.length} мөр трак код биш тул алгасна (6–60 тэмдэгт, зөвхөн үсэг, тоо, зураас):\n\n${ex}${notCodes.length > 5 ? '\n...' : ''}\n\nҮлдсэн ${parsedAll.length - notCodes.length} трак кодыг оруулах уу?`)
           if (!proceed) return
         }
 
@@ -183,7 +185,7 @@ export default function ArrivedPage() {
         if (badPhoneRows.length > 0) {
           const examples = badPhoneRows.slice(0, 5).map(r => `${r.trackCode} → "${r.phoneRaw}"`).join('\n')
           const proceed = await confirmAsync(
-            `⚠ ${badPhoneRows.length} мөрөнд утасны багана (B) 8 оронтой тоо биш байна — багана дараалал буруу байж магадгүй:\n\n${examples}${badPhoneRows.length > 5 ? '\n...' : ''}\n\nЭдгээр мөрүүд утасгүйгээр (зөвхөн трак кодоор) орно. Үргэлжлүүлэх үү?`
+            `⚠ ${badPhoneRows.length} мөрөнд утасны багана (B) 8 оронтой тоо биш байна — багана дараалал буруу байж магадгүй:\n\n${examples}${badPhoneRows.length > 5 ? '\n...' : ''}\n\nЭдгээр мөр утасгүй. Бүртгэлтэй эзэн байхгүй бол Ирсэн болохгүй. Үргэлжлүүлэх үү?`
           )
           if (!proceed) return
         }
@@ -205,6 +207,8 @@ export default function ArrivedPage() {
         } else if (!await confirmAsync(`${byCode.size} бараа Ирсэн статустай болгох уу?${unpriced ? `\n\n⚠ ${unpriced} ачаа үнэгүй орно.` : ''}`)) return
         setXlsxLoading(true)
         setXlsxAlready({ list: [], count: 0 })
+        setXlsxSkipped([])
+        setXlsxNoPrice(0)
         const res = await fetch('/api/admin/arrived', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -213,8 +217,15 @@ export default function ArrivedPage() {
         setXlsxLoading(false)
         if (res.ok) {
           const d = await res.json()
+          const skipped: string[] = Array.isArray(d.skippedNoPhone) ? d.skippedNoPhone : []
+          const missingPrice = Number(d.noPrice) || 0
           setXlsxAlready({ list: [...(d.alreadyArrived ?? []), ...(d.pickedUp ?? [])], count: (d.alreadyArrivedCount ?? 0) + (d.pickedUpCount ?? 0) })
-          setXlsxMsg(`✓ ${d.count} бараа шинээр Ирсэн статустай болсон`
+          setXlsxSkipped(skipped)
+          setXlsxNoPrice(missingPrice)
+          const head = d.count > 0
+            ? `✓ ${d.count} бараа шинээр Ирсэн статустай болсон`
+            : 'Шинээр Ирсэн ачаа байхгүй'
+          setXlsxMsg(head
             + (d.dispatch ? ` · Тулгалт: ${d.dispatch.inCount} сонгосонд байсан${d.dispatch.extraCount ? ` · ⚠ ${d.dispatch.extraCount} сонгосонд байгаагүй: ${d.dispatch.extra.slice(0, 5).join(', ')}${d.dispatch.extraCount > 5 ? '…' : ''}` : ''}` : ''))
           if (d.dispatch) setCheckTick(t => t + 1)
           setOwnerChanges({ list: d.ownerChanges ?? [], count: d.ownerChangeCount ?? 0 })
@@ -348,7 +359,7 @@ export default function ArrivedPage() {
   }
 
   const valid = {
-    trackCode: form.trackCode.trim().length >= 4,
+    trackCode: !!parseArrivedCode(form.trackCode),
     phone: nameless || /^\d{8}$/.test(form.phone.trim()),
     adminPrice: nameless || (form.adminPrice.trim() !== '' && Number(form.adminPrice) >= 0),
   }
@@ -436,7 +447,7 @@ export default function ArrivedPage() {
           </svg>
           {xlsxLoading ? 'Оруулж байна...' : 'Excel-ээр bulk оруулах'}
         </button>
-        {xlsxMsg && <span style={{ fontSize: '0.8rem', color: xlsxMsg.startsWith('✓') ? 'var(--accent)' : 'var(--danger)' }}>{xlsxMsg}</span>}
+        {xlsxMsg && <span style={{ fontSize: '0.8rem', color: xlsxMsg.startsWith('✓') ? 'var(--accent)' : xlsxMsg.startsWith('Шинээр') ? 'var(--muted)' : 'var(--danger)' }}>{xlsxMsg}</span>}
         <OwnerChangesNote changes={ownerChanges.list} count={ownerChanges.count} />
 
         <button onClick={openRevertModal} style={{
@@ -453,8 +464,24 @@ export default function ArrivedPage() {
         {revertMsg && <span style={{ fontSize: '0.8rem', color: revertMsg.startsWith('✓') ? 'var(--accent)' : 'var(--danger)' }}>{revertMsg}</span>}
       </div>
 
+      {xlsxSkipped.length > 0 && (
+        <div className="scan-warning" role="alert" style={{ borderRadius: 'var(--radius-sm)', padding: '0.55rem 0.8rem', marginTop: '-0.5rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
+          <strong style={{ display: 'block' }}>{skippedNoPhoneLabel(xlsxSkipped.length)}</strong>
+          <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
+            {xlsxSkipped.map(code => (
+              <li key={code}><span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{code}</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {xlsxNoPrice > 0 && (
+        <div className="scan-warning" role="alert" style={{ borderRadius: 'var(--radius-sm)', padding: '0.55rem 0.8rem', marginTop: xlsxSkipped.length ? 0 : '-0.5rem', marginBottom: '0.75rem', fontSize: '0.8rem', fontWeight: 700 }}>
+          ⚠ {noPriceLabel(xlsxNoPrice)}
+        </div>
+      )}
+
       {xlsxAlready.count > 0 && (
-        <details className="scan-warning" role="alert" style={{ borderRadius: 'var(--radius-sm)', padding: '0.5rem 0.8rem', marginTop: '-0.5rem', marginBottom: '1.25rem', fontSize: '0.8rem' }}>
+        <details className="scan-warning" role="alert" style={{ borderRadius: 'var(--radius-sm)', padding: '0.5rem 0.8rem', marginTop: (xlsxSkipped.length || xlsxNoPrice > 0) ? 0 : '-0.5rem', marginBottom: '1.25rem', fontSize: '0.8rem' }}>
           <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
             ⚠ {xlsxAlready.count} бараа аль хэдийн ирсэн байсан — ирсэн огноо, үнэ, төлөв өөрчлөгдөөгүй
           </summary>
@@ -605,7 +632,7 @@ export default function ArrivedPage() {
                   onBlur={e => lookupCode(e.target.value)}
                   onKeyDown={async e => { if (e.key === 'Enter') { e.preventDefault(); await lookupCode((e.target as HTMLInputElement).value); phoneRef.current?.focus() } }}
                   style={{ borderColor: fe('trackCode') ? 'var(--danger)' : undefined }} />
-                {fe('trackCode') && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.3rem' }}>Хамгийн багадаа 4 тэмдэгт</p>}
+                {fe('trackCode') && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.3rem' }}>6–60 тэмдэгт, зөвхөн үсэг, тоо, зураас</p>}
               </div>
 
               <div style={{ margin: 0, paddingTop: '0.3rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -630,7 +657,7 @@ export default function ArrivedPage() {
                 </label>
                 {nameless && (
                   <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem', textAlign: 'right' }}>
-                    Зөвхөн трак кодоор бүртгэнэ — утас, үнэ дараа нэмж болно.
+                    Утасгүй бол зөвхөн өмнө нь эзэнтэй ачаа орно. Шинэ ачаанд утас шаардлагатай.
                   </p>
                 )}
               </div>
@@ -717,10 +744,16 @@ export default function ArrivedPage() {
                 <span className="label">Трак код</span>
                 <CopyPhone phone={result.trackCode} />
               </div>
-              {result.adminPrice && (
+              {result.adminPrice != null && result.adminPrice !== '' && (
                 <div className="card-row">
                   <span className="label">Үнэ</span>
                   <strong style={{ color: 'var(--accent)' }}>₮{Number(result.adminPrice).toLocaleString()}</strong>
+                </div>
+              )}
+              {!result.alreadyArrived && (result.adminPrice == null || result.adminPrice === '') && (
+                <div className="card-row">
+                  <span className="label">Үнэ</span>
+                  <strong style={{ color: 'var(--danger)' }}>⚠ Үнэгүй орлоо</strong>
                 </div>
               )}
               {result.adminNote && (
