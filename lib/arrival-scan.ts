@@ -3,7 +3,8 @@
 // Дүрэм:
 // - Аль хэдийн Ирсэн/Олгосон ачааг дахин уншуулбал ирсэн огноо, үнэ, төлөвийг хөндөхгүй —
 //   «Аль хэдийн ирсэн байна» анхааруулга буцаана.
-// - Хоосон/буруу үнэ байгаа үнийг хэзээ ч арилгахгүй.
+// - Утасгүй, эзэнгүй ачааг Ирсэн болгохгүй (шинээр үүсгэхгүй, өмнөх төлвөөс шилжүүлэхгүй).
+// - Хоосон/буруу үнэ байгаа үнийг хэзээ ч арилгахгүй. Үнэгүйгээр Ирсэн болсон тоог тусад нь тоолно.
 // - Бусад төлөвт (Бүртгүүлсэн, Эрээнд ирсэн, шинэ) — Ирсэн болгож, ирсэн огноо = одоо.
 //
 // Клиент талд ч (мессеж форматлах) импортлогддог тул prisma-г энд импортлохгүй.
@@ -62,9 +63,26 @@ export interface ArrivalScanStore<S extends ScannedShipment> {
   updateIfNotArrived(id: number, data: ArrivalWrite): Promise<S | null>
 }
 
+export const NO_PHONE_ARRIVAL_MESSAGE = 'Утасгүй тул Ирсэн болгосонгүй. Утасны дугаар оруулна уу.'
+
+export function skippedNoPhoneLabel(count: number): string {
+  return `Утасгүй тул орсонгүй: ${count} ачаа`
+}
+
+export function noPriceLabel(count: number): string {
+  return `${count} ачаа үнэгүй орлоо`
+}
+
+export type ArrivalOwner = { phone: string | null; userId: number | null }
+
+export function hasArrivalOwner(owner: ArrivalOwner | null | undefined): boolean {
+  return !!owner && (!!owner.phone || owner.userId != null)
+}
+
 export type ArrivalScanResult<S> =
   | { kind: 'arrived'; shipment: S; previousStatus: string | null }
   | { kind: 'already-arrived'; shipment: S; message: string }
+  | { kind: 'no-phone'; message: string }
 
 export class ArrivalScanConflictError extends Error {}
 
@@ -84,6 +102,9 @@ export async function scanArrival<S extends ScannedShipment>(
       return { kind: 'already-arrived', shipment: existing, message: alreadyArrivedMessage(existing) }
     }
     const owner = await store.owner(existing)
+    if (!hasArrivalOwner(owner)) {
+      return { kind: 'no-phone', message: NO_PHONE_ARRIVAL_MESSAGE }
+    }
     const data: ArrivalWrite = {
       status: 'ARRIVED', arrivedAt: now, adminNote, phone: owner.phone, userId: owner.userId,
       ...(price !== undefined ? { adminPrice: price } : {}),
@@ -114,4 +135,41 @@ export function partitionArrivalImport(codes: string[], existingByCode: Map<stri
     else fresh.push(c)
   }
   return { fresh, alreadyArrived, pickedUp }
+}
+
+// Шинээр Ирсэн болох мөрөөс утасгүй, эзэнгүйг хасна. Аль хэдийн Ирсэн/Олгосон мөрийг энд
+// алгасахгүй — тэдгээрийг дахин Ирсэн болгохгүй, огноо/үнэ/төлөв хэвээр.
+export function skippedNoPhoneCodes(
+  codes: string[],
+  owners: ArrivalOwner[],
+  existingByCode: Map<string, { status: string }>,
+): string[] {
+  const skipped: string[] = []
+  for (let i = 0; i < codes.length; i++) {
+    if (isArrivedOrLater(existingByCode.get(codes[i])?.status)) continue
+    if (!hasArrivalOwner(owners[i])) skipped.push(codes[i])
+  }
+  return skipped
+}
+
+// Excel-ийн үнэ байвал тэр (0 зөвшөөрнө). Хоосон бол байсан үнэ. Хоёулаа хоосон бол null.
+export function priceKeptOnArrival(excelPrice: unknown, existingPrice: unknown): number | null {
+  const parsed = parseScanPrice(excelPrice)
+  if (parsed !== undefined) return parsed
+  if (existingPrice === null || existingPrice === undefined || existingPrice === '') return null
+  const n = typeof existingPrice === 'number' ? existingPrice : Number(existingPrice)
+  return Number.isFinite(n) ? n : null
+}
+
+// Ирсэн болгож бичсэн мөрүүдээс үнэгүй үлдсэнийг тоолно (алгассан мөр орохгүй).
+export function countInsertedWithoutPrice(
+  fresh: string[],
+  excelPriceByCode: Map<string, unknown>,
+  existingByCode: Map<string, { adminPrice?: unknown }>,
+): number {
+  let n = 0
+  for (const code of fresh) {
+    if (priceKeptOnArrival(excelPriceByCode.get(code), existingByCode.get(code)?.adminPrice) === null) n++
+  }
+  return n
 }

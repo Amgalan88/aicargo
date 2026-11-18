@@ -14,7 +14,7 @@ import { ubDayRange } from '@/lib/ub-date'
 import { importLimitError } from '@/lib/import-limits'
 import { openDispatchId, markArrivals } from '@/lib/dispatch'
 import { recordDeletions, DELETION_SNAPSHOT_SELECT, createdWithArrival } from '@/lib/shipment-deletion'
-import { scanArrival, ArrivalScanConflictError, ARRIVED_OR_LATER, parseScanPrice, partitionArrivalImport } from '@/lib/arrival-scan'
+import { scanArrival, ArrivalScanConflictError, ARRIVED_OR_LATER, parseScanPrice, partitionArrivalImport, skippedNoPhoneCodes, countInsertedWithoutPrice } from '@/lib/arrival-scan'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -60,7 +60,17 @@ export async function PUT(req: NextRequest) {
   // Олгогдсон ачааг хөндөхгүй тул эзэн нь ч солигдохгүй
   const ownerChanges = changes.filter(x => existingByCode.get(x.trackCode)?.status !== 'PICKED_UP')
   const duplicateRows = rows.length - notCodes.length - codes.length
-  const { fresh, alreadyArrived, pickedUp } = partitionArrivalImport(codes, existingByCode)
+  const owners = codes.map((_, i) => ({ phone: phones[i], userId: userIds[i] }))
+  const skippedNoPhone = skippedNoPhoneCodes(codes, owners, existingByCode)
+  const skip = new Set(skippedNoPhone)
+  const { fresh: freshAll, alreadyArrived, pickedUp } = partitionArrivalImport(codes, existingByCode)
+  // Утасгүй, эзэнгүй мөрийг Ирсэн болгож бичихгүй
+  const fresh = freshAll.filter(c => !skip.has(c))
+  const noPrice = countInsertedWithoutPrice(
+    fresh,
+    new Map(codes.map(c => [c, rowByCode.get(c)!.price])),
+    existingByCode,
+  )
 
   const now = new Date()
   const idx = new Map(codes.map((c, i) => [c, i]))
@@ -93,14 +103,16 @@ export async function PUT(req: NextRequest) {
   }
 
   checkCrossCargoOnImport(
-    [...rowByCode.values()].map(r => ({ trackCode: r.trackCode, phone: parsePhone(r.phone), status: 'ARRIVED' })),
+    [...rowByCode.values()]
+      .filter(r => !skip.has(r.trackCode))
+      .map(r => ({ trackCode: r.trackCode, phone: parsePhone(r.phone), status: 'ARRIVED' })),
     cargoId
   ).catch(console.error)
 
   // Шинээр ирсэн ачааны эзэнд push (4 цагт нэг удаа)
   const arrivedNew = codes
     .map((code, i) => ({ code, userId: userIds[i], prev: existingByCode.get(code)?.status }))
-    .filter(x => x.userId && x.prev !== 'ARRIVED' && x.prev !== 'PICKED_UP')
+    .filter(x => !skip.has(x.code) && x.userId && x.prev !== 'ARRIVED' && x.prev !== 'PICKED_UP')
     .map(x => ({ userId: x.userId, trackCode: x.code }))
   if (arrivedNew.length) after(() => notifyArrivedForCargo(cargoId, arrivedNew))
 
@@ -108,17 +120,19 @@ export async function PUT(req: NextRequest) {
   auditLater({
     cargoId, userId: admin.userId, userName: admin.name,
     action: 'shipment:import-arrived',
-    detail: `${fresh.length} ачаа${alreadyArrived.length ? ` (${alreadyArrived.length} аль хэдийн ирсэн — огноо, үнэ хөндөөгүй)` : ''}${pickedUp.length ? ` (${pickedUp.length} олгогдсон тул алгассан)` : ''}${ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''}`,
+    detail: `${fresh.length} ачаа${noPrice ? ` (${noPrice} үнэгүй)` : ''}${skippedNoPhone.length ? ` · ${skippedNoPhone.length} утасгүй тул алгассан` : ''}${alreadyArrived.length ? ` (${alreadyArrived.length} аль хэдийн ирсэн — огноо, үнэ хөндөөгүй)` : ''}${pickedUp.length ? ` (${pickedUp.length} олгогдсон тул алгассан)` : ''}${ownerChanges.length ? ` · ${ownerChanges.length} ачааны эзэн Excel-ийн утсаар солигдсон` : ''}`,
   })
-  // Ачилт сонгосон бол (туршилт): ачилтад байсныг ✓, байгаагүйг «илүү» болгоно
+  // Ачилт сонгосон бол (туршилт): ачилтад байсныг ✓, байгаагүйг «илүү» болгоно.
+  // Утасгүй тул ороогүй кодыг ирсэн гэж тэмдэглэхгүй.
   const dispatchId = body.dispatchId ? await openDispatchId(cargoId, body.dispatchId) : null
-  const dispatch = dispatchId ? await markArrivals(dispatchId, codes) : null
+  const arrivedCodes = codes.filter(c => !skip.has(c))
+  const dispatch = dispatchId && arrivedCodes.length ? await markArrivals(dispatchId, arrivedCodes) : null
   const prior = (c: string) => {
     const s = existingByCode.get(c)!
     return { trackCode: c, status: s.status, arrivedAt: s.arrivedAt, adminPrice: s.adminPrice }
   }
   return NextResponse.json({
-    count: fresh.length, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
+    count: fresh.length, skippedNoPhone, noPrice, notCodes: notCodes.slice(0, 10), notCodeCount: notCodes.length,
     alreadyArrived: alreadyArrived.slice(0, 200).map(prior), alreadyArrivedCount: alreadyArrived.length,
     pickedUp: pickedUp.slice(0, 200).map(prior), pickedUpCount: pickedUp.length,
     duplicateRows, ownerChanges: ownerChanges.slice(0, 200), ownerChangeCount: ownerChanges.length,
@@ -137,7 +151,7 @@ export async function POST(req: NextRequest) {
   }
 
   const code = parseArrivedCode(trackCode)
-  if (!code) return NextResponse.json({ error: 'Трак код хоосон эсвэл хэт урт байна (60 тэмдэгт хүртэл)' }, { status: 400 })
+  if (!code) return NextResponse.json({ error: 'Трак код 6–60 тэмдэгт, зөвхөн үсэг, тоо, зураас байна' }, { status: 400 })
 
   const cargoId = admin.cargoId!
   const include = { user: { select: { name: true, phone: true } } } as const
@@ -164,6 +178,10 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     if (e instanceof ArrivalScanConflictError) return NextResponse.json({ error: e.message }, { status: 409 })
     throw e
+  }
+
+  if (scan.kind === 'no-phone') {
+    return NextResponse.json({ error: scan.message }, { status: 400 })
   }
 
   const dispatchId = dispatchRaw ? await openDispatchId(cargoId, dispatchRaw) : null

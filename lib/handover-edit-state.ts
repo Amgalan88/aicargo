@@ -22,3 +22,9 @@ export function openHandoverEdit(row: { id: number; trackCode: string; adminPric
 export function closeHandoverEdit(): HandoverEdit {
   return null
 }
+
+/** Summary groups phone-less rows under '—'. Show a warning label instead of the dash. */
+export function handoverPhoneGroupLabel(phone: string | null | undefined): { label: string; phoneLess: boolean } {
+  if (phone == null || phone.trim() === '' || phone.trim() === '—') return { label: 'Утасгүй ачаа', phoneLess: true }
+  return { label: phone, phoneLess: false }
+}

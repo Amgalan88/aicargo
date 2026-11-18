@@ -6,7 +6,7 @@ import HandoverDone, { type HandoverDoneInfo } from './HandoverDone'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import Combobox from '@/app/components/Combobox'
 import { suggestCustomers } from '@/app/components/customer-suggest'
-import { closeHandoverEdit, initialHandoverEdit, isRowEditing, openHandoverEdit } from '@/lib/handover-edit-state'
+import { closeHandoverEdit, handoverPhoneGroupLabel, initialHandoverEdit, isRowEditing, openHandoverEdit } from '@/lib/handover-edit-state'
 
 interface Shipment {
   id: number
@@ -236,7 +236,7 @@ export default function HandoverPage() {
   async function handover() {
     if (selected.length === 0 || searchQuote.blocked) return
     const ids = [...selected]
-    const who = shipments.find(s => selected.includes(s.id))?.phone ?? q.trim()
+    const who = handoverPhoneGroupLabel(shipments.find(s => selected.includes(s.id))?.phone).label
     const paidMnt = searchQuote.enabled ? searchQuote.netTotal : total
     // Буруу/давхар олголтоос сэргийлэх баталгаажуулалт (буцаах нь «Олгосон» түүх эсвэл 10 сек «Буцаах»)
     if (!await confirmAsync({ title: `${who} — ${ids.length} ачаа олгох уу?`, message: `Төлөх дүн: ₮${paidMnt.toLocaleString()}`, confirmLabel: `Олгох (${ids.length})`, danger: false })) return
@@ -349,7 +349,14 @@ export default function HandoverPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {/* Header row with select-all */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: '0.95rem' }}>{shipments[0].phone ?? q}</span>
+                  {(() => {
+                    const head = handoverPhoneGroupLabel(shipments[0].phone)
+                    return (
+                      <span style={{ fontWeight: 700, fontFamily: head.phoneLess ? 'inherit' : 'monospace', fontSize: '0.95rem', color: head.phoneLess ? 'var(--danger)' : undefined }}>
+                        {head.label}
+                      </span>
+                    )
+                  })()}
                   <span style={{ fontSize: '0.78rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '100px', padding: '0.15rem 0.65rem', color: 'var(--muted)' }}>
                     Нийт <strong style={{ color: 'var(--text)' }}>{shipments.length}</strong> ачаа
                   </span>
@@ -518,11 +525,16 @@ export default function HandoverPage() {
           </div>
 
           <div className="card" style={{ overflow: 'hidden' }}>
-            {summary.groups.map((g, i) => (
+            {summary.groups.map((g, i) => {
+              const phoneGroup = handoverPhoneGroupLabel(g.phone)
+              return (
               <div key={g.phone} data-testid="handover-summary-row" style={{
                 display: 'flex', alignItems: 'stretch', flexWrap: 'wrap',
                 borderBottom: (expandedPhone === g.phone || i < summary.groups.length - 1) ? '1px solid var(--border)' : 'none',
-                background: expandedPhone === g.phone ? 'var(--surface2)' : 'var(--surface)',
+                background: phoneGroup.phoneLess
+                  ? 'color-mix(in srgb, var(--danger) 8%, var(--surface))'
+                  : expandedPhone === g.phone ? 'var(--surface2)' : 'var(--surface)',
+                boxShadow: phoneGroup.phoneLess ? 'inset 3px 0 0 var(--danger)' : undefined,
               }}>
                 <button type="button" className="handover-row-btn" aria-expanded={expandedPhone === g.phone}
                   onClick={() => { setRowEdit(closeHandoverEdit()); setExpandedPhone(expandedPhone === g.phone ? null : g.phone) }} style={{
@@ -534,8 +546,8 @@ export default function HandoverPage() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <span className="hs-idx" style={{ fontSize: '0.72rem', color: 'var(--muted)', width: 22, textAlign: 'right', flexShrink: 0 }}>{(summaryPage - 1) * 20 + i + 1}</span>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--muted)', display: 'inline-block', transform: expandedPhone === g.phone ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▶</span>
-                    <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{g.phone}</span>
+                    <span style={{ fontSize: '0.65rem', color: phoneGroup.phoneLess ? 'var(--danger)' : 'var(--muted)', display: 'inline-block', transform: expandedPhone === g.phone ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}>▶</span>
+                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: phoneGroup.phoneLess ? 'var(--danger)' : undefined }}>{phoneGroup.label}</span>
                     <span className="status-group-count">{g.count} ачаа</span>
                   </div>
                   <strong style={{ color: g.total > 0 ? 'var(--accent)' : 'var(--muted)', fontSize: '0.88rem', flexShrink: 0 }}>
@@ -543,8 +555,18 @@ export default function HandoverPage() {
                   </strong>
                 </button>
                 <button type="button" className="btn btn-sm handover-row-give" data-testid="handover-summary-give"
-                  aria-label={`${g.phone} — ${g.count} ачаа олгох`}
-                  onClick={() => { setMode('search'); setScanDone(null); loadSearch(g.phone); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+                  aria-label={`${phoneGroup.label} — ${g.count} ачаа олгох`}
+                  onClick={() => {
+                    setMode('search'); setScanDone(null); setDone(null); setRowEdit(closeHandoverEdit())
+                    if (phoneGroup.phoneLess) {
+                      setQ(''); setError(''); setSearched(true); setShipments(g.shipments)
+                      setSelected(g.shipments.map(s => s.id))
+                      setExpandedDates(g.shipments.length <= 10 ? new Set(g.shipments.map(dateKey)) : new Set())
+                    } else {
+                      void loadSearch(g.phone)
+                    }
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}>
                   Олгох
                 </button>
                 {expandedPhone === g.phone && (
@@ -560,7 +582,8 @@ export default function HandoverPage() {
                   </div>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
 
           {summary.totalGroups > 20 && (

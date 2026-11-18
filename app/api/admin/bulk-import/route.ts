@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   const rowByCode = new Map<string, ImportRow>()
   const notCodes: string[] = []
   for (const r of rows) {
-    // Эрээн — заавал ачааны код; Ирсэн — төлбөр, барааны нэр ч зөвшөөрнө
+    // Эрээн — заавал ачааны код; Ирсэн — үсэг/тоо/зураас, 6–60 (parseArrivedCode)
     const c = r.status === 'ARRIVED' ? parseArrivedCode(r.trackCode) : parseTrackCode(r.trackCode)
     if (c) rowByCode.set(c, { ...r, trackCode: c })
     else notCodes.push(String(r.trackCode ?? '').slice(0, 40))

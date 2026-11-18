@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   scanArrival, parseScanPrice, alreadyArrivedMessage, formatUbDateTime, partitionArrivalImport, isArrivedOrLater,
+  NO_PHONE_ARRIVAL_MESSAGE, skippedNoPhoneCodes, countInsertedWithoutPrice, skippedNoPhoneLabel, noPriceLabel,
   type ArrivalScanStore, type ArrivalWrite,
 } from './arrival-scan'
 
@@ -11,14 +12,21 @@ type Row = {
 }
 
 // Prisma-тай ижил: data-д байхгүй талбар хөндөгдөхгүй; updateIfNotArrived нь status NOT IN (ARRIVED, PICKED_UP) хамгаалалттай
-function memoryStore(initial: Partial<Row> | null, opts: { beforeUpdate?: (row: Row) => void } = {}) {
+function memoryStore(initial: Partial<Row> | null, opts: {
+  beforeUpdate?: (row: Row) => void
+  owner?: (existing: Row | null) => { phone: string | null; userId: number | null }
+} = {}) {
   let row: Row | null = initial
     ? { id: 1, status: 'REGISTERED', arrivedAt: null, adminPrice: null, adminNote: null, phone: '99112233', userId: 7, ...initial }
     : null
   const calls = { create: 0, update: 0, owner: 0, writes: [] as ArrivalWrite[] }
   const store: ArrivalScanStore<Row> = {
     find: async () => (row ? { ...row } : null),
-    owner: async existing => { calls.owner++; return { phone: existing?.phone ?? '99112233', userId: existing?.userId ?? 7 } },
+    owner: async existing => {
+      calls.owner++
+      if (opts.owner) return opts.owner(existing)
+      return { phone: existing?.phone ?? '99112233', userId: existing?.userId ?? 7 }
+    },
     create: async data => {
       calls.create++
       if (row) throw Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })
@@ -157,6 +165,110 @@ describe('handed-over (PICKED_UP) shipment re-scan', () => {
       { status: 'PICKED_UP', arrivedAt: FIRST, adminPrice: 5000 },
     )
     assert.equal(db.calls.writes.length, 0)
+  })
+})
+
+describe('phone-less arrival is refused (mocked, no database)', () => {
+  const none = () => ({ phone: null, userId: null })
+
+  it('does not create an ARRIVED shipment when the scan has no phone and no owner', async () => {
+    const db = memoryStore(null, { owner: none })
+    const r = await scanArrival(db.store, { price: '5000', note: '' }, FIRST)
+    assert.equal(r.kind, 'no-phone')
+    assert.equal(r.kind === 'no-phone' && r.message, NO_PHONE_ARRIVAL_MESSAGE)
+    assert.equal(db.get(), null)
+    assert.deepEqual({ create: db.calls.create, update: db.calls.update }, { create: 0, update: 0 })
+  })
+
+  it('does not promote an owner-less shipment to ARRIVED', async () => {
+    const db = memoryStore({ status: 'EREEN_ARRIVED', phone: null, userId: null, adminPrice: 3000 }, { owner: none })
+    const r = await scanArrival(db.store, { price: '', note: '' }, FIRST)
+    assert.equal(r.kind, 'no-phone')
+    assert.equal(db.get()!.status, 'EREEN_ARRIVED')
+    assert.equal(db.get()!.adminPrice, 3000)
+    assert.equal(db.calls.writes.length, 0)
+  })
+
+  it('arrives when there is no typed phone but the shipment already has an owner', async () => {
+    const db = memoryStore({ status: 'REGISTERED', phone: '99110011', userId: 3 }, {
+      owner: existing => ({ phone: existing?.phone ?? null, userId: existing?.userId ?? null }),
+    })
+    const r = await scanArrival(db.store, { price: '', note: '' }, FIRST)
+    assert.equal(r.kind, 'arrived')
+    assert.equal(db.get()!.status, 'ARRIVED')
+    assert.equal(db.get()!.phone, '99110011')
+    assert.equal(db.get()!.userId, 3)
+  })
+
+  it('arrives a new shipment that has a phone but no user account', async () => {
+    const db = memoryStore(null, { owner: () => ({ phone: '88001122', userId: null }) })
+    const r = await scanArrival(db.store, { price: '1500', note: '' }, FIRST)
+    assert.equal(r.kind, 'arrived')
+    assert.equal(db.get()!.phone, '88001122')
+    assert.equal(db.get()!.userId, null)
+    assert.equal(db.get()!.adminPrice, 1500)
+  })
+
+  it('treats a user id without a phone as an existing owner', async () => {
+    const db = memoryStore(null, { owner: () => ({ phone: null, userId: 9 }) })
+    const r = await scanArrival(db.store, { price: '0', note: '' }, FIRST)
+    assert.equal(r.kind, 'arrived')
+    assert.equal(db.get()!.userId, 9)
+    assert.equal(db.get()!.adminPrice, 0)
+  })
+
+  it('still reports an already-arrived phone-less shipment without writing', async () => {
+    const db = memoryStore({ status: 'ARRIVED', arrivedAt: FIRST, adminPrice: null, phone: null, userId: null }, { owner: none })
+    const r = await scanArrival(db.store, { price: '9000', note: '' }, LATER)
+    assert.equal(r.kind, 'already-arrived')
+    assert.equal(db.get()!.status, 'ARRIVED')
+    assert.equal(db.get()!.arrivedAt!.getTime(), FIRST.getTime())
+    assert.equal(db.calls.owner, 0)
+    assert.equal(db.calls.writes.length, 0)
+  })
+})
+
+describe('import skip and price-less count (mocked, no database)', () => {
+  it('skips fresh rows with no phone and no owner, and keeps rows that already arrived', () => {
+    const existing = new Map<string, { status: string }>([
+      ['OWNED', { status: 'REGISTERED' }],
+      ['ARR', { status: 'ARRIVED' }],
+      ['PICK', { status: 'PICKED_UP' }],
+      ['BARE', { status: 'EREEN_ARRIVED' }],
+    ])
+    const codes = ['OWNED', 'ARR', 'PICK', 'BARE', 'NEWPHONE', 'NEWBARE', 'USERONLY']
+    const owners = [
+      { phone: '99112233', userId: 1 },
+      { phone: null, userId: null },
+      { phone: null, userId: null },
+      { phone: null, userId: null },
+      { phone: '88001122', userId: null },
+      { phone: null, userId: null },
+      { phone: null, userId: 4 },
+    ]
+    assert.deepEqual(skippedNoPhoneCodes(codes, owners, existing), ['BARE', 'NEWBARE'])
+    const fresh = partitionArrivalImport(codes, existing).fresh.filter(c => !skippedNoPhoneCodes(codes, owners, existing).includes(c))
+    assert.deepEqual(fresh, ['OWNED', 'NEWPHONE', 'USERONLY'])
+    assert.equal(skippedNoPhoneLabel(2), 'Утасгүй тул орсонгүй: 2 ачаа')
+  })
+
+  it('counts only inserted rows that end up without a price', () => {
+    const existing = new Map<string, { adminPrice?: unknown }>([
+      ['KEEP', { adminPrice: 3000 }],
+      ['EMPTY', { adminPrice: null }],
+      ['ZERO', { adminPrice: 0 }],
+    ])
+    const prices = new Map<string, unknown>([
+      ['KEEP', ''],
+      ['EMPTY', '   '],
+      ['ZERO', ''],
+      ['NEW', undefined],
+      ['PRICED', '1500'],
+      ['FREEZERO', '0'],
+    ])
+    assert.equal(countInsertedWithoutPrice(['KEEP', 'EMPTY', 'ZERO', 'NEW', 'PRICED', 'FREEZERO'], prices, existing), 2)
+    assert.equal(countInsertedWithoutPrice(['KEEP', 'PRICED', 'FREEZERO'], prices, existing), 0)
+    assert.equal(noPriceLabel(2), '2 ачаа үнэгүй орлоо')
   })
 })
 

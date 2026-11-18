@@ -19,7 +19,14 @@ export function planTrackCodeEdit(input: {
     return { ok: false, status: 404, error: 'Ачаа олдсонгүй' }
   }
   const code = parseArrivedCode(input.raw)
-  if (!code) return { ok: false, status: 400, error: 'Трак код оруулна уу' }
+  if (!code) {
+    // Хуучин мөр дээр "8888" мэт код үлдсэн байж болно. Яг тэр кодоо дахин хадгалах
+    // (үнэ засах) боломжтой хэвээр; шинэ богино/тэмдэгттэй код руу солихгүй.
+    const text = String(input.raw ?? '').trim().replace(/\s+/g, ' ').toUpperCase()
+    const stored = input.shipment.trackCode.trim().replace(/\s+/g, ' ').toUpperCase()
+    if (text && text === stored) return { ok: true, code: input.shipment.trackCode, changed: false }
+    return { ok: false, status: 400, error: text ? 'Трак код 6–60 тэмдэгт, зөвхөн үсэг, тоо, зураас байна' : 'Трак код оруулна уу' }
+  }
   if (input.existingIdInCargo != null && input.existingIdInCargo !== input.shipment.id) {
     return { ok: false, status: 409, error: 'Энэ трак код энэ каргод бүртгэлтэй байна' }
   }
