@@ -7,6 +7,7 @@ export type AuditTone = 'blue' | 'green' | 'yellow' | 'red' | 'muted' | 'purple'
 export const AUDIT_ACTIONS: Record<string, { label: string; routine?: boolean; tone: AuditTone }> = {
   'shipment:ereen-scan': { label: 'Эрээнд уншуулсан', routine: true, tone: 'blue' },
   'shipment:register-arrived': { label: 'Ирсэн бүртгэсэн', routine: true, tone: 'blue' },
+  'shipment:register-arrived-nophone': { label: 'Нэр дугааргүй Ирсэн (гараар)', routine: true, tone: 'blue' },
   'shipment:handover': { label: 'Олгосон', routine: true, tone: 'green' },
   'shipment:import': { label: 'Excel импорт', tone: 'blue' },
   'shipment:import-arrived': { label: 'Excel импорт (Ирсэн)', tone: 'blue' },
