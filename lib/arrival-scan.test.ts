@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { AUDIT_ACTIONS } from './audit-actions'
 import {
   scanArrival, parseScanPrice, alreadyArrivedMessage, formatUbDateTime, partitionArrivalImport, isArrivedOrLater,
-  NO_PHONE_ARRIVAL_MESSAGE, skippedNoPhoneCodes, countInsertedWithoutPrice, skippedNoPhoneLabel, noPriceLabel,
+  NO_PHONE_ARRIVAL_MESSAGE, NO_PHONE_PRICE_MESSAGE, skippedNoPhoneCodes, countInsertedWithoutPrice, skippedNoPhoneLabel, noPriceLabel,
+  manualNoPhoneAuditDetail, MANUAL_NO_PHONE_AUDIT_ACTION,
   type ArrivalScanStore, type ArrivalWrite,
 } from './arrival-scan'
 
@@ -228,8 +230,111 @@ describe('phone-less arrival is refused (mocked, no database)', () => {
   })
 })
 
+describe('manual no-phone arrival when the checkbox allows it (mocked, no database)', () => {
+  const none = () => ({ phone: null, userId: null })
+
+  it('creates an ARRIVED shipment with no phone, no owner, and the given price', async () => {
+    const db = memoryStore(null, { owner: none })
+    const r = await scanArrival(db.store, { price: ' 4000 ', note: 'хайрцаг', allowNoPhone: true }, FIRST)
+    assert.equal(r.kind, 'arrived')
+    assert.equal(r.kind === 'arrived' && r.manualNoPhone, true)
+    assert.equal(r.kind === 'arrived' && r.previousStatus, null)
+    assert.deepEqual(
+      {
+        status: db.get()!.status, phone: db.get()!.phone, userId: db.get()!.userId,
+        adminPrice: db.get()!.adminPrice, adminNote: db.get()!.adminNote, arrivedAt: db.get()!.arrivedAt,
+      },
+      { status: 'ARRIVED', phone: null, userId: null, adminPrice: 4000, adminNote: 'хайрцаг', arrivedAt: FIRST },
+    )
+    assert.equal(db.calls.writes[0].phone, null)
+    assert.equal(db.calls.writes[0].userId, null)
+  })
+
+  it('marks an existing owner-less shipment ARRIVED and stores the price', async () => {
+    const db = memoryStore({ status: 'EREEN_ARRIVED', phone: null, userId: null, adminPrice: null }, { owner: none })
+    const r = await scanArrival(db.store, { price: 4000, note: '', allowNoPhone: true }, FIRST)
+    assert.equal(r.kind, 'arrived')
+    assert.equal(r.kind === 'arrived' && r.manualNoPhone, true)
+    assert.equal(r.kind === 'arrived' && r.previousStatus, 'EREEN_ARRIVED')
+    assert.equal(db.get()!.status, 'ARRIVED')
+    assert.equal(db.get()!.phone, null)
+    assert.equal(db.get()!.userId, null)
+    assert.equal(db.get()!.adminPrice, 4000)
+  })
+
+  for (const price of ['', '   ', null, undefined, '0', 0, 'abc', '-5']) {
+    it(`refuses a manual no-phone scan when the price is ${JSON.stringify(price)}`, async () => {
+      const db = memoryStore(null, { owner: none })
+      const r = await scanArrival(db.store, { price, note: '', allowNoPhone: true }, FIRST)
+      assert.equal(r.kind, 'no-phone')
+      assert.equal(r.kind === 'no-phone' && r.message, NO_PHONE_PRICE_MESSAGE)
+      assert.equal(db.get(), null)
+      assert.equal(db.calls.create, 0)
+      assert.equal(db.calls.update, 0)
+    })
+  }
+
+  it('does not promote an owner-less shipment when the manual price is zero', async () => {
+    const db = memoryStore({ status: 'REGISTERED', phone: null, userId: null, adminPrice: null }, { owner: none })
+    const r = await scanArrival(db.store, { price: 0, note: '', allowNoPhone: true }, FIRST)
+    assert.equal(r.kind, 'no-phone')
+    assert.equal(r.kind === 'no-phone' && r.message, NO_PHONE_PRICE_MESSAGE)
+    assert.equal(db.get()!.status, 'REGISTERED')
+    assert.equal(db.calls.writes.length, 0)
+  })
+
+  it('keeps the original refusal when the flag is missing or not exactly true', async () => {
+    for (const allowNoPhone of [undefined, false, 'true', 1]) {
+      const db = memoryStore(null, { owner: none })
+      const r = await scanArrival(db.store, { price: '4000', note: '', allowNoPhone }, FIRST)
+      assert.equal(r.kind, 'no-phone')
+      assert.equal(r.kind === 'no-phone' && r.message, NO_PHONE_ARRIVAL_MESSAGE)
+      assert.equal(db.get(), null)
+      assert.equal(db.calls.writes.length, 0)
+    }
+  })
+
+  it('keeps an existing owner when the checkbox is on, even without a new price', async () => {
+    const db = memoryStore({ status: 'REGISTERED', phone: '99110011', userId: 3, adminPrice: 1500 }, {
+      owner: existing => ({ phone: existing?.phone ?? null, userId: existing?.userId ?? null }),
+    })
+    const r = await scanArrival(db.store, { price: '', note: '', allowNoPhone: true }, FIRST)
+    assert.equal(r.kind, 'arrived')
+    assert.equal(r.kind === 'arrived' && r.manualNoPhone, undefined)
+    assert.equal(db.get()!.status, 'ARRIVED')
+    assert.equal(db.get()!.phone, '99110011')
+    assert.equal(db.get()!.userId, 3)
+    assert.equal(db.get()!.adminPrice, 1500)
+  })
+
+  it('does not rewrite an already arrived phone-less shipment, even with the flag', async () => {
+    const db = memoryStore({ status: 'ARRIVED', arrivedAt: FIRST, adminPrice: 2000, phone: null, userId: null }, { owner: none })
+    const r = await scanArrival(db.store, { price: '9000', note: '', allowNoPhone: true }, LATER)
+    assert.equal(r.kind, 'already-arrived')
+    assert.equal(db.get()!.adminPrice, 2000)
+    assert.equal(db.get()!.arrivedAt!.getTime(), FIRST.getTime())
+    assert.equal(db.calls.owner, 0)
+    assert.equal(db.calls.writes.length, 0)
+  })
+
+  it('reports already-arrived before demanding a price', async () => {
+    const db = memoryStore({ status: 'ARRIVED', arrivedAt: FIRST, adminPrice: null, phone: null, userId: null }, { owner: none })
+    const r = await scanArrival(db.store, { price: '', note: '', allowNoPhone: true }, LATER)
+    assert.equal(r.kind, 'already-arrived')
+    assert.equal(db.calls.writes.length, 0)
+  })
+
+  it('formats the manual no-phone audit detail', () => {
+    assert.equal(MANUAL_NO_PHONE_AUDIT_ACTION, 'shipment:register-arrived-nophone')
+    assert.equal(AUDIT_ACTIONS[MANUAL_NO_PHONE_AUDIT_ACTION]?.label, 'Нэр дугааргүй Ирсэн (гараар)')
+    assert.equal(manualNoPhoneAuditDetail('YT8853194305559', 4000), 'YT8853194305559 · нэр дугааргүй (гараар) · 4,000₮')
+    assert.equal(manualNoPhoneAuditDetail('YT8853194305559', '4000'), 'YT8853194305559 · нэр дугааргүй (гараар) · 4,000₮')
+  })
+})
+
 describe('import skip and price-less count (mocked, no database)', () => {
   it('skips fresh rows with no phone and no owner, and keeps rows that already arrived', () => {
+    // Excel PUT uses this helper and has no allowNoPhone input — a price does not let a phone-less row through.
     const existing = new Map<string, { status: string }>([
       ['OWNED', { status: 'REGISTERED' }],
       ['ARR', { status: 'ARRIVED' }],

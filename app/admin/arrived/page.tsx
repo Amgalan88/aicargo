@@ -358,14 +358,20 @@ export default function ArrivedPage() {
     } catch { }
   }
 
+  const priceNum = Number(form.adminPrice)
   const valid = {
     trackCode: !!parseArrivedCode(form.trackCode),
     phone: nameless || /^\d{8}$/.test(form.phone.trim()),
-    adminPrice: nameless || (form.adminPrice.trim() !== '' && Number(form.adminPrice) >= 0),
+    adminPrice: nameless
+      ? form.adminPrice.trim() !== '' && Number.isFinite(priceNum) && priceNum > 0
+      : form.adminPrice.trim() !== '' && Number.isFinite(priceNum) && priceNum >= 0,
   }
   const canSave = valid.trackCode && valid.phone && valid.adminPrice
 
   function fe(k: keyof typeof valid) { return touched[k] && !valid[k] }
+  const priceError = nameless
+    ? !valid.adminPrice && !!(touched.adminPrice || touched.trackCode)
+    : fe('adminPrice')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -377,7 +383,11 @@ export default function ArrivedPage() {
     const res = await fetch('/api/admin/arrived', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, ...(dispatchId ? { dispatchId } : {}) }),
+      body: JSON.stringify({
+        ...form,
+        ...(nameless ? { allowNoPhone: true } : {}),
+        ...(dispatchId ? { dispatchId } : {}),
+      }),
     })
     const data = await res.json()
     setLoading(false)
@@ -657,7 +667,7 @@ export default function ArrivedPage() {
                 </label>
                 {nameless && (
                   <p style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.25rem', textAlign: 'right' }}>
-                    Утасгүй бол зөвхөн өмнө нь эзэнтэй ачаа орно. Шинэ ачаанд утас шаардлагатай.
+                    Нэр дугааргүй ачааг үнэтэй нь гараар бүртгэж болно. Excel-ээр утасгүй ачаа орохгүй.
                   </p>
                 )}
               </div>
@@ -693,13 +703,17 @@ export default function ArrivedPage() {
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>
-                <label>Үнэ (₮) {!nameless && <span style={{ color: 'var(--danger)' }}>*</span>}</label>
+                <label>Үнэ (₮) <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input ref={priceRef} className="input" type="number" placeholder="0" min="0"
                   value={form.adminPrice}
                   onChange={e => set('adminPrice', e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); noteRef.current?.focus() } }}
-                  style={{ borderColor: fe('adminPrice') ? 'var(--danger)' : undefined }} />
-                {fe('adminPrice') && <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.3rem' }}>Үнэ оруулна уу</p>}
+                  style={{ borderColor: priceError ? 'var(--danger)' : undefined }} />
+                {priceError && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.3rem' }}>
+                    {nameless ? 'Нэр дугааргүй ачаанд үнэ заавал оруулна уу.' : 'Үнэ оруулна уу'}
+                  </p>
+                )}
               </div>
 
               <div className="form-group" style={{ margin: 0 }}>

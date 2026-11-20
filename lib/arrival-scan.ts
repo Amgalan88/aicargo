@@ -4,6 +4,8 @@
 // - Аль хэдийн Ирсэн/Олгосон ачааг дахин уншуулбал ирсэн огноо, үнэ, төлөвийг хөндөхгүй —
 //   «Аль хэдийн ирсэн байна» анхааруулга буцаана.
 // - Утасгүй, эзэнгүй ачааг Ирсэн болгохгүй (шинээр үүсгэхгүй, өмнөх төлвөөс шилжүүлэхгүй).
+//   Гарын «Нэр дугааргүй» (`allowNoPhone === true`) бөгөөд үнэ > 0 бол зөвхөн тэр үед
+//   утас, эзэнгүйгээр Ирсэн болгоно. Excel импорт энэ замыг ашиглахгүй.
 // - Хоосон/буруу үнэ байгаа үнийг хэзээ ч арилгахгүй. Үнэгүйгээр Ирсэн болсон тоог тусад нь тоолно.
 // - Бусад төлөвт (Бүртгүүлсэн, Эрээнд ирсэн, шинэ) — Ирсэн болгож, ирсэн огноо = одоо.
 //
@@ -65,6 +67,20 @@ export interface ArrivalScanStore<S extends ScannedShipment> {
 
 export const NO_PHONE_ARRIVAL_MESSAGE = 'Утасгүй тул Ирсэн болгосонгүй. Утасны дугаар оруулна уу.'
 
+// «Нэр дугааргүй» гэж гараар тэмдэглэсэн ч үнэ хоосон эсвэл 0
+export const NO_PHONE_PRICE_MESSAGE = 'Нэр дугааргүй ачаанд үнэ заавал оруулна уу.'
+
+// Аудит: гараар, утасгүй Ирсэн. Excel импортын бичлэгээс тусдаа.
+export const MANUAL_NO_PHONE_AUDIT_ACTION = 'shipment:register-arrived-nophone'
+
+export function manualNoPhoneAuditDetail(trackCode: string, adminPrice: unknown): string {
+  const n = typeof adminPrice === 'number' ? adminPrice : Number(adminPrice)
+  const price = adminPrice != null && adminPrice !== '' && Number.isFinite(n)
+    ? ` · ${n.toLocaleString('en-US')}₮`
+    : ''
+  return `${trackCode} · нэр дугааргүй (гараар)${price}`
+}
+
 export function skippedNoPhoneLabel(count: number): string {
   return `Утасгүй тул орсонгүй: ${count} ачаа`
 }
@@ -80,7 +96,7 @@ export function hasArrivalOwner(owner: ArrivalOwner | null | undefined): boolean
 }
 
 export type ArrivalScanResult<S> =
-  | { kind: 'arrived'; shipment: S; previousStatus: string | null }
+  | { kind: 'arrived'; shipment: S; previousStatus: string | null; manualNoPhone?: boolean }
   | { kind: 'already-arrived'; shipment: S; message: string }
   | { kind: 'no-phone'; message: string }
 
@@ -90,11 +106,13 @@ const isUniqueViolation = (e: unknown) => (e as { code?: unknown } | null)?.code
 
 export async function scanArrival<S extends ScannedShipment>(
   store: ArrivalScanStore<S>,
-  input: { price: unknown; note: unknown },
+  input: { price: unknown; note: unknown; allowNoPhone?: unknown },
   now: Date = new Date(),
 ): Promise<ArrivalScanResult<S>> {
   const price = parseScanPrice(input.price)
   const adminNote = typeof input.note === 'string' && input.note ? input.note : null
+  // Зөвхөн жинхэнэ boolean. Чекбокс унтарсан үед талбар огт ирэхгүй.
+  const allowNoPhone = input.allowNoPhone === true
   // Хоёр уншуулалт зэрэг ирвэл нөгөө нь түрүүлж бичсэн байж болно — дахин уншаад шийднэ
   for (let attempt = 0; attempt < 3; attempt++) {
     const existing = await store.find()
@@ -102,19 +120,27 @@ export async function scanArrival<S extends ScannedShipment>(
       return { kind: 'already-arrived', shipment: existing, message: alreadyArrivedMessage(existing) }
     }
     const owner = await store.owner(existing)
+    // «Нэр дугааргүй» + үнэ > 0: эзэн байхгүй үед л утас, userId-г хоосон үлдээнэ.
+    // Эзэн байвал чекбокс утас бичихийг алгасна — хуучин эзнийг арилгахгүй.
+    let manualNoPhone = false
     if (!hasArrivalOwner(owner)) {
-      return { kind: 'no-phone', message: NO_PHONE_ARRIVAL_MESSAGE }
+      if (!allowNoPhone) return { kind: 'no-phone', message: NO_PHONE_ARRIVAL_MESSAGE }
+      if (price === undefined || price <= 0) return { kind: 'no-phone', message: NO_PHONE_PRICE_MESSAGE }
+      manualNoPhone = true
     }
     const data: ArrivalWrite = {
-      status: 'ARRIVED', arrivedAt: now, adminNote, phone: owner.phone, userId: owner.userId,
+      status: 'ARRIVED', arrivedAt: now, adminNote,
+      phone: manualNoPhone ? null : owner.phone,
+      userId: manualNoPhone ? null : owner.userId,
       ...(price !== undefined ? { adminPrice: price } : {}),
     }
+    const arrived = { manualNoPhone: true as const }
     if (existing) {
       const updated = await store.updateIfNotArrived(existing.id, data)
-      if (updated) return { kind: 'arrived', shipment: updated, previousStatus: existing.status }
+      if (updated) return { kind: 'arrived', shipment: updated, previousStatus: existing.status, ...(manualNoPhone ? arrived : {}) }
     } else {
       try {
-        return { kind: 'arrived', shipment: await store.create(data), previousStatus: null }
+        return { kind: 'arrived', shipment: await store.create(data), previousStatus: null, ...(manualNoPhone ? arrived : {}) }
       } catch (e) {
         if (!isUniqueViolation(e)) throw e
       }

@@ -14,7 +14,7 @@ import { ubDayRange } from '@/lib/ub-date'
 import { importLimitError } from '@/lib/import-limits'
 import { openDispatchId, markArrivals } from '@/lib/dispatch'
 import { recordDeletions, DELETION_SNAPSHOT_SELECT, createdWithArrival } from '@/lib/shipment-deletion'
-import { scanArrival, ArrivalScanConflictError, ARRIVED_OR_LATER, parseScanPrice, partitionArrivalImport, skippedNoPhoneCodes, countInsertedWithoutPrice } from '@/lib/arrival-scan'
+import { scanArrival, ArrivalScanConflictError, ARRIVED_OR_LATER, parseScanPrice, partitionArrivalImport, skippedNoPhoneCodes, countInsertedWithoutPrice, manualNoPhoneAuditDetail, MANUAL_NO_PHONE_AUDIT_ACTION } from '@/lib/arrival-scan'
 
 // Excel-ээс олон зуун мөр орж ирж болдог тул мөр мөрөөр DB руу хандвал
 // round-trip хэтэрч timeout болно (batch feature дээр олдсонтой ижил алдаа) —
@@ -64,7 +64,8 @@ export async function PUT(req: NextRequest) {
   const skippedNoPhone = skippedNoPhoneCodes(codes, owners, existingByCode)
   const skip = new Set(skippedNoPhone)
   const { fresh: freshAll, alreadyArrived, pickedUp } = partitionArrivalImport(codes, existingByCode)
-  // Утасгүй, эзэнгүй мөрийг Ирсэн болгож бичихгүй
+  // Утасгүй, эзэнгүй мөрийг Ирсэн болгож бичихгүй.
+  // Гарын «Нэр дугааргүй» (allowNoPhone) зөвхөн POST нэг бүртгэлд — Excel энд хэвээр алгасна.
   const fresh = freshAll.filter(c => !skip.has(c))
   const noPrice = countInsertedWithoutPrice(
     fresh,
@@ -145,7 +146,7 @@ export async function POST(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { trackCode, adminPrice, adminNote, phone: manualPhone, dispatchId: dispatchRaw } = await req.json()
+  const { trackCode, adminPrice, adminNote, phone: manualPhone, dispatchId: dispatchRaw, allowNoPhone } = await req.json()
   if (!trackCode) {
     return NextResponse.json({ error: 'Трак код оруулна уу' }, { status: 400 })
   }
@@ -174,7 +175,7 @@ export async function POST(req: NextRequest) {
         })
         return count ? prisma.shipment.findUnique({ where: { id }, include }) : null
       },
-    }, { price: adminPrice, note: adminNote })
+    }, { price: adminPrice, note: adminNote, allowNoPhone })
   } catch (e) {
     if (e instanceof ArrivalScanConflictError) return NextResponse.json({ error: e.message }, { status: 409 })
     throw e
@@ -204,8 +205,10 @@ export async function POST(req: NextRequest) {
 
   auditLater({
     cargoId, userId: admin.userId, userName: admin.name,
-    action: 'shipment:register-arrived',
-    detail: `${code}${shipment.phone ? ' · ' + shipment.phone : ''}${shipment.adminPrice != null ? ' · ' + Number(shipment.adminPrice).toLocaleString() + '₮' : ''}`,
+    action: scan.manualNoPhone ? MANUAL_NO_PHONE_AUDIT_ACTION : 'shipment:register-arrived',
+    detail: scan.manualNoPhone
+      ? manualNoPhoneAuditDetail(code, shipment.adminPrice)
+      : `${code}${shipment.phone ? ' · ' + shipment.phone : ''}${shipment.adminPrice != null ? ' · ' + Number(shipment.adminPrice).toLocaleString() + '₮' : ''}`,
   })
 
   // Ачилт сонгосон бол (туршилт): энэ код ачилтад байсан эсэх
