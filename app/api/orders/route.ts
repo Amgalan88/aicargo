@@ -55,7 +55,7 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'ID шаардлагатай' }, { status: 400 })
 
   const shipment = await prisma.shipment.findUnique({ where: { id: Number(id) } })
-  if (!shipment || shipment.userId !== user.userId) {
+  if (!shipment || shipment.userId !== user.userId || (user.cargoId && shipment.cargoId !== user.cargoId)) {
     return NextResponse.json({ error: 'Олдсонгүй' }, { status: 404 })
   }
   if (shipment.status === 'PICKED_UP') {

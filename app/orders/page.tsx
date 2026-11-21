@@ -12,8 +12,10 @@ export default async function OrdersPage() {
 
   // Хамааралгүй асуултуудыг зэрэг явуулна — DB рүү очих тойрог бүр хугацаа нэмдэг
   const [shipments, userRecord, suggestedQuestions] = await Promise.all([
+    // Зөвхөн одоогийн каргогийн ачаа: карго шилжсэн хэрэглэгчийн хуучин каргод холбогдсон ачаа
+    // (буцаж шилжвэл дахин харагдана) өөр каргогийн нэр, төлөвийн нэрээр харагдаж байсан
     prisma.shipment.findMany({
-      where: { userId: user.userId },
+      where: { userId: user.userId, ...(user.cargoId ? { cargoId: user.cargoId } : {}) },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.user.findUnique({
