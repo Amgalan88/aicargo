@@ -259,6 +259,9 @@ export async function PATCH(req: NextRequest) {
     const owners = await resolveImportOwners(admin.cargoId!, [before.trackCode], new Map([[before.trackCode, String(phone)]]), new Map([[before.trackCode, before]]))
     if (parsePhone(phone)) { newPhone = owners.phones[0]; newUserId = owners.userIds[0] }
   }
+  // Утсыг арилгавал (нэргүй болгоно) эзнийг ч салгана — өмнө нь утас арилж эзэн хэвээр үлдээд
+  // нэргүй ачаа тэр хүний жагсаалтад, олголтын хайлтад харагдсаар байв (aya JT9003015594339)
+  if (before && phone !== undefined && !phone && before.status !== 'PICKED_UP') newUserId = null
   // Үнэ өөрчлөгдвөл түүхэнд бичнэ; олгосон ачаа бол урамшууллын зөрүүг (оноо) нөхөн бичнэ — нэг транзакцид, ачааг түгжээд
   const cargoId = admin.cargoId!
   let shipment
