@@ -33,7 +33,8 @@ export async function GET(req: NextRequest) {
         email: true,
         phoneVerifiedAt: true,
         createdAt: true,
-        _count: { select: { shipments: true } },
+        // Зөвхөн энэ каргын ачаа — карго шилжсэн хэрэглэгчийн хуучин каргын ачааг тоолохгүй
+        _count: { select: { shipments: { where: { cargoId: admin.cargoId! } } } },
       },
     }),
   ])

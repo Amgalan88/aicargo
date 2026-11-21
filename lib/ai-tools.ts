@@ -267,7 +267,7 @@ export async function executeAITool(
             email: true,
             role: true,
             createdAt: true,
-            _count: { select: { shipments: true } },
+            _count: { select: { shipments: { where: { cargoId } } } },
           },
         })
         const link = users.length === 1 && users[0].phone
@@ -396,7 +396,7 @@ export async function executeAITool(
         const userIds = activity.map((a: any) => a.userId).filter(Boolean)
         const users = await prisma.user.findMany({
           where: { id: { in: userIds } },
-          select: { id: true, name: true, phone: true, _count: { select: { shipments: true } } },
+          select: { id: true, name: true, phone: true, _count: { select: { shipments: { where: { cargoId } } } } },
         })
         const userMap = Object.fromEntries(users.map(u => [u.id, u]))
         const result = activity.map((a: any) => ({
