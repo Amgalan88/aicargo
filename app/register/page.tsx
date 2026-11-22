@@ -8,7 +8,7 @@ export default async function RegisterPage() {
   const subdomain = await getCargoFromSubdomain()
 
   if (subdomain) {
-    return <RegisterClient cargos={[subdomain]} lockedCargoId={subdomain.id} />
+    return <RegisterClient cargos={[subdomain]} lockedCargoId={subdomain.id} promo={!!subdomain.promoEnabled} />
   }
 
   const cargos = await (prisma.cargo.findMany as any)({

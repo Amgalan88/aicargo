@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Cargo { id: number; name: string; logoUrl?: string | null }
 
-export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Cargo[]; lockedCargoId?: number }) {
+export default function RegisterClient({ cargos, lockedCargoId, promo = false }: { cargos: Cargo[]; lockedCargoId?: number; promo?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const locked = lockedCargoId ? cargos.find(c => c.id === lockedCargoId) ?? null : null
@@ -25,6 +25,8 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
     }
   }, [cargos, searchParams, locked])
   const [form, setForm] = useState({ name: '', phone: '', password: '' })
+  // Промо код (агентын линк ?ref=КОД) — зөвхөн промо горимтой каргод
+  const [promoCode, setPromoCode] = useState(() => (searchParams.get('ref') ?? '').trim().toUpperCase().slice(0, 20))
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [moveStep, setMoveStep] = useState<'confirm' | 'otp' | null>(null)
@@ -49,7 +51,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, cargoId: selectedCargo.id, verificationId }),
+      body: JSON.stringify({ ...form, cargoId: selectedCargo.id, verificationId, ...(promo && promoCode ? { promoCode } : {}) }),
     })
     const data = await res.json()
     setLoading(false)
@@ -88,7 +90,7 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
     const res = await fetch('/api/auth/register/move/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: form.name, phone: form.phone, password: form.password, cargoId: selectedCargo.id, verificationId }),
+      body: JSON.stringify({ name: form.name, phone: form.phone, password: form.password, cargoId: selectedCargo.id, verificationId, ...(promo && promoCode ? { promoCode } : {}) }),
     })
     const data = await res.json()
     setLoading(false)
@@ -278,6 +280,13 @@ export default function RegisterClient({ cargos, lockedCargoId }: { cargos: Carg
                   <PasswordInput placeholder="Хамгийн багадаа 6 тэмдэгт" required autoComplete="new-password"
                     value={form.password} onChange={e => set('password', e.target.value)} />
                 </div>
+                {promo && (
+                  <div className="form-group">
+                    <label>Промо код <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(байвал)</span></label>
+                    <input className="input" placeholder="жш BOLD10" autoCapitalize="characters" maxLength={20}
+                      value={promoCode} onChange={e => setPromoCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))} />
+                  </div>
+                )}
                 {error && <p className="msg-error">{error}</p>}
                 <div className="form-actions" style={{ marginTop: '1rem' }}>
                   <button className="btn" type="submit" disabled={loading || needVerify} style={{ width: '100%' }}>

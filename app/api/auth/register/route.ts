@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
 import { consumeVerification } from '@/lib/phone-verification'
+import { joinPromo } from '@/lib/promo'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
@@ -50,6 +51,9 @@ export async function POST(req: NextRequest) {
   await prisma.$executeRaw`
     UPDATE "Shipment" SET "userId" = ${user.id}
     WHERE "phone" = ${phone} AND "userId" IS NULL AND "cargoId" = ${cargo.id}`
+
+  // Промо код (промо горимтой каргод): агентын гишүүн болгож, кодын шатыг ононо. Алдаа гарсан ч бүртгэл амжилттай
+  if (body.promoCode) await joinPromo(prisma, cargo.id, String(phone), body.promoCode).catch(e => console.error('promo join', e))
 
   const token = signToken({ userId: user.id, role: user.role, cargoId: user.cargoId })
   const res = NextResponse.json({ ok: true })

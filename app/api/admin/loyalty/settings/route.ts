@@ -33,14 +33,16 @@ export async function PUT(req: NextRequest) {
   return NextResponse.json({ ...v.value, canEdit: true })
 }
 
-const LABELS: Record<keyof LoyaltyConfig, string> = {
+// maxVipPct тохиргоо биш (промо горимоос) — аудитад орохгүй
+type Labeled = Exclude<keyof LoyaltyConfig, 'maxVipPct'>
+const LABELS: Record<Labeled, string> = {
   pointsEnabled: 'Карго оноо', vipEnabled: 'VIP хөнгөлөлт', earnMntPerPoint: '1 оноо авах дүн', pointValueMnt: '1 онооны үнэ',
   pointsExpiryDays: 'Онооны хугацаа', maxRedeemPct: 'Оноогоор төлөх дээд %', vipWindowDays: 'VIP тооцох хоног',
   vipGraceDays: 'Шат хадгалах хоног', vipTiers: 'VIP шат',
 }
 function describe(a: LoyaltyConfig, b: LoyaltyConfig): string {
   const out: string[] = []
-  for (const k of Object.keys(LABELS) as (keyof LoyaltyConfig)[]) {
+  for (const k of Object.keys(LABELS) as Labeled[]) {
     const x = JSON.stringify(a[k]), y = JSON.stringify(b[k])
     if (x === y) continue
     const show = (v: unknown) => typeof v === 'boolean' ? (v ? 'асаасан' : 'унтраасан')

@@ -15,9 +15,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   let batchEnabled = false
   let linkOrders = false
   let dispatchEnabled = false
+  let promoEnabled = false
   let onboarding: { addressDone: boolean; shipmentDone: boolean; usersDone: boolean } | null = null
   if (user.cargoId) {
-    const cargo = await (prisma.cargo.findUnique as any)({ where: { id: user.cargoId }, select: { name: true, logoUrl: true, slug: true, groupId: true, paidUntil: true, batchEnabled: true, linkOrdersEnabled: true, dispatchEnabled: true, createdAt: true, ereemReceiver: true, ereemPhone: true, ereemAddress: true } })
+    const cargo = await (prisma.cargo.findUnique as any)({ where: { id: user.cargoId }, select: { name: true, logoUrl: true, slug: true, groupId: true, paidUntil: true, batchEnabled: true, linkOrdersEnabled: true, dispatchEnabled: true, promoEnabled: true, createdAt: true, ereemReceiver: true, ereemPhone: true, ereemAddress: true } })
     cargoName = cargo?.name ?? ''
     logoUrl = cargo?.logoUrl ?? ''
     cargoSlug = cargo?.slug ?? ''
@@ -26,6 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     batchEnabled = !!cargo?.batchEnabled
     linkOrders = !!cargo?.linkOrdersEnabled
     dispatchEnabled = !!cargo?.dispatchEnabled
+    promoEnabled = !!cargo?.promoEnabled
 
     // Onboarding чеклист — зөвхөн сүүлийн 60 хоногт үүссэн каргод (хуучин каргод нэмэлт query байхгүй)
     const isNew = cargo?.createdAt && Date.now() - new Date(cargo.createdAt).getTime() < 60 * 86_400_000
@@ -42,5 +44,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }
   }
 
-  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin} linkOrders={linkOrders} dispatchEnabled={dispatchEnabled}>{children}</AdminShell>
+  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin} linkOrders={linkOrders} dispatchEnabled={dispatchEnabled} promoEnabled={promoEnabled}>{children}</AdminShell>
 }

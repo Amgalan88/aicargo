@@ -9,7 +9,7 @@ export default function Details({ v }: { v: CustomerLoyaltyView }) {
   const fact = P ? redeemFact(P.maxRedeemPct) : null
   return (
     <div className="lh-det">
-      {V && (
+      {V && V.tiers.length > 0 && (
         <div>
           <h4>VIP шат · {V.windowDays} хоног</h4>
           <div className="lh-tiers">

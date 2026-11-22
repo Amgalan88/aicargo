@@ -33,6 +33,10 @@ model Cargo {
   linkOrdersEnabled Boolean    @default(false)
   // Линк захиалгын юанийн ханш (₮ / ¥). Байвал админ үнийг юанаар оруулж, системд ₮ болгон хадгална
   linkCnyRate       Decimal?   @db.Decimal(10, 2)
+  // Промо код + шатлалтай хөнгөлөлт (туршилт — эхлээд зөвхөн Атлас). Асаалттай бол гараар оноох VIP 50% хүртэл
+  promoEnabled      Boolean    @default(false)
+  // [{"name":"Gold","pct":15},...] — хоосон бол анхдагч 6 шат (lib/promo.ts)
+  discountTiers     Json?
   dispatchEnabled   Boolean    @default(true) // «Тулгалт»: «Ирсэн»-ийг Эрээнээс сонгосон ачаатай тулгах — эзэмшигч тохиргооноос унтраана
   phoneVerify       Boolean    @default(false) // ашиглагдахгүй (хуучин: шинэ хэрэглэгч/админы утас шаардах асаалт) — одоо бүртгэл, карго нээлт бүгд утас заавал
   // Брэндбүүкийн загвар (жш "mgl" — Эрээнээс MGL карго): өнгө, фонт, толгойн маршрутын шугам. null = aicargo-ийн энгийн загвар
@@ -72,6 +76,8 @@ model Cargo {
   loyaltyAccounts    LoyaltyAccount[]
   loyaltyLedger      LoyaltyLedger[]
   handoverReceipts   HandoverReceipt[]
+  promoCodes         PromoCode[]
+  promoMembers       PromoMember[]
   priceChanges       ShipmentPriceChange[]
 }
 
@@ -631,6 +637,8 @@ model LoyaltyAccount {
   vipManualById   Int?
   vipManualByName String?
   vipManualAt     DateTime?
+  // Шатын нэр (промо горимд: Gold гэх мэт) — оноох үеийн хуулбар
+  vipManualTier   String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   ledger          LoyaltyLedger[]
@@ -802,4 +810,45 @@ model ManychatReplyReservation {
 
   @@unique([tenant, pageId, subscriberId, revision])
   @@index([batchId])
+}
+
+// Агентын промо код (Cargo.promoEnabled). Кодоор бүртгүүлсэн хэрэглэгчийн олголтоор төлсөн дүнгийн commissionPct% = шимтгэл
+model PromoCode {
+  id            Int           @id @default(autoincrement())
+  cargoId       Int
+  cargo         Cargo         @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  code          String
+  agentName     String
+  agentPhone    String?
+  commissionPct Decimal       @db.Decimal(5, 2)
+  // Кодоор бүртгүүлэхэд автоматаар оноох хөнгөлөлтийн шат (заавал биш)
+  tierName      String?
+  tierPct       Int?
+  // Агентын тайлангийн нууц линк /promo/<token>
+  token         String        @unique
+  active        Boolean       @default(true)
+  createdById   Int?
+  createdByName String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  members       PromoMember[]
+
+  @@unique([cargoId, code])
+}
+
+// Хэрэглэгч (утас) аль кодоор ирсэн — нэг каргод нэг утас = нэг код. Шимтгэл joinedAt-аас хойшх олголтоос
+model PromoMember {
+  id          Int       @id @default(autoincrement())
+  cargoId     Int
+  cargo       Cargo     @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  phone       String
+  promoCodeId Int
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  // signup — бүртгүүлэхдээ; admin — админ дараа нь оноосон
+  source      String
+  byName      String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([cargoId, phone])
+  @@index([promoCodeId])
 }

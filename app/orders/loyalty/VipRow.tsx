@@ -8,6 +8,15 @@ export default function VipRow({ vip, arrivedTotal }: { vip: LoyaltyVip; arrived
   const key = vipKey(vip)
   const nx = nextTier(vip)
   const amount = useCountUp(key.kind === 'progress' ? key.remaining : key.kind === 'held' ? key.keepMnt : 0)
+  // Промо горимын нэртэй шат (Gold 15%) — зарцуулалтын шатны шугамгүй
+  if (vip.tierName) return (
+    <div className="lh-col" data-testid="lh-vip">
+      <div className="lh-row lh-in" style={{ ['--i' as string]: 0 }}>
+        <span className="lh-badge max"><Award size={13} strokeWidth={2.6} /> {vip.tierName} {vip.pct}%</span>
+        <span className="lh-k">Ачаа авахад {vip.pct}% хөнгөлөлт{vip.manualUntil ? <span className="lh-m"> · {fmtMD(vip.manualUntil)} хүртэл</span> : null}</span>
+      </div>
+    </div>
+  )
   const locked = vip.pct === 0
   const badge = locked
     ? <span className="lh-badge locked"><Lock size={12} strokeWidth={2.6} /> VIP</span>

@@ -46,7 +46,8 @@ export async function PATCH(req: NextRequest) {
   const phone = parsePhone(body.phone)
   if (!phone) return NextResponse.json({ error: 'Утасны дугаар буруу' }, { status: 400 })
   const pct = body.pct === null || body.pct === '' || body.pct === 0 ? null : Number(body.pct)
-  if (pct !== null && (!Number.isInteger(pct) || pct < 1 || pct > 5)) return NextResponse.json({ error: 'Хувь 1–5 байна' }, { status: 400 })
+  const maxPct = (await getLoyaltyConfig(prisma, cargoId)).maxVipPct ?? 5
+  if (pct !== null && (!Number.isInteger(pct) || pct < 1 || pct > maxPct)) return NextResponse.json({ error: `Хувь 1–${maxPct} байна` }, { status: 400 })
   const note = typeof body.note === 'string' ? body.note.trim().slice(0, 200) : ''
   if (pct !== null && !note) return NextResponse.json({ error: 'Шалтгаан бичнэ үү' }, { status: 400 })
   let until: Date | null = null

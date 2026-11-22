@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import {
+import { Ticket,
   ClipboardList, PackageOpen, PackageCheck, HandCoins, History, Truck,
   Users, Megaphone, CircleHelp, Settings, Sparkles, ScrollText, SearchCheck,
   Bell, LogOut, Link2, Check, ShoppingCart, PlayCircle, CalendarClock, Ellipsis, ChevronDown, X, Gift,
@@ -41,6 +41,7 @@ export default function AdminNav({
   isStaffAdmin,
   linkOrders,
   dispatchEnabled,
+  promoEnabled,
 }: {
   cargoName?: string
   logoUrl?: string
@@ -53,6 +54,8 @@ export default function AdminNav({
   linkOrders?: boolean
   // Ачилтын тулгалт (супер админ асаасан, туршилт)
   dispatchEnabled?: boolean
+  // Промо код + шатлалтай хөнгөлөлт (туршилт)
+  promoEnabled?: boolean
 }) {
   const pathname = usePathname()
   // Шинэ линк захиалга ирэхэд (LinkOrderAlert) цэсний тоог шинэчилнэ
@@ -142,6 +145,7 @@ export default function AdminNav({
     ...(hasGroup ? [{ href: '/admin/group-search', label: 'Групп хайлт', icon: SearchCheck }] : []),
     ...(AI_SUPPORT_ENABLED ? [{ href: '/admin/ai', label: 'AI туслах', icon: Sparkles }] : []),
     { href: '/admin/faq', label: 'FAQ', icon: CircleHelp },
+    ...(promoEnabled ? [{ href: '/admin/promo', label: 'Промо код', icon: Ticket }] : []),
     { href: '/admin/loyalty', label: 'Урамшуулал', icon: Gift },
     // Видео нэмэгдсэн үед л харагдана (lib/tutorials)
     ...(withVideo(ADMIN_TUTORIALS).length ? [{ href: '/admin/help', label: 'Заавар видео', icon: PlayCircle }] : []),

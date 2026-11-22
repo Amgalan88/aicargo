@@ -22,6 +22,7 @@ export interface CargoInfo {
   ereemLabel: string | null
   searchByPhone: boolean
   phoneVerify: boolean
+  promoEnabled?: boolean
 }
 
 export async function getCargoFromSubdomain(): Promise<CargoInfo | null> {
@@ -34,6 +35,7 @@ export async function getCargoFromSubdomain(): Promise<CargoInfo | null> {
       id: true,
       name: true,
       logoUrl: true,
+      promoEnabled: true,
       ereemReceiver: true,
       ereemPhone: true,
       ereemRegion: true,

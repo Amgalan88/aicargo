@@ -5,6 +5,7 @@ import { Redis } from '@upstash/redis'
 import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
 import { consumeVerification } from '@/lib/phone-verification'
+import { joinPromo } from '@/lib/promo'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -15,7 +16,7 @@ const phoneRatelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(8
 
 export async function POST(req: NextRequest) {
   // Эзэн гэдгээ и-мэйлийн кодоор (code) эсвэл утсаа SMS-ээр (verificationId, зорилго "move") батална
-  const { name, phone, password, cargoId, code, verificationId } = await req.json()
+  const { name, phone, password, cargoId, code, verificationId, promoCode } = await req.json()
   if (!name || !phone || !password || !cargoId || (!code && !verificationId)) {
     return NextResponse.json({ error: 'Мэдээлэл дутуу байна' }, { status: 400 })
   }
@@ -71,6 +72,8 @@ export async function POST(req: NextRequest) {
       WHERE "phone" = ${phone} AND "userId" IS NULL AND "cargoId" = ${cargo.id}`
     return updated
   })
+
+  if (promoCode) await joinPromo(prisma, cargo.id, String(phone), promoCode).catch(e => console.error('promo join', e))
 
   const token = signToken({ userId: moved.id, role: moved.role, cargoId: moved.cargoId, tokenVersion: moved.tokenVersion })
   const res = NextResponse.json({ ok: true })

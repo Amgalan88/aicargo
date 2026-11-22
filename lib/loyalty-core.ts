@@ -15,6 +15,8 @@ export interface LoyaltyConfig {
   vipWindowDays: number
   vipGraceDays: number
   vipTiers: VipTier[]
+  // Гараар оноосон VIP-ийн дээд хувь: энгийн 5, промо горимтой (Cargo.promoEnabled) 50. Байхгүй бол 5
+  maxVipPct?: number
 }
 
 export const DEFAULT_VIP_TIERS: VipTier[] = [
@@ -349,7 +351,7 @@ export class RedeemError extends Error {
 export function quoteReceipt(q: QuoteInput): Quote {
   const grossC = Math.max(0, toCents(q.grossMnt))
   const vipOn = q.applyLoyalty && q.cfg.vipEnabled && q.vip.pct > 0
-  const vipPct = vipOn ? Math.min(5, q.vip.pct) : 0
+  const vipPct = vipOn ? Math.min(q.cfg.maxVipPct ?? 5, q.vip.pct) : 0
   const discountC = floorMnt(Math.floor((grossC * vipPct) / 100))
   const afterVipC = grossC - discountC
   const pointsOn = q.applyLoyalty && q.cfg.pointsEnabled
@@ -443,6 +445,8 @@ export interface CustomerLoyaltyView {
     pct: number; source: 'AUTO' | 'MANUAL' | null; spend: number; held: boolean
     next: { pct: number; minSpend: number; remaining: number } | null
     windowDays: number; graceDays: number; tiers: VipTier[]; manualUntil: string | null
+    // Промо горимд гараар оноосон шатын нэр (Gold гэх мэт)
+    tierName?: string | null
   } | null
   receipts: {
     id: number; createdAt: string; itemCount: number; grossMnt: number; vipPct: number; vipDiscountMnt: number

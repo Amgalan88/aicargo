@@ -18,8 +18,19 @@ export class LoyaltyError extends Error {
 // ── Тохиргоо ─────────────────────────────────────────────────────────────────
 
 export async function getLoyaltyConfig(db: Db, cargoId: number): Promise<LoyaltyConfig> {
-  const row = await db.loyaltySettings.findUnique({ where: { cargoId } })
-  return configFromRow(row as never)
+  const [row, cargo] = await Promise.all([
+    db.loyaltySettings.findUnique({ where: { cargoId } }),
+    db.cargo.findUnique({ where: { id: cargoId }, select: { promoEnabled: true } }),
+  ])
+  const cfg = configFromRow(row as never)
+  // Промо горим (lib/promo.ts): гараар оноох шат 50% хүртэл. Урамшууллаа тохируулаагүй бол зөвхөн гараар
+  // оноосон шат үйлчилнэ (зарцуулалтаар автомат шат, оноо унтраалттай)
+  if (cargo?.promoEnabled) {
+    cfg.maxVipPct = 50
+    // VIP унтраалттай (эсвэл тохиргоогүй) бол зөвхөн гараар оноосон шат үйлчилнэ; асаалттай бол автомат шат хэвээр
+    if (!row || !cfg.vipEnabled) { cfg.vipEnabled = true; cfg.vipTiers = [] }
+  }
+  return cfg
 }
 
 export async function saveLoyaltyConfig(db: Db, cargoId: number, cfg: LoyaltyConfig, actor: Actor) {
@@ -68,14 +79,14 @@ export async function loadSpendEvents(db: Db, cargoId: number, phones: string[] 
 }
 
 const ACCOUNT_SELECT = {
-  id: true, phone: true, vipManualPct: true, vipManualNote: true, vipManualUntil: true, vipManualByName: true, vipManualAt: true,
+  id: true, phone: true, vipManualPct: true, vipManualNote: true, vipManualUntil: true, vipManualByName: true, vipManualAt: true, vipManualTier: true,
   ledger: { select: { id: true, kind: true, points: true, createdAt: true, expiresAt: true, refLedgerId: true } },
 } as const
 
 export interface CustomerState {
   phone: string
   accountId: number | null
-  manual: { pct: number | null; note: string | null; until: Date | null; by: string | null; at: Date | null }
+  manual: { pct: number | null; note: string | null; until: Date | null; by: string | null; at: Date | null; tier: string | null }
   manualPct: number          // одоо хүчинтэй гараар оноосон %
   auto: AutoVip
   vip: { pct: number; source: 'AUTO' | 'MANUAL' | null }
@@ -107,7 +118,7 @@ export async function loadCustomerStates(db: Db, cargoId: number, cfg: LoyaltyCo
     out.set(phone, {
       phone,
       accountId: acc?.id ?? null,
-      manual: { pct: acc?.vipManualPct ?? null, note: acc?.vipManualNote ?? null, until: acc?.vipManualUntil ?? null, by: acc?.vipManualByName ?? null, at: acc?.vipManualAt ?? null },
+      manual: { pct: acc?.vipManualPct ?? null, note: acc?.vipManualNote ?? null, until: acc?.vipManualUntil ?? null, by: acc?.vipManualByName ?? null, at: acc?.vipManualAt ?? null, tier: acc?.vipManualTier ?? null },
       manualPct,
       auto,
       vip: effectiveVip(auto, manualPct),
@@ -534,10 +545,10 @@ export async function listLoyaltyCustomers(db: Db, cargoId: number, cfg: Loyalty
   return rows.sort((a, b) => b.effectivePct - a.effectivePct || b.spend - a.spend || a.phone.localeCompare(b.phone))
 }
 
-export async function setManualVip(db: Db, cargoId: number, phone: string, input: { pct: number | null; note: string | null; until: Date | null }, actor: Actor, now = new Date()) {
+export async function setManualVip(db: Db, cargoId: number, phone: string, input: { pct: number | null; note: string | null; until: Date | null; tier?: string | null }, actor: Actor, now = new Date()) {
   const data = input.pct
-    ? { vipManualPct: input.pct, vipManualNote: input.note, vipManualUntil: input.until, vipManualById: actor.id, vipManualByName: actor.name, vipManualAt: now }
-    : { vipManualPct: null, vipManualNote: input.note, vipManualUntil: null, vipManualById: actor.id, vipManualByName: actor.name, vipManualAt: now }
+    ? { vipManualPct: input.pct, vipManualNote: input.note, vipManualUntil: input.until, vipManualTier: input.tier ?? null, vipManualById: actor.id, vipManualByName: actor.name, vipManualAt: now }
+    : { vipManualPct: null, vipManualNote: input.note, vipManualUntil: null, vipManualTier: null, vipManualById: actor.id, vipManualByName: actor.name, vipManualAt: now }
   return db.loyaltyAccount.upsert({
     where: { cargoId_phone: { cargoId, phone } },
     update: data,
@@ -552,6 +563,8 @@ export async function customerLoyalty(db: Db, cargoId: number, phone: string, no
   const cfg = await getLoyaltyConfig(db, cargoId)
   if (!loyaltyOn(cfg)) return null
   const st = (await loadCustomerStates(db, cargoId, cfg, [phone], now)).get(phone)!
+  // Промо горим, зөвхөн гараар оноох шат: шатгүй хүнд карт харуулахгүй (автомат шат, оноо байхгүй)
+  if (cfg.maxVipPct && cfg.maxVipPct > 5 && !cfg.pointsEnabled && cfg.vipTiers.length === 0 && st.vip.pct <= 0) return null
   const receipts = await db.handoverReceipt.findMany({
     where: { cargoId, phone, voidedAt: null }, orderBy: { createdAt: 'desc' }, take: 10,
     select: { ...RECEIPT_SUMMARY, createdAt: true },
@@ -566,6 +579,7 @@ export async function customerLoyalty(db: Db, cargoId: number, phone: string, no
     vip: cfg.vipEnabled ? {
       pct: st.vip.pct, source: st.vip.source, spend: st.auto.spend, held: st.auto.held, next: st.auto.next,
       windowDays: cfg.vipWindowDays, graceDays: cfg.vipGraceDays, tiers: cfg.vipTiers, manualUntil: st.vip.source === 'MANUAL' ? st.manual.until : null,
+      tierName: st.vip.source === 'MANUAL' ? st.manual.tier : null,
     } : null,
     receipts: receipts.map(r => ({ ...toSummary(r), createdAt: r.createdAt })),
   }
