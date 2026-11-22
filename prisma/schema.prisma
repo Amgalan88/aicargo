@@ -31,6 +31,8 @@ model Cargo {
   batchEnabled      Boolean    @default(false)
   // Хэрэглэгчээс барааны линкээр захиалга авах (Taobao, Pinduoduo, 1688…)
   linkOrdersEnabled Boolean    @default(false)
+  // Линк захиалгын юанийн ханш (₮ / ¥). Байвал админ үнийг юанаар оруулж, системд ₮ болгон хадгална
+  linkCnyRate       Decimal?   @db.Decimal(10, 2)
   dispatchEnabled   Boolean    @default(true) // «Тулгалт»: «Ирсэн»-ийг Эрээнээс сонгосон ачаатай тулгах — эзэмшигч тохиргооноос унтраана
   phoneVerify       Boolean    @default(false) // ашиглагдахгүй (хуучин: шинэ хэрэглэгч/админы утас шаардах асаалт) — одоо бүртгэл, карго нээлт бүгд утас заавал
   // Брэндбүүкийн загвар (жш "mgl" — Эрээнээс MGL карго): өнгө, фонт, толгойн маршрутын шугам. null = aicargo-ийн энгийн загвар
@@ -493,6 +495,9 @@ model LinkOrder {
   imageUrl   String?
   status     String    @default("NEW")
   price      Decimal?  @db.Decimal(12, 2)
+  // Юанаар үнэлсэн бол: нэг ширхэгийн ¥ үнэ ба тэр үеийн ханш (price = round(priceCny × quantity × cnyRate))
+  priceCny   Decimal?  @db.Decimal(12, 2)
+  cnyRate    Decimal?  @db.Decimal(10, 2)
   paidAmount Decimal?  @db.Decimal(12, 2)
   paidAt     DateTime?
   quotedAt   DateTime?

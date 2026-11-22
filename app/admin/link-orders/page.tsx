@@ -4,16 +4,16 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Link2, ExternalLink, Copy, Search, Phone } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
-import { LINK_STATUS, linkHost, money, type LinkStatus } from '@/lib/link-orders'
+import { LINK_STATUS, linkHost, money, yuan, parseDecimal, cnyToMnt, type LinkStatus } from '@/lib/link-orders'
 import Combobox from '@/app/components/Combobox'
 import { suggestCustomers } from '@/app/components/customer-suggest'
 
 interface Item {
   id: number; userId: number | null; name: string; phone: string; url: string; quantity: number; note: string | null; imageUrl: string | null
-  status: LinkStatus; price: string | null; paidAmount: string | null; paidAt: string | null; trackCode: string | null
+  status: LinkStatus; price: string | null; priceCny: string | null; cnyRate: string | null; paidAmount: string | null; paidAt: string | null; trackCode: string | null
   adminNote: string | null; createdAt: string
 }
-interface Data { enabled: boolean; items: Item[]; counts: Record<string, number>; monthPaid: number; monthPaidCount: number }
+interface Data { enabled: boolean; cnyRate: number | null; items: Item[]; counts: Record<string, number>; monthPaid: number; monthPaidCount: number }
 
 const UB = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ulaanbaatar', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
 function when(iso: string) {
@@ -87,6 +87,8 @@ export default function LinkOrdersPage() {
         </div>
       )}
 
+      <RateBar rate={data.cnyRate} onSaved={load} />
+
       <div className="lo-tiles">
         {TILES.map(t => (
           <button key={t.key} type="button" aria-pressed={status === t.key} className={`lo-tile lo-${LINK_STATUS[t.key].tone}${status === t.key ? ' on' : ''}`}
@@ -131,7 +133,7 @@ export default function LinkOrdersPage() {
                     }}>Бүгдийн төлбөр орсон · {money(quotedSum)}</button>
                   )}
                 </header>
-                {g.items.map(i => <ItemRow key={i.id} it={i} act={act} />)}
+                {g.items.map(i => <ItemRow key={i.id} it={i} act={act} rate={data.cnyRate} />)}
               </section>
             )
           })}
@@ -141,9 +143,49 @@ export default function LinkOrdersPage() {
   )
 }
 
-function ItemRow({ it, act }: { it: Item; act: (ids: number[], action: string, extra?: Record<string, unknown>) => Promise<boolean> }) {
+// Юанийн ханш: оруулбал үнийг юанаар бичиж, төгрөг болгон илгээнэ. Хоосон бол ₮-өөр оруулна
+function RateBar({ rate, onSaved }: { rate: number | null; onSaved: () => void }) {
+  const [edit, setEdit] = useState(false)
+  const [val, setVal] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function save(next: string) {
+    setBusy(true)
+    const res = await fetch('/api/admin/link-orders', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cnyRate: next }) })
+    const d = await res.json().catch(() => ({}))
+    setBusy(false)
+    if (!res.ok) { toast.error(d.error || 'Алдаа гарлаа'); return }
+    toast.success(d.cnyRate ? `Ханш ₮${d.cnyRate} — үнийг юанаар оруулна` : 'Ханш арилсан — үнийг ₮-өөр оруулна')
+    setEdit(false)
+    onSaved()
+  }
+  if (!edit) return (
+    <div className="lo-rate">
+      {rate
+        ? <span>Юанийн ханш <b>¥1 = ₮{rate}</b> · үнийг юанаар оруулна, хэрэглэгчид ₮-өөр харагдана</span>
+        : <span>Үнийг юанаар оруулж, автоматаар төгрөг болгох бол ханшаа оруулна уу</span>}
+      <button type="button" className="lo-text" onClick={() => { setVal(rate ? String(rate) : ''); setEdit(true) }}>{rate ? 'Ханш солих' : 'Ханш оруулах'}</button>
+    </div>
+  )
+  return (
+    <form className="lo-rate" onSubmit={e => { e.preventDefault(); save(val) }}>
+      <span>¥1 = ₮</span>
+      <input className="input lo-cny" inputMode="decimal" autoFocus placeholder="550" aria-label="Юанийн ханш" value={val}
+        onChange={e => setVal(e.target.value.replace(/[^\d.,]/g, ''))} />
+      <button className="btn lo-btn" disabled={busy || !parseDecimal(val)}>Хадгалах</button>
+      {rate && <button type="button" className="lo-text lo-danger" disabled={busy} onClick={() => save('')}>Ханш арилгах</button>}
+      <button type="button" className="lo-text" onClick={() => setEdit(false)}>Болих</button>
+      <small className="lo-cny-note">Шинэ ханш зөвхөн цаашид илгээх үнэд хамаарна</small>
+    </form>
+  )
+}
+
+function ItemRow({ it, act, rate }: { it: Item; act: (ids: number[], action: string, extra?: Record<string, unknown>) => Promise<boolean>; rate: number | null }) {
   const st = LINK_STATUS[it.status]
   const [price, setPrice] = useState(it.price ? String(Math.round(Number(it.price))) : '')
+  // Каргод ханш байвал үнийг юанаар (нэг ширхэгийн) оруулна
+  const [cny, setCny] = useState(it.priceCny ? String(Number(it.priceCny)) : '')
+  const unit = parseDecimal(cny)
+  const preview = rate && unit ? cnyToMnt(unit, it.quantity, rate) : null
   const [editPrice, setEditPrice] = useState(false)
   const [track, setTrack] = useState(it.trackCode ?? '')
   const [editTrack, setEditTrack] = useState(false)
@@ -171,7 +213,16 @@ function ItemRow({ it, act }: { it: Item; act: (ids: number[], action: string, e
       </div>
 
       <div className="lo-actions">
-        {(it.status === 'NEW' || (it.status === 'QUOTED' && editPrice)) && (
+        {(it.status === 'NEW' || (it.status === 'QUOTED' && editPrice)) && rate && (
+          <form className="lo-inline" onSubmit={e => { e.preventDefault(); if (unit) run('quote', { priceCny: cny }).then(() => setEditPrice(false)) }}>
+            <input className="input lo-cny" inputMode="decimal" placeholder={it.quantity > 1 ? '1 ширхэгийн ¥' : 'Үнэ ¥'} aria-label="Юанийн үнэ"
+              title={`Нэг ширхэгийн юанийн үнэ — ${it.quantity} ш × ханш ₮${rate}-аар төгрөг болно`}
+              value={cny} onChange={e => setCny(e.target.value.replace(/[^\d.,]/g, ''))} />
+            <span className="lo-conv">{preview ? <>{it.quantity > 1 ? `× ${it.quantity} ` : ''}= <b>{money(preview)}</b></> : `× ₮${rate}`}</span>
+            <button className="btn lo-btn" disabled={busy || !unit}>{it.status === 'NEW' ? 'Үнэ илгээх' : 'Хадгалах'}</button>
+          </form>
+        )}
+        {(it.status === 'NEW' || (it.status === 'QUOTED' && editPrice)) && !rate && (
           <form className="lo-inline" onSubmit={e => { e.preventDefault(); if (Number(price) > 0) run('quote', { price: Number(price) }).then(() => setEditPrice(false)) }}>
             <input className="input" inputMode="numeric" placeholder="Барааны үнэ ₮" title="Барааны нийт үнэ — карго (тээврийн) төлбөр ачаа ирэхэд тарифаар бодогдоно" value={price} onChange={e => setPrice(e.target.value.replace(/\D/g, ''))} />
             <button className="btn lo-btn" disabled={busy || !(Number(price) > 0)}>{it.status === 'NEW' ? 'Үнэ илгээх' : 'Хадгалах'}</button>
@@ -179,7 +230,7 @@ function ItemRow({ it, act }: { it: Item; act: (ids: number[], action: string, e
         )}
         {it.status === 'QUOTED' && !editPrice && (
           <>
-            <span className="lo-amount">{money(it.price)}</span>
+            <span className="lo-amount">{money(it.price)}{it.priceCny && <small className="lo-cny-note"> {yuan(it.priceCny)}{it.quantity > 1 ? ` × ${it.quantity}` : ''} · ₮{Number(it.cnyRate)}</small>}</span>
             <button type="button" className="btn lo-btn" disabled={busy} onClick={async () => {
               if (!await confirmAsync(`${money(it.price)} төлбөр орсон уу?`)) return
               run('paid')

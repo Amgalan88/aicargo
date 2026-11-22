@@ -8,7 +8,7 @@ import { uploadLinkOrderImage } from '@/lib/cloudinary'
 // PATCH { on } — линк захиалгаа өөрөө асаах / унтраах
 
 const SELECT = {
-  id: true, url: true, quantity: true, note: true, imageUrl: true, status: true, price: true, paidAmount: true,
+  id: true, url: true, quantity: true, note: true, imageUrl: true, status: true, price: true, priceCny: true, cnyRate: true, paidAmount: true,
   paidAt: true, quotedAt: true, orderedAt: true, trackCode: true, adminNote: true, createdAt: true,
 } as const
 

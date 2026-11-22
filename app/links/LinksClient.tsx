@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Link2, Plus, Trash2, Copy, Check, ExternalLink, Send, ImagePlus, X } from 'lucide-react'
 import { resizeImage } from '@/lib/image-resize'
-import { LINK_STATUS, MAX_ITEMS_PER_REQUEST, linkHost, money, type LinkStatus } from '@/lib/link-orders'
+import { LINK_STATUS, MAX_ITEMS_PER_REQUEST, linkHost, money, yuan, type LinkStatus } from '@/lib/link-orders'
 
 interface Item {
   id: number; url: string; quantity: number; note: string | null; imageUrl: string | null; status: LinkStatus
-  price: string | null; paidAmount: string | null; paidAt: string | null; quotedAt: string | null
+  price: string | null; priceCny?: string | null; cnyRate?: string | null; paidAmount: string | null; paidAt: string | null; quotedAt: string | null
   orderedAt: string | null; trackCode: string | null; adminNote: string | null; createdAt: string
 }
 interface Row { url: string; quantity: string; note: string; image: string | null }
@@ -197,7 +197,7 @@ export default function LinksClient({ phone, initialOn, bank }: {
                 {i.status === 'NEW' && (
                   <div className="lk-foot"><span>Барааны үнийг тооцоолж байна</span><button type="button" className="lk-text-btn" onClick={() => cancel(i.id)}>Цуцлах</button></div>
                 )}
-                {i.status === 'QUOTED' && <div className="lk-foot"><span>Төлөх</span><b className="lk-amount">{money(i.price)}</b></div>}
+                {i.status === 'QUOTED' && <div className="lk-foot"><span>Төлөх</span><b className="lk-amount">{money(i.price)}{i.priceCny && <small className="lk-cny">{yuan(i.priceCny)}{i.quantity > 1 ? ` × ${i.quantity}` : ''} · ханш ₮{Number(i.cnyRate)}</small>}</b></div>}
                 {i.status === 'PAID' && <div className="lk-foot"><span>Төлсөн{i.paidAt ? ` · ${md(i.paidAt)}` : ''}</span><b>{money(i.paidAmount)}</b></div>}
                 {i.status === 'ORDERED' && (
                   <div className="lk-foot">

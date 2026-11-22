@@ -1105,6 +1105,13 @@ textarea.input { resize: vertical; }
 .lo-amount.lo-paid { color: var(--green); }
 .lo-done { font-size: 0.82rem; color: var(--green); font-weight: 600; }
 .lo-mono { font-family: monospace; color: var(--text); }
+.lo-rate { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); margin: 0 0 0.9rem; }
+.lo-rate b { color: var(--text); }
+.lo-rate .input, .lo-inline .input.lo-cny { width: 7rem; padding-top: 0.4rem; padding-bottom: 0.4rem; }
+.lo-conv { font-size: 0.82rem; color: var(--muted); white-space: nowrap; }
+.lo-conv b { color: var(--text); }
+.lo-cny-note { font-size: 0.74rem; font-weight: 500; color: var(--muted); }
+.lk-cny { display: block; font-size: 0.74rem; font-weight: 500; color: var(--muted); text-align: right; }
 @media (max-width: 720px) {
   .lo-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lo-actions { flex-basis: 100%; margin-left: 0; justify-content: flex-start; }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getVerifiedUserFromRequest, unauthorized, forbidden } from '@/lib/auth'
 import { logAdminAction, auditLater } from '@/lib/audit'
-import { LINK_STATUSES, type LinkStatus } from '@/lib/link-orders'
+import { LINK_STATUSES, type LinkStatus, parseDecimal, cnyToMnt } from '@/lib/link-orders'
 
 // Админы линк захиалгын самбар: GET — жагсаалт + тоо, PATCH — үнэ илгээх / төлбөр орсон / захиалсан / цуцлах
 
@@ -37,10 +37,11 @@ export async function GET(req: NextRequest) {
     prisma.linkOrder.findMany({ where, orderBy: { id: 'desc' }, take: 300 }),
     prisma.linkOrder.groupBy({ by: ['status'], where: { cargoId }, _count: { _all: true } }),
     prisma.linkOrder.aggregate({ where: { cargoId, paidAt: { gte: ubMonthStart() } }, _sum: { paidAmount: true }, _count: { _all: true } }),
-    prisma.cargo.findUnique({ where: { id: cargoId }, select: { linkOrdersEnabled: true } }),
+    prisma.cargo.findUnique({ where: { id: cargoId }, select: { linkOrdersEnabled: true, linkCnyRate: true } }),
   ])
   return NextResponse.json({
     enabled: !!cargo?.linkOrdersEnabled,
+    cnyRate: cargo?.linkCnyRate != null ? Number(cargo.linkCnyRate) : null,
     items,
     counts: Object.fromEntries(byStatus.map(s => [s.status, s._count._all])),
     monthPaid: Number(month._sum.paidAmount ?? 0),
@@ -82,6 +83,7 @@ interface Body {
   ids?: number[]
   action?: 'quote' | 'paid' | 'ordered' | 'track' | 'cancel' | 'reopen'
   price?: number | string
+  priceCny?: number | string // нэг ширхэгийн ¥ үнэ — каргод ханш байвал ₮ болгоно
   paidAmount?: number | string
   trackCode?: string
   note?: string
@@ -112,11 +114,24 @@ export async function PATCH(req: NextRequest) {
 
   switch (body.action) {
     case 'quote': {
+      // Юанаар: ¥ × тоо × ханш → ₮ (ханш тэр үедээ захиалгад хадгалагдана, дараа солигдоход илгээсэн үнэ хөдлөхгүй)
+      if (body.priceCny !== undefined && body.priceCny !== '') {
+        const unit = parseDecimal(body.priceCny)
+        if (!unit) return NextResponse.json({ error: 'Юанийн үнэ буруу (жш 2.98)' }, { status: 400 })
+        const c = await prisma.cargo.findUnique({ where: { id: a.cargoId }, select: { linkCnyRate: true } })
+        const rate = c?.linkCnyRate != null ? Number(c.linkCnyRate) : 0
+        if (!(rate > 0)) return NextResponse.json({ error: 'Эхлээд юанийн ханшаа оруулна уу' }, { status: 400 })
+        await prisma.$transaction(rows.map(x => prisma.linkOrder.update({
+          where: { id: x.id },
+          data: { status: 'QUOTED', price: cnyToMnt(unit, x.quantity, rate), priceCny: unit, cnyRate: rate, quotedAt: now, ...(note ? { adminNote: note } : {}) },
+        })))
+        break
+      }
       const price = Number(body.price)
       if (!Number.isFinite(price) || price <= 0) return NextResponse.json({ error: 'Үнэ оруулна уу' }, { status: 400 })
       await prisma.linkOrder.updateMany({
         where: { id: { in: rows.map(x => x.id) } },
-        data: { status: 'QUOTED', price, quotedAt: now, ...(note ? { adminNote: note } : {}) },
+        data: { status: 'QUOTED', price, priceCny: null, cnyRate: null, quotedAt: now, ...(note ? { adminNote: note } : {}) },
       })
       break
     }
@@ -163,7 +178,8 @@ export async function PATCH(req: NextRequest) {
   }
   if (body.action !== 'paid') {
     const x = rows[0]
-    const extra = body.action === 'quote' ? ` · ₮${Math.round(Number(body.price)).toLocaleString('en-US')}`
+    const extra = body.action === 'quote'
+      ? (body.priceCny !== undefined && body.priceCny !== '' ? ` · ¥${parseDecimal(body.priceCny)}` : ` · ₮${Math.round(Number(body.price)).toLocaleString('en-US')}`)
       : (body.action === 'ordered' || body.action === 'track') && body.trackCode ? ` · трак ${String(body.trackCode).trim().toUpperCase()}`
       : body.action === 'cancel' && note ? ` · ${note}` : ''
     auditLater({
@@ -173,4 +189,22 @@ export async function PATCH(req: NextRequest) {
     })
   }
   return NextResponse.json({ ok: true, count: rows.length, warning })
+}
+
+// PUT { cnyRate } — линк захиалгын юанийн ханш (хоосон/0 бол юанаар оруулах унтарна, ₮-өөр оруулна)
+export async function PUT(req: NextRequest) {
+  const r = await admin(req)
+  if (r.error) return r.error
+  const { a } = r
+  const body = await req.json().catch(() => ({}))
+  const empty = body.cnyRate === null || body.cnyRate === '' || Number(body.cnyRate) === 0
+  const rate = empty ? null : parseDecimal(body.cnyRate)
+  if (!empty && (!rate || rate < 50 || rate > 5000)) return NextResponse.json({ error: 'Ханш буруу байна (жш 550)' }, { status: 400 })
+  const before = await prisma.cargo.findUnique({ where: { id: a.cargoId }, select: { linkCnyRate: true } })
+  await prisma.cargo.update({ where: { id: a.cargoId }, data: { linkCnyRate: rate } })
+  auditLater({
+    cargoId: a.cargoId, userId: a.userId, userName: a.name, action: 'link-order:rate',
+    detail: `Юанийн ханш ${before?.linkCnyRate != null ? Number(before.linkCnyRate) : '—'} → ${rate ?? '—'}`,
+  })
+  return NextResponse.json({ cnyRate: rate })
 }

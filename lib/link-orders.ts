@@ -65,3 +65,23 @@ export function linkHost(url: string): string {
 export function money(v: number | string | null | undefined): string {
   return v == null || v === '' ? '—' : `₮${Math.round(Number(v)).toLocaleString('en-US')}`
 }
+
+// Юанийн дүн: ¥2.98, ¥21 (бүхэл бол бутархайгүй)
+export function yuan(v: number | string | null | undefined): string {
+  if (v == null || v === '') return '—'
+  const n = Number(v)
+  return `¥${Number.isInteger(n) ? n : n.toFixed(2)}`
+}
+
+// Админы бичсэн юань / ханш: "2.98", "2,98", "550" → тоо; буруу бол null
+export function parseDecimal(raw: unknown, maxDecimals = 2): number | null {
+  const s = String(raw ?? '').trim().replace(',', '.')
+  if (!new RegExp(`^\\d+(\\.\\d{1,${maxDecimals}})?$`).test(s)) return null
+  const n = Number(s)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+// Нэг ширхэгийн ¥ үнэ × тоо × ханш → бүхэл төгрөг
+export function cnyToMnt(unitCny: number, quantity: number, rate: number): number {
+  return Math.round(unitCny * Math.max(1, quantity) * rate)
+}
