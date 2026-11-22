@@ -15,12 +15,21 @@ export async function GET(req: NextRequest) {
   // үүнд орохгүй тул трак кодоор нь зөв хайгдана
   const isPhone = q && /^\d{8}$/.test(q)
 
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
+  // Өдрийн бүртгэл (?day=YYYY-MM-DD, байхгүй бол өнөөдөр) — УБ-ын бүтэн өдөр, ирсэн огноогоор.
+  // Олгосон ачааг ч тоолно: өмнө нь зөвхөн «Ирсэн» төлөвтэйг, сервер UTC тул 08:00-оос, updatedAt-аар
+  // тоолдог байсан тул олгох бүрт тоо, дүн хасагдаж, үнэ засахад өөр өдрийн ачаа «өнөөдөр» болдог байв
+  const ubToday = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10)
+  const dayRange = ubDayRange(req.nextUrl.searchParams.get('day') || ubToday)
+  if (!dayRange) return NextResponse.json({ error: 'Огноо буруу байна' }, { status: 400 })
+  const dayWhere = {
+    status: { in: ['ARRIVED' as const, 'PICKED_UP' as const] },
+    cargoId: admin.cargoId!,
+    arrivedAt: { gte: dayRange.start, lte: dayRange.end },
+  }
 
   if (statsOnly) {
     const rows = await prisma.shipment.findMany({
-      where: { status: 'ARRIVED', cargoId: admin.cargoId!, updatedAt: { gte: todayStart } },
+      where: dayWhere,
       select: { adminPrice: true },
     })
     const count = rows.length
@@ -47,15 +56,10 @@ export async function GET(req: NextRequest) {
   }
 
   const shipments = await prisma.shipment.findMany({
-    where: {
-      status: 'ARRIVED',
-      cargoId: admin.cargoId!,
-      ...(q ? isPhone
-        ? { phone: { contains: q } }
-        : { trackCode: { contains: q.toUpperCase() } }
-      : { updatedAt: { gte: todayStart } }),
-    },
-    orderBy: { updatedAt: 'desc' },
+    where: q
+      ? { status: 'ARRIVED', cargoId: admin.cargoId!, ...(isPhone ? { phone: { contains: q } } : { trackCode: { contains: q.toUpperCase() } }) }
+      : dayWhere,
+    orderBy: q ? { updatedAt: 'desc' } : { arrivedAt: 'desc' },
     ...(!q ? {} : { take: 50 }),
     select: {
       id: true,

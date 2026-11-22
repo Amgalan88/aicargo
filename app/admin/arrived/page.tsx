@@ -32,6 +32,11 @@ interface SearchResult {
 interface TodayEntry { display: string; isPhone: boolean; description: string }
 interface PriorArrival { trackCode: string; status: string; arrivedAt: string | null; adminPrice: string | null }
 
+// Улаанбаатарын өнөөдөр (YYYY-MM-DD) ба өдөр шилжүүлэх
+const ubToday = () => new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10)
+const shiftDay = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
+const dayLabel = (day: string) => `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}`
+
 function CopyPhone({ phone }: { phone: string }) {
   const [copied, setCopied] = useState(false)
   function copy() {
@@ -89,6 +94,7 @@ export default function ArrivedPage() {
   const [editError, setEditError] = useState('')
   const [todayList, setTodayList] = useState<TodayEntry[]>([])
   const [todayStats, setTodayStats] = useState({ count: 0, total: 0, noPrice: 0 })
+  const [viewDay, setViewDay] = useState(ubToday())
   const xlsxRef = useRef<HTMLInputElement>(null)
   const [xlsxMsg, setXlsxMsg] = useState('')
   const [xlsxLoading, setXlsxLoading] = useState(false)
@@ -106,12 +112,8 @@ export default function ArrivedPage() {
   const [revertLoading, setRevertLoading] = useState(false)
   const [revertMsg, setRevertMsg] = useState('')
 
-  function buildTodayList(shipments: SearchResult[]) {
-    const todayStr = new Date().toLocaleDateString('en-CA')
-    const today = shipments.filter(s => {
-      if (!s.updatedAt) return false
-      return new Date(s.updatedAt).toLocaleDateString('en-CA') === todayStr
-    })
+  // Өдрийн бүртгэл: сервер тухайн өдөр (УБ) ирсэн бүртгэгдсэн ачааг (олгосон ч) буцаана
+  function buildTodayList(today: SearchResult[]) {
     const map = new Map<string, Map<string, number>>()
     const nameless: TodayEntry[] = []
     for (const s of today) {
@@ -134,10 +136,12 @@ export default function ArrivedPage() {
     setTodayList([...result, ...nameless])
   }
 
-  async function loadToday() {
+  // Аргументгүй дуудвал (бүртгэсний дараа гэх мэт) өнөөдөр рүү буцна
+  async function loadToday(day: string = ubToday()) {
+    setViewDay(day)
     const [listRes, statsRes] = await Promise.all([
-      fetch('/api/admin/arrived/search?q='),
-      fetch('/api/admin/arrived/search?stats=1'),
+      fetch(`/api/admin/arrived/search?q=&day=${day}`),
+      fetch(`/api/admin/arrived/search?stats=1&day=${day}`),
     ])
     if (listRes.ok) buildTodayList(await listRes.json())
     if (statsRes.ok) {
@@ -587,12 +591,19 @@ export default function ArrivedPage() {
                 </div>
           )}
 
-          {todayList.length > 0 && (
+          {(
             <>
-              <h2 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Өнөөдөр бүртгэсэн
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 700, color: 'var(--muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <button type="button" className="day-nav hit-pad" aria-label="Өмнөх өдөр" title="Өмнөх өдрийн бүртгэл" onClick={() => loadToday(shiftDay(viewDay, -1))}>‹</button>
+                <span>{viewDay === ubToday() ? 'Өнөөдөр' : viewDay === shiftDay(ubToday(), -1) ? 'Өчигдөр' : dayLabel(viewDay)} бүртгэсэн</span>
+                {viewDay !== ubToday() && (
+                  <button type="button" className="day-nav hit-pad" aria-label="Дараагийн өдөр" title="Дараагийн өдөр" onClick={() => loadToday(shiftDay(viewDay, 1))}>›</button>
+                )}
               </h2>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
+              {todayList.length === 0 && (
+                <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '0 0 0.6rem' }}>Энэ өдөр «Ирсэн» бүртгэл алга.</p>
+              )}
+              {todayList.length > 0 && <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
                 <span style={{ fontSize: '0.8rem', background: 'var(--surface2)', borderRadius: '6px', padding: '0.2rem 0.6rem', color: 'var(--text)' }}>
                   {todayStats.count} бараа
                 </span>
@@ -604,8 +615,8 @@ export default function ArrivedPage() {
                     {todayStats.noPrice} үнэгүй
                   </span>
                 )}
-              </div>
-              <div className="card" style={{ overflow: 'hidden' }}>
+              </div>}
+              {todayList.length > 0 && <div className="card" style={{ overflow: 'hidden' }}>
                 {todayList.map((t, i) => (
                   <div key={`${t.display}-${i}`} className={enterToday(t.display, i) ? 'row-enter' : undefined} style={{
                     ...(enterToday(t.display, i) ? { ['--i' as string]: i } : {}),
@@ -625,7 +636,7 @@ export default function ArrivedPage() {
                     )}
                   </div>
                 ))}
-              </div>
+              </div>}
             </>
           )}
         </div>

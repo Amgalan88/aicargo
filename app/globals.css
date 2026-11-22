@@ -1105,6 +1105,9 @@ textarea.input { resize: vertical; }
 .lo-amount.lo-paid { color: var(--green); }
 .lo-done { font-size: 0.82rem; color: var(--green); font-weight: 600; }
 .lo-mono { font-family: monospace; color: var(--text); }
+/* «Ирсэн» — өдрийн бүртгэлийн ‹ › */
+.day-nav { background: var(--surface2); border: none; border-radius: 6px; color: var(--text); cursor: pointer; font: inherit; font-size: 0.95rem; line-height: 1; padding: 0.1rem 0.45rem; }
+.day-nav:hover { color: var(--accent); }
 .lo-rate { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); margin: 0 0 0.9rem; }
 .lo-rate b { color: var(--text); }
 .lo-rate .input, .lo-inline .input.lo-cny { width: 7rem; padding-top: 0.4rem; padding-bottom: 0.4rem; }
