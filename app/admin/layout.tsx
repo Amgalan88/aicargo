@@ -2,6 +2,7 @@ import { getAuthUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import AdminShell from './AdminShell'
+import { ADMIN_ASSISTANT_ENABLED } from '@/lib/ai-feature-flag'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthUser()
@@ -16,9 +17,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   let linkOrders = false
   let dispatchEnabled = false
   let promoEnabled = false
+  let assistantEnabled = false
   let onboarding: { addressDone: boolean; shipmentDone: boolean; usersDone: boolean } | null = null
   if (user.cargoId) {
-    const cargo = await (prisma.cargo.findUnique as any)({ where: { id: user.cargoId }, select: { name: true, logoUrl: true, slug: true, groupId: true, paidUntil: true, batchEnabled: true, linkOrdersEnabled: true, dispatchEnabled: true, promoEnabled: true, createdAt: true, ereemReceiver: true, ereemPhone: true, ereemAddress: true } })
+    const cargo = await (prisma.cargo.findUnique as any)({ where: { id: user.cargoId }, select: { name: true, logoUrl: true, slug: true, groupId: true, paidUntil: true, batchEnabled: true, linkOrdersEnabled: true, dispatchEnabled: true, promoEnabled: true, assistantEnabled: true, createdAt: true, ereemReceiver: true, ereemPhone: true, ereemAddress: true } })
     cargoName = cargo?.name ?? ''
     logoUrl = cargo?.logoUrl ?? ''
     cargoSlug = cargo?.slug ?? ''
@@ -28,6 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     linkOrders = !!cargo?.linkOrdersEnabled
     dispatchEnabled = !!cargo?.dispatchEnabled
     promoEnabled = !!cargo?.promoEnabled
+    assistantEnabled = ADMIN_ASSISTANT_ENABLED && user.role === 'ADMIN' && !!cargo?.assistantEnabled
 
     // Onboarding чеклист — зөвхөн сүүлийн 60 хоногт үүссэн каргод (хуучин каргод нэмэлт query байхгүй)
     const isNew = cargo?.createdAt && Date.now() - new Date(cargo.createdAt).getTime() < 60 * 86_400_000
@@ -44,5 +47,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }
   }
 
-  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin} linkOrders={linkOrders} dispatchEnabled={dispatchEnabled} promoEnabled={promoEnabled}>{children}</AdminShell>
+  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin} linkOrders={linkOrders} dispatchEnabled={dispatchEnabled} promoEnabled={promoEnabled} assistant={assistantEnabled ? { userId: user.userId, isOwner: !user.isStaffAdmin } : null}>{children}</AdminShell>
 }

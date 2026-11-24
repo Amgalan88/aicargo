@@ -7,6 +7,7 @@ import SuperAnnouncementModal from '@/app/components/SuperAnnouncementModal'
 import { Lock, TriangleAlert, X } from 'lucide-react'
 import BillingPanel from './BillingPanel'
 import LinkOrderAlert from './LinkOrderAlert'
+import AdminAssistant from './assistant/AdminAssistant'
 import { billingState, GRACE_DAYS } from '@/lib/billing'
 
 function BlockingOverlay({ cargoName, overdueDays, paidUntil }: { cargoName: string; overdueDays: number; paidUntil: string | null }) {
@@ -68,7 +69,7 @@ function WarningBanner({ cargoName, paidUntil, daysToBlock, onClose }: { cargoNa
   )
 }
 
-export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil, batchEnabled, onboarding, isStaffAdmin, linkOrders, dispatchEnabled, promoEnabled }: { children: React.ReactNode; linkOrders?: boolean; dispatchEnabled?: boolean; promoEnabled?: boolean; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null; batchEnabled?: boolean; onboarding?: OnboardingState | null; isStaffAdmin?: boolean }) {
+export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil, batchEnabled, onboarding, isStaffAdmin, linkOrders, dispatchEnabled, promoEnabled, assistant }: { children: React.ReactNode; assistant?: { userId: number; isOwner: boolean } | null; linkOrders?: boolean; dispatchEnabled?: boolean; promoEnabled?: boolean; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null; batchEnabled?: boolean; onboarding?: OnboardingState | null; isStaffAdmin?: boolean }) {
   const router = useRouter()
   const [warningDismissed, setWarningDismissed] = useState(false)
 
@@ -100,6 +101,7 @@ export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, ha
       )}
       <SuperAnnouncementModal />
       {linkOrders && <LinkOrderAlert />}
+      {assistant && !isBlocked && <AdminAssistant userId={assistant.userId} isOwner={assistant.isOwner} cargoName={cargoName ?? ''} />}
     </div>
   )
 }

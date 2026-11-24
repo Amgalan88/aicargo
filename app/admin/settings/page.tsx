@@ -1,5 +1,5 @@
 'use client'
-import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, LockKeyhole, Smartphone, Truck } from 'lucide-react'
+import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, LockKeyhole, Smartphone, Truck, Bot } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
@@ -21,6 +21,7 @@ const SECTIONS = [
   { id: 'st-labels', label: 'Төлөвийн нэр' },
   { id: 'st-links', label: 'Линк захиалга' },
   { id: 'st-dispatch', label: 'Тулгалт' },
+  { id: 'st-assistant', label: 'AI туслах' },
   { id: 'st-staff', label: 'Ажилтан' },
   { id: 'st-phone', label: 'Миний утас' },
   { id: 'st-password', label: 'Нууц үг' },
@@ -78,6 +79,22 @@ export default function SettingsPage() {
     toast.success(next ? 'Тулгалт асаалаа' : 'Тулгалт унтарлаа')
     router.refresh()
   }
+  // Админы туслах — буланд зогсдог дүр (дармагц хадгалагдана, хуудас шинэчлэгдэнэ)
+  const [asstOn, setAsstOn] = useState(false)
+  const [asstBusy, setAsstBusy] = useState(false)
+  async function toggleAssistant() {
+    if (asstBusy) return
+    const next = !asstOn
+    setAsstBusy(true)
+    const res = await fetch('/api/admin/settings', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assistantEnabled: next }),
+    }).catch(() => null)
+    setAsstBusy(false)
+    if (!res?.ok) { toast.error('Хадгалахад алдаа гарлаа'); return }
+    setAsstOn(next)
+    toast.success(next ? 'AI туслах асаалаа' : 'AI туслах унтарлаа')
+    router.refresh()
+  }
   const [form, setForm] = useState({ tariff: '', priceCubic: '', priceWeight: '', priceWeightUnit: 'kg', announcement: '', contactInfo: '', bankName: '', bankAccountHolder: '', bankAccountNumber: '', bankTransferNote: '', arrivedLabel: '', ereemLabel: '', ereemReceiver: '', ereemPhone: '', ereemRegion: '', ereemAddress: '', ereemTitle: '', ereemAddresses: [] as EreenAddress[] })
   const [tiers, setTiers] = useState<Tier[]>([])
   const [cargo, setCargo] = useState<{ name: string; logoUrl?: string | null; batchEnabled?: boolean } | null>(null)
@@ -121,6 +138,7 @@ export default function SettingsPage() {
         setForm(loadedForm)
         setLinkOn(!!d.linkOrdersEnabled)
         setDispatchOn(!!d.dispatchEnabled)
+        setAsstOn(!!d.assistantEnabled)
         setTiers(loadedTiers)
         setLoaded({ form: loadedForm, tiers: loadedTiers })
         setBaseline(snapshotOf(loadedForm, loadedTiers, null))
@@ -339,6 +357,22 @@ export default function SettingsPage() {
           </p>
           <button type="button" role="switch" aria-checked={dispatchOn} aria-labelledby="dispatch-label"
             className={`switch${dispatchOn ? ' on' : ''}`} disabled={me.isStaffAdmin || dispatchBusy} onClick={toggleDispatch}>
+            <span />
+          </button>
+        </div>
+        {me.isStaffAdmin && <p className="st-locked">Зөвхөн каргогийн эзэмшигч өөрчилнө.</p>}
+      </Section>
+
+      <Section id="st-assistant" icon={Bot} title="AI туслах">
+        <div className="st-toggle">
+          <p id="assistant-label">
+            {asstOn
+              ? 'Асаалттай — админ хуудасны буланд туслах зогсоно. Дээр нь дарахад өнөөдрийн тойм, удаан аваагүй ачаа, шилдэг хэрэглэгчдийг хэлж, хуудас бүрийг тайлбарлана.'
+              : 'Унтраалттай — асаавал админ хуудасны буланд туслах гарч ирнэ. Админ бүр өөртөө «Унт», «Нуугд» гэж түр хааж болно.'}
+            <small>Дармагц шууд хадгалагдана. Бүх админд нэг дор үйлчилнэ.</small>
+          </p>
+          <button type="button" role="switch" aria-checked={asstOn} aria-labelledby="assistant-label"
+            className={`switch${asstOn ? ' on' : ''}`} disabled={me.isStaffAdmin || asstBusy} onClick={toggleAssistant}>
             <span />
           </button>
         </div>

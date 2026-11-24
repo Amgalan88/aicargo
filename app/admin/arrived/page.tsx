@@ -12,6 +12,7 @@ import { alreadyArrivedMessage, noPriceLabel, skippedNoPhoneLabel } from '@/lib/
 import Combobox from '@/app/components/Combobox'
 import { suggestCustomers } from '@/app/components/customer-suggest'
 import { useInitialEnter } from '@/app/components/useInitialEnter'
+import { assistantSay } from '@/lib/assistant-bus'
 
 function fmtDT(iso: string) {
   const d = new Date(iso)
@@ -350,7 +351,9 @@ export default function ArrivedPage() {
       if (phone) {
         // Хадгалсан дугаартай зөрвөл: анхааруулга + хадгалалт автоматаар унтарна
         if (keepPhone && form.phone && phone !== form.phone) {
-          setPhoneWarning(`Энэ трак код ${phone} дугаарт бүртгэлтэй тул хадгалсан дугаар цуцлагдлаа`)
+          const w = `Энэ трак код ${phone} дугаарт бүртгэлтэй тул хадгалсан дугаар цуцлагдлаа`
+          setPhoneWarning(w)
+          assistantSay({ kind: 'warn', text: w + '. Утсыг шалгаад хадгалаарай.' })
           setKeepPhone(false)
         }
         setForm(f => ({ ...f, phone }))
@@ -395,7 +398,7 @@ export default function ArrivedPage() {
     })
     const data = await res.json()
     setLoading(false)
-    if (!res.ok) { setError(data.error); return }
+    if (!res.ok) { setError(data.error); assistantSay({ kind: 'warn', text: data.error || 'Хадгалж чадсангүй.' }); return }
     setResult(data)
     if (dispatchId) setCheckTick(t => t + 1)
     setForm(keepPhone ? { ...EMPTY, phone: form.phone } : EMPTY)

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   const cargo = await (prisma.cargo as any).findUnique({
     where: { id: admin.cargoId! },
-    select: { name: true, logoUrl: true, batchEnabled: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, linkOrdersEnabled: true, dispatchEnabled: true },
+    select: { name: true, logoUrl: true, batchEnabled: true, ereemReceiver: true, ereemPhone: true, ereemRegion: true, ereemAddress: true, ereemTitle: true, ereemAddresses: true, tariff: true, priceCubic: true, priceWeight: true, priceWeightUnit: true, priceWeightTiers: true, announcement: true, contactInfo: true, bankName: true, bankAccountHolder: true, bankAccountNumber: true, bankTransferNote: true, arrivedLabel: true, ereemLabel: true, linkOrdersEnabled: true, dispatchEnabled: true, assistantEnabled: true },
   })
   // Хандаж буй хэрэглэгчийн эрхийн мэдээллийг хамт буцаана — клиент юуг
   // disable хийхээ мэдэх ёстой (утгыг нь биш, зөвхөн засах эрхийг хязгаарлана).
@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return unauthorized()
   if (admin.role !== 'ADMIN') return forbidden()
 
-  const { tariff, priceCubic, priceWeight, priceWeightUnit, priceWeightTiers, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, ereemTitle, ereemAddresses, linkOrdersEnabled, dispatchEnabled, logoBase64 } = await req.json()
+  const { tariff, priceCubic, priceWeight, priceWeightUnit, priceWeightTiers, announcement, contactInfo, bankName, bankAccountHolder, bankAccountNumber, bankTransferNote, arrivedLabel, ereemLabel, ereemReceiver, ereemPhone, ereemRegion, ereemAddress, ereemTitle, ereemAddresses, linkOrdersEnabled, dispatchEnabled, assistantEnabled, logoBase64 } = await req.json()
 
   // Ажилтан admin-д банк/хаяг/лого засах эрхийг тус тусад нь шалгана — эзэмшигчид үргэлж зөвшөөрнө.
   const allowBank = !admin.isStaffAdmin || admin.canEditBank
@@ -113,6 +113,8 @@ export async function PATCH(req: NextRequest) {
     ...(!admin.isStaffAdmin && typeof linkOrdersEnabled === 'boolean' ? { linkOrdersEnabled } : {}),
     // «Ирсэн»-ийг Эрээнээс сонгосонтой тулгах — эзэмшигч асаана/унтраана
     ...(!admin.isStaffAdmin && typeof dispatchEnabled === 'boolean' ? { dispatchEnabled } : {}),
+    // Админы туслах (буланд зогсдог дүр) — эзэмшигч бүх админд асаана/унтраана
+    ...(!admin.isStaffAdmin && typeof assistantEnabled === 'boolean' ? { assistantEnabled } : {}),
   }
 
   // Өөрчлөлтийн өмнөх утга — аудитад юу өөрчлөгдсөнийг л бичнэ
@@ -146,9 +148,9 @@ const FIELD_LABELS: Record<string, string> = {
   priceCubic: 'Кубын үнэ', priceWeight: 'Жингийн үнэ', priceWeightUnit: 'Жингийн нэгж', priceWeightTiers: 'Шатлалтай үнэ',
   announcement: 'Анхааруулга', contactInfo: 'Холбоо барих', bankName: 'Банк', bankAccountHolder: 'Данс эзэмшигч',
   bankAccountNumber: 'Дансны дугаар', bankTransferNote: 'Гүйлгээний утга', arrivedLabel: '"Ирсэн" нэр',
-  ereemLabel: '"Эрээнд ирсэн" нэр', linkOrdersEnabled: 'Линк захиалга', phoneVerify: 'Утас баталгаажуулалт', dispatchEnabled: 'Тулгалт',
+  ereemLabel: '"Эрээнд ирсэн" нэр', linkOrdersEnabled: 'Линк захиалга', phoneVerify: 'Утас баталгаажуулалт', dispatchEnabled: 'Тулгалт', assistantEnabled: 'AI туслах',
 }
-const VALUE_FIELDS = new Set(['bankName', 'bankAccountHolder', 'bankAccountNumber', 'priceCubic', 'priceWeight', 'priceWeightUnit', 'arrivedLabel', 'ereemLabel', 'linkOrdersEnabled', 'phoneVerify', 'dispatchEnabled', 'ereemPhone'])
+const VALUE_FIELDS = new Set(['bankName', 'bankAccountHolder', 'bankAccountNumber', 'priceCubic', 'priceWeight', 'priceWeightUnit', 'arrivedLabel', 'ereemLabel', 'linkOrdersEnabled', 'phoneVerify', 'dispatchEnabled', 'assistantEnabled', 'ereemPhone'])
 
 function norm(v: unknown): string {
   if (v == null || v === '') return ''
@@ -156,7 +158,7 @@ function norm(v: unknown): string {
   return typeof v === 'object' ? JSON.stringify(v) : String(v)
 }
 function show(k: string, v: string): string {
-  if (k === 'linkOrdersEnabled' || k === 'phoneVerify' || k === 'dispatchEnabled') return v === 'true' ? 'асаасан' : 'унтраасан'
+  if (k === 'linkOrdersEnabled' || k === 'phoneVerify' || k === 'dispatchEnabled' || k === 'assistantEnabled') return v === 'true' ? 'асаасан' : 'унтраасан'
   if (!v) return '(хоосон)'
   return v.length > 40 ? v.slice(0, 40) + '…' : v
 }

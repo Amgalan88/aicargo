@@ -28,6 +28,8 @@ model Cargo {
   notificationsEnabled  Boolean    @default(false)
   searchByPhone         Boolean    @default(false)
   aiEnabled         Boolean    @default(false)
+  // Админы туслах (буланд зогсдог дүр). Эзэмшигч тохиргооноос асаана/унтраана
+  assistantEnabled  Boolean    @default(false)
   batchEnabled      Boolean    @default(false)
   // Хэрэглэгчээс барааны линкээр захиалга авах (Taobao, Pinduoduo, 1688…)
   linkOrdersEnabled Boolean    @default(false)
