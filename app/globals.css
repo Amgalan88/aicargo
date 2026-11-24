@@ -2831,46 +2831,56 @@ p, .sc-note, .lp-lead, .lp-faq-body, .empty-state p, .sys-page-text, .al-detail,
 }
 @media print { .asst-btn, .asst-tab, .asst-bubble { display: none; } }
 
-/* Дүрийн төлөв ба хөдөлгөөн (AssistantCharacter) */
+/* Дүрийн төлөв ба хөдөлгөөн (AssistantCharacter).
+   Хурдны дүрэм: ганхалт svg-ийн гадна талд (GPU давхарга, дотор нь дахин зурахгүй);
+   дотоод хөдөлгөөн зөвхөн тухайн төлөвт ажиллана; анивчилтыг JS хааяа .blinking-ээр асаана. */
 .asst-av * { transform-box: view-box; }
 .asst-av [data-p] { display: none; }
 .asst-av[data-s="idle"] [data-p~="idle"], .asst-av[data-s="hello"] [data-p~="hello"], .asst-av[data-s="listen"] [data-p~="listen"],
 .asst-av[data-s="think"] [data-p~="think"], .asst-av[data-s="talk"] [data-p~="talk"], .asst-av[data-s="warn"] [data-p~="warn"],
 .asst-av[data-s="happy"] [data-p~="happy"], .asst-av[data-s="sleep"] [data-p~="sleep"] { display: inline; }
-.asst-av .fig { transform-origin: 80px 202px; animation: asst-sway 4.4s ease-in-out infinite; }
+.asst-av { transform-origin: 50% 94%; will-change: transform; animation: asst-sway 4.4s ease-in-out infinite; }
 @keyframes asst-sway { 0%, 100% { transform: rotate(-1.2deg) } 50% { transform: rotate(1.2deg) } }
-.asst-av[data-s="happy"] .fig { animation: asst-jump .55s ease-in-out infinite alternate; }
-@keyframes asst-jump { from { transform: translateY(0) } to { transform: translateY(-9px) } }
-.asst-av[data-s="sleep"] .fig { animation: asst-breathe 3.2s ease-in-out infinite; }
-@keyframes asst-breathe { 0%, 100% { transform: rotate(3deg) translateY(0) } 50% { transform: rotate(3deg) translateY(2px) } }
-.asst-av .blink { transform-origin: 79px 60px; animation: asst-blink 4.8s infinite; }
-@keyframes asst-blink { 0%, 91%, 97%, 100% { transform: scaleY(1) } 94% { transform: scaleY(.1) } }
+.asst-av[data-s="happy"] { animation: asst-jump .55s ease-in-out infinite alternate; }
+@keyframes asst-jump { from { transform: translateY(0) } to { transform: translateY(-6px) } }
+.asst-av[data-s="sleep"] { animation: asst-breathe 3.2s ease-in-out infinite; }
+@keyframes asst-breathe { 0%, 100% { transform: rotate(3deg) translateY(0) } 50% { transform: rotate(3deg) translateY(1.5px) } }
+.asst-av .blink { transform-origin: 79px 60px; }
+.asst-av.blinking .blink { animation: asst-blink .26s ease-in-out; }
+@keyframes asst-blink { 0%, 100% { transform: scaleY(1) } 50% { transform: scaleY(.1) } }
 .asst-av .look { transition: transform .3s ease; }
 .asst-av[data-s="think"] .look { transform: translate(-2px, -3px); }
-.asst-av .wv { transform-origin: 106px 100px; animation: asst-wv .5s ease-in-out infinite alternate; }
+.asst-av .wv { transform-origin: 106px 100px; }
+.asst-av[data-s="hello"] .wv { animation: asst-wv .5s ease-in-out infinite alternate; }
 @keyframes asst-wv { from { transform: rotate(-16deg) } to { transform: rotate(14deg) } }
-.asst-av .gest { transform-origin: 80px 106px; animation: asst-gest 1.3s ease-in-out infinite alternate; }
-.asst-av .gest.l { animation-direction: alternate-reverse; }
+.asst-av .gest { transform-origin: 80px 106px; }
+.asst-av[data-s="talk"] .gest { animation: asst-gest 1.3s ease-in-out infinite alternate; }
+.asst-av[data-s="talk"] .gest.l { animation-direction: alternate-reverse; }
 @keyframes asst-gest { from { transform: rotate(-4deg) } to { transform: rotate(5deg) } }
-.asst-av .mt { transform-origin: 78px 74px; animation: asst-talk .23s ease-in-out infinite alternate; }
+.asst-av .mt { transform-origin: 78px 74px; }
+.asst-av[data-s="talk"] .mt { animation: asst-talk .23s ease-in-out infinite alternate; }
 @keyframes asst-talk { from { transform: scaleY(.3) } to { transform: scaleY(1) } }
 .asst-av .led { fill: #b9bfc6; }
 .asst-av[data-s="listen"] .led { fill: #39c66b; }
-.asst-av .bar { transform-origin: center; animation: asst-bar .7s ease-in-out infinite alternate; }
+.asst-av .bar { transform-origin: center; }
+.asst-av[data-s="listen"] .bar { animation: asst-bar .7s ease-in-out infinite alternate; }
 .asst-av .bar:nth-child(2) { animation-delay: .2s } .asst-av .bar:nth-child(3) { animation-delay: .4s }
 @keyframes asst-bar { from { transform: scaleY(.35) } to { transform: scaleY(1) } }
-.asst-av .dot { animation: asst-dot 1.2s infinite; }
+.asst-av[data-s="think"] .dot { animation: asst-dot 1.2s infinite; }
 .asst-av .dot:nth-child(2) { animation-delay: .2s } .asst-av .dot:nth-child(3) { animation-delay: .4s }
 @keyframes asst-dot { 0%, 100% { opacity: .3 } 40% { opacity: 1 } }
-.asst-av .wm { transform-origin: 128px 30px; animation: asst-wm .8s ease-in-out infinite alternate; }
+.asst-av .wm { transform-origin: 128px 30px; }
+.asst-av[data-s="warn"] .wm { animation: asst-wm .8s ease-in-out infinite alternate; }
 @keyframes asst-wm { from { transform: scale(.9) } to { transform: scale(1.08) } }
-.asst-av .sp { transform-origin: center; animation: asst-sp .9s ease-in-out infinite alternate; }
+.asst-av .sp { transform-origin: center; }
+.asst-av[data-s="happy"] .sp { animation: asst-sp .9s ease-in-out infinite alternate; }
 .asst-av .sp:nth-child(2) { animation-delay: .3s } .asst-av .sp:nth-child(3) { animation-delay: .6s }
 @keyframes asst-sp { from { transform: scale(.5) rotate(0); opacity: .4 } to { transform: scale(1) rotate(20deg); opacity: 1 } }
-.asst-av .zz { opacity: 0; animation: asst-zz 2.4s ease-in-out infinite; }
+.asst-av .zz { opacity: 0; }
+.asst-av[data-s="sleep"] .zz { animation: asst-zz 2.4s ease-in-out infinite; }
 .asst-av .zz:nth-child(2) { animation-delay: .8s } .asst-av .zz:nth-child(3) { animation-delay: 1.6s }
 @keyframes asst-zz { 0% { opacity: 0; transform: translate(0, 6px) } 30% { opacity: 1 } 100% { opacity: 0; transform: translate(6px, -8px) } }
 @media (prefers-reduced-motion: reduce) {
-  .asst-av *, .asst-bubble, .asst-typing i { animation: none !important; transition: none !important; }
+  .asst-av, .asst-av *, .asst-bubble, .asst-typing i { animation: none !important; transition: none !important; }
   .asst-av .zz { opacity: 1; }
 }

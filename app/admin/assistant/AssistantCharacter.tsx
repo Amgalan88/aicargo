@@ -1,4 +1,7 @@
+'use client'
 // Админы туслахын дүр: чихэвчтэй саваа хүн. Төлөвийг data-s-ээр сольж, хөдөлгөөнийг globals.css (.asst-av) хийнэ.
+import { useEffect, useRef } from 'react'
+
 export type AssistantPose = 'idle' | 'hello' | 'listen' | 'think' | 'talk' | 'warn' | 'happy' | 'sleep'
 
 const I = 'var(--text)'      // бие
@@ -7,8 +10,20 @@ const A = 'var(--accent)'
 const PAPER = '#fbfaf7'
 
 export default function AssistantCharacter({ pose }: { pose: AssistantPose }) {
+  // Анивчилт: тасралтгүй CSS хөдөлгөөн биш, ~5 сек тутамд нэг удаа (сул үед CPU зарцуулахгүй)
+  const ref = useRef<SVGSVGElement>(null)
+  useEffect(() => {
+    let off: ReturnType<typeof setTimeout> | undefined
+    const id = setInterval(() => {
+      const el = ref.current
+      if (!el || document.hidden) return
+      el.classList.add('blinking')
+      off = setTimeout(() => el.classList.remove('blinking'), 300)
+    }, 4800)
+    return () => { clearInterval(id); clearTimeout(off) }
+  }, [])
   return (
-    <svg className="asst-av" data-s={pose} viewBox="0 0 160 215" aria-hidden="true">
+    <svg ref={ref} className="asst-av" data-s={pose} viewBox="0 0 160 215" aria-hidden="true">
       <defs>
         <filter id="asst-rough" x="-10%" y="-10%" width="120%" height="120%">
           <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves={2} seed={7} />
