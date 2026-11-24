@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import AdminShell from './AdminShell'
 import { ADMIN_ASSISTANT_ENABLED } from '@/lib/ai-feature-flag'
+import { anthropicConfigured } from '@/lib/anthropic'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthUser()
@@ -47,5 +48,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }
   }
 
-  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin} linkOrders={linkOrders} dispatchEnabled={dispatchEnabled} promoEnabled={promoEnabled} assistant={assistantEnabled ? { userId: user.userId, isOwner: !user.isStaffAdmin } : null}>{children}</AdminShell>
+  return <AdminShell cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} onboarding={onboarding} isStaffAdmin={!!user.isStaffAdmin} linkOrders={linkOrders} dispatchEnabled={dispatchEnabled} promoEnabled={promoEnabled} assistant={assistantEnabled ? { userId: user.userId, isOwner: !user.isStaffAdmin, ai: anthropicConfigured() } : null}>{children}</AdminShell>
 }

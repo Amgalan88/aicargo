@@ -2798,7 +2798,7 @@ p, .sc-note, .lp-lead, .lp-faq-body, .empty-state p, .sys-page-text, .al-detail,
 .asst-x:hover { background: var(--surface2); color: var(--text); }
 .asst-body { display: grid; gap: 6px; min-width: 0; }
 .asst-q { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
-.asst-text { margin: 0; font-size: var(--fs-base); line-height: 1.5; }
+.asst-text { margin: 0; font-size: var(--fs-base); line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
 .asst-intro { display: grid; gap: 4px; font-size: var(--fs-base); line-height: 1.5; }
 .asst-intro ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
 .asst-list { list-style: none; margin: 0; padding: 0; font-size: var(--fs-sm); }

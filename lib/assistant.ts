@@ -66,15 +66,15 @@ export async function answerToday(db: Db, cargoId: number, now = new Date()): Pr
   return { text: quiet ? `Өнөөдөр (${md(now)}) одоогоор ачаа ирж, олгоогүй байна.` : `Өнөөдрийн тойм (${md(now)}):`, items }
 }
 
-export async function answerWaiting(db: Db, cargoId: number, now = new Date()): Promise<AssistantAnswer> {
+export async function answerWaiting(db: Db, cargoId: number, now = new Date(), minDays = WAIT_DAYS, limit = 10): Promise<AssistantAnswer> {
   const rows = await db.shipment.findMany({
-    where: waitingWhere(cargoId, new Date(now.getTime() - WAIT_DAYS * DAY)),
+    where: waitingWhere(cargoId, new Date(now.getTime() - minDays * DAY)),
     select: { phone: true, userId: true, adminPrice: true, arrivedAt: true, updatedAt: true },
     take: WAIT_SCAN_LIMIT,
   })
-  if (!rows.length) return { text: `${WAIT_DAYS} хоногоос дээш аваагүй ачаа алга байна.` }
+  if (!rows.length) return { text: `${minDays} хоногоос дээш аваагүй ачаа алга байна.` }
   const groups = groupWaiting(rows, now)
-  const top = groups.slice(0, 10)
+  const top = groups.slice(0, limit)
   // Нэр: холбогдсон хэрэглэгчээс, эс бол тухайн каргод ижил утастай хэрэглэгчээс
   const ids = top.map(g => g.userId).filter((id): id is number => id != null)
   const phones = top.filter(g => g.userId == null && g.phone).map(g => g.phone)
@@ -87,7 +87,7 @@ export async function answerWaiting(db: Db, cargoId: number, now = new Date()): 
   const people = groups.filter(g => g.phone).length
   const amount = groups.reduce((s, g) => s + g.amount, 0)
   return {
-    text: `${WAIT_DAYS} хоногоос дээш аваагүй: ${people} хүн, ${rows.length} ачаа, нийт ${tg(amount)}. Хамгийн удсан ${top.length}:`,
+    text: `${minDays} хоногоос дээш аваагүй: ${people} хүн, ${rows.length} ачаа, нийт ${tg(amount)}. Хамгийн удсан ${top.length}:`,
     items: top.map(g => ({
       title: g.phone ? nameOf(g) : 'Утасгүй ачаа',
       sub: `${g.phone || '—'} · ${g.count} ачаа · ${g.days} хоног`,
@@ -97,21 +97,21 @@ export async function answerWaiting(db: Db, cargoId: number, now = new Date()): 
   }
 }
 
-export async function answerTop(db: Db, cargoId: number, now = new Date()): Promise<AssistantAnswer> {
-  const since = new Date(now.getTime() - TOP_DAYS * DAY)
+export async function answerTop(db: Db, cargoId: number, now = new Date(), days = TOP_DAYS, limit = 10, by: 'paid' | 'items' = 'paid'): Promise<AssistantAnswer> {
+  const since = new Date(now.getTime() - days * DAY)
   const base = { cargoId, voidedAt: null, createdAt: { gte: since } }
   const [groups, all, first] = await Promise.all([
     db.handoverReceipt.groupBy({
       by: ['phone'],
       where: { ...base, AND: [{ phone: { not: null } }, { phone: { not: '' } }] },
       _sum: { netMnt: true, itemCount: true },
-      orderBy: { _sum: { netMnt: 'desc' } },
-      take: 10,
+      orderBy: by === 'items' ? { _sum: { itemCount: 'desc' } } : { _sum: { netMnt: 'desc' } },
+      take: limit,
     }),
     db.handoverReceipt.aggregate({ where: base, _sum: { netMnt: true } }),
     db.handoverReceipt.findFirst({ where: { cargoId, voidedAt: null }, orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
   ])
-  if (!groups.length) return { text: `Сүүлийн ${TOP_DAYS} хоногт олголтын баримт алга байна.` }
+  if (!groups.length) return { text: `Сүүлийн ${days} хоногт олголтын баримт алга байна.` }
   const phones = groups.map(g => g.phone!)
   const users = await db.user.findMany({ where: { cargoId, phone: { in: phones } }, select: { phone: true, name: true } })
   const name = new Map(users.map(u => [u.phone, u.name]))
@@ -119,7 +119,7 @@ export async function answerTop(db: Db, cargoId: number, now = new Date()): Prom
   const total = Number(all._sum.netMnt ?? 0)
   const share = total > 0 ? ` (бүх орлогын ${Math.round((topSum / total) * 100)}%)` : ''
   return {
-    text: `Сүүлийн ${TOP_DAYS} хоногт хамгийн их төлсөн ${groups.length} хэрэглэгч, нийт ${tg(topSum)}${share}:`,
+    text: `Сүүлийн ${days} хоногт ${by === 'items' ? 'хамгийн олон ачаа авсан' : 'хамгийн их төлсөн'} ${groups.length} хэрэглэгч, нийт ${tg(topSum)}${share}:`,
     items: groups.map(g => ({
       title: name.get(g.phone!) || 'Бүртгэлгүй',
       sub: `${g.phone} · ${g._sum.itemCount ?? 0} ачаа`,

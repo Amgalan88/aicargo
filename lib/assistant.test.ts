@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { groupWaiting, tg } from './assistant'
-import { pageHelp } from './assistant-pages'
+import { allPagesHelp, pageHelp } from './assistant-pages'
+import { usageUsd } from './assistant-budget'
 
 const now = new Date('2026-11-24T04:00:00Z')
 const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000)
@@ -31,5 +32,12 @@ describe('assistant helpers', () => {
     assert.match(pageHelp('/admin/promo/'), /промо код/i)
     assert.match(pageHelp('/admin'), /«Өнөөдөр» самбар/)
     assert.match(pageHelp('/admin/unknown-page'), /одоохондоо алга/)
+  })
+  it('lists pages with their menu names for the AI', () => {
+    assert.match(allPagesHelp(), /«Урамшуулал» \(\/admin\/loyalty\):/)
+  })
+  it('prices Haiku 5.5 usage including cache reads and writes', () => {
+    const usd = usageUsd({ input_tokens: 1000, output_tokens: 200, cache_creation_input_tokens: 4000, cache_read_input_tokens: 10000 })
+    assert.ok(Math.abs(usd - (1000 * 0.1 + 200 * 0.5 + 4000 * 0.125 + 10000 * 0.01) / 1e6) < 1e-12)
   })
 })

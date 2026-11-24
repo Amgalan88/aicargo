@@ -23,6 +23,20 @@ const PAGES: Record<string, string> = {
   '/admin/group-search': 'Группийн каргонуудаас ачаа хайна.',
 }
 
+// Цэсэнд харагдах нэр (AdminNav) — AI хуудсыг нэрээр нь хэлнэ
+const LABELS: Record<string, string> = {
+  '/admin': 'Өнөөдөр', '/admin/registered': 'Бүртгүүлсэн', '/admin/import': 'Эрээнд ирсэн', '/admin/arrived': 'Ирсэн',
+  '/admin/handover': 'Ачаа олгох', '/admin/history': 'Олгосон', '/admin/batches': 'УБ руу ачигдсан', '/admin/batch-handover': 'Ачаа олгох',
+  '/admin/dispatch': 'Тулгалт', '/admin/users': 'Хэрэглэгчид', '/admin/link-orders': 'Линк захиалга', '/admin/notify': 'Мэдэгдэл',
+  '/admin/faq': 'FAQ', '/admin/promo': 'Промо код', '/admin/loyalty': 'Урамшуулал', '/admin/report': 'Тайлан', '/admin/settings': 'Тохиргоо',
+  '/admin/audit-log': 'Аудит лог', '/admin/billing': 'Вэбсайтын төлбөр', '/admin/help': 'Заавар видео', '/admin/group-search': 'Групп хайлт',
+}
+
+// AI туслахын системийн зааварт: бүх хуудасны жагсаалт
+export function allPagesHelp(): string {
+  return Object.entries(PAGES).map(([p, t]) => `«${LABELS[p] ?? p}» (${p}): ${t}`).join('\n')
+}
+
 export function pageHelp(pathname: string): string {
   const path = pathname.replace(/\/+$/, '') || '/'
   let best = ''

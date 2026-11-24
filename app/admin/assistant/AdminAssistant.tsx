@@ -26,7 +26,7 @@ function readPrefs(key: string): Prefs {
   try { return JSON.parse(localStorage.getItem(key) || '{}') ?? {} } catch { return {} }
 }
 
-export default function AdminAssistant({ userId, isOwner, cargoName }: { userId: number; isOwner: boolean; cargoName: string }) {
+export default function AdminAssistant({ userId, isOwner, cargoName, ai }: { userId: number; isOwner: boolean; cargoName: string; ai: boolean }) {
   const pathname = usePathname()
   const storeKey = `aicargo-asst-${userId}`
   const [ready, setReady] = useState(false)
@@ -39,11 +39,13 @@ export default function AdminAssistant({ userId, isOwner, cargoName }: { userId:
   const [step, setStep] = useState<number | null>(null)
   const [input, setInput] = useState('')
   const run = useRef(0)
+  // AI-тай сүүлийн 3 асуулт-хариулт (дараагийн асуултын агуулга). Туслахыг хаахад цэвэрлэнэ
+  const history = useRef<{ q: string; a: string }[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const intro = [
     { title: 'Сайн байна уу! Би танай каргоны AI туслах.', lines: [isOwner ? `${cargoName ? cargoName + ' — ' : ''}таны болон ажилтнуудын админы ажлыг хөнгөвчлөхөөр ирлээ.` : 'Таны өдөр тутмын ажлыг хөнгөвчлөхөөр ирлээ.'] },
-    { title: 'Би юу чадах вэ', lines: ['Өнөөдөр хэдэн ачаа ирж, олгосныг хэлнэ', 'Удаан аваагүй ачаа, хамгийн их төлсөн хэрэглэгчдийг гаргана', 'Хуудас бүрийг яаж ашиглахыг тайлбарлана', 'Бүртгэлийн алдааг анхааруулна'] },
+    { title: 'Би юу чадах вэ', lines: ['Өнөөдөр хэдэн ачаа ирж, олгосныг хэлнэ', 'Удаан аваагүй ачаа, хамгийн их төлсөн хэрэглэгчдийг гаргана', 'Хуудас бүрийг яаж ашиглахыг тайлбарлана', 'Бүртгэлийн алдааг анхааруулна', ...(ai ? ['Бусад асуултад ч хариулна, латинаар бичсэн ч ойлгоно'] : [])] },
     { title: 'Миний дүрэм', lines: ['Зөвхөн танай каргоны мэдээллийг харна', 'Юуг ч өөрөө өөрчлөхгүй', 'Мэдэхгүй зүйлээ мэдэхгүй гэнэ'] },
     { title: 'Надтай ингэж харилцана', lines: ['Над дээр дарж асуултаа сонгоно', '«Унт» гэвэл унтана, дарвал сэрнэ', '«Нуугд» гэвэл буланд жижиг товч үлдэнэ', ...(isOwner ? ['Тохиргоо → «AI туслах»-аас бүх админд унтрааж болно'] : [])] },
   ]
@@ -68,6 +70,7 @@ export default function AdminAssistant({ userId, isOwner, cargoName }: { userId:
 
   function close() {
     run.current++; clearTimeout(timer.current)
+    history.current = []
     setOpen(false); setStep(null); setForceShow(false)
     setPose(restPose())
   }
@@ -120,17 +123,46 @@ export default function AdminAssistant({ userId, isOwner, cargoName }: { userId:
   function command(raw: string) {
     const t = raw.trim().toLowerCase()
     if (!t) return
-    if (/^унт/.test(t)) return sleep()
-    if (/^(сэр|бос)/.test(t)) return greet('Сэрчихсэн байна! Юугаар туслах вэ?')
-    if (/^нуу/.test(t)) return hide()
-    if (/^чимээгүй/.test(t)) return setQuiet(true)
-    if (/^(ердийн|чимээтэй)/.test(t)) return setQuiet(false)
-    if (/танилцуул/.test(t)) return startIntro(0)
+    // Командууд зөвхөн богино бичвэрт (жш «унтаарай»); урт өгүүлбэр асуулт болж AI руу явна
+    const short = t.length <= 16
+    if (short && /^(унт|untr|unt)/.test(t)) return sleep()
+    if (short && /^(сэр|бос|ser|bos)/.test(t)) return greet('Сэрчихсэн байна! Юугаар туслах вэ?')
+    if (short && /^(нуу|nuu)/.test(t)) return hide()
+    if (short && /^(чимээгүй|chimeegvi)/.test(t)) return setQuiet(true)
+    if (short && /^(ердийн|чимээтэй)/.test(t)) return setQuiet(false)
+    if (short && /танилцуул/.test(t)) return startIntro(0)
+    const quick = QUICK.find(x => x.label.toLowerCase() === t)
+    if (quick) return void ask(quick.key)
+    // AI холбогдсон бол бусад бүх асуулт AI руу (түлхүүр үгээр таамаглахгүй)
+    if (ai) return void askAI(raw.trim())
     if (/тойм|өнөөдөр/.test(t)) return void ask('today')
     if (/аваагүй|удсан|хүлээгд/.test(t)) return void ask('waiting')
     if (/шилдэг|их төлсөн|топ|top/.test(t)) return void ask('top')
     if (/тайлбарла|хуудас/.test(t)) return void ask('page')
     speak({ q: raw.trim(), text: UNKNOWN })
+  }
+
+  // Чөлөөт асуулт → Claude Haiku (сервер дээр хэрэгслээр DB-ээс уншина, хязгаартай)
+  async function askAI(question: string) {
+    savePrefs({ sleep: false })
+    const my = ++run.current
+    setOpen(true); setStep(null)
+    setMsg({ q: question, text: '', loading: true }); setPose('think')
+    let next: Msg
+    try {
+      const res = await fetch('/api/admin/assistant/ask', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, history: history.current, page: pathname }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.text) {
+        history.current = [...history.current, { q: question, a: data.text }].slice(-3)
+        next = { q: question, text: data.text, ...(data.remaining != null && data.remaining <= 5 ? { note: `Өнөөдөр ${data.remaining} асуулт үлдлээ.` } : {}) }
+      } else next = { q: question, text: data.error || 'Алдаа гарлаа. Дахин оролдоно уу.' }
+    } catch {
+      next = { q: question, text: 'Интернэт холболтоо шалгаад дахин оролдоно уу.' }
+    }
+    if (my === run.current) speak(next)
   }
 
   function onCharacter() {
@@ -233,7 +265,7 @@ export default function AdminAssistant({ userId, isOwner, cargoName }: { userId:
                 </div>
               )}
               <form className="asst-ask" onSubmit={e => { e.preventDefault(); command(input); setInput('') }}>
-                <input id="asst-input" value={input} onChange={e => setInput(e.target.value)} placeholder="Асуулт эсвэл команд…" autoComplete="off" aria-label="Асуулт эсвэл команд" />
+                <input id="asst-input" value={input} onChange={e => setInput(e.target.value)} placeholder={ai ? 'Юу ч асуугаарай…' : 'Асуулт эсвэл команд…'} autoComplete="off" aria-label="Асуулт эсвэл команд" />
                 <button type="submit" className="asst-send" aria-label="Илгээх"><ArrowRight size={16} /></button>
               </form>
               <div className="asst-cmds">
