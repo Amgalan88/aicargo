@@ -4,6 +4,7 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { prisma } from '@/lib/prisma'
 import { signToken, setAuthCookie } from '@/lib/auth'
+import { isLinkedOwner } from '@/lib/multi-cargo'
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL!,
@@ -53,9 +54,13 @@ export async function POST(req: NextRequest) {
 
   // Субдомэйн дээр зөвхөн тухайн каргогийн акаунтаар нэвтэрнэ
   const hostSlug = req.headers.get('x-cargo-slug')
+  // Нэг эзэмшигч — олон карго: эзэмшигч өөрийн нээсэн каргоны хаягаар нэвтэрвэл тэр каргоны токен авна
+  let linkedTo: number | null = null
   if (hostSlug && user.role !== 'SUPER_ADMIN') {
     const hostCargo = await prisma.cargo.findUnique({ where: { slug: hostSlug }, select: { id: true } })
-    if (!hostCargo || hostCargo.id !== user.cargoId) {
+    if (hostCargo && hostCargo.id !== user.cargoId && user.role === 'ADMIN' && !user.isStaffAdmin && await isLinkedOwner(user.id, hostCargo.id)) {
+      linkedTo = hostCargo.id
+    } else if (!hostCargo || hostCargo.id !== user.cargoId) {
       return NextResponse.json(
         { error: hostCargo ? 'Энэ дугаар энэ каргод бүртгэлгүй байна. "Бүртгүүлэх" хэсгээр энэ каргод бүртгүүлнэ үү.' : 'Энэ хаягаар карго олдсонгүй. Каргоныхоо зөв хаягаар орно уу.' },
         { status: 403 },
@@ -63,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const cargoId = user.role === 'SUPER_ADMIN' ? null : user.cargoId
+  const cargoId = user.role === 'SUPER_ADMIN' ? null : linkedTo ?? user.cargoId
   const token = signToken({ userId: user.id, role: user.role, cargoId, tokenVersion: user.tokenVersion })
 
   // Батч горимт каргогийн админ өөр нүүр хуудастай

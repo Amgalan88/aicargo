@@ -2884,3 +2884,32 @@ p, .sc-note, .lp-lead, .lp-faq-body, .empty-state p, .sys-page-text, .al-detail,
   .asst-av, .asst-av *, .asst-bubble, .asst-typing i { animation: none !important; transition: none !important; }
   .asst-av .zz { opacity: 1; }
 }
+
+/* Нэг эзэмшигч — олон карго: дээд цэсний карго солих (CargoSwitcher) ба Тохиргоо → Миний каргонууд (MyCargos) */
+.cs { position: relative; display: flex; align-items: center; }
+.cs-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
+.cs-btn:hover { color: var(--text); border-color: var(--border-strong); }
+.cs-pop { left: 0; right: auto; min-width: 240px; padding: 0.45rem; display: grid; gap: 2px; }
+.cs-title { margin: 0.2rem 0.5rem 0.35rem; font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.cs-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.6rem; border-radius: 8px; color: var(--text); text-decoration: none; font-size: var(--fs-sm); }
+.cs-item small { margin-left: auto; color: var(--muted); font-size: var(--fs-xs); }
+.cs-item:hover { background: var(--surface2); }
+.cs-item.on { color: var(--accent); font-weight: 700; }
+.cs-dot { width: 15px; display: inline-flex; }
+.cs-new { color: var(--accent); border-top: 1px solid var(--border); border-radius: 0 0 8px 8px; margin-top: 2px; }
+.mc { display: grid; gap: 0.8rem; }
+.mc-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.mc-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.mc-list li small { color: var(--muted); }
+.mc-list li em { font-style: normal; font-size: var(--fs-xs); color: var(--accent); font-weight: 600; }
+.mc-form { display: grid; gap: 0.7rem; padding: 0.9rem; border: 1px dashed var(--border-strong); border-radius: var(--radius); max-width: 34rem; }
+.mc-slug { display: flex; align-items: center; gap: 0.4rem; }
+.mc-slug .input { flex: 1; min-width: 0; }
+.mc-slug span { color: var(--muted); font-size: var(--fs-sm); }
+.mc-check { display: flex; gap: 0.5rem; align-items: flex-start; font-size: var(--fs-sm); line-height: 1.45; }
+.mc-check input { margin-top: 0.2rem; }
+.mc-ok { color: var(--green); font-size: var(--fs-xs); }
+.mc-bad { color: var(--danger); font-size: var(--fs-xs); margin: 0; }
+.mc-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.mc-done { display: grid; gap: 0.6rem; justify-items: start; padding: 0.8rem 0.9rem; border-radius: var(--radius); background: color-mix(in srgb, var(--green) 10%, transparent); font-size: var(--fs-sm); line-height: 1.5; }
+.st-muted { font-size: var(--fs-xs); color: var(--muted); margin: 0; }

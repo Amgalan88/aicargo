@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
         where: { role: 'ADMIN' },
         select: { id: true, name: true, phone: true },
       },
+      // Нэг эзэмшигч — олон карго: энэ каргод холбогдсон эзэмшигч (үндсэн карго нь өөр)
+      linkedOwners: { select: { user: { select: { id: true, name: true, phone: true } } } },
       shipments: {
         select: { status: true },
       },
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
       createdAt: c.createdAt,
       totalUsers: c._count.users,
       totalShipments: c._count.shipments,
-      admins: c.users,
+      admins: [...c.users, ...c.linkedOwners.map(o => ({ ...o.user, name: `${o.user.name} (олон карго эзэмшигч)` }))],
       statusCounts: counts,
     }
   })

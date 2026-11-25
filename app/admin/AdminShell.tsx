@@ -69,7 +69,7 @@ function WarningBanner({ cargoName, paidUntil, daysToBlock, onClose }: { cargoNa
   )
 }
 
-export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil, batchEnabled, onboarding, isStaffAdmin, linkOrders, dispatchEnabled, promoEnabled, assistant }: { children: React.ReactNode; assistant?: { userId: number; isOwner: boolean; ai: boolean } | null; linkOrders?: boolean; dispatchEnabled?: boolean; promoEnabled?: boolean; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null; batchEnabled?: boolean; onboarding?: OnboardingState | null; isStaffAdmin?: boolean }) {
+export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, hasGroup, paidUntil, batchEnabled, onboarding, isStaffAdmin, linkOrders, dispatchEnabled, promoEnabled, assistant, myCargos }: { children: React.ReactNode; myCargos?: { id: number; name: string; slug: string; home: boolean }[]; assistant?: { userId: number; isOwner: boolean; ai: boolean } | null; linkOrders?: boolean; dispatchEnabled?: boolean; promoEnabled?: boolean; cargoName?: string; logoUrl?: string; cargoSlug?: string; hasGroup?: boolean; paidUntil?: string | null; batchEnabled?: boolean; onboarding?: OnboardingState | null; isStaffAdmin?: boolean }) {
   const router = useRouter()
   const [warningDismissed, setWarningDismissed] = useState(false)
 
@@ -90,7 +90,7 @@ export default function AdminShell({ children, cargoName, logoUrl, cargoSlug, ha
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <AdminNav cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} isStaffAdmin={isStaffAdmin} linkOrders={linkOrders} dispatchEnabled={dispatchEnabled} promoEnabled={promoEnabled} />
+      <AdminNav cargoName={cargoName} logoUrl={logoUrl} cargoSlug={cargoSlug} hasGroup={hasGroup} paidUntil={paidUntil} batchEnabled={batchEnabled} isStaffAdmin={isStaffAdmin} linkOrders={linkOrders} dispatchEnabled={dispatchEnabled} promoEnabled={promoEnabled} myCargos={myCargos} />
       {onboarding && <OnboardingCard state={onboarding} cargoSlug={cargoSlug} batchEnabled={batchEnabled} />}
       <div className="admin-content" style={{ minHeight: 'calc(100vh - 96px)' }}>
         {children}

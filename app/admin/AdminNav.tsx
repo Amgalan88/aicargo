@@ -10,6 +10,7 @@ import { Ticket,
 } from 'lucide-react'
 import NavLogo from '@/app/components/NavLogo'
 import ThemeToggle from '@/app/components/ThemeToggle'
+import CargoSwitcher, { type SwitchCargo } from './CargoSwitcher'
 import { AI_SUPPORT_ENABLED } from '@/lib/ai-feature-flag'
 import { ADMIN_TUTORIALS, withVideo } from '@/lib/tutorials'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
@@ -42,6 +43,7 @@ export default function AdminNav({
   linkOrders,
   dispatchEnabled,
   promoEnabled,
+  myCargos,
 }: {
   cargoName?: string
   logoUrl?: string
@@ -56,6 +58,8 @@ export default function AdminNav({
   dispatchEnabled?: boolean
   // Промо код + шатлалтай хөнгөлөлт (туршилт)
   promoEnabled?: boolean
+  // Нэг эзэмшигч — олон карго: эзэмшдэг каргонууд (2+ бол солих товч)
+  myCargos?: SwitchCargo[]
 }) {
   const pathname = usePathname()
   // Шинэ линк захиалга ирэхэд (LinkOrderAlert) цэсний тоог шинэчилнэ
@@ -179,6 +183,7 @@ export default function AdminNav({
         <Link href={batchEnabled ? '/admin/batches' : '/admin/import'} className="an-logo">
           <NavLogo name={cargoName} logoUrl={logoUrl} />
         </Link>
+        {myCargos && myCargos.length > 1 && <CargoSwitcher cargos={myCargos} currentSlug={cargoSlug} />}
         <div className="an-actions">
           {paid && (
             <div style={{ position: 'relative' }}>

@@ -1,5 +1,5 @@
 'use client'
-import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, LockKeyhole, Smartphone, Truck, Bot } from 'lucide-react'
+import { Tag, ImageUp, Megaphone, Calculator, Landmark, MapPin, Tags, ShoppingCart, Users, Plus, KeyRound, Trash2, LockKeyhole, Smartphone, Truck, Bot, Building2 } from 'lucide-react'
 import { confirmAsync } from '@/app/components/ConfirmDialog'
 import { useState, useEffect } from 'react'
 import EreenAddressExtras from '@/app/components/EreenAddressExtras'
@@ -8,6 +8,7 @@ import MyPhone from '@/app/components/MyPhone'
 import { parseExtraAddresses, type EreenAddress } from '@/lib/ereen-address'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import MyCargos from './MyCargos'
 
 interface Tier { min: string; price: string }
 
@@ -23,6 +24,7 @@ const SECTIONS = [
   { id: 'st-dispatch', label: 'Тулгалт' },
   { id: 'st-assistant', label: 'AI туслах' },
   { id: 'st-staff', label: 'Ажилтан' },
+  { id: 'st-cargos', label: 'Миний каргонууд' },
   { id: 'st-phone', label: 'Миний утас' },
   { id: 'st-password', label: 'Нууц үг' },
 ]
@@ -202,7 +204,7 @@ export default function SettingsPage() {
   const allowBank = !me.isStaffAdmin || me.canEditBank
   const allowAddress = !me.isStaffAdmin || me.canEditAddress
   const allowLogo = !me.isStaffAdmin || me.canEditLogo
-  const sections = SECTIONS.filter(s => s.id !== 'st-staff' || !me.isStaffAdmin)
+  const sections = SECTIONS.filter(s => (s.id !== 'st-staff' && s.id !== 'st-cargos') || !me.isStaffAdmin)
   const unit = form.priceWeightUnit === 't' ? 'тонн' : 'кг'
 
   return (
@@ -378,6 +380,13 @@ export default function SettingsPage() {
         </div>
         {me.isStaffAdmin && <p className="st-locked">Зөвхөн каргогийн эзэмшигч өөрчилнө.</p>}
       </Section>
+
+      {/* Миний каргонууд — эзэмшигч өөр карго нээнэ (lib/multi-cargo) */}
+      {!me.isStaffAdmin && (
+        <Section id="st-cargos" icon={Building2} title="Миний каргонууд" desc="Өөр карго нээж, нэг дугаар, нэг нууц үгээр бүгдийг нь удирдана. Карго бүрт хариуцах ажилтнаа тэр каргоны «Ажилтан»-аас нэмнэ.">
+          <MyCargos />
+        </Section>
+      )}
 
       {/* Ажилтнууд — зөвхөн эзэн админд */}
       {!me.isStaffAdmin && (

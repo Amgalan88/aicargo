@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import { cookies, headers } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { isLinkedOwner } from '@/lib/multi-cargo'
 
 const JWT_SECRET = process.env.JWT_SECRET!
 const COOKIE_NAME = 'cargo_token'
@@ -51,6 +52,7 @@ export function clearAuthCookie(res: NextResponse) {
 
 const VERIFY_SELECT = {
   tokenVersion: true,
+  cargoId: true,
   cargo: { select: { slug: true } },
   name: true,
   isStaffAdmin: true,
@@ -67,6 +69,18 @@ function wrongCargo(role: JwtPayload['role'], userCargoSlug: string | null | und
   return userCargoSlug !== hostSlug
 }
 
+// Токены карго хэрэглэгчийн үндсэн каргоноос өөр бол (нэг эзэмшигч — олон карго, lib/multi-cargo)
+// холбоос байгаа эсэх, тэр каргоны хаягаар орсон эсэхийг шалгана. Бусад бүх тохиолдол урьдын адил.
+async function cargoMismatch(payload: JwtPayload, user: { cargoId: number; isStaffAdmin: boolean; cargo: { slug: string } | null }, hostSlug: string | null): Promise<boolean> {
+  if (payload.role === 'ADMIN' && payload.cargoId && payload.cargoId !== user.cargoId) {
+    if (user.isStaffAdmin || !(await isLinkedOwner(payload.userId, payload.cargoId))) return true
+    if (!hostSlug) return false
+    const c = await prisma.cargo.findUnique({ where: { id: payload.cargoId }, select: { slug: true } })
+    return wrongCargo(payload.role, c?.slug, hostSlug)
+  }
+  return wrongCargo(payload.role, user.cargo?.slug, hostSlug)
+}
+
 export async function getAuthUser(): Promise<VerifiedUser | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
@@ -78,7 +92,7 @@ export async function getAuthUser(): Promise<VerifiedUser | null> {
     select: VERIFY_SELECT,
   })
   if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) return null
-  if (wrongCargo(payload.role, user.cargo?.slug, (await headers()).get('x-cargo-slug'))) return null
+  if (await cargoMismatch(payload, user, (await headers()).get('x-cargo-slug'))) return null
   return {
     ...payload,
     name: user.name,
@@ -103,7 +117,7 @@ export async function getVerifiedUserFromRequest(req: NextRequest): Promise<Veri
     select: VERIFY_SELECT,
   })
   if (!user || user.tokenVersion !== (payload.tokenVersion ?? 0)) return null
-  if (wrongCargo(payload.role, user.cargo?.slug, req.headers.get('x-cargo-slug'))) return null
+  if (await cargoMismatch(payload, user, req.headers.get('x-cargo-slug'))) return null
   return {
     ...payload,
     name: user.name,

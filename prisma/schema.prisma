@@ -81,6 +81,8 @@ model Cargo {
   promoCodes         PromoCode[]
   promoMembers       PromoMember[]
   priceChanges       ShipmentPriceChange[]
+  // Энэ каргод нэмэлт эзэмшигчээр холбогдсон хүмүүс (өөр каргоны эзэмшигч энэ каргыг нээсэн)
+  linkedOwners       CargoOwner[]
 }
 
 model User {
@@ -106,6 +108,8 @@ model User {
   bannerDismisses      BannerDismiss[]
   superBannerDismisses SuperBannerDismiss[]
   handoverReceipts     HandoverReceipt[]
+  // Үндсэн каргоноос гадна эзэмшдэг каргонууд (эзэмшигч админ «Шинэ карго нээх»-ээр үүсгэсэн)
+  ownedCargos          CargoOwner[]
 
   @@index([cargoId])
 }
@@ -853,4 +857,18 @@ model PromoMember {
 
   @@unique([cargoId, phone])
   @@index([promoCodeId])
+}
+
+// Нэг эзэмшигч — олон карго. Хэрэглэгчийн үндсэн карго нь User.cargoId хэвээр; энд нэмэлт каргонууд.
+// Холбосон эзэмшигч тэр каргоны хаягаар (slug.aicargo.mn) өөрийн дугаар, нууц үгээр нэвтэрнэ (lib/auth).
+model CargoOwner {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cargoId   Int
+  cargo     Cargo    @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, cargoId])
+  @@index([cargoId])
 }
