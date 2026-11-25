@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     ],
   } : { cargoId: admin.cargoId! }
 
-  const [total, users] = await Promise.all([
+  const [total, rows] = await Promise.all([
     prisma.user.count({ where }),
     prisma.user.findMany({
       where,
@@ -33,11 +33,21 @@ export async function GET(req: NextRequest) {
         email: true,
         phoneVerifiedAt: true,
         createdAt: true,
-        // Зөвхөн энэ каргын ачаа — карго шилжсэн хэрэглэгчийн хуучин каргын ачааг тоолохгүй
-        _count: { select: { shipments: { where: { cargoId: admin.cargoId! } } } },
       },
     }),
   ])
+
+  // Ачааны тоог зөвхөн энэ хуудасны 20 хүнд тоолно (өмнө нь каргын бүх ачааг тоолдог байсан — ачаа өсөхөд удааширна).
+  // Зөвхөн энэ каргын ачаа — карго шилжсэн хэрэглэгчийн хуучин каргын ачааг тоолохгүй.
+  const counts = rows.length
+    ? await prisma.shipment.groupBy({
+        by: ['userId'],
+        where: { cargoId: admin.cargoId!, userId: { in: rows.map(u => u.id) } },
+        _count: { _all: true },
+      })
+    : []
+  const byUser = new Map(counts.map(c => [c.userId, c._count._all]))
+  const users = rows.map(u => ({ ...u, _count: { shipments: byUser.get(u.id) ?? 0 } }))
 
   return NextResponse.json({ users, total, page, pageSize: PAGE_SIZE })
 }

@@ -2,6 +2,7 @@ import { Manrope } from 'next/font/google'
 import { getAuthUser } from '@/lib/auth'
 import { getCargoFromSubdomain } from '@/lib/cargo-context'
 import { redirect } from 'next/navigation'
+import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import LandingClient from './LandingClient'
 import MarketingLanding from './MarketingLanding'
@@ -12,6 +13,17 @@ const landingFont = Manrope({
 })
 
 export const revalidate = 0
+
+// Нүүр хуудасны тоонууд — зочин бүрт бүх ачааг тоолохгүй, 10 минут тутам шинэчилнэ
+const landingStats = unstable_cache(
+  () => Promise.all([
+    prisma.cargo.count(),
+    prisma.user.count({ where: { role: 'USER' } }),
+    prisma.shipment.count(),
+  ]),
+  ['landing-stats'],
+  { revalidate: 600 },
+)
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ preview?: string }> }) {
   const user = await getAuthUser()
@@ -36,10 +48,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ p
   if (cargo) return <LandingClient cargo={cargo} />
 
   // Үндсэн домэйн — карго компанид зориулсан танилцуулга хуудас
-  const [cargos, users, shipments, partnerCargos, warehouses] = await Promise.all([
-    prisma.cargo.count(),
-    prisma.user.count({ where: { role: 'USER' } }),
-    prisma.shipment.count(),
+  const [[cargos, users, shipments], partnerCargos, warehouses] = await Promise.all([
+    landingStats(),
     // Итгэл төрүүлэх: төлбөр хэвийн (эсвэл дуусаад 20 хоног болоогүй) + логотой бүх каргонууд
     prisma.cargo.findMany({
       where: { logoUrl: { not: null }, paidUntil: { gte: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) } },
